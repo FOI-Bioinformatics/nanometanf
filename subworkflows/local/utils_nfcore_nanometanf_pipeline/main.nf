@@ -31,7 +31,7 @@ workflow PIPELINE_INITIALISATION {
     monochrome_logs   // boolean: Do not use coloured log outputs
     nextflow_cli_args //   array: List of positional nextflow CLI args
     outdir            //  string: The output directory where the results will be saved
-    input             //  string: Path to input samplesheet
+    input             //  string: Path to input samplesheet or directory
 
     main:
 
@@ -69,28 +69,128 @@ workflow PIPELINE_INITIALISATION {
     validateInputParameters()
 
     //
-    // Create channel from input file provided through params.input
+    // Create channel from input
     //
+    if (params.input.endsWith('.csv')) {
+        // Traditional samplesheet input
+        Channel
+            .fromList(samplesheetToList(params.input, "${projectDir}/assets/schema_input.json"))
+            .map {
+                meta, fastq_1, fastq_2 ->
+                    if (!fastq_2) {
+                        return [ meta.id, meta + [ single_end:true ], [ fastq_1 ] ]
+                    } else {
+                        return [ meta.id, meta + [ single_end:false ], [ fastq_1, fastq_2 ] ]
+                    }
+            }
+            .groupTuple()
+            .map { samplesheet ->
+                validateInputSamplesheet(samplesheet)
+            }
+            .map {
+                meta, fastqs ->
+                    return [ meta, fastqs.flatten() ]
+            }
+            .set { ch_samplesheet }
+    } else {
+        // Directory input - scan for fastq files
+        def input_dir = file(params.input)
+        if (!input_dir.exists()) {
+            error "Input directory does not exist: ${params.input}"
+        }
 
-    Channel
-        .fromList(samplesheetToList(params.input, "${projectDir}/assets/schema_input.json"))
-        .map {
-            meta, fastq_1, fastq_2 ->
-                if (!fastq_2) {
-                    return [ meta.id, meta + [ single_end:true ], [ fastq_1 ] ]
-                } else {
-                    return [ meta.id, meta + [ single_end:false ], [ fastq_1, fastq_2 ] ]
+        // Check if directory contains subdirectories with fastq files
+        def subdirs = input_dir.listFiles().findAll { it.isDirectory() && !it.name.startsWith('.') }
+        def has_subdirs = subdirs.size() > 0 && subdirs.any { subdir ->
+            subdir.listFiles().any { it.name =~ /\.fastq(\.gz)?$/ }
+        }
+
+        if (has_subdirs) {
+            // Process subdirectories as samples
+            Channel
+                .fromPath("${params.input}/*/", type: 'dir')
+                .filter { !it.name.startsWith('.') }
+                .map { subdir ->
+                    def sample_id = subdir.name
+                    def fastq_files = []
+                    subdir.eachFileMatch(~/.*\.fastq(\.gz)?$/) { fastq_files << it }
+
+                    if (fastq_files.size() == 0) {
+                        return null
+                    }
+
+                    // Sort files to ensure R1/R2 pairing
+                    fastq_files = fastq_files.sort()
+
+                    def meta = [
+                        id: sample_id,
+                        sample: sample_id,
+                        single_end: true
+                    ]
+
+                    // Check for paired-end by looking for R1/R2 or _1/_2 patterns
+                    def r1_files = fastq_files.findAll { it.name =~ /[._]R?1[._]/ }
+                    def r2_files = fastq_files.findAll { it.name =~ /[._]R?2[._]/ }
+
+                    if (r1_files.size() > 0 && r1_files.size() == r2_files.size()) {
+                        // Paired-end data
+                        meta.single_end = false
+                        def paired_files = []
+                        r1_files.eachWithIndex { r1, idx ->
+                            paired_files << r1
+                            paired_files << r2_files[idx]
+                        }
+                        return [ meta, paired_files ]
+                    } else {
+                        // Single-end data or unpaired files
+                        return [ meta, fastq_files ]
+                    }
                 }
+                .filter { it != null }
+                .set { ch_samplesheet }
+        } else {
+            // Process files directly in the input directory
+            Channel
+                .fromPath("${params.input}/*.fastq{,.gz}", checkIfExists: true)
+                .collect()
+                .map { files ->
+                    if (files.size() == 0) {
+                        error "No fastq files found in ${params.input}"
+                    }
+
+                    def meta = [
+                        id: 'all_samples',
+                        sample: 'all_samples',
+                        single_end: true
+                    ]
+
+                    // Sort files
+                    files = files.sort()
+
+                    // Check for paired-end
+                    def r1_files = files.findAll { it.name =~ /[._]R?1[._]/ }
+                    def r2_files = files.findAll { it.name =~ /[._]R?2[._]/ }
+
+                    if (r1_files.size() > 0 && r1_files.size() == r2_files.size()) {
+                        meta.single_end = false
+                        def paired_files = []
+                        r1_files.eachWithIndex { r1, idx ->
+                            paired_files << r1
+                            paired_files << r2_files[idx]
+                        }
+                        return [ meta, paired_files ]
+                    } else {
+                        return [ meta, files ]
+                    }
+                }
+                .set { ch_samplesheet }
         }
-        .groupTuple()
-        .map { samplesheet ->
-            validateInputSamplesheet(samplesheet)
-        }
-        .map {
-            meta, fastqs ->
-                return [ meta, fastqs.flatten() ]
-        }
-        .set { ch_samplesheet }
+    }
+
+    // Watch for new files if requested
+    if (params.watch_mode) {
+        ch_samplesheet = watchForNewFiles(ch_samplesheet, params.input)
+    }
 
     emit:
     samplesheet = ch_samplesheet
@@ -150,6 +250,72 @@ workflow PIPELINE_COMPLETION {
     FUNCTIONS
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
+
+//
+// Watch for new files in input directory
+//
+def watchForNewFiles(initial_channel, input_path) {
+    def processed_files = Collections.synchronizedSet(new HashSet())
+
+    // Add initial files to processed set
+    initial_channel.subscribe { meta, files ->
+        files.each { processed_files.add(it.toString()) }
+    }
+
+    // Create a channel that polls for new files
+    def watch_channel = Channel
+        .interval(params.check_interval)
+        .map {
+            def new_files = []
+            def input_dir = file(input_path)
+
+            if (input_dir.isDirectory()) {
+                // Check subdirectories
+                input_dir.eachDir { subdir ->
+                    if (!subdir.name.startsWith('.')) {
+                        subdir.eachFileMatch(~/.*\.fastq(\.gz)?$/) { file ->
+                            if (!processed_files.contains(file.toString())) {
+                                new_files << [subdir.name, file]
+                                processed_files.add(file.toString())
+                            }
+                        }
+                    }
+                }
+
+                // Check main directory
+                input_dir.eachFileMatch(~/.*\.fastq(\.gz)?$/) { file ->
+                    if (!processed_files.contains(file.toString())) {
+                        new_files << ['all_samples', file]
+                        processed_files.add(file.toString())
+                    }
+                }
+            }
+
+            return new_files
+        }
+        .flatMap { it }
+        .groupTuple()
+        .map { sample_id, files ->
+            def meta = [
+                id: sample_id,
+                sample: sample_id,
+                single_end: true
+            ]
+
+            // Simple paired-end detection
+            def r1_files = files.findAll { it.name =~ /[._]R?1[._]/ }
+            def r2_files = files.findAll { it.name =~ /[._]R?2[._]/ }
+
+            if (r1_files.size() > 0 && r1_files.size() == r2_files.size()) {
+                meta.single_end = false
+            }
+
+            return [ meta, files ]
+        }
+
+    return initial_channel.mix(watch_channel)
+}
+
 //
 // Check and validate pipeline parameters
 //
@@ -200,12 +366,11 @@ def genomeExistsError() {
 // Generate methods description for MultiQC
 //
 def toolCitationText() {
-    // TODO nf-core: Optionally add in-text citation tools to this list.
-    // Can use ternary operators to dynamically construct based conditions, e.g. params["run_xyz"] ? "Tool (Foo et al. 2023)" : "",
-    // Uncomment function in methodsDescriptionText to render in MultiQC report
     def citation_text = [
             "Tools used in the workflow included:",
             "FastQC (Andrews 2010),",
+            "fastp (Chen et al. 2018),",
+            "Kraken2 (Wood et al. 2019),",
             "MultiQC (Ewels et al. 2016)",
             "."
         ].join(' ').trim()
@@ -214,11 +379,10 @@ def toolCitationText() {
 }
 
 def toolBibliographyText() {
-    // TODO nf-core: Optionally add bibliographic entries to this list.
-    // Can use ternary operators to dynamically construct based conditions, e.g. params["run_xyz"] ? "<li>Author (2023) Pub name, Journal, DOI</li>" : "",
-    // Uncomment function in methodsDescriptionText to render in MultiQC report
     def reference_text = [
             "<li>Andrews S, (2010) FastQC, URL: https://www.bioinformatics.babraham.ac.uk/projects/fastqc/).</li>",
+            "<li>Chen S, Zhou Y, Chen Y, Gu J. fastp: an ultra-fast all-in-one FASTQ preprocessor. Bioinformatics. 2018 Sep 1;34(17):i884-i890. doi: 10.1093/bioinformatics/bty560.</li>",
+            "<li>Wood DE, Lu J, Langmead B. Improved metagenomic analysis with Kraken 2. Genome Biol. 2019 Nov 28;20(1):257. doi: 10.1186/s13059-019-1891-0.</li>",
             "<li>Ewels, P., Magnusson, M., Lundin, S., & Käller, M. (2016). MultiQC: summarize analysis results for multiple tools and samples in a single report. Bioinformatics , 32(19), 3047–3048. doi: /10.1093/bioinformatics/btw354</li>"
         ].join(' ').trim()
 
@@ -246,13 +410,8 @@ def methodsDescriptionText(mqc_methods_yaml) {
     meta["nodoi_text"] = meta.manifest_map.doi ? "" : "<li>If available, make sure to update the text to include the Zenodo DOI of version of the pipeline used. </li>"
 
     // Tool references
-    meta["tool_citations"] = ""
-    meta["tool_bibliography"] = ""
-
-    // TODO nf-core: Only uncomment below if logic in toolCitationText/toolBibliographyText has been filled!
-    // meta["tool_citations"] = toolCitationText().replaceAll(", \\.", ".").replaceAll("\\. \\.", ".").replaceAll(", \\.", ".")
-    // meta["tool_bibliography"] = toolBibliographyText()
-
+    meta["tool_citations"] = toolCitationText()
+    meta["tool_bibliography"] = toolBibliographyText()
 
     def methods_text = mqc_methods_yaml.text
 
@@ -261,4 +420,3 @@ def methodsDescriptionText(mqc_methods_yaml) {
 
     return description_html.toString()
 }
-

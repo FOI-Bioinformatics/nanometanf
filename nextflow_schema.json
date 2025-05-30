@@ -16,11 +16,8 @@
                     "type": "string",
                     "format": "file-path",
                     "exists": true,
-                    "schema": "assets/schema_input.json",
-                    "mimetype": "text/csv",
-                    "pattern": "^\\S+\\.csv$",
-                    "description": "Path to comma-separated file containing information about the samples in the experiment.",
-                    "help_text": "You will need to create a design file with information about the samples in your experiment before running the pipeline. Use this parameter to specify its location. It has to be a comma-separated file with 3 columns, and a header row.",
+                    "description": "Path to comma-separated file containing information about the samples OR path to directory containing FASTQ files.",
+                    "help_text": "You can either provide a CSV samplesheet with sample information or a directory path containing FASTQ files. If a directory is provided, the pipeline will automatically detect if it contains subdirectories (treated as samples) or files directly.",
                     "fa_icon": "fas fa-file-csv"
                 },
                 "outdir": {
@@ -40,6 +37,120 @@
                     "type": "string",
                     "description": "MultiQC report title. Printed as page header, used for filename if not otherwise specified.",
                     "fa_icon": "fas fa-file-signature"
+                }
+            }
+        },
+        "nanopore_options": {
+            "title": "Nanopore specific options",
+            "type": "object",
+            "fa_icon": "fas fa-dna",
+            "description": "Options specific to Nanopore data processing.",
+            "properties": {
+                "watch_mode": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Enable watching for new files in the input directory.",
+                    "help_text": "When enabled, the pipeline will continuously monitor the input directory for new FASTQ files and process them as they appear.",
+                    "fa_icon": "fas fa-eye"
+                },
+                "check_interval": {
+                    "type": "string",
+                    "default": "5m",
+                    "description": "Time interval to check for new files when in watch mode.",
+                    "help_text": "Specify the interval using Nextflow time units (e.g., '5m' for 5 minutes, '1h' for 1 hour).",
+                    "fa_icon": "fas fa-clock"
+                },
+                "min_length": {
+                    "type": "integer",
+                    "default": 200,
+                    "description": "Minimum read length after filtering.",
+                    "fa_icon": "fas fa-ruler"
+                },
+                "min_quality": {
+                    "type": "integer",
+                    "default": 10,
+                    "description": "Minimum mean quality score after filtering.",
+                    "fa_icon": "fas fa-chart-line"
+                }
+            }
+        },
+        "kraken2_options": {
+            "title": "Kraken2 classification options",
+            "type": "object",
+            "fa_icon": "fas fa-bacteria",
+            "description": "Options for Kraken2 taxonomic classification.",
+            "properties": {
+                "kraken2_db": {
+                    "type": "string",
+                    "format": "directory-path",
+                    "description": "Path to Kraken2 database.",
+                    "help_text": "Provide the path to a pre-built Kraken2 database for taxonomic classification.",
+                    "fa_icon": "fas fa-database"
+                },
+                "kraken_memory_mapping": {
+                    "type": "string",
+                    "default": "--memory-mapping",
+                    "description": "Enable memory mapping to reduce RAM usage.",
+                    "fa_icon": "fas fa-memory"
+                },
+                "kraken_cores": {
+                    "type": "integer",
+                    "default": 4,
+                    "description": "Number of cores to use for Kraken2.",
+                    "fa_icon": "fas fa-microchip"
+                }
+            }
+        },
+        "validation_options": {
+            "title": "Validation options",
+            "type": "object",
+            "fa_icon": "fas fa-check-circle",
+            "description": "Options for BLAST validation of classified reads.",
+            "properties": {
+                "blast_validation": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Enable BLAST validation of classified reads.",
+                    "fa_icon": "fas fa-check"
+                },
+                "min_perc_identity": {
+                    "type": "number",
+                    "default": 90,
+                    "description": "Minimum percent identity for BLAST hits.",
+                    "fa_icon": "fas fa-percentage"
+                },
+                "e_val_cutoff": {
+                    "type": "number",
+                    "default": 1e-5,
+                    "description": "E-value cutoff for BLAST hits.",
+                    "fa_icon": "fas fa-filter"
+                },
+                "validation_cores": {
+                    "type": "integer",
+                    "default": 2,
+                    "description": "Number of cores for validation.",
+                    "fa_icon": "fas fa-microchip"
+                },
+                "blast_cores": {
+                    "type": "integer",
+                    "default": 2,
+                    "description": "Number of cores for BLAST.",
+                    "fa_icon": "fas fa-microchip"
+                }
+            }
+        },
+        "processing_options": {
+            "title": "Processing options",
+            "type": "object",
+            "fa_icon": "fas fa-cogs",
+            "description": "General processing options.",
+            "properties": {
+                "create_summary": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Create summary statistics across all samples.",
+                    "help_text": "When processing multiple samples, create an additional summary combining statistics from all samples.",
+                    "fa_icon": "fas fa-chart-bar"
                 }
             }
         },
@@ -231,6 +342,18 @@
     "allOf": [
         {
             "$ref": "#/$defs/input_output_options"
+        },
+        {
+            "$ref": "#/$defs/nanopore_options"
+        },
+        {
+            "$ref": "#/$defs/kraken2_options"
+        },
+        {
+            "$ref": "#/$defs/validation_options"
+        },
+        {
+            "$ref": "#/$defs/processing_options"
         },
         {
             "$ref": "#/$defs/reference_genome_options"
