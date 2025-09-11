@@ -1,0 +1,11 @@
+Sep-11 20:17:34.331 [main] INFO  com.askimed.nf.test.App - nf-test 0.9.2
+Sep-11 20:17:34.337 [main] INFO  com.askimed.nf.test.App - Arguments: [test, tests/main_simple.nf.test]
+Sep-11 20:17:34.746 [main] INFO  com.askimed.nf.test.App - Nextflow Version: 25.04.7
+Sep-11 20:17:34.747 [main] INFO  com.askimed.nf.test.commands.RunTestsCommand - Load config from file /Users/andreassjodin/Code/nanometanf/nf-test.config...
+Sep-11 20:17:34.935 [main] INFO  com.askimed.nf.test.lang.dependencies.DependencyResolver - Loaded 62 files from directory /Users/andreassjodin/Code/nanometanf in 0.036 sec
+Sep-11 20:17:34.936 [main] INFO  com.askimed.nf.test.lang.dependencies.DependencyResolver - Found 1 files containing tests.
+Sep-11 20:17:34.936 [main] DEBUG com.askimed.nf.test.lang.dependencies.DependencyResolver - Found files: [/Users/andreassjodin/Code/nanometanf/tests/main_simple.nf.test]
+Sep-11 20:17:35.003 [main] INFO  com.askimed.nf.test.commands.RunTestsCommand - Found 1 tests to execute.
+Sep-11 20:17:35.003 [main] INFO  com.askimed.nf.test.core.TestExecutionEngine - Started test plan
+Sep-11 20:17:35.003 [main] INFO  com.askimed.nf.test.core.TestExecutionEngine - Running testsuite 'Test simplified nanometanf pipeline' from file '/Users/andreassjodin/Code/nanometanf/tests/main_simple.nf.test'.
+Sep-11 20:17:35.003 [main] INFO  com.askimed.nf.test.core.TestExecutionEngine - Run test 'c8bf2ef8: Should run without failures'. type: com.askimed.nf.test.lang.pipeline.PipelineTest

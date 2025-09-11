@@ -3,12 +3,18 @@
     IMPORT MODULES / SUBWORKFLOWS / FUNCTIONS
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
-include { FASTQC                 } from '../modules/nf-core/fastqc/main'
-include { MULTIQC                } from '../modules/nf-core/multiqc/main'
-include { paramsSummaryMap       } from 'plugin/nf-schema'
-include { paramsSummaryMultiqc   } from '../subworkflows/nf-core/utils_nfcore_pipeline'
-include { softwareVersionsToYAML } from '../subworkflows/nf-core/utils_nfcore_pipeline'
-include { methodsDescriptionText } from '../subworkflows/local/utils_nfcore_nanometanf_pipeline'
+include { MULTIQC                    } from '../modules/nf-core/multiqc/main'
+include { paramsSummaryMap           } from 'plugin/nf-schema'
+include { paramsSummaryMultiqc       } from '../subworkflows/nf-core/utils_nfcore_pipeline'
+include { softwareVersionsToYAML     } from '../subworkflows/nf-core/utils_nfcore_pipeline'
+include { methodsDescriptionText     } from '../subworkflows/local/utils_nfcore_nanometanf_pipeline'
+
+// Import local subworkflows
+include { REALTIME_MONITORING        } from '../subworkflows/local/realtime_monitoring'
+include { DEMULTIPLEXING             } from '../subworkflows/local/demultiplexing'
+include { QC_ANALYSIS                } from '../subworkflows/local/qc_analysis'
+include { TAXONOMIC_CLASSIFICATION   } from '../subworkflows/local/taxonomic_classification'
+include { VALIDATION                 } from '../subworkflows/local/validation'
 
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -20,18 +26,75 @@ workflow NANOMETANF {
 
     take:
     ch_samplesheet // channel: samplesheet read in from --input
+    
     main:
-
     ch_versions = Channel.empty()
     ch_multiqc_files = Channel.empty()
+    
     //
-    // MODULE: Run FastQC
+    // SUBWORKFLOW: Real-time monitoring (if enabled)
     //
-    FASTQC (
-        ch_samplesheet
+    if (params.realtime_mode) {
+        REALTIME_MONITORING (
+            params.nanopore_output_dir,
+            params.file_pattern ?: "**/*.fastq{,.gz}",
+            params.batch_size ?: 10,
+            params.batch_interval ?: "5min"
+        )
+        ch_input_samples = REALTIME_MONITORING.out.samples
+    } else {
+        ch_input_samples = ch_samplesheet
+    }
+    
+    //
+    // SUBWORKFLOW: Demultiplexing (handle multiplexed samples)
+    //
+    DEMULTIPLEXING (
+        ch_input_samples
     )
-    ch_multiqc_files = ch_multiqc_files.mix(FASTQC.out.zip.collect{it[1]})
-    ch_versions = ch_versions.mix(FASTQC.out.versions.first())
+    ch_versions = ch_versions.mix(DEMULTIPLEXING.out.versions)
+    
+    //
+    // SUBWORKFLOW: Quality control analysis
+    //
+    QC_ANALYSIS (
+        DEMULTIPLEXING.out.samples
+    )
+    ch_versions = ch_versions.mix(QC_ANALYSIS.out.versions)
+    ch_multiqc_files = ch_multiqc_files.mix(QC_ANALYSIS.out.fastp_json.collect{it[1]})
+    
+    //
+    // SUBWORKFLOW: Taxonomic classification with Kraken2
+    //
+    if (params.kraken2_db) {
+        ch_kraken2_db = Channel.fromPath(params.kraken2_db, checkIfExists: true)
+        
+        TAXONOMIC_CLASSIFICATION (
+            QC_ANALYSIS.out.reads,
+            ch_kraken2_db
+        )
+        ch_versions = ch_versions.mix(TAXONOMIC_CLASSIFICATION.out.versions)
+        ch_multiqc_files = ch_multiqc_files.mix(TAXONOMIC_CLASSIFICATION.out.report.collect{it[1]})
+        
+        //
+        // SUBWORKFLOW: Optional BLAST validation
+        //
+        if (params.blast_validation && params.blast_db) {
+            // Extract sequences for validation from Kraken2 classified reads
+            ch_validation_seqs = TAXONOMIC_CLASSIFICATION.out.classified_reads
+                .filter { meta, reads -> params.validation_taxa?.any { taxa -> meta.id.contains(taxa) } }
+            
+            if (!ch_validation_seqs.empty) {
+                ch_blast_db = Channel.fromPath(params.blast_db, checkIfExists: true)
+                
+                VALIDATION (
+                    ch_validation_seqs,
+                    ch_blast_db
+                )
+                ch_versions = ch_versions.mix(VALIDATION.out.versions)
+            }
+        }
+    }
 
     //
     // Collate and save software versions
@@ -85,8 +148,13 @@ workflow NANOMETANF {
         []
     )
 
-    emit:multiqc_report = MULTIQC.out.report.toList() // channel: /path/to/multiqc_report.html
-    versions       = ch_versions                 // channel: [ path(versions.yml) ]
+    emit:
+    multiqc_report     = MULTIQC.out.report.toList()                    // channel: /path/to/multiqc_report.html
+    qc_reports         = QC_ANALYSIS.out.fastp_html                     // channel: [ val(meta), path(html) ]
+    nanoplot_reports   = QC_ANALYSIS.out.nanoplot                       // channel: [ val(meta), path(html) ]
+    kraken2_reports    = params.kraken2_db ? TAXONOMIC_CLASSIFICATION.out.report : Channel.empty() // channel: [ val(meta), path(txt) ]
+    blast_results      = params.blast_validation ? VALIDATION.out.txt : Channel.empty()           // channel: [ val(meta), path(txt) ]
+    versions           = ch_versions                                     // channel: [ path(versions.yml) ]
 
 }
 
