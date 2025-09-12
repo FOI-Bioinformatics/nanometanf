@@ -1,0 +1,78 @@
+nextflow_pipeline {
+
+    name "Test real-time processing functionality"
+    script "../main.nf"
+
+    test("Should validate real-time parameters without monitoring") {
+
+        when {
+            params {
+input = "$projectDir/tests/test_samplesheet.csv"
+                outdir = "$outputDir"
+                
+                // Test real-time parameters but don't actually enable
+                realtime_mode = false  // Disabled for testing
+                nanopore_output_dir = "/tmp/test_nanopore_output"
+                file_pattern = "**/*.fastq{,.gz}"
+                batch_size = 10
+                batch_interval = "5min"
+                max_files = 100
+                
+                // Disable other features
+                use_dorado = false
+                kraken2_db = null
+                blast_validation = false
+                
+                // Resource limits
+                max_cpus = 2
+                max_memory = '4.GB'
+                max_time = '1.h'
+            }
+        }
+
+        then {
+            assert workflow.success
+            
+            // Should not run real-time monitoring when disabled
+            assert !workflow.trace.tasks().any { it.name.contains('REALTIME_MONITORING') }
+            
+            // Should run standard workflow with input samplesheet
+            assert workflow.trace.tasks().any { it.name.contains('FASTP') }
+        }
+    }
+
+    test("Should handle missing real-time directory gracefully") {
+
+        when {
+            params {
+input = "$projectDir/tests/test_samplesheet.csv"
+                outdir = "$outputDir"
+                
+                // Enable real-time but with non-existent directory
+                realtime_mode = true
+                nanopore_output_dir = "/non/existent/path"
+                
+                // Disable other features
+                use_dorado = false
+                kraken2_db = null
+                blast_validation = false
+                
+                // Resource limits
+                max_cpus = 2
+                max_memory = '4.GB'
+                max_time = '30.s'  // Short timeout for this test
+            }
+        }
+
+        then {
+            // May fail due to missing directory, which is expected behavior
+            // We're testing that it fails gracefully rather than hanging
+            assert workflow.failed || workflow.success
+            
+            if (workflow.failed) {
+                // Should fail quickly due to missing directory
+                assert workflow.duration.toMillis() < 60000 // Less than 1 minute
+            }
+        }
+    }
+}

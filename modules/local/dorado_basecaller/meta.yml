@@ -1,0 +1,50 @@
+name: "dorado_basecaller"
+description: Basecalling of nanopore sequencing data using Dorado
+keywords:
+  - basecalling
+  - nanopore
+  - dorado
+  - ont
+tools:
+  - dorado:
+      description: Dorado is a high-performance, easy-to-use, open source basecaller for Oxford Nanopore reads
+      homepage: https://github.com/nanoporetech/dorado
+      documentation: https://github.com/nanoporetech/dorado
+      tool_dev_url: https://github.com/nanoporetech/dorado
+      licence: ["Oxford Nanopore Technologies PLC. Public License Version 1.0"]
+
+input:
+  - meta:
+      type: map
+      description: |
+        Groovy Map containing sample information
+        e.g. [ id:'test', single_end:false ]
+  - pod5_files:
+      type: file
+      description: POD5 file(s) containing raw nanopore signal data
+      pattern: "*.pod5"
+  - model:
+      type: string
+      description: Dorado basecalling model name
+
+output:
+  - meta:
+      type: map
+      description: |
+        Groovy Map containing sample information
+        e.g. [ id:'test', single_end:false ]
+  - versions:
+      type: file
+      description: File containing software versions
+      pattern: "versions.yml"
+  - fastq:
+      type: file
+      description: Basecalled reads in FASTQ format
+      pattern: "*.fastq.gz"
+  - summary:
+      type: file
+      description: Summary of basecalling run
+      pattern: "*_summary.txt"
+
+authors:
+  - "@andreassjodin"

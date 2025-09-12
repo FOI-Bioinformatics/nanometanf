@@ -4,7 +4,7 @@
     "title": "foi-bioinformatics/nanometanf pipeline parameters",
     "description": "Backend of Nanometa-Live",
     "type": "object",
-    "$defs": {
+    "definitions": {
         "input_output_options": {
             "title": "Input/output options",
             "type": "object",
@@ -15,12 +15,11 @@
                 "input": {
                     "type": "string",
                     "format": "file-path",
-                    "exists": true,
                     "schema": "assets/schema_input.json",
                     "mimetype": "text/csv",
                     "pattern": "^\\S+\\.csv$",
                     "description": "Path to comma-separated file containing information about the samples in the experiment.",
-                    "help_text": "You will need to create a design file with information about the samples in your experiment before running the pipeline. Use this parameter to specify its location. It has to be a comma-separated file with 3 columns, and a header row.",
+                    "help_text": "You will need to create a design file with information about the samples in your experiment before running the pipeline. Use this parameter to specify its location. It has to be a comma-separated file with 3 columns, and a header row. Can be a local file path or URL.",
                     "fa_icon": "fas fa-file-csv"
                 },
                 "outdir": {
@@ -223,23 +222,109 @@
                     "type": "string",
                     "fa_icon": "far calendar",
                     "description": "Suffix to add to the trace report filename. Default is the date and time in the format yyyy-MM-dd_HH-mm-ss.",
-                    "hidden": true
+                    "hidden": true,
+                    "default": "2025-09-11_21-01-49"
                 }
             }
         }
     },
     "allOf": [
         {
-            "$ref": "#/$defs/input_output_options"
+            "$ref": "#/definitions/input_output_options"
         },
         {
-            "$ref": "#/$defs/reference_genome_options"
+            "$ref": "#/definitions/reference_genome_options"
         },
         {
-            "$ref": "#/$defs/institutional_config_options"
+            "$ref": "#/definitions/institutional_config_options"
         },
         {
-            "$ref": "#/$defs/generic_options"
+            "$ref": "#/definitions/generic_options"
         }
-    ]
+    ],
+    "properties": {
+        "realtime_mode": {
+            "type": "boolean"
+        },
+        "nanopore_output_dir": {
+            "type": "string"
+        },
+        "file_pattern": {
+            "type": "string",
+            "default": "**/*.fastq{,.gz}"
+        },
+        "batch_size": {
+            "type": "integer",
+            "default": 10
+        },
+        "batch_interval": {
+            "type": "string",
+            "default": "5min"
+        },
+        "max_files": {
+            "type": "string"
+        },
+        "use_dorado": {
+            "type": "boolean",
+            "default": false
+        },
+        "dorado_path": {
+            "type": "string",
+            "default": "/Users/andreassjodin/Downloads/dorado-1.1.1-osx-arm64/bin/dorado"
+        },
+        "barcode_kit": {
+            "type": "string"
+        },
+        "kraken2_db": {
+            "type": "string"
+        },
+        "save_output_fastqs": {
+            "type": "boolean"
+        },
+        "save_reads_assignment": {
+            "type": "boolean"
+        },
+        "blast_validation": {
+            "type": "boolean"
+        },
+        "blast_db": {
+            "type": "string"
+        },
+        "validation_taxa": {
+            "type": "string"
+        },
+        "skip_fastp": {
+            "type": "boolean"
+        },
+        "skip_nanoplot": {
+            "type": "boolean"
+        },
+        "help": {
+            "type": "boolean"
+        },
+        "help_full": {
+            "type": "boolean"
+        },
+        "show_hidden": {
+            "type": "boolean"
+        },
+        "dorado_model": {
+            "type": "string",
+            "default": "dna_r10.4.1_e4.3_400bps_hac@v5.0.0"
+        },
+        "pod5_input_dir": {
+            "type": "string"
+        },
+        "demultiplex": {
+            "type": "boolean"
+        },
+        "min_qscore": {
+            "type": "integer",
+            "default": 9
+        },
+        "trim_barcodes": {
+            "type": "boolean",
+            "default": true
+        }
+    }
 }

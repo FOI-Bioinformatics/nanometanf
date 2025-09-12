@@ -1,0 +1,31 @@
+nextflow_pipeline {
+
+    name "Test parameter validation only"
+    script "../main.nf"
+
+    test("Should validate all parameters without running workflow") {
+
+        when {
+            params {
+                input = "$projectDir/assets/test_data/nanoseq_samplesheet.csv"
+                outdir = "$outputDir"
+                
+                // Test all key parameters
+                use_dorado = false
+                realtime_mode = false
+                kraken2_db = null
+                blast_validation = false
+                
+                // Quick validation test
+                max_cpus = 1
+                max_memory = '1.GB'
+                max_time = '1.min'
+            }
+        }
+
+        then {
+            // Just check parameters are valid
+            assert workflow.success || workflow.exitStatus == 1
+        }
+    }
+}

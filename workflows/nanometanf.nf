@@ -11,6 +11,8 @@ include { methodsDescriptionText     } from '../subworkflows/local/utils_nfcore_
 
 // Import local subworkflows
 include { REALTIME_MONITORING        } from '../subworkflows/local/realtime_monitoring'
+include { REALTIME_POD5_MONITORING   } from '../subworkflows/local/realtime_pod5_monitoring'
+include { DORADO_BASECALLING         } from '../subworkflows/local/dorado_basecalling'
 include { DEMULTIPLEXING             } from '../subworkflows/local/demultiplexing'
 include { QC_ANALYSIS                } from '../subworkflows/local/qc_analysis'
 include { TAXONOMIC_CLASSIFICATION   } from '../subworkflows/local/taxonomic_classification'
@@ -34,7 +36,20 @@ workflow NANOMETANF {
     //
     // SUBWORKFLOW: Real-time monitoring (if enabled)
     //
-    if (params.realtime_mode) {
+    if (params.realtime_mode && params.use_dorado && params.nanopore_output_dir) {
+        // Real-time POD5 monitoring with Dorado basecalling
+        REALTIME_POD5_MONITORING (
+            params.nanopore_output_dir,
+            params.file_pattern ?: "**/*.pod5",
+            params.batch_size ?: 10,
+            params.batch_interval ?: "5min",
+            params.dorado_model
+        )
+        ch_input_samples = REALTIME_POD5_MONITORING.out.samples
+        ch_versions = ch_versions.mix(REALTIME_POD5_MONITORING.out.versions.ifEmpty(null))
+        
+    } else if (params.realtime_mode) {
+        // Real-time FASTQ monitoring (traditional)
         REALTIME_MONITORING (
             params.nanopore_output_dir,
             params.file_pattern ?: "**/*.fastq{,.gz}",
@@ -47,10 +62,35 @@ workflow NANOMETANF {
     }
     
     //
+    // SUBWORKFLOW: Dorado basecalling (if enabled)
+    //
+    if (params.use_dorado && params.pod5_input_dir) {
+        // Create POD5 input channel
+        ch_pod5_files = Channel.fromPath("${params.pod5_input_dir}/*.pod5", checkIfExists: true)
+            .collect()
+            .map { files -> 
+                def meta = [ id: 'basecalled_sample', single_end: true ]
+                [ meta, files ]
+            }
+        
+        DORADO_BASECALLING (
+            ch_pod5_files,
+            params.dorado_model
+        )
+        ch_versions = ch_versions.mix(DORADO_BASECALLING.out.versions)
+        
+        // Use basecalled samples instead of input samples
+        ch_processed_samples = DORADO_BASECALLING.out.fastq
+    } else {
+        // Use input samples directly
+        ch_processed_samples = ch_input_samples
+    }
+    
+    //
     // SUBWORKFLOW: Demultiplexing (handle multiplexed samples)
     //
     DEMULTIPLEXING (
-        ch_input_samples
+        ch_processed_samples
     )
     ch_versions = ch_versions.mix(DEMULTIPLEXING.out.versions)
     

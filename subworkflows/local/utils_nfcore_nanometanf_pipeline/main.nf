@@ -75,12 +75,16 @@ workflow PIPELINE_INITIALISATION {
     Channel
         .fromList(samplesheetToList(params.input, "${projectDir}/assets/schema_input.json"))
         .map {
-            meta, fastq_1, fastq_2 ->
-                if (!fastq_2) {
-                    return [ meta.id, meta + [ single_end:true ], [ fastq_1 ] ]
-                } else {
-                    return [ meta.id, meta + [ single_end:false ], [ fastq_1, fastq_2 ] ]
+            meta, fastq, barcode ->
+                // Nanopore data is always single-end
+                def new_meta = meta + [ single_end: true ]
+                
+                // Add barcode information if provided
+                if (barcode && barcode.trim() != "") {
+                    new_meta = new_meta + [ barcode: barcode.trim() ]
                 }
+                
+                return [ meta.id, new_meta, [ fastq ] ]
         }
         .groupTuple()
         .map { samplesheet ->

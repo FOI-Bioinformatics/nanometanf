@@ -1,0 +1,111 @@
+nextflow_pipeline {
+
+    name "Test nanometanf with nf-core nanoseq data"
+    script "../main.nf"
+
+    test("Should run with nf-core test data") {
+
+        when {
+            params {
+                // Use local nf-core test data
+                input = "$projectDir/assets/test_data/nanoseq_samplesheet.csv"
+                outdir = "$outputDir"
+                
+                // Disable advanced features for basic test
+                use_dorado = false
+                realtime_mode = false
+                kraken2_db = null
+                blast_validation = false
+                
+                // Enable basic QC
+                skip_fastp = false
+                skip_nanoplot = false
+                
+                // Resource limits for testing
+                max_cpus = 2
+                max_memory = '4.GB'
+                max_time = '30.min'
+            }
+        }
+
+        then {
+            assert workflow.success
+            assert workflow.trace.tasks().size() > 0
+            
+            // Check that main processes ran
+            assert workflow.trace.tasks().any { it.name.contains('FASTP') }
+            assert workflow.trace.tasks().any { it.name.contains('NANOPLOT') }
+            assert workflow.trace.tasks().any { it.name.contains('MULTIQC') }
+        }
+    }
+
+    test("Should validate Dorado parameters with nf-core data") {
+
+        when {
+            params {
+                // Use local nf-core test data
+                input = "$projectDir/assets/test_data/nanoseq_samplesheet.csv"
+                outdir = "$outputDir"
+                
+                // Test Dorado parameters without POD5 files
+                use_dorado = true
+                dorado_path = '/Users/andreassjodin/Downloads/dorado-1.1.1-osx-arm64/bin/dorado'
+                pod5_input_dir = null  // No POD5 - should skip Dorado
+                demultiplex = false
+                barcode_kit = 'SQK-PBK004'
+                min_qscore = 9
+                
+                // Disable other features
+                realtime_mode = false
+                kraken2_db = null
+                blast_validation = false
+                
+                // Resource limits
+                max_cpus = 2
+                max_memory = '4.GB'
+                max_time = '15.min'
+            }
+        }
+
+        then {
+            assert workflow.success
+            
+            // Should not run Dorado without POD5 input
+            assert !workflow.trace.tasks().any { it.name.contains('DORADO') }
+            
+            // Should run standard QC workflow
+            assert workflow.trace.tasks().any { it.name.contains('FASTP') }
+        }
+    }
+
+    test("Should handle POD5 test data with existing FASTQ data") {
+
+        when {
+            params {
+                input = "$projectDir/assets/test_data/nanoseq_samplesheet.csv"
+                outdir = "$outputDir"
+                
+                // Test with local POD5 data + existing FASTQ
+                use_dorado = true
+                dorado_path = '/Users/andreassjodin/Downloads/dorado-1.1.1-osx-arm64/bin/dorado'
+                pod5_input_dir = "$projectDir/assets/test_data/nanoseq_data/pod5"
+                dorado_model = 'dna_r10.4.1_e4.3_400bps_fast@v4.1.0'
+                demultiplex = false
+                min_qscore = 7
+                
+                // Quick test
+                max_cpus = 2
+                max_memory = '4.GB'
+                max_time = '10.min'
+            }
+        }
+
+        then {
+            assert workflow.success
+            
+            // Should run both Dorado and FASTQ processing
+            assert workflow.trace.tasks().any { it.name.contains('DORADO') }
+            assert workflow.trace.tasks().any { it.name.contains('FASTP') }
+        }
+    }
+}

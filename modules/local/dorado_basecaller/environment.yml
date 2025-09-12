@@ -1,0 +1,8 @@
+name: dorado_basecaller
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
+dependencies:
+  # No conda dependencies - using local Dorado binary
+  - coreutils
