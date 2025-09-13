@@ -16,8 +16,10 @@ include { DORADO_BASECALLING         } from '../subworkflows/local/dorado_baseca
 include { BARCODE_DISCOVERY          } from '../subworkflows/local/barcode_discovery'
 include { DEMULTIPLEXING             } from '../subworkflows/local/demultiplexing'
 include { QC_ANALYSIS                } from '../subworkflows/local/qc_analysis'
+include { ASSEMBLY                   } from '../subworkflows/local/assembly'
 include { TAXONOMIC_CLASSIFICATION   } from '../subworkflows/local/taxonomic_classification'
 include { VALIDATION                 } from '../subworkflows/local/validation'
+include { DYNAMIC_RESOURCE_ALLOCATION } from '../subworkflows/local/dynamic_resource_allocation'
 
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -111,6 +113,55 @@ workflow NANOMETANF {
     }
     
     //
+    // SUBWORKFLOW: Dynamic resource allocation for optimal performance
+    //
+    if (params.enable_dynamic_resources ?: true) {
+        log.info "=== Enabling Dynamic Resource Allocation ==="
+        
+        // Prepare resource configuration
+        def resource_config = [
+            'optimization_profile': params.optimization_profile ?: 'auto',
+            'safety_factor': params.resource_safety_factor ?: 0.8,
+            'priority_samples': params.priority_samples ?: [],
+            'max_parallel_jobs': params.max_parallel_jobs ?: 4,
+            'enable_gpu_optimization': params.enable_gpu_optimization ?: true,
+            'realtime_mode': params.realtime_mode ?: false
+        ]
+        
+        // System configuration
+        def system_config = [
+            'monitoring_interval': params.resource_monitoring_interval ?: 30,
+            'enable_performance_logging': params.enable_performance_logging ?: true
+        ]
+        
+        // Create input for resource allocation - combine samples with tool context
+        ch_resource_inputs = ch_processed_samples
+            .map { meta, files ->
+                def tool_context = [
+                    'tool_name': 'preprocessing',  // Will be updated per process
+                    'workflow_stage': 'initial_processing'
+                ]
+                [ meta, files, tool_context ]
+            }
+        
+        DYNAMIC_RESOURCE_ALLOCATION (
+            ch_resource_inputs,
+            resource_config,
+            system_config
+        )
+        ch_versions = ch_versions.mix(DYNAMIC_RESOURCE_ALLOCATION.out.versions)
+        
+        // Extract resource configurations for later use
+        ch_resource_configs = DYNAMIC_RESOURCE_ALLOCATION.out.resource_configs
+        ch_optimal_allocations = DYNAMIC_RESOURCE_ALLOCATION.out.optimal_allocations
+        
+        log.info "Dynamic resource allocation configured successfully"
+    } else {
+        ch_resource_configs = Channel.empty()
+        ch_optimal_allocations = Channel.empty()
+    }
+    
+    //
     // SUBWORKFLOW: Demultiplexing (handle multiplexed samples)
     //
     DEMULTIPLEXING (
@@ -128,14 +179,24 @@ workflow NANOMETANF {
     ch_multiqc_files = ch_multiqc_files.mix(QC_ANALYSIS.out.fastp_json.collect{it[1]})
     
     //
-    // SUBWORKFLOW: Taxonomic classification with Kraken2
+    // SUBWORKFLOW: Multi-tool genome assembly for long-read data
+    //
+    if (params.enable_assembly) {
+        ASSEMBLY (
+            QC_ANALYSIS.out.reads
+        )
+        ch_versions = ch_versions.mix(ASSEMBLY.out.versions)
+    }
+    
+    //
+    // SUBWORKFLOW: Multi-tool taxonomic classification with taxpasta standardization
     //
     if (params.kraken2_db) {
-        ch_kraken2_db = Channel.fromPath(params.kraken2_db, checkIfExists: true)
+        ch_classification_db = Channel.fromPath(params.kraken2_db, checkIfExists: true)
         
         TAXONOMIC_CLASSIFICATION (
             QC_ANALYSIS.out.reads,
-            ch_kraken2_db
+            ch_classification_db
         )
         ch_versions = ch_versions.mix(TAXONOMIC_CLASSIFICATION.out.versions)
         ch_multiqc_files = ch_multiqc_files.mix(TAXONOMIC_CLASSIFICATION.out.report.collect{it[1]})
@@ -213,12 +274,18 @@ workflow NANOMETANF {
     )
 
     emit:
-    multiqc_report     = MULTIQC.out.report.toList()                    // channel: /path/to/multiqc_report.html
-    qc_reports         = QC_ANALYSIS.out.fastp_html                     // channel: [ val(meta), path(html) ]
-    nanoplot_reports   = QC_ANALYSIS.out.nanoplot                       // channel: [ val(meta), path(html) ]
-    kraken2_reports    = params.kraken2_db ? TAXONOMIC_CLASSIFICATION.out.report : Channel.empty() // channel: [ val(meta), path(txt) ]
-    blast_results      = params.blast_validation ? VALIDATION.out.txt : Channel.empty()           // channel: [ val(meta), path(txt) ]
-    versions           = ch_versions                                     // channel: [ path(versions.yml) ]
+    multiqc_report         = MULTIQC.out.report.toList()                    // channel: /path/to/multiqc_report.html
+    qc_reports             = QC_ANALYSIS.out.fastp_html                     // channel: [ val(meta), path(html) ]
+    nanoplot_reports       = QC_ANALYSIS.out.nanoplot                       // channel: [ val(meta), path(html) ]
+    assemblies             = params.enable_assembly ? ASSEMBLY.out.assembly : Channel.empty()          // channel: [ val(meta), path(fasta.gz) ] - Genome assemblies
+    assembly_graphs        = params.enable_assembly ? ASSEMBLY.out.assembly_graph : Channel.empty()    // channel: [ val(meta), path(gfa.gz) ] - Assembly graphs
+    assembly_info          = params.enable_assembly ? ASSEMBLY.out.assembly_info : Channel.empty()     // channel: [ val(meta), path(txt) ] - Assembly statistics
+    assembler_used         = params.enable_assembly ? ASSEMBLY.out.assembler_used : Channel.empty()    // channel: val(assembler_name)
+    classification_reports = params.kraken2_db ? TAXONOMIC_CLASSIFICATION.out.report : Channel.empty() // channel: [ val(meta), path(txt) ] - Original format
+    standardized_reports   = params.kraken2_db ? TAXONOMIC_CLASSIFICATION.out.standardized_report : Channel.empty() // channel: [ val(meta), path(tsv/csv/etc) ] - Taxpasta format
+    classifier_used        = params.kraken2_db ? TAXONOMIC_CLASSIFICATION.out.classifier_used : Channel.empty() // channel: val(classifier_name)
+    blast_results          = params.blast_validation ? VALIDATION.out.txt : Channel.empty()           // channel: [ val(meta), path(txt) ]
+    versions               = ch_versions                                     // channel: [ path(versions.yml) ]
 
 }
 

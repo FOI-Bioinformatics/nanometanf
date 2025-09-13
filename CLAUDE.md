@@ -19,7 +19,7 @@ This pipeline addresses critical bioinformatics challenges in Oxford Nanopore Te
 - `nextflow.config` - Comprehensive parameter configuration (54+ parameters)
 - `nextflow_schema.json` - JSON Schema parameter validation and documentation
 
-**Subworkflows (8):**
+**Subworkflows (9):**
 - `realtime_monitoring.nf` - watchPath-based FASTQ file monitoring for live sequencing
 - `realtime_pod5_monitoring.nf` - watchPath-based POD5 file monitoring with basecalling
 - `dorado_basecalling.nf` - High-accuracy POD5 basecalling with Dorado
@@ -28,10 +28,12 @@ This pipeline addresses critical bioinformatics challenges in Oxford Nanopore Te
 - `qc_analysis.nf` - Comprehensive quality control with FASTP and NanoPlot
 - `taxonomic_classification.nf` - Kraken2-based taxonomic profiling
 - `validation.nf` - BLAST-based validation for targeted species confirmation
+- `dynamic_resource_allocation.nf` - **NEW** - Intelligent resource prediction and optimization system
 
-**Modules (11):**
+**Modules (16):**
 - nf-core: fastp, fastqc, kraken2/kraken2, blast/blastn, blast/makeblastdb, multiqc, nanoplot, untar
 - local: dorado_basecaller, dorado_demux **NEW** - Complete demultiplexing implementation
+- local resource modules: analyze_input_characteristics, monitor_system_resources, predict_resource_requirements, optimize_resource_allocation, resource_optimization_profiles, resource_feedback_learning
 
 ## Prerequisites
 
@@ -72,6 +74,18 @@ nextflow run . --realtime_mode --nanopore_output_dir /path/to/watch --file_patte
 **6. Real-time POD5 Processing with Basecalling (Live sequencing + basecalling):**
 ```bash
 nextflow run . --realtime_mode --use_dorado --nanopore_output_dir /path/to/pod5 --file_pattern "**/*.pod5" --outdir results
+```
+
+**7. Dynamic Resource Allocation (Intelligent resource optimization - NEW):**
+```bash
+# Auto-select optimal profile based on system characteristics
+nextflow run . --input samplesheet.csv --optimization_profile auto --outdir results
+
+# Use specific optimization profile for high-throughput processing
+nextflow run . --input samplesheet.csv --optimization_profile high_throughput --outdir results
+
+# GPU-optimized processing for Dorado basecalling
+nextflow run . --use_dorado --pod5_input_dir /path/to/pod5 --optimization_profile gpu_optimized --outdir results
 ```
 
 **Available profiles:** docker, singularity, conda, test, local_test
@@ -158,10 +172,29 @@ SAMPLE_2,sample2.fastq.gz,BC01
 - `--skip_fastp false` - Disable quality filtering
 - `--skip_nanoplot false` - Disable nanopore QC
 
+**Dynamic Resource Allocation (NEW - Intelligent Performance Optimization):**
+- `--enable_dynamic_resources true` - Enable intelligent resource allocation system
+- `--optimization_profile auto` - Resource optimization profile selection:
+  - `auto` - Automatic profile selection based on system characteristics
+  - `high_throughput` - Maximum processing speed with high resource usage
+  - `balanced` - Balanced resource usage for standard processing
+  - `resource_conservative` - Minimal resource usage for constrained environments
+  - `gpu_optimized` - Optimized for GPU-accelerated workloads (Dorado basecalling)
+  - `realtime_optimized` - Low-latency processing for real-time analysis
+  - `development_testing` - Fast processing for development workflows
+- `--resource_safety_factor 0.8` - Safety factor for resource allocation (0.0-1.0)
+- `--enable_gpu_optimization true` - Enable GPU-specific optimizations
+- `--resource_monitoring_interval 30` - System monitoring interval in seconds
+- `--enable_performance_logging true` - Enable detailed performance logging
+
 ## Configuration Files
 - `conf/local_test.config` - Local development (2GB memory, 1 CPU)
 - `conf/test.config` - nf-core test profile
 - `conf/test_dorado.config` - Dorado testing configuration
+
+## Documentation
+- `docs/qc_guide.md` - Quality control analysis guide
+- `docs/dynamic_resource_allocation.md` - **NEW** - Comprehensive guide to intelligent resource allocation system
 
 ## Testing Infrastructure
 

@@ -264,6 +264,61 @@
         "max_files": {
             "type": "string"
         },
+        "watch_directories": {
+            "type": "array",
+            "items": {"type": "string"},
+            "description": "List of directories to monitor for real-time processing (supports multiple)"
+        },
+        "priority_samples": {
+            "type": "array", 
+            "items": {"type": "string"},
+            "description": "List of high-priority sample IDs for expedited processing"
+        },
+        "enable_realtime_stats": {
+            "type": "boolean",
+            "default": true,
+            "description": "Enable snapshot and cumulative statistics generation for real-time monitoring"
+        },
+        "realtime_report_interval": {
+            "type": "integer",
+            "default": 30000,
+            "description": "Report refresh interval in milliseconds for real-time dashboard"
+        },
+        "adaptive_batching": {
+            "type": "boolean",
+            "default": true,
+            "description": "Enable intelligent batch sizing based on system load and file characteristics"
+        },
+        "min_batch_size": {
+            "type": "integer",
+            "default": 1,
+            "description": "Minimum number of files per batch for real-time processing"
+        },
+        "max_batch_size": {
+            "type": "integer", 
+            "default": 50,
+            "description": "Maximum number of files per batch for real-time processing"
+        },
+        "batch_size_factor": {
+            "type": "number",
+            "default": 1.0,
+            "description": "Multiplier for dynamic batch sizing calculations"
+        },
+        "min_files_per_second": {
+            "type": "number",
+            "default": 0.1,
+            "description": "Alert threshold for minimum processing speed (files per second)"
+        },
+        "max_avg_file_age_minutes": {
+            "type": "number",
+            "default": 10,
+            "description": "Alert threshold for maximum average file age (minutes)"
+        },
+        "min_compression_ratio": {
+            "type": "number",
+            "default": 0.3,
+            "description": "Alert threshold for minimum compression ratio (data quality indicator)"
+        },
         "use_dorado": {
             "type": "boolean",
             "default": false
@@ -275,14 +330,38 @@
         "barcode_kit": {
             "type": "string"
         },
+        "classifier": {
+            "type": "string",
+            "default": "kraken2",
+            "enum": ["kraken2"],
+            "description": "Taxonomic classifier to use. Currently supports: kraken2"
+        },
         "kraken2_db": {
-            "type": "string"
+            "type": "string",
+            "description": "Path to Kraken2/classifier database"
         },
         "save_output_fastqs": {
-            "type": "boolean"
+            "type": "boolean",
+            "description": "Save classified/unclassified FASTQ files"
         },
         "save_reads_assignment": {
-            "type": "boolean"
+            "type": "boolean",
+            "description": "Save read-level taxonomic assignments"
+        },
+        "enable_taxpasta_standardization": {
+            "type": "boolean",
+            "default": true,
+            "description": "Enable taxpasta output standardization for consistent taxonomic profile formats"
+        },
+        "taxpasta_format": {
+            "type": "string",
+            "default": "tsv",
+            "enum": ["tsv", "csv", "arrow", "parquet", "biom"],
+            "description": "Output format for standardized taxonomic profiles"
+        },
+        "taxonomy_file": {
+            "type": "string",
+            "description": "Optional taxonomy file for taxpasta standardization"
         },
         "blast_validation": {
             "type": "boolean"
@@ -293,11 +372,86 @@
         "validation_taxa": {
             "type": "string"
         },
+        "enable_assembly": {
+            "type": "boolean",
+            "default": false,
+            "description": "Enable genome assembly step for long-read nanopore data"
+        },
+        "assembler": {
+            "type": "string",
+            "default": "flye",
+            "enum": ["flye", "miniasm"],
+            "description": "Genome assembler to use. Currently supports: flye (default), miniasm"
+        },
+        "genome_size": {
+            "type": "string",
+            "default": "5m",
+            "description": "Expected genome size (e.g., '5m' for 5Mb, '3.2g' for 3.2Gb). Used by assemblers like flye and canu."
+        },
+        "sequencing_mode": {
+            "type": "string",
+            "default": "--nano-raw",
+            "enum": ["--nano-raw", "--nano-corr", "--nano-hq", "--pacbio-raw", "--pacbio-corr", "--pacbio-hifi"],
+            "description": "Sequencing technology and data type for flye assembler"
+        },
+        "qc_tool": {
+            "type": "string",
+            "default": "fastp",
+            "enum": ["fastp", "filtlong"],
+            "description": "Quality control tool to use. fastp: general-purpose with rich reporting, filtlong: nanopore-optimized filtering"
+        },
+        "enable_adapter_trimming": {
+            "type": "boolean",
+            "default": false,
+            "description": "Enable nanopore adapter trimming with PORECHOP (recommended for filtlong)"
+        },
+        "enable_qc_benchmark": {
+            "type": "boolean",
+            "default": false,
+            "description": "Enable QC tool performance benchmarking (compares FASTP vs FILTLONG)"
+        },
+        "filtlong_min_length": {
+            "type": "integer",
+            "default": 1000,
+            "description": "Minimum read length for FILTLONG filtering"
+        },
+        "filtlong_keep_percent": {
+            "type": "integer",
+            "default": 90,
+            "description": "Percentage of best reads to keep with FILTLONG (1-100)"
+        },
+        "filtlong_target_bases": {
+            "type": "integer",
+            "default": 0,
+            "description": "Target number of bases to keep with FILTLONG (0 = no limit)"
+        },
+        "filtlong_min_mean_q": {
+            "type": "number",
+            "default": 8.0,
+            "description": "Minimum mean quality score for FILTLONG"
+        },
+        "fastp_qualified_quality": {
+            "type": "integer",
+            "default": 15,
+            "description": "Quality threshold for FASTP (phred score)"
+        },
+        "fastp_length_required": {
+            "type": "integer",
+            "default": 1000,
+            "description": "Minimum read length required for FASTP"
+        },
+        "fastp_cut_mean_quality": {
+            "type": "integer",
+            "default": 20,
+            "description": "Mean quality threshold for FASTP sliding window"
+        },
         "skip_fastp": {
-            "type": "boolean"
+            "type": "boolean",
+            "description": "Legacy parameter: skip FASTP (use qc_tool parameter instead)"
         },
         "skip_nanoplot": {
-            "type": "boolean"
+            "type": "boolean",
+            "description": "Skip NanoPlot visualization"
         },
         "help": {
             "type": "boolean"
@@ -325,6 +479,53 @@
         "trim_barcodes": {
             "type": "boolean",
             "default": true
+        },
+        "enable_dynamic_resources": {
+            "type": "boolean",
+            "default": true,
+            "description": "Enable intelligent resource allocation system"
+        },
+        "optimization_profile": {
+            "type": "string",
+            "default": "auto",
+            "enum": ["auto", "high_throughput", "balanced", "resource_conservative", "gpu_optimized", "realtime_optimized", "development_testing"],
+            "description": "Resource optimization profile: auto, high_throughput, balanced, resource_conservative, gpu_optimized, realtime_optimized, development_testing"
+        },
+        "resource_safety_factor": {
+            "type": "number",
+            "default": 0.8,
+            "minimum": 0.1,
+            "maximum": 1.0,
+            "description": "Safety factor for resource allocation (0.0-1.0)"
+        },
+        "max_parallel_jobs": {
+            "type": "integer",
+            "default": 4,
+            "minimum": 1,
+            "description": "Maximum parallel jobs for resource optimization"
+        },
+        "enable_gpu_optimization": {
+            "type": "boolean",
+            "default": true,
+            "description": "Enable GPU-specific optimizations"
+        },
+        "resource_monitoring_interval": {
+            "type": "integer",
+            "default": 30,
+            "minimum": 10,
+            "description": "System monitoring interval (seconds)"
+        },
+        "enable_performance_logging": {
+            "type": "boolean",
+            "default": true,
+            "description": "Enable detailed performance logging"
+        },
+        "resource_prediction_confidence": {
+            "type": "number",
+            "default": 0.7,
+            "minimum": 0.1,
+            "maximum": 1.0,
+            "description": "Minimum confidence for resource predictions"
         }
     }
 }
