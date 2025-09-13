@@ -16,7 +16,7 @@ nextflow_pipeline {
                 nanopore_output_dir = "$projectDir/tests/realtime_test_data"
                 file_pattern = "*.fastq.gz"
                 batch_size = 2
-                batch_interval = "10s"
+                batch_interval = "2s"  // Faster for testing
                 max_files = 2  // Limit for testing
                 
                 // Disable other features for focused test
@@ -28,7 +28,7 @@ nextflow_pipeline {
                 // Resource limits
                 max_cpus = 2
                 max_memory = '4.GB'
-                max_time = '5.min'
+                max_time = '1.min'  // Shorter timeout
             }
         }
 

@@ -1,0 +1,58 @@
+nextflow_pipeline {
+
+    name "Test pre-demultiplexed barcode directory discovery"
+    script "../../../../main.nf"
+
+    test("Should discover and process pre-demultiplexed barcode folders") {
+
+        when {
+            params {
+                // Empty samplesheet for barcode discovery mode
+                input = "$projectDir/tests/empty_samplesheet.csv"
+                outdir = "$outputDir"
+                
+                // Enable barcode directory discovery - use existing test data
+                barcode_input_dir = "$projectDir/tests/realtime_test_data"
+                
+                // Disable other features
+                use_dorado = false
+                realtime_mode = false
+                kraken2_db = null
+                blast_validation = false
+            }
+        }
+
+        then {
+            assert workflow.success
+            assert workflow.trace.tasks().size() > 0
+            
+            // Check that barcode discovery ran
+            assert workflow.trace.tasks().any { it.name.contains('BARCODE_DISCOVERY') }
+        }
+    }
+
+    test("Should handle empty barcode directories gracefully") {
+
+        when {
+            params {
+                // Empty samplesheet for barcode discovery mode
+                input = "$projectDir/tests/empty_samplesheet.csv"
+                outdir = "$outputDir"
+                
+                // Use a non-existent directory to test graceful handling
+                barcode_input_dir = "/tmp/nonexistent_barcodes"
+                
+                // Disable other features
+                use_dorado = false
+                realtime_mode = false
+                kraken2_db = null
+                blast_validation = false
+            }
+        }
+
+        then {
+            assert workflow.success
+            // Should complete even with empty directories
+        }
+    }
+}

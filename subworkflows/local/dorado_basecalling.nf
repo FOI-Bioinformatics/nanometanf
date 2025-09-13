@@ -6,8 +6,8 @@
 ----------------------------------------------------------------------------------------
 */
 
-include { DORADO_BASECALLER      } from '../../modules/local/dorado_basecaller'
-include { DORADO_DEMUX           } from '../../modules/local/dorado_demux'
+include { DORADO_BASECALLER      } from '../../modules/local/dorado_basecaller/main'
+include { DEMULTIPLEXING         } from './demultiplexing'
 
 workflow DORADO_BASECALLING {
     
@@ -35,14 +35,13 @@ workflow DORADO_BASECALLING {
     
     // Demultiplexing if enabled
     if (params.demultiplex && params.barcode_kit) {
-        DORADO_DEMUX (
-            ch_basecalled.demux,
-            params.barcode_kit
+        DEMULTIPLEXING (
+            ch_basecalled.demux
         )
-        ch_versions = ch_versions.mix(DORADO_DEMUX.out.versions)
+        ch_versions = ch_versions.mix(DEMULTIPLEXING.out.versions)
         
         // Combine single sample and demultiplexed samples
-        ch_fastq = ch_basecalled.single.mix(DORADO_DEMUX.out.fastq)
+        ch_fastq = ch_basecalled.single.mix(DEMULTIPLEXING.out.samples)
     } else {
         // Use basecalled fastq directly for single samples
         ch_fastq = ch_basecalled.single

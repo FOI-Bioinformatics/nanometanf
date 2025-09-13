@@ -13,6 +13,7 @@ include { methodsDescriptionText     } from '../subworkflows/local/utils_nfcore_
 include { REALTIME_MONITORING        } from '../subworkflows/local/realtime_monitoring'
 include { REALTIME_POD5_MONITORING   } from '../subworkflows/local/realtime_pod5_monitoring'
 include { DORADO_BASECALLING         } from '../subworkflows/local/dorado_basecalling'
+include { BARCODE_DISCOVERY          } from '../subworkflows/local/barcode_discovery'
 include { DEMULTIPLEXING             } from '../subworkflows/local/demultiplexing'
 include { QC_ANALYSIS                } from '../subworkflows/local/qc_analysis'
 include { TAXONOMIC_CLASSIFICATION   } from '../subworkflows/local/taxonomic_classification'
@@ -34,56 +35,79 @@ workflow NANOMETANF {
     ch_multiqc_files = Channel.empty()
     
     //
-    // SUBWORKFLOW: Real-time monitoring (if enabled)
+    // WORKFLOW ROUTING: Determine if this is POD5 or FASTQ workflow
     //
-    if (params.realtime_mode && params.use_dorado && params.nanopore_output_dir) {
-        // Real-time POD5 monitoring with Dorado basecalling
-        REALTIME_POD5_MONITORING (
-            params.nanopore_output_dir,
-            params.file_pattern ?: "**/*.pod5",
-            params.batch_size ?: 10,
-            params.batch_interval ?: "5min",
-            params.dorado_model
-        )
-        ch_input_samples = REALTIME_POD5_MONITORING.out.samples
-        ch_versions = ch_versions.mix(REALTIME_POD5_MONITORING.out.versions.ifEmpty(null))
-        
-    } else if (params.realtime_mode) {
-        // Real-time FASTQ monitoring (traditional)
-        REALTIME_MONITORING (
-            params.nanopore_output_dir,
-            params.file_pattern ?: "**/*.fastq{,.gz}",
-            params.batch_size ?: 10,
-            params.batch_interval ?: "5min"
-        )
-        ch_input_samples = REALTIME_MONITORING.out.samples
-    } else {
-        ch_input_samples = ch_samplesheet
-    }
+    def is_pod5_workflow = (params.pod5_input_dir && params.use_dorado) || 
+                          (params.realtime_mode && params.file_pattern?.contains('.pod5'))
+    def is_barcode_discovery = params.barcode_input_dir
     
-    //
-    // SUBWORKFLOW: Dorado basecalling (if enabled)
-    //
-    if (params.use_dorado && params.pod5_input_dir) {
-        // Create POD5 input channel
-        ch_pod5_files = Channel.fromPath("${params.pod5_input_dir}/*.pod5", checkIfExists: true)
-            .collect()
-            .map { files -> 
-                def meta = [ id: 'basecalled_sample', single_end: true ]
-                [ meta, files ]
+    if (is_pod5_workflow) {
+        //
+        // POD5 WORKFLOW PATH
+        //
+        if (params.realtime_mode) {
+            // Real-time POD5 monitoring with Dorado basecalling
+            REALTIME_POD5_MONITORING (
+                params.nanopore_output_dir,
+                params.file_pattern ?: "**/*.pod5",
+                params.batch_size ?: 10,
+                params.batch_interval ?: "5min",
+                params.dorado_model
+            )
+            ch_processed_samples = REALTIME_POD5_MONITORING.out.samples
+            ch_versions = ch_versions.mix(REALTIME_POD5_MONITORING.out.versions.ifEmpty(null))
+            
+        } else {
+            // Static POD5 basecalling
+            if (!params.pod5_input_dir) {
+                error "POD5 input directory is required when use_dorado is true and not in realtime mode"
             }
+            ch_pod5_files = Channel.fromPath("${params.pod5_input_dir}/*.pod5", checkIfExists: true)
+                .collect()
+                .map { files -> 
+                    def meta = [ 
+                        id: 'pod5_sample', 
+                        single_end: true,
+                        barcode_kit: params.barcode_kit ?: null
+                    ]
+                    [ meta, files ]
+                }
+            
+            DORADO_BASECALLING (
+                ch_pod5_files,
+                params.dorado_model
+            )
+            ch_processed_samples = DORADO_BASECALLING.out.fastq
+            ch_versions = ch_versions.mix(DORADO_BASECALLING.out.versions)
+        }
         
-        DORADO_BASECALLING (
-            ch_pod5_files,
-            params.dorado_model
+    } else if (is_barcode_discovery) {
+        //
+        // PRE-DEMULTIPLEXED BARCODE DIRECTORIES
+        //
+        BARCODE_DISCOVERY (
+            params.barcode_input_dir
         )
-        ch_versions = ch_versions.mix(DORADO_BASECALLING.out.versions)
+        ch_processed_samples = BARCODE_DISCOVERY.out.samples
+        ch_versions = ch_versions.mix(BARCODE_DISCOVERY.out.versions)
         
-        // Use basecalled samples instead of input samples
-        ch_processed_samples = DORADO_BASECALLING.out.fastq
     } else {
-        // Use input samples directly
-        ch_processed_samples = ch_input_samples
+        //
+        // FASTQ WORKFLOW PATH
+        //
+        if (params.realtime_mode) {
+            // Real-time FASTQ monitoring
+            REALTIME_MONITORING (
+                params.nanopore_output_dir,
+                params.file_pattern ?: "**/*.fastq{,.gz}",
+                params.batch_size ?: 10,
+                params.batch_interval ?: "5min"
+            )
+            ch_processed_samples = REALTIME_MONITORING.out.samples
+        } else {
+            // Standard samplesheet input
+            ch_processed_samples = ch_samplesheet
+        }
     }
     
     //

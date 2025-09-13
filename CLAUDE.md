@@ -1,25 +1,37 @@
 # CLAUDE.md
 
-Developer guidance for **foi-bioinformatics/nanometanf**, a nf-core compliant Nextflow pipeline providing real-time nanopore sequencing analysis with taxonomic classification.
+Developer guidance for **foi-bioinformatics/nanometanf**, a nf-core compliant Nextflow pipeline for comprehensive real-time nanopore sequencing data analysis with integrated basecalling, quality control, taxonomic classification, and validation workflows.
+
+## Scientific Context
+
+This pipeline addresses critical bioinformatics challenges in Oxford Nanopore Technologies (ONT) sequencing workflows:
+- **Real-time analysis** during active sequencing runs for pathogen detection
+- **Multiple input modalities** supporting laboratory preprocessing workflows
+- **Scalable taxonomic profiling** with Kraken2 for metagenomics applications
+- **Quality-controlled basecalling** with modern Dorado algorithms
+- **Reproducible containerized execution** following nf-core best practices
 
 ## Architecture
 
 **Core Components:**
-- `main.nf` - Pipeline entry point
-- `workflows/nanometanf.nf` - Main workflow orchestration
-- `nextflow.config` - Configuration and parameters
-- `nextflow_schema.json` - Parameter validation (52 parameters)
+- `main.nf` - Pipeline entry point with workflow routing logic
+- `workflows/nanometanf.nf` - Main workflow orchestration with intelligent input type detection
+- `nextflow.config` - Comprehensive parameter configuration (54+ parameters)
+- `nextflow_schema.json` - JSON Schema parameter validation and documentation
 
-**Subworkflows (5):**
-- `realtime_monitoring.nf` - watchPath-based file monitoring
-- `dorado_basecalling.nf` - POD5 basecalling and demultiplexing
-- `qc_analysis.nf` - FASTP and NanoPlot quality control
-- `taxonomic_classification.nf` - Kraken2 classification
-- `validation.nf` - BLAST validation
+**Subworkflows (8):**
+- `realtime_monitoring.nf` - watchPath-based FASTQ file monitoring for live sequencing
+- `realtime_pod5_monitoring.nf` - watchPath-based POD5 file monitoring with basecalling
+- `dorado_basecalling.nf` - High-accuracy POD5 basecalling with Dorado
+- `barcode_discovery.nf` - **NEW** - Automated discovery of pre-demultiplexed barcode directories
+- `demultiplexing.nf` - **ENHANCED** - Complete Dorado-based demultiplexing with proper output handling
+- `qc_analysis.nf` - Comprehensive quality control with FASTP and NanoPlot
+- `taxonomic_classification.nf` - Kraken2-based taxonomic profiling
+- `validation.nf` - BLAST-based validation for targeted species confirmation
 
-**Modules (10):**
+**Modules (11):**
 - nf-core: fastp, fastqc, kraken2/kraken2, blast/blastn, blast/makeblastdb, multiqc, nanoplot, untar
-- local: dorado_basecaller, dorado_demux
+- local: dorado_basecaller, dorado_demux **NEW** - Complete demultiplexing implementation
 
 ## Prerequisites
 
@@ -31,48 +43,87 @@ export PATH=$JAVA_HOME/bin:$PATH
 
 ## Execution Modes
 
-**Standard Processing:**
+**1. Standard FASTQ Processing (Laboratory preprocessed samples):**
 ```bash
 nextflow run . --input samplesheet.csv --outdir results
 ```
 
-**Dorado Basecalling:**
+**2. Pre-demultiplexed Barcode Directories (NEW - Common laboratory workflow):**
 ```bash
-nextflow run . --use_dorado true --pod5_input_dir /path/to/pod5 --outdir results
+nextflow run . --barcode_input_dir /path/to/barcode/folders --outdir results
+# Automatically discovers barcode01/, barcode02/, unclassified/ directories
 ```
 
-**Real-time FASTQ Monitoring:**
+**3. Singleplex POD5 Basecalling:**
 ```bash
-nextflow run . --realtime_mode true --nanopore_output_dir /path/to/watch --outdir results
+nextflow run . --use_dorado --pod5_input_dir /path/to/pod5 --dorado_model dna_r10.4.1_e4.3_400bps_hac@v5.0.0 --outdir results
 ```
 
-**Real-time POD5 Processing with Dorado:**
+**4. Multiplex POD5 with Dorado Demultiplexing (FIXED):**
 ```bash
-nextflow run . --realtime_mode true --use_dorado true --nanopore_output_dir /path/to/pod5 --file_pattern "**/*.pod5" --outdir results
+nextflow run . --use_dorado --pod5_input_dir /path/to/pod5 --barcode_kit SQK-NBD114-24 --trim_barcodes --outdir results
+```
+
+**5. Real-time FASTQ Monitoring (Live sequencing):**
+```bash
+nextflow run . --realtime_mode --nanopore_output_dir /path/to/watch --file_pattern "**/*.fastq{,.gz}" --outdir results
+```
+
+**6. Real-time POD5 Processing with Basecalling (Live sequencing + basecalling):**
+```bash
+nextflow run . --realtime_mode --use_dorado --nanopore_output_dir /path/to/pod5 --file_pattern "**/*.pod5" --outdir results
 ```
 
 **Available profiles:** docker, singularity, conda, test, local_test
 
-## Testing
+## Comprehensive Testing Framework
 
 ```bash
-# nf-test suite (7 tests)
-nf-test test --profile docker
+# Complete nf-test suite (12+ tests including new functionality)
+nf-test test --verbose
 
-# Manual testing
+# New functionality tests
+nf-test test tests/barcode_discovery.nf.test            # Pre-demux barcode directory discovery
+nf-test test tests/dorado_multiplex.nf.test             # POD5 multiplex demultiplexing 
+nf-test test modules/local/dorado_demux/tests/main.nf.test     # Dorado demux module unit test
+nf-test test subworkflows/local/barcode_discovery/tests/main.nf.test  # Barcode discovery unit test
+
+# Existing comprehensive tests
+nf-test test tests/nanoseq_test.nf.test                 # Complete workflow with nf-core data
+nf-test test tests/dorado_pod5.nf.test                  # Singleplex POD5 basecalling
+nf-test test tests/realtime_processing.nf.test         # Real-time FASTQ monitoring
+nf-test test tests/parameter_validation.nf.test        # Schema validation
+
+# Manual testing with local resources
 nextflow run . -c conf/local_test.config --input test_samplesheet.csv --outdir test_results
 
-# nf-core compliance
-nf-core lint
-nf-core modules list local
-nf-core schema lint
+# nf-core compliance validation
+nf-core lint                    # Pipeline compliance (passing)
+nf-core modules list local      # Module tracking
+nf-core schema lint             # Parameter schema validation
 ```
 
 ## Key Parameters
 
 **Input/Output:**
 - `--input` - Samplesheet CSV with nanopore format: `sample,fastq,barcode`
+- `--barcode_input_dir` - **NEW** - Directory containing pre-demultiplexed barcode folders (alternative to samplesheet)
 - `--outdir` - Output directory (required)
+
+**Input Type Selection (mutually exclusive):**
+```bash
+# Option 1: Samplesheet-based input (standard)
+--input samplesheet.csv
+
+# Option 2: Pre-demultiplexed barcode directories (NEW)
+--barcode_input_dir /path/to/barcode_folders/
+
+# Option 3: POD5 directory input
+--pod5_input_dir /path/to/pod5/ --use_dorado
+
+# Option 4: Real-time monitoring
+--realtime_mode --nanopore_output_dir /path/to/monitor/
+```
 
 **Samplesheet Format (Nanopore-specific):**
 ```csv
@@ -82,15 +133,16 @@ SAMPLE_2,sample2.fastq.gz,BC01
 ```
 - `barcode` column optional (empty for non-barcoded samples)
 - Empty samplesheets only work with `--realtime_mode true`
+- **Do not mix POD5 and FASTQ in same run** - choose one workflow type
 
 **Dorado Integration (default: disabled):**
 - `--use_dorado true` - Enable basecalling from POD5 files
 - `--dorado_path` - Binary path (/Users/andreassjodin/Downloads/dorado-1.1.1-osx-arm64/bin/dorado)
 - `--pod5_input_dir` - POD5 files directory
 - `--dorado_model` - Basecalling model (default: dna_r10.4.1_e4.3_400bps_hac@v5.0.0)
-- `--demultiplex false` - Enable barcode demultiplexing
-- `--barcode_kit` - Barcode kit (e.g., SQK-PBK004)
-- `--min_qscore 9` - Quality threshold
+- `--barcode_kit` - Barcode kit for demultiplexing (e.g., SQK-NBD114-24) **FIXED**
+- `--trim_barcodes true` - Remove barcode sequences from demultiplexed reads
+- `--min_qscore 9` - Minimum quality threshold for basecalling
 
 **Real-time Processing (default: disabled):**
 - `--realtime_mode false` - Enable file monitoring (bypasses samplesheet file paths)

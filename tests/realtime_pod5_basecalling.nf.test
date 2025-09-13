@@ -20,7 +20,7 @@ nextflow_pipeline {
                 
                 // Batch settings for testing
                 batch_size = 1
-                batch_interval = "10s"
+                batch_interval = "2s"  // Faster for testing
                 max_files = "1"  // Limit for testing
                 
                 // Disable other features
@@ -32,7 +32,7 @@ nextflow_pipeline {
                 // Resource limits
                 max_cpus = 2
                 max_memory = '4.GB'
-                max_time = '10.min'
+                max_time = '2.min'  // Shorter timeout
             }
         }
 

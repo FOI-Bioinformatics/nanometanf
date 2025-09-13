@@ -2,6 +2,8 @@
 // Demultiplexing subworkflow for multiplexed nanopore samples
 //
 
+include { DORADO_DEMUX } from '../../modules/local/dorado_demux/main'
+
 workflow DEMULTIPLEXING {
 
     take:
@@ -9,60 +11,51 @@ workflow DEMULTIPLEXING {
 
     main:
     ch_versions = Channel.empty()
+    ch_all_samples = Channel.empty()
     
     //
     // BRANCH: Handle multiplexed vs pre-demultiplexed samples
     //
     ch_input
         .branch { meta, reads ->
-            multiplexed: meta.barcode_kit && !meta.demultiplexed
-            demultiplexed: !meta.barcode_kit || meta.demultiplexed
+            needs_demux: meta.barcode_kit && !meta.demultiplexed
+            already_demuxed: !meta.barcode_kit || meta.demultiplexed
         }
         .set { ch_branched }
     
     //
-    // PROCESS: Use dorado for demultiplexing if available and multiplexed
+    // PROCESS: Dorado demultiplexing for multiplexed samples
     //
-    if (params.use_dorado && params.dorado_path) {
-        ch_demux_with_dorado = ch_branched.multiplexed
+    if (params.use_dorado && params.barcode_kit) {
+        DORADO_DEMUX (
+            ch_branched.needs_demux,
+            params.barcode_kit ?: 'SQK-NBD114-24'  // Default barcode kit
+        )
+        ch_versions = ch_versions.mix(DORADO_DEMUX.out.versions)
+        
+        // Flatten demuxed reads into individual samples
+        ch_demuxed_samples = DORADO_DEMUX.out.demuxed_reads
+            .transpose()
             .map { meta, reads ->
-                // Create dorado demux command
-                def dorado_cmd = [
-                    "${params.dorado_path}/dorado",
-                    "demux",
-                    "--emit-fastq",
-                    reads
-                ].join(" ")
-                
-                // Execute dorado demux and collect outputs
-                def output_dir = "demux_${meta.id}"
-                
-                // Update meta for each barcode
-                def demux_meta = meta.clone()
-                demux_meta.demultiplexed = true
-                demux_meta.demux_tool = "dorado"
-                
-                return [ demux_meta, reads, dorado_cmd, output_dir ]
+                // Extract barcode from path (e.g., demux_output/barcode01/reads.fastq)
+                def barcode = reads.getParent().getName()
+                def new_meta = meta.clone()
+                new_meta.id = "${meta.id}_${barcode}"
+                new_meta.barcode = barcode
+                new_meta.demultiplexed = true
+                new_meta.demux_tool = "dorado"
+                return [ new_meta, reads ]
             }
-    } else {
-        ch_demux_with_dorado = Channel.empty()
+        
+        ch_all_samples = ch_all_samples.mix(ch_demuxed_samples)
     }
     
     //
-    // CHANNEL: Collect all demultiplexed samples
+    // CHANNEL: Add already demultiplexed samples
     //
-    ch_demultiplexed_samples = ch_branched.demultiplexed
-        .mix(ch_demux_with_dorado.map { meta, reads, cmd, dir -> [ meta, reads ] })
-        .map { meta, reads ->
-            // Ensure consistent sample naming
-            def sample_meta = meta.clone()
-            if (!sample_meta.id.contains('barcode') && meta.barcode) {
-                sample_meta.id = "${meta.id}_${meta.barcode}"
-            }
-            return [ sample_meta, reads ]
-        }
+    ch_all_samples = ch_all_samples.mix(ch_branched.already_demuxed)
 
     emit:
-    samples  = ch_demultiplexed_samples   // channel: [ val(meta), path(reads) ]
-    versions = ch_versions                // channel: [ path(versions.yml) ]
+    samples  = ch_all_samples    // channel: [ val(meta), path(reads) ]
+    versions = ch_versions       // channel: [ path(versions.yml) ]
 }

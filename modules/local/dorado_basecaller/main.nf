@@ -2,10 +2,8 @@ process DORADO_BASECALLER {
     tag "$meta.id"
     label 'process_high'
 
-    conda "${moduleDir}/environment.yml"
-    container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
-        'https://depot.galaxyproject.org/singularity/dorado:0.7.3--h9ee0642_0':
-        'biocontainers/dorado:0.7.3--h9ee0642_0' }"
+    // Assume dorado is available in PATH
+    // conda "${moduleDir}/environment.yml"
 
     input:
     tuple val(meta), path(pod5_files)
@@ -29,18 +27,19 @@ process DORADO_BASECALLER {
     
     """
     # Check if dorado is available
-    if [ ! -f "${params.dorado_path}" ]; then
-        echo "ERROR: Dorado not found at ${params.dorado_path}"
+    if ! command -v dorado &> /dev/null; then
+        echo "ERROR: Dorado not found in PATH"
         exit 1
     fi
 
-    # Download model if not available locally
-    ${params.dorado_path} download --model ${model} || echo "Model may already be available"
+    # Download model if not available locally  
+    dorado download --model ${model} || echo "Model may already be available"
 
     # Run basecalling
-    ${params.dorado_path} basecaller \\
+    dorado basecaller \\
         ${model} \\
         ${input_path} \\
+        --emit-fastq \\
         --min-qscore ${min_qscore} \\
         --verbose \\
         ${args} \\
@@ -59,7 +58,7 @@ process DORADO_BASECALLER {
     # Version information
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
-        dorado: \$(${params.dorado_path} --version 2>&1 | head -n 1 | sed 's/.*dorado //g')
+        dorado: \$(dorado --version 2>&1 | head -n 1 | sed 's/.*dorado //g')
     END_VERSIONS
     """
 
@@ -71,7 +70,7 @@ process DORADO_BASECALLER {
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
-        dorado: \$(echo "0.7.3")
+        dorado: \$(echo "1.1.1")
     END_VERSIONS
     """
 }

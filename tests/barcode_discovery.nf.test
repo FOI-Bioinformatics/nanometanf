@@ -1,0 +1,85 @@
+nextflow_pipeline {
+
+    name "Test pre-demultiplexed barcode directory discovery"
+    script "../main.nf"
+
+    test("Should discover and process pre-demultiplexed barcode folders") {
+
+        setup {
+            // Create test barcode directory structure
+            run("mkdir -p $outputDir/test_barcodes/barcode01")
+            run("mkdir -p $outputDir/test_barcodes/barcode02")  
+            run("mkdir -p $outputDir/test_barcodes/unclassified")
+            
+            // Copy test FASTQ files to barcode directories
+            run("cp $projectDir/tests/test_sample.fastq.gz $outputDir/test_barcodes/barcode01/")
+            run("cp $projectDir/tests/test_sample.fastq.gz $outputDir/test_barcodes/barcode02/reads.fastq.gz")
+            run("cp $projectDir/tests/test_sample.fastq.gz $outputDir/test_barcodes/unclassified/unclass.fastq.gz")
+        }
+
+        when {
+            params {
+                // Use barcode directory input
+                barcode_input_dir = "$outputDir/test_barcodes"
+                outdir = "$outputDir/results"
+                
+                // Disable other input methods
+                input = null
+                pod5_input_dir = null
+                use_dorado = false
+                realtime_mode = false
+                
+                // Disable advanced features for focused testing
+                kraken2_db = null
+                blast_validation = false
+                
+                // Resource limits
+                max_cpus = 2
+                max_memory = '4.GB'
+                max_time = '1.h'
+            }
+        }
+
+        then {
+            assert workflow.success
+            assert workflow.trace.tasks().size() > 0
+            
+            // Check that barcode discovery worked
+            assert workflow.trace.tasks().any { it.name.contains('BARCODE_DISCOVERY') }
+            
+            // Check QC ran for multiple samples
+            def fastp_tasks = workflow.trace.tasks().findAll { it.name.contains('FASTP') }
+            assert fastp_tasks.size() >= 2  // At least barcode01 and barcode02
+            
+            // Check output structure
+            assert path("${outputDir}/results/fastp").exists()
+            assert path("${outputDir}/results/multiqc").exists()
+        }
+    }
+
+    test("Should handle empty barcode directories gracefully") {
+
+        setup {
+            // Create empty barcode directories
+            run("mkdir -p $outputDir/empty_barcodes/barcode01")
+            run("mkdir -p $outputDir/empty_barcodes/barcode02")
+        }
+
+        when {
+            params {
+                barcode_input_dir = "$outputDir/empty_barcodes"
+                outdir = "$outputDir/results"
+                
+                // Resource limits
+                max_cpus = 2
+                max_memory = '4.GB'
+                max_time = '1.h'
+            }
+        }
+
+        then {
+            // Should fail gracefully or skip processing
+            assert workflow.failed || workflow.trace.tasks().size() == 0
+        }
+    }
+}

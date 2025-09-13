@@ -1,19 +1,18 @@
 process DORADO_DEMUX {
     tag "$meta.id"
-    label 'process_medium'
-
-    conda "${moduleDir}/environment.yml"
-    container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
-        'https://depot.galaxyproject.org/singularity/dorado:0.7.3--h9ee0642_0':
-        'biocontainers/dorado:0.7.3--h9ee0642_0' }"
+    label 'process_high'
+    
+    // Assume dorado is available in PATH
+    // conda "${moduleDir}/environment.yml"
 
     input:
-    tuple val(meta), path(fastq)
+    tuple val(meta), path(reads)
     val barcode_kit
 
     output:
-    tuple val(meta), path("demux_*.fastq.gz"), emit: fastq
-    tuple val(meta), path("*_demux_summary.txt"), emit: summary
+    tuple val(meta), path("demux_output/barcode*/*.fastq*"), emit: demuxed_reads
+    tuple val(meta), path("demux_output/unclassified/*.fastq*"), emit: unclassified, optional: true
+    path "demux_output/demux_summary.txt", emit: summary, optional: true
     path "versions.yml", emit: versions
 
     when:
@@ -22,77 +21,49 @@ process DORADO_DEMUX {
     script:
     def args = task.ext.args ?: ''
     def prefix = task.ext.prefix ?: "${meta.id}"
-    def trim_barcodes = params.trim_barcodes ? '--trim' : '--no-trim'
+    def trim_barcodes = params.trim_barcodes ? "" : "--no-trim"
     
     """
+    mkdir -p demux_output
+
     # Check if dorado is available
-    if [ ! -f "${params.dorado_path}" ]; then
-        echo "ERROR: Dorado not found at ${params.dorado_path}"
+    if ! command -v dorado &> /dev/null; then
+        echo "ERROR: Dorado not found in PATH"
         exit 1
     fi
 
-    # Create output directory for demultiplexed reads
-    mkdir -p demux_output
-
-    # Run demultiplexing
-    ${params.dorado_path} demux \\
+    dorado demux \\
         --kit-name ${barcode_kit} \\
-        ${trim_barcodes} \\
         --output-dir demux_output \\
+        ${trim_barcodes} \\
+        --emit-fastq \\
         ${args} \\
-        ${fastq}
-
-    # Process demultiplexed files
-    for barcode_file in demux_output/*.fastq; do
-        if [ -f "\$barcode_file" ]; then
-            # Extract barcode name from filename
-            barcode_name=\$(basename "\$barcode_file" .fastq)
-            
-            # Skip unclassified reads if empty
-            if [ "\$barcode_name" = "unclassified" ] && [ ! -s "\$barcode_file" ]; then
-                continue
-            fi
-            
-            # Compress and rename
-            gzip "\$barcode_file"
-            mv "demux_output/\${barcode_name}.fastq.gz" "demux_\${barcode_name}.fastq.gz"
-        fi
-    done
+        ${reads}
 
     # Create summary
-    echo "Original sample: ${prefix}" > ${prefix}_demux_summary.txt
-    echo "Barcode kit: ${barcode_kit}" >> ${prefix}_demux_summary.txt
-    echo "Trim barcodes: ${params.trim_barcodes}" >> ${prefix}_demux_summary.txt
-    echo "Demultiplexing completed: \$(date)" >> ${prefix}_demux_summary.txt
-    echo "" >> ${prefix}_demux_summary.txt
-    echo "Demultiplexed samples:" >> ${prefix}_demux_summary.txt
-    for file in demux_*.fastq.gz; do
-        if [ -f "\$file" ]; then
-            reads=\$(zcat "\$file" | wc -l | awk '{print \$1/4}')
-            echo "  \$file: \$reads reads" >> ${prefix}_demux_summary.txt
-        fi
-    done
+    find demux_output -name "*.fastq*" | wc -l > demux_output/demux_summary.txt
+    echo "Demultiplexing completed for ${meta.id}" >> demux_output/demux_summary.txt
 
-    # Clean up
-    rm -rf demux_output
-
-    # Version information
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
-        dorado: \$(${params.dorado_path} --version 2>&1 | head -n 1 | sed 's/.*dorado //g')
+        dorado: \$(dorado --version | head -n1 | sed 's/.*dorado //g')
     END_VERSIONS
     """
 
     stub:
     def prefix = task.ext.prefix ?: "${meta.id}"
     """
-    touch demux_barcode01.fastq.gz
-    touch demux_barcode02.fastq.gz
-    touch ${prefix}_demux_summary.txt
-
+    mkdir -p demux_output/barcode01
+    mkdir -p demux_output/barcode02
+    mkdir -p demux_output/unclassified
+    touch demux_output/barcode01/reads.fastq
+    touch demux_output/barcode02/reads.fastq
+    touch demux_output/unclassified/reads.fastq
+    touch demux_output/demux_summary.txt
+    
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
-        dorado: \$(echo "0.7.3")
+        dorado: 1.1.1
     END_VERSIONS
     """
 }

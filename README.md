@@ -29,29 +29,24 @@ The pipeline workflow includes:
 > [!NOTE]
 > If you are new to Nextflow and nf-core, please refer to [this page](https://nf-co.re/docs/usage/installation) on how to set-up Nextflow. Make sure to [test your setup](https://nf-co.re/docs/usage/introduction#how-to-run-a-pipeline) with `-profile test` before running the workflow on actual data.
 
-First, prepare a samplesheet with your input data that looks as follows:
+This pipeline provides comprehensive support for Oxford Nanopore Technologies (ONT) sequencing workflows, accommodating diverse laboratory preprocessing approaches and real-time analytical requirements. **Input types are mutually exclusive - select either POD5 or FASTQ workflow paradigm per analysis run.**
+
+## Supported Input Modalities
+
+The pipeline architecture supports four distinct input paradigms, each optimized for specific experimental workflows:
+
+## Input Types
+
+### 1. Preprocessed FASTQ Samplesheet Analysis
+
+**Scientific rationale:** Standard workflow for quality-controlled FASTQ files with completed basecalling and optional demultiplexing. Suitable for batch processing of archived sequencing data or when basecalling has been performed using external workflows.
 
 `samplesheet.csv`:
-
 ```csv
 sample,fastq,barcode
 SAMPLE_1,sample1.fastq.gz,
 SAMPLE_2,sample2.fastq.gz,BC01
 ```
-
-Each row represents a sample with its associated nanopore FASTQ file. The `barcode` column is optional and used for barcoded samples (leave empty for non-barcoded samples). This format follows nf-core nanopore pipeline best practices. 
-
-**Important**: 
-- **Static mode**: Samplesheet must contain actual file paths to existing FASTQ files
-- **Real-time mode**: Samplesheet can be empty (header only) as files are detected automatically
-- **Dorado mode**: Empty samplesheet can be provided when processing POD5 files directly
-
-> [!CRITICAL]
-> **Empty samplesheets ONLY work with real-time mode enabled (`--realtime_mode true`)**. Using an empty samplesheet in static mode will cause the pipeline to fail. This is by design - real-time mode bypasses samplesheet file paths and creates sample metadata dynamically from detected files.
-
-### Basic Usage
-
-Run the pipeline with standard FASTQ processing:
 
 ```bash
 nextflow run foi-bioinformatics/nanometanf \
@@ -60,72 +55,189 @@ nextflow run foi-bioinformatics/nanometanf \
    --outdir results
 ```
 
-### Dorado Basecalling
+### 2. Pre-demultiplexed Barcode Directory Discovery ⭐ **NEW**
 
-For direct basecalling from POD5 files with Dorado:
+**Scientific rationale:** Accommodates common laboratory workflows where multiplexed samples have been demultiplexed using external tools (e.g., Guppy, Dorado, qcat) and organized into barcode-specific directories. Enables automated sample discovery without manual samplesheet curation.
+
+**Expected directory structure:**
+```
+/path/to/barcode/folders/
+├── barcode01/
+│   ├── reads.fastq.gz
+│   └── additional_reads.fastq.gz
+├── barcode02/
+│   └── reads.fastq.gz
+├── barcode12/
+│   └── reads.fastq.gz
+└── unclassified/      # Optional - unassigned reads
+    └── reads.fastq.gz
+```
 
 ```bash
 nextflow run foi-bioinformatics/nanometanf \
    -profile docker \
-   --input samplesheet.csv \
-   --outdir results \
-   --use_dorado true \
-   --pod5_input_dir /path/to/pod5_files \
-   --dorado_model dna_r10.4.1_e4.3_400bps_hac@v5.0.0
+   --barcode_input_dir /path/to/barcode/folders \
+   --outdir results
 ```
 
-### Real-time Processing
+**Technical features:**
+- Automatic recursive FASTQ file discovery within barcode subdirectories
+- Support for standard ONT barcode naming conventions (barcode01-96)
+- Optional processing of unclassified reads
+- Dynamic sample metadata generation based on directory structure
 
-Enable real-time monitoring of sequencing output. **Note**: In real-time mode, the pipeline monitors a directory for new files and creates sample metadata automatically. You can provide an empty samplesheet:
+### 3. POD5 Signal-Level Basecalling and Analysis
 
-#### Real-time FASTQ Processing
+**Scientific rationale:** Direct processing of ONT raw signal data (POD5 format) using state-of-the-art Dorado basecalling algorithms. Enables comprehensive control over basecalling parameters, model selection, and quality thresholds. Suitable for processing archived POD5 data or optimizing basecalling accuracy for specific experimental conditions.
+
+#### 3a. Singleplex POD5 Basecalling
+**Use case:** Single-sample libraries without barcoding
 ```bash
-# Create minimal samplesheet for real-time mode
+nextflow run foi-bioinformatics/nanometanf \
+   -profile docker \
+   --pod5_input_dir /path/to/pod5/files \
+   --use_dorado \
+   --dorado_model dna_r10.4.1_e4.3_400bps_hac@v5.0.0 \
+   --min_qscore 9 \
+   --outdir results
+```
+
+#### 3b. Multiplex POD5 with Integrated Demultiplexing ⭐ **ENHANCED**
+**Use case:** Barcoded libraries requiring simultaneous basecalling and demultiplexing
+```bash
+nextflow run foi-bioinformatics/nanometanf \
+   -profile docker \
+   --pod5_input_dir /path/to/pod5/files \
+   --use_dorado \
+   --barcode_kit SQK-NBD114-24 \
+   --trim_barcodes \
+   --dorado_model dna_r10.4.1_e4.3_400bps_hac@v5.0.0 \
+   --min_qscore 9 \
+   --outdir results
+```
+
+**Technical features:**
+- Support for Dorado high-accuracy (HAC) and super-accurate (SUP) models
+- Configurable quality score thresholds for read filtering
+- Automated demultiplexing for 24-, 96-, and custom barcode kits
+- Barcode trimming with quality-aware sequence removal
+- Batch processing optimization for large POD5 collections
+
+### 4. Real-time Live Sequencing Analysis
+
+**Scientific rationale:** Enables real-time analysis during active ONT sequencing runs for applications requiring immediate results (e.g., pathogen detection, contamination monitoring, adaptive sampling). Utilizes Nextflow's `watchPath` functionality for continuous file system monitoring with configurable batch processing intervals.
+
+#### 4a. Real-time FASTQ Stream Processing
+**Use case:** Live analysis of basecalled FASTQ files during sequencing
+```bash
+# Create empty samplesheet (required for real-time mode)
 echo "sample,fastq,barcode" > empty_samplesheet.csv
 
-# Run with real-time FASTQ monitoring
 nextflow run foi-bioinformatics/nanometanf \
    -profile docker \
    --input empty_samplesheet.csv \
-   --outdir results \
-   --realtime_mode true \
+   --realtime_mode \
    --nanopore_output_dir /path/to/fastq_output \
-   --file_pattern "**/*.fastq.gz"
+   --file_pattern "**/*.fastq{,.gz}" \
+   --batch_size 10 \
+   --batch_interval "5min" \
+   --outdir results
 ```
 
-#### Real-time POD5 Processing with Dorado ⭐ **NEW**
+#### 4b. Real-time POD5 Processing with Live Basecalling
+**Use case:** Integrated basecalling and analysis during sequencing for maximum sensitivity
 ```bash
-# Create empty samplesheet and run real-time POD5 monitoring
 echo "sample,fastq,barcode" > empty_samplesheet.csv
+
 nextflow run foi-bioinformatics/nanometanf \
    -profile docker \
    --input empty_samplesheet.csv \
-   --outdir results \
-   --realtime_mode true \
-   --use_dorado true \
+   --realtime_mode \
+   --use_dorado \
    --nanopore_output_dir /path/to/pod5_output \
    --file_pattern "**/*.pod5" \
-   --dorado_model dna_r10.4.1_e4.3_400bps_hac@v5.0.0
+   --dorado_model dna_r10.4.1_e4.3_400bps_fast@v4.1.0 \
+   --batch_size 5 \
+   --batch_interval "3min" \
+   --outdir results
 ```
 
-In real-time mode:
-- **POD5 + Dorado**: Monitors for POD5 files, basecalls them automatically, then processes FASTQ
-- **FASTQ only**: Monitors for FASTQ files and processes them directly
-- Sample names are derived automatically from filenames
-- Files are processed as they appear in the monitored directory
-- The samplesheet requirement is bypassed for dynamic file detection
+**Technical features:**
+- Asynchronous file monitoring with configurable polling intervals
+- Batch processing optimization to balance throughput and latency
+- Automatic sample metadata generation from file timestamps
+- Support for compressed and uncompressed FASTQ formats
+- Real-time quality metrics and taxonomic classification updates
+
+> [!CRITICAL]
+> **Real-time mode requirements:** Empty samplesheets are mandatory for real-time processing (`--realtime_mode`). Static mode requires populated samplesheets with existing file paths.
+
+## Output Structure and Results
+
+The pipeline generates standardized output directories following nf-core conventions:
+
+```
+results/
+├── fastp/                  # Quality-controlled FASTQ files and QC reports
+├── nanoplot/              # Comprehensive nanopore-specific QC metrics
+├── kraken2/               # Taxonomic classification results (if enabled)
+│   ├── *.classified.fastq.gz
+│   ├── *.report.txt
+│   └── *.kraken2.txt
+├── blast/                 # Validation results (if enabled)
+│   └── *.blast.txt
+├── multiqc/               # Integrated quality control report
+│   └── multiqc_report.html
+└── pipeline_info/         # Execution metadata and resource usage
+    ├── execution_report.html
+    ├── execution_timeline.html
+    └── execution_trace.txt
+```
+
+## Computational Requirements and Performance
+
+### Resource Recommendations
+
+| Workflow Type | CPU Cores | Memory | Storage | Runtime* |
+|--------------|-----------|---------|---------|----------|
+| Standard FASTQ (10 samples) | 8-16 | 32-64 GB | 100 GB | 2-4 hours |
+| POD5 Basecalling (10 samples) | 16-32 | 64-128 GB | 500 GB | 4-8 hours |
+| Real-time processing | 8-16 | 32-64 GB | 1 TB | Continuous |
+| Taxonomic classification (+Kraken2) | 16-32 | 64-128 GB | 200 GB | +2-4 hours |
+
+*Runtime estimates for typical nanopore datasets (1-10 GB per sample)
+
+### Performance Optimization
+
+**Basecalling optimization:**
+- Use GPU-enabled profiles for Dorado when available
+- Select appropriate basecalling models: `fast` for real-time, `hac` for balanced accuracy, `sup` for maximum accuracy
+- Optimize batch sizes based on available memory and throughput requirements
+
+**Memory management:**
+- Kraken2 databases require substantial RAM (8-100+ GB depending on database size)
+- Consider using memory-mapped databases for large taxonomic classifications
+- Monitor memory usage during real-time processing to prevent resource exhaustion
+
+## Best Practices and Recommendations
+
+### Data Management
+1. **Quality thresholds:** Set minimum quality scores appropriate for downstream applications (Q7-Q15 for most use cases)
+2. **File organization:** Use consistent directory structures for reproducible analyses
+3. **Metadata tracking:** Maintain comprehensive sample metadata in samplesheets or directory naming conventions
 
 ### Taxonomic Classification
+1. **Database selection:** Choose Kraken2 databases appropriate for your experimental questions:
+   - Standard databases for general microbial profiling
+   - Custom databases for targeted pathogen detection
+   - Host-filtered databases to reduce contamination artifacts
 
-Include taxonomic profiling with Kraken2:
+2. **Validation strategies:** Use BLAST validation for critical identifications, particularly in clinical contexts
 
-```bash
-nextflow run foi-bioinformatics/nanometanf \
-   -profile docker \
-   --input samplesheet.csv \
-   --outdir results \
-   --kraken2_db /path/to/kraken2_database
-```
+### Real-time Processing
+1. **Resource monitoring:** Monitor system resources during live sequencing to prevent pipeline interruption
+2. **Batch optimization:** Balance batch sizes and intervals based on sequencing throughput and analysis requirements
+3. **Quality gates:** Implement appropriate quality thresholds to minimize false-positive classifications
 
 ## Pipeline Parameters
 
@@ -134,37 +246,45 @@ nextflow run foi-bioinformatics/nanometanf \
 | Parameter | Description | Type | Default |
 |-----------|-------------|------|---------|
 | `--input` | Path to samplesheet CSV file | string | - |
+| `--barcode_input_dir` | **NEW** - Directory containing pre-demultiplexed barcode folders | string | - |
 | `--outdir` | Output directory path | string | - |
 
-### Dorado Basecalling
+### Analysis Options
+
+| Parameter | Description | Type | Default |
+|-----------|-------------|------|---------|
+| `--kraken2_db` | Kraken2 database path for taxonomic classification | string | - |
+| `--blast_validation` | Enable BLAST validation for species confirmation | boolean | `false` |
+| `--skip_fastp` | Skip FASTP quality filtering | boolean | `false` |
+| `--skip_nanoplot` | Skip NanoPlot quality control | boolean | `false` |
+
+### Dorado Basecalling and Demultiplexing
 
 | Parameter | Description | Type | Default |
 |-----------|-------------|------|---------|
 | `--use_dorado` | Enable Dorado basecalling | boolean | `false` |
 | `--pod5_input_dir` | Directory containing POD5 files | string | - |
 | `--dorado_model` | Dorado basecalling model | string | `dna_r10.4.1_e4.3_400bps_hac@v5.0.0` |
-| `--demultiplex` | Enable demultiplexing | boolean | `false` |
-| `--barcode_kit` | Barcode kit for demultiplexing | string | - |
-| `--min_qscore` | Minimum quality score | integer | `9` |
+| `--barcode_kit` | **ENHANCED** - Barcode kit for demultiplexing (e.g., SQK-NBD114-24) | string | - |
+| `--trim_barcodes` | Remove barcode sequences from demultiplexed reads | boolean | `true` |
+| `--min_qscore` | Minimum quality score threshold for basecalling | integer | `9` |
+| `--dorado_path` | Path to Dorado binary executable | string | `dorado` |
 
-### Real-time Processing
+**Available basecalling models:**
+- `dna_r10.4.1_e4.3_400bps_fast@v4.1.0` - Fast basecalling (real-time applications)
+- `dna_r10.4.1_e4.3_400bps_hac@v5.0.0` - High accuracy (balanced performance)  
+- `dna_r10.4.1_e4.3_400bps_sup@v5.0.0` - Super accuracy (maximum quality)
+
+### Real-time Processing Parameters
 
 | Parameter | Description | Type | Default |
 |-----------|-------------|------|---------|
 | `--realtime_mode` | Enable real-time file monitoring (bypasses samplesheet files) | boolean | `false` |
-| `--nanopore_output_dir` | Directory to monitor for new FASTQ files | string | - |
-| `--file_pattern` | File pattern to match (e.g., `**/*.fastq.gz`) | string | `**/*.fastq{,.gz}` |
+| `--nanopore_output_dir` | Directory to monitor for new files | string | - |
+| `--file_pattern` | File pattern to match (e.g., `**/*.fastq.gz`, `**/*.pod5`) | string | `**/*.fastq{,.gz}` |
 | `--batch_size` | Files per processing batch | integer | `10` |
-| `--batch_interval` | Processing interval for batching | string | `5min` |
-
-### Analysis Options
-
-| Parameter | Description | Type | Default |
-|-----------|-------------|------|---------|
-| `--kraken2_db` | Kraken2 database path | string | - |
-| `--blast_validation` | Enable BLAST validation | boolean | `false` |
-| `--skip_fastp` | Skip FASTP quality filtering | boolean | `false` |
-| `--skip_nanoplot` | Skip NanoPlot QC | boolean | `false` |
+| `--batch_interval` | Processing interval between batches | string | `5min` |
+| `--max_files` | Maximum files to process (for testing) | integer | - |
 
 ## Pipeline Output
 

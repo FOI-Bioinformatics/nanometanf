@@ -20,13 +20,13 @@ input:
       description: |
         Groovy Map containing sample information
         e.g. [ id:'test', single_end:false ]
-  - fastq:
+  - reads:
       type: file
       description: Basecalled FASTQ file to be demultiplexed
-      pattern: "*.fastq.gz"
+      pattern: "*.fastq{,.gz}"
   - barcode_kit:
       type: string
-      description: Barcode kit name (e.g., 'SQK-PBK004', 'SQK-RPB004')
+      description: Barcode kit name (e.g., 'SQK-NBD114-24', 'SQK-RPB004')
 
 output:
   - meta:
@@ -38,14 +38,18 @@ output:
       type: file
       description: File containing software versions
       pattern: "versions.yml"
-  - fastq:
+  - demuxed_reads:
       type: file
-      description: Demultiplexed reads in FASTQ format, one file per barcode
-      pattern: "demux_*.fastq.gz"
+      description: Demultiplexed reads in FASTQ format, organized by barcode directories
+      pattern: "demux_output/barcode*/*.fastq*"
+  - unclassified:
+      type: file
+      description: Unclassified reads that could not be assigned to barcodes
+      pattern: "demux_output/unclassified/*.fastq*"
   - summary:
       type: file
       description: Summary of demultiplexing run
-      pattern: "*_demux_summary.txt"
+      pattern: "demux_output/demux_summary.txt"
 
 authors:
   - "@andreassjodin"
