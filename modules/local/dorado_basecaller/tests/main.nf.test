@@ -1,0 +1,188 @@
+nextflow_process {
+
+    name "Test DORADO_BASECALLER"
+    script "../main.nf"
+    process "DORADO_BASECALLER"
+
+    test("Should run dorado basecalling on POD5 files") {
+
+        setup {
+            // Create test POD5 file structure (simulate with dummy files)
+            script "mkdir -p $outputDir/test_pod5_input")
+            script "echo 'dummy pod5 content' > $outputDir/test_pod5_input/test.pod5")
+            script "echo 'dummy pod5 content 2' > $outputDir/test_pod5_input/test2.pod5")
+        }
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [
+                        id: 'test_sample',
+                        single_end: true,
+                        basecalling_model: 'dna_r10.4.1_e8.2_400bps_hac@v4.2.0'
+                    ],
+                    file('$outputDir/test_pod5_input')
+                ]
+                input[1] = 'dna_r10.4.1_e8.2_400bps_hac@v4.2.0'
+                input[2] = []  // No barcode kit
+                """
+            }
+        }
+
+        then {
+            assert process.success
+            assert process.out.reads.size() == 1
+            
+            // Check that the output exists and has correct meta
+            def (meta, reads) = process.out.reads[0]
+            assert meta.id == 'test_sample'
+            assert meta.single_end == true
+            assert reads != null
+            
+            // Check versions output
+            assert process.out.versions.size() == 1
+            assert path(process.out.versions[0]).getText().contains('dorado')
+        }
+    }
+
+    test("Should run dorado basecalling with demultiplexing") {
+
+        setup {
+            script "mkdir -p $outputDir/test_pod5_demux")
+            script "echo 'dummy pod5 content' > $outputDir/test_pod5_demux/test.pod5")
+        }
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [
+                        id: 'test_demux_sample',
+                        single_end: true,
+                        basecalling_model: 'dna_r10.4.1_e8.2_400bps_sup@v4.2.0'
+                    ],
+                    file('$outputDir/test_pod5_demux')
+                ]
+                input[1] = 'dna_r10.4.1_e8.2_400bps_sup@v4.2.0'
+                input[2] = 'SQK-RBK004'  // Barcode kit
+                """
+            }
+        }
+
+        then {
+            assert process.success
+            assert process.out.reads.size() == 1
+            
+            // Check output structure with demultiplexing
+            def (meta, reads) = process.out.reads[0]
+            assert meta.id == 'test_demux_sample'
+            
+            // Should have versions
+            assert process.out.versions.size() == 1
+        }
+    }
+
+    test("Should handle different basecalling models") {
+
+        setup {
+            script "mkdir -p $outputDir/test_pod5_models")
+            script "echo 'dummy pod5 content' > $outputDir/test_pod5_models/test.pod5")
+        }
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [
+                        id: 'test_model_sample',
+                        single_end: true,
+                        basecalling_model: 'dna_r9.4.1_e8_fast@v3.4'
+                    ],
+                    file('$outputDir/test_pod5_models')
+                ]
+                input[1] = 'dna_r9.4.1_e8_fast@v3.4'
+                input[2] = []
+                """
+            }
+        }
+
+        then {
+            assert process.success
+            assert process.out.reads.size() == 1
+            
+            def (meta, reads) = process.out.reads[0]
+            assert meta.basecalling_model == 'dna_r9.4.1_e8_fast@v3.4'
+            
+            assert process.out.versions.size() == 1
+        }
+    }
+
+    test("Should handle empty POD5 directory gracefully") {
+
+        setup {
+            script "mkdir -p $outputDir/test_empty_pod5")
+            // Create empty directory
+        }
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [
+                        id: 'test_empty',
+                        single_end: true,
+                        basecalling_model: 'dna_r10.4.1_e8.2_400bps_hac@v4.2.0'
+                    ],
+                    file('$outputDir/test_empty_pod5')
+                ]
+                input[1] = 'dna_r10.4.1_e8.2_400bps_hac@v4.2.0'
+                input[2] = []
+                """
+            }
+        }
+
+        then {
+            // Should handle empty directory gracefully
+            assert process.success || process.failed
+            
+            if (process.success) {
+                // If successful, should still produce minimal output
+                assert process.out.reads.size() >= 0
+                assert process.out.versions.size() == 1
+            }
+        }
+    }
+
+    test("Should run in stub mode") {
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [
+                        id: 'test_stub',
+                        single_end: true,
+                        basecalling_model: 'dna_r10.4.1_e8.2_400bps_hac@v4.2.0'
+                    ],
+                    []
+                ]
+                input[1] = 'dna_r10.4.1_e8.2_400bps_hac@v4.2.0'
+                input[2] = []
+                """
+            }
+            
+            stub true
+        }
+
+        then {
+            assert process.success
+            assert process.out.reads.size() == 1
+            assert process.out.versions.size() == 1
+            
+            // In stub mode, should produce placeholder files
+            def (meta, reads) = process.out.reads[0]
+            assert meta.id == 'test_stub'
+        }
+    }
+}

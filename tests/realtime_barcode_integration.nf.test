@@ -1,0 +1,310 @@
+nextflow_pipeline {
+
+    name "Test real-time barcode directory stream processing integration"
+    ../main.nf"
+
+    test("Should integrate real-time monitoring with barcode discovery {
+
+            // Create realistic nanopore barcode directory structure
+            cp $projectDir/tests/test_sample.fastq.gz $outputDir/integration_barcodes/barcode01/reads_batch1_001.fastq.gz
+            cp $projectDir/tests/test_sample.fastq.gz $outputDir/integration_barcodes/barcode02/reads_batch1_001.fastq.gz
+            cp $projectDir/tests/test_sample.fastq.gz $outputDir/integration_barcodes/barcode03/reads_batch1_001.fastq.gz
+            cp $projectDir/tests/test_sample.fastq.gz $outputDir/integration_barcodes/unclassified/reads_batch1_001.fastq.gz
+            
+            // Simulate continuous sequencing - additional files
+            cp $projectDir/tests/test_sample.fastq.gz $outputDir/integration_barcodes/barcode01/reads_batch2_001.fastq.gz
+            cp $projectDir/tests/test_sample.fastq.gz $outputDir/integration_barcodes/barcode02/reads_batch2_001.fastq.gz
+        }
+
+        when {
+            params {
+                input = "$projectDir/tests/empty_samplesheet.csv"
+                outdir = "$outputDir/results"
+                
+                // Enable both barcode discovery and real-time monitoring
+                realtime_mode = true
+                nanopore_output_dir = "$outputDir/integration_barcodes"
+                barcode_input_dir = "$outputDir/integration_barcodes"
+                
+                // File monitoring configuration
+                file_pattern = "**/*.{fastq,fastq.gz,fq,fq.gz}"
+                
+                // Integration-optimized batching
+                batch_size = 4
+                batch_interval = "5s"
+                max_files = 12
+                
+                // Enhanced real-time features
+                enable_adaptive_batching = true
+                enable_file_prioritization = true
+                
+                // Barcode-specific prioritization
+                priority_samples = "barcode01,barcode02"
+                
+                // Comprehensive statistics for integration
+                enable_quality_indicators = true
+                enable_source_analysis = true
+                enable_timing_analysis = true
+                enable_performance_monitoring = true
+                
+                // Real-time reporting
+                realtime_stats_interval = "3s"
+                realtime_report_format = "html,json"
+                generate_cumulative_stats = true
+                
+                // Session tracking
+                session_tracking = true
+                performance_window_minutes = 5
+                
+                // Alert configuration
+                quality_alert_threshold = 0.75
+                performance_alert_threshold = 0.6
+                
+                // Disable heavy processing for faster testing
+                use_dorado = false
+                kraken2_db = null
+                blast_validation = false
+                
+                // Resource configuration
+                max_cpus = 2
+                max_memory = '4.GB'
+                max_time = '3.min'
+            }
+        }
+
+        then {
+            assert workflow.success
+            
+            // Both barcode discovery and real-time monitoring should run
+            assert workflow.trace.tasks().any { it.name.contains('BARCODE_DISCOVERY') }
+            assert workflow.trace.tasks().any { it.name.contains('ENHANCED_REALTIME_MONITORING') }
+            
+            // Real-time statistics should be generated
+            assert workflow.trace.tasks().any { it.name.contains('GENERATE_SNAPSHOT_STATS') }
+            assert workflow.trace.tasks().any { it.name.contains('UPDATE_CUMULATIVE_STATS') }
+            assert workflow.trace.tasks().any { it.name.contains('GENERATE_REALTIME_REPORT') }
+            
+            // Multiple barcodes should be processed
+            def fastp_tasks = workflow.trace.tasks().findAll { it.name.contains('FASTP') }
+            assert fastp_tasks.size() >= 4  // At least 4 samples processed
+            
+            // Integration outputs should exist
+            assert path("${outputDir}/results/fastp.exists()
+            assert path("${outputDir}/results/realtime_stats.exists()
+            assert path("${outputDir}/results/realtime_reports.exists()
+            assert path("${outputDir}/results/multiqc.exists()
+            
+            // Barcode-specific outputs should be created
+            def fastp_outputs = path("${outputDir}/results/fastp.list()
+            def barcode_specific = fastp_outputs.findAll { 
+                it.name.contains('barcode01') || it.name.contains('barcode02') || 
+                it.name.contains('barcode03') || it.name.contains('unclassified')
+            }
+            assert barcode_specific.size() >= 3
+            
+            // Real-time statistics should capture barcode information
+            def stats_snapshots = path("${outputDir}/results/realtime_stats/snapshots
+            if (stats_snapshots.exists()) {
+                def snapshot_files = stats_snapshots.list().findAll { it.name.endsWith('.json') }
+                assert snapshot_files.size() >= 1
+            }
+            
+            // HTML reports should be generated with barcode analysis
+            def reports = path("${outputDir}/results/realtime_reports.list()
+            def html_reports = reports.findAll { it.name.endsWith('.html') }
+            assert html_reports.size() >= 1
+        }
+    }
+
+    test("Should handle mixed barcode structure with real-time stream processing {
+
+            // Active barcodes with files
+            cp $projectDir/tests/test_sample.fastq.gz $outputDir/mixed_barcodes/barcode01/active_001.fastq.gz
+            cp $projectDir/tests/test_sample.fastq.gz $outputDir/mixed_barcodes/barcode03/active_001.fastq.gz
+            cp $projectDir/tests/test_sample.fastq.gz $outputDir/mixed_barcodes/unclassified/active_001.fastq.gz
+            
+            // barcode02 and barcode04 remain empty
+            
+            // Create files with different naming patterns
+            cp $projectDir/tests/test_sample.fastq.gz $outputDir/mixed_barcodes/barcode01/reads_20240912_001.fastq.gz
+            gzip -dc $projectDir/tests/test_sample.fastq.gz > $outputDir/mixed_barcodes/barcode03/uncompressed_reads.fastq
+        }
+
+        when {
+            params {
+                input = "$projectDir/tests/empty_samplesheet.csv"
+                outdir = "$outputDir/results"
+                
+                // Real-time monitoring with mixed barcode structure
+                realtime_mode = true
+                nanopore_output_dir = "$outputDir/mixed_barcodes"
+                file_pattern = "**/*.{fastq,fastq.gz,fq,fq.gz}"
+                
+                // Also enable barcode discovery for comprehensive testing
+                barcode_input_dir = "$outputDir/mixed_barcodes"
+                
+                // Stream processing configuration
+                batch_size = 3
+                max_files = 8
+                
+                // Handle mixed file types and structures
+                enable_file_prioritization = true
+                enable_adaptive_batching = true
+                
+                // Quality analysis for mixed files
+                enable_quality_indicators = true
+                
+                // Real-time reporting
+                realtime_stats_interval = "4s"
+                realtime_report_format = "html"
+                
+                // Disable heavy operations
+                use_dorado = false
+                kraken2_db = null
+                blast_validation = false
+                
+                // Resource limits
+                max_cpus = 2
+                max_memory = '4.GB'
+                max_time = '2.min'
+            }
+        }
+
+        then {
+            assert workflow.success
+            
+            // Should handle mixed structure gracefully
+            assert workflow.trace.tasks().any { it.name.contains('ENHANCED_REALTIME_MONITORING') }
+            
+            // Should process only active barcodes (with files)
+            def processing_tasks = workflow.trace.tasks().findAll { it.name.contains('FASTP') }
+            assert processing_tasks.size() >= 3  // Only active barcodes processed
+            
+            // Should generate statistics for active samples only
+            def stats_tasks = workflow.trace.tasks().findAll { it.name.contains('GENERATE_SNAPSHOT_STATS') }
+            assert stats_tasks.size() >= 1
+            
+            // Verify only active barcodes are processed
+            def fastp_outputs = path("${outputDir}/results/fastp.list()
+            def processed_barcodes = fastp_outputs.findAll { 
+                it.name.contains('barcode01') || it.name.contains('barcode03') || 
+                it.name.contains('unclassified')
+            }
+            assert processed_barcodes.size() >= 2
+            
+            // Should NOT process empty barcodes (barcode02, barcode04)
+            def empty_barcode_outputs = fastp_outputs.findAll {
+                it.name.contains('barcode02') || it.name.contains('barcode04')
+            }
+            // Empty barcodes should have minimal or no outputs
+            assert empty_barcode_outputs.size() == 0
+        }
+    }
+
+    test("Should demonstrate real-time FASTQ stream processing capabilities {
+
+            // Simulate sequencing batches arriving over time
+            // Batch 1
+            cp $projectDir/tests/test_sample.fastq.gz $outputDir/stream_demo/barcode01/PAW12345_pass_barcode01_20240912_140001.fastq.gz
+            cp $projectDir/tests/test_sample.fastq.gz $outputDir/stream_demo/barcode02/PAW12345_pass_barcode02_20240912_140001.fastq.gz
+            
+            // Wait to simulate time gaps between batches
+            sleep 1
+            
+            // Batch 2
+            cp $projectDir/tests/test_sample.fastq.gz $outputDir/stream_demo/barcode01/PAW12345_pass_barcode01_20240912_140002.fastq.gz
+            cp $projectDir/tests/test_sample.fastq.gz $outputDir/stream_demo/barcode03/PAW12345_pass_barcode03_20240912_140002.fastq.gz
+            
+            // Batch 3 - including unclassified
+            cp $projectDir/tests/test_sample.fastq.gz $outputDir/stream_demo/unclassified/PAW12345_pass_unclassified_20240912_140003.fastq.gz
+        }
+
+        when {
+            params {
+                input = "$projectDir/tests/empty_samplesheet.csv"
+                outdir = "$outputDir/results"
+                
+                // Real-time stream processing demonstration
+                realtime_mode = true
+                nanopore_output_dir = "$outputDir/stream_demo"
+                file_pattern = "**/*pass*.fastq{,.gz}"  // Realistic nanopore pattern
+                
+                // Stream-optimized configuration
+                batch_size = 3
+                batch_interval = "4s"
+                max_files = 10
+                
+                // Priority-based processing (simulate urgent samples)
+                priority_samples = "barcode01,barcode02"
+                enable_file_prioritization = true
+                enable_adaptive_batching = true
+                
+                // Comprehensive monitoring
+                enable_performance_monitoring = true
+                enable_quality_indicators = true
+                enable_source_analysis = true
+                enable_timing_analysis = true
+                
+                // Real-time dashboard
+                realtime_stats_interval = "3s"
+                realtime_report_format = "html"
+                enable_performance_dashboard = true
+                enable_quality_dashboard = true
+                
+                // Session tracking for demonstration
+                session_tracking = true
+                generate_cumulative_stats = true
+                performance_window_minutes = 5
+                
+                // Disable heavy processing for demo
+                use_dorado = false
+                kraken2_db = null
+                blast_validation = false
+                
+                // Resource configuration
+                max_cpus = 2
+                max_memory = '4.GB'
+                max_time = '3.min'
+            }
+        }
+
+        then {
+            assert workflow.success
+            
+            // Real-time stream processing should be active
+            assert workflow.trace.tasks().any { it.name.contains('ENHANCED_REALTIME_MONITORING') }
+            assert workflow.trace.tasks().any { it.name.contains('REALTIME_STATISTICS') }
+            
+            // Multiple batches should be processed
+            def fastp_tasks = workflow.trace.tasks().findAll { it.name.contains('FASTP') }
+            assert fastp_tasks.size() >= 4  // Multiple samples across batches
+            
+            // Stream processing outputs should demonstrate capabilities
+            assert path("${outputDir}/results/fastp.exists()
+            assert path("${outputDir}/results/realtime_stats.exists()
+            assert path("${outputDir}/results/realtime_reports.exists()
+            
+            // Verify realistic nanopore file naming is handled
+            def fastp_outputs = path("${outputDir}/results/fastp.list()
+            def timestamped_outputs = fastp_outputs.findAll { 
+                it.name.contains('barcode01') || it.name.contains('barcode02') || 
+                it.name.contains('barcode03') || it.name.contains('unclassified')
+            }
+            assert timestamped_outputs.size() >= 3
+            
+            // Real-time statistics should capture streaming characteristics
+            def stats_outputs = path("${outputDir}/results/realtime_stats
+            assert stats_outputs.exists()
+            
+            // HTML dashboard should be generated
+            def reports = path("${outputDir}/results/realtime_reports.list()
+            def html_reports = reports.findAll { it.name.endsWith('.html') }
+            assert html_reports.size() >= 1
+            
+            println("✅ Real-time FASTQ stream processing with barcode directories: DEMONSTRATED
+            println("📊 Processed ${fastp_tasks.size()} samples across barcode directories
+            println("🔄 Stream processing with adaptive batching: SUCCESSFUL
+            println("📈 Real-time statistics and dashboard generation: ACTIVE
+        }
+    }
+}

@@ -1,0 +1,334 @@
+nextflow_process {
+
+    name "Test PREDICT_RESOURCE_REQUIREMENTS"
+    script "../main.nf"
+    process "PREDICT_RESOURCE_REQUIREMENTS"
+
+    test("Should predict resource requirements from input characteristics") {
+
+        setup {
+            // Create dummy input characteristics file
+            script """
+            cat > $outputDir/test_characteristics.json << 'EOF'
+{
+  "file_info": {
+    "total_size_bytes": 10485760,
+    "total_size_mb": 10.0,
+    "file_count": 1,
+    "estimated_read_count": 50000
+  },
+  "complexity_analysis": {
+    "average_complexity": 0.75,
+    "max_complexity": 0.92,
+    "complexity_variance": 0.15
+  },
+  "size_analysis": {
+    "average_read_length": 2000,
+    "read_length_std": 500,
+    "large_files_ratio": 0.2
+  }
+}
+EOF
+            """)
+        }
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [
+                        id: 'test_prediction',
+                        single_end: true
+                    ],
+                    file('$outputDir/test_characteristics.json')
+                ]
+                input[1] = [
+                    prediction_model: 'gradient_boost',
+                    confidence_threshold: 0.7,
+                    tool_specific_prediction: true
+                ]
+                """
+            }
+        }
+
+        then {
+            assert process.success
+            assert process.out.predictions.size() == 1
+            
+            // Check that predictions file was generated
+            def (meta, predictions_file) = process.out.predictions[0]
+            assert meta.id == 'test_prediction'
+            assert predictions_file != null
+            assert path(predictions_file).exists()
+            
+            // Check versions output
+            assert process.out.versions.size() == 1
+            assert path(process.out.versions[0]).getText().contains('python')
+        }
+    }
+
+    test("Should predict resources with ML model") {
+
+        setup {
+            script """
+            cat > $outputDir/large_characteristics.json << 'EOF'
+{
+  "file_info": {
+    "total_size_bytes": 104857600,
+    "total_size_mb": 100.0,
+    "file_count": 5,
+    "estimated_read_count": 500000
+  },
+  "complexity_analysis": {
+    "average_complexity": 0.85,
+    "max_complexity": 0.95,
+    "complexity_variance": 0.1
+  },
+  "quality_analysis": {
+    "average_quality": 15.2,
+    "quality_variance": 2.1
+  }
+}
+EOF
+            """)
+        }
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [
+                        id: 'ml_prediction_test',
+                        single_end: true,
+                        tool: 'fastp'
+                    ],
+                    file('$outputDir/large_characteristics.json')
+                ]
+                input[1] = [
+                    prediction_model: 'random_forest',
+                    enable_ml_prediction: true,
+                    predict_cpu: true,
+                    predict_memory: true,
+                    predict_runtime: true
+                ]
+                """
+            }
+        }
+
+        then {
+            assert process.success
+            assert process.out.predictions.size() == 1
+            
+            def (meta, predictions_file) = process.out.predictions[0]
+            assert meta.id == 'ml_prediction_test'
+            assert meta.tool == 'fastp'
+            assert path(predictions_file).exists()
+            
+            // Check that ML predictions contain expected fields
+            def predictions_content = path(predictions_file).text
+            assert predictions_content.contains('cpu') || predictions_content.contains('memory') || predictions_content.contains('runtime')
+            
+            assert process.out.versions.size() == 1
+        }
+    }
+
+    test("Should handle tool-specific predictions") {
+
+        setup {
+            script """
+            cat > $outputDir/tool_characteristics.json << 'EOF'
+{
+  "file_info": {
+    "total_size_bytes": 52428800,
+    "total_size_mb": 50.0,
+    "file_count": 2,
+    "estimated_read_count": 250000
+  },
+  "read_analysis": {
+    "average_read_length": 3000,
+    "n50": 3500,
+    "read_length_distribution": "normal"
+  }
+}
+EOF
+            """)
+        }
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [
+                        id: 'tool_specific_test',
+                        single_end: true,
+                        tool: 'nanoplot'
+                    ],
+                    file('$outputDir/tool_characteristics.json')
+                ]
+                input[1] = [
+                    prediction_model: 'linear_regression',
+                    tool_specific_prediction: true,
+                    scaling_factors: [
+                        cpu_factor: 1.2,
+                        memory_factor: 1.5,
+                        runtime_factor: 0.8
+                    ]
+                ]
+                """
+            }
+        }
+
+        then {
+            assert process.success
+            assert process.out.predictions.size() == 1
+            
+            def (meta, predictions_file) = process.out.predictions[0]
+            assert meta.id == 'tool_specific_test'
+            assert meta.tool == 'nanoplot'
+            assert path(predictions_file).exists()
+            
+            assert process.out.versions.size() == 1
+        }
+    }
+
+    test("Should handle prediction confidence thresholds") {
+
+        setup {
+            script """
+            cat > $outputDir/confidence_characteristics.json << 'EOF'
+{
+  "file_info": {
+    "total_size_bytes": 5242880,
+    "total_size_mb": 5.0,
+    "file_count": 1,
+    "estimated_read_count": 25000
+  },
+  "uncertainty_indicators": {
+    "file_size_variance": 0.3,
+    "complexity_uncertainty": 0.2
+  }
+}
+EOF
+            """)
+        }
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [
+                        id: 'confidence_test',
+                        single_end: true
+                    ],
+                    file('$outputDir/confidence_characteristics.json')
+                ]
+                input[1] = [
+                    prediction_model: 'gradient_boost',
+                    confidence_threshold: 0.9,
+                    fallback_prediction: true,
+                    uncertainty_handling: 'conservative'
+                ]
+                """
+            }
+        }
+
+        then {
+            assert process.success
+            assert process.out.predictions.size() == 1
+            
+            def (meta, predictions_file) = process.out.predictions[0]
+            assert meta.id == 'confidence_test'
+            assert path(predictions_file).exists()
+            
+            // Check that confidence information is included
+            def predictions_content = path(predictions_file).text
+            assert predictions_content.contains('confidence') || predictions_content.contains('uncertainty')
+            
+            assert process.out.versions.size() == 1
+        }
+    }
+
+    test("Should handle edge cases and fallbacks") {
+
+        setup {
+            script """
+            cat > $outputDir/minimal_characteristics.json << 'EOF'
+{
+  "file_info": {
+    "total_size_bytes": 1024,
+    "total_size_mb": 0.001,
+    "file_count": 1
+  }
+}
+EOF
+            """)
+        }
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [
+                        id: 'edge_case_test',
+                        single_end: true
+                    ],
+                    file('$outputDir/minimal_characteristics.json')
+                ]
+                input[1] = [
+                    prediction_model: 'fallback',
+                    confidence_threshold: 0.5,
+                    fallback_prediction: true,
+                    min_resources: [
+                        min_cpu: 1,
+                        min_memory: '1.GB',
+                        min_runtime: '5.min'
+                    ]
+                ]
+                """
+            }
+        }
+
+        then {
+            assert process.success
+            assert process.out.predictions.size() == 1
+            
+            def (meta, predictions_file) = process.out.predictions[0]
+            assert meta.id == 'edge_case_test'
+            assert path(predictions_file).exists()
+            
+            assert process.out.versions.size() == 1
+        }
+    }
+
+    test("Should run in stub mode") {
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [
+                        id: 'stub_test',
+                        single_end: true
+                    ],
+                    []
+                ]
+                input[1] = [
+                    prediction_model: 'gradient_boost'
+                ]
+                """
+            }
+            
+            stub true
+        }
+
+        then {
+            assert process.success
+            assert process.out.predictions.size() == 1
+            assert process.out.versions.size() == 1
+            
+            def (meta, predictions_file) = process.out.predictions[0]
+            assert meta.id == 'stub_test'
+            assert path(predictions_file).exists()
+        }
+    }
+}

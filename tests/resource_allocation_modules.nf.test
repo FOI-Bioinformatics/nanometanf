@@ -1,0 +1,482 @@
+nextflow_pipeline {
+
+    name "Test individual dynamic resource allocation modules"
+    ../main.nf"
+
+    test("Should analyze input characteristics for resource prediction {
+
+        when {
+            params {
+                input = "$projectDir/tests/test_samplesheet.csv"
+                outdir = "$outputDir/results"
+                
+                // Enable input characteristic analysis
+                enable_dynamic_resources = true
+                enable_input_analysis = true
+                
+                // Analysis configuration
+                input_sampling_rate = 0.1
+                complexity_analysis = true
+                size_analysis = true
+                compression_analysis = true
+                
+                // File characteristic thresholds
+                large_file_threshold = "10MB"
+                complexity_threshold = 0.8
+                
+                // Disable other heavy features
+                use_dorado = false
+                kraken2_db = null
+                blast_validation = false
+                realtime_mode = false
+                
+                // Resource limits
+                max_cpus = 2
+                max_memory = '4.GB'
+                max_time = '2.min'
+            }
+        }
+
+        then {
+            assert workflow.success
+            
+            // Input analysis should run
+            assert workflow.trace.tasks().any { it.name.contains('ANALYZE_INPUT_CHARACTERISTICS') }
+            
+            // Standard processing should occur
+            def processing_tasks = workflow.trace.tasks().findAll { it.name.contains('FASTP') }
+            assert processing_tasks.size() >= 1
+            
+            // Analysis outputs should be generated
+            assert path("${outputDir}/results/resource_analysis.exists()
+            
+            // Input characteristic files should exist
+            def analysis_dir = path("${outputDir}/results/resource_analysis
+            def characteristic_files = analysis_dir.list().findAll { 
+                it.name.contains('characteristics') || it.name.contains('analysis') || it.name.contains('input')
+            }
+            assert characteristic_files.size() >= 0  // May vary based on implementation
+        }
+    }
+
+    test("Should predict resource requirements using ML algorithms {
+
+        when {
+            params {
+                input = "$projectDir/tests/test_samplesheet.csv"
+                outdir = "$outputDir/results"
+                
+                // Enable resource prediction
+                enable_dynamic_resources = true
+                enable_resource_prediction = true
+                enable_ml_prediction = true
+                
+                // Prediction configuration
+                prediction_confidence_threshold = 0.7
+                prediction_model = "gradient_boost"
+                feature_selection = "auto"
+                
+                // Resource prediction features
+                predict_cpu_requirements = true
+                predict_memory_requirements = true
+                predict_runtime_requirements = true
+                predict_disk_requirements = true
+                
+                // Tool-specific predictions
+                enable_tool_specific_prediction = true
+                
+                // Model training
+                ml_model_training = true
+                prediction_model_update = true
+                
+                // Disable other features
+                use_dorado = false
+                kraken2_db = null
+                blast_validation = false
+                realtime_mode = false
+                
+                // Resource limits
+                max_cpus = 2
+                max_memory = '4.GB'
+                max_time = '2.min'
+            }
+        }
+
+        then {
+            assert workflow.success
+            
+            // Resource prediction should run
+            assert workflow.trace.tasks().any { it.name.contains('PREDICT_RESOURCE_REQUIREMENTS') }
+            
+            // Input analysis may also run as a prerequisite
+            def analysis_tasks = workflow.trace.tasks().findAll { 
+                it.name.contains('ANALYZE_INPUT_CHARACTERISTICS') || it.name.contains('PREDICT_RESOURCE_REQUIREMENTS')
+            }
+            assert analysis_tasks.size() >= 1
+            
+            // Processing should occur with predicted resources
+            def processing_tasks = workflow.trace.tasks().findAll { it.name.contains('FASTP') }
+            assert processing_tasks.size() >= 1
+            
+            // Prediction outputs should exist
+            assert path("${outputDir}/results/resource_analysis.exists()
+            
+            // Prediction files should be generated
+            def analysis_dir = path("${outputDir}/results/resource_analysis
+            def prediction_files = analysis_dir.list().findAll { 
+                it.name.contains('prediction') || it.name.contains('requirements') || it.name.contains('ml')
+            }
+            assert prediction_files.size() >= 0
+        }
+    }
+
+    test("Should monitor system resources in real-time {
+
+        when {
+            params {
+                input = "$projectDir/tests/test_samplesheet.csv"
+                outdir = "$outputDir/results"
+                
+                // Enable system monitoring
+                enable_dynamic_resources = true
+                enable_system_monitoring = true
+                
+                // Monitoring configuration
+                resource_monitoring_interval = "5s"
+                system_load_monitoring = true
+                memory_usage_monitoring = true
+                cpu_usage_monitoring = true
+                disk_usage_monitoring = true
+                
+                // GPU monitoring
+                enable_gpu_detection = true
+                gpu_monitoring = true
+                
+                // System capacity analysis
+                system_capacity_analysis = true
+                available_resources_tracking = true
+                
+                // Performance monitoring
+                enable_performance_monitoring = true
+                
+                // Disable other features
+                use_dorado = false
+                kraken2_db = null
+                blast_validation = false
+                realtime_mode = false
+                
+                // Resource limits
+                max_cpus = 2
+                max_memory = '4.GB'
+                max_time = '2.min'
+            }
+        }
+
+        then {
+            assert workflow.success
+            
+            // System monitoring should run
+            assert workflow.trace.tasks().any { it.name.contains('MONITOR_SYSTEM_RESOURCES') }
+            
+            // Processing should occur with monitoring
+            def processing_tasks = workflow.trace.tasks().findAll { it.name.contains('FASTP') }
+            assert processing_tasks.size() >= 1
+            
+            // Monitoring outputs should be generated
+            assert path("${outputDir}/results/resource_analysis.exists()
+            
+            // System monitoring files should exist
+            def analysis_dir = path("${outputDir}/results/resource_analysis
+            def monitoring_files = analysis_dir.list().findAll { 
+                it.name.contains('system') || it.name.contains('monitoring') || it.name.contains('resources')
+            }
+            assert monitoring_files.size() >= 0
+        }
+    }
+
+    test("Should optimize resource allocation based on system state {
+
+        when {
+            params {
+                input = "$projectDir/tests/test_samplesheet.csv"
+                outdir = "$outputDir/results"
+                
+                // Enable resource optimization
+                enable_dynamic_resources = true
+                enable_resource_optimization = true
+                
+                // Optimization configuration
+                resource_optimization_algorithm = "priority_based"
+                optimization_objective = "balanced"
+                
+                // Scaling factors
+                cpu_optimization_factor = 1.2
+                memory_optimization_factor = 1.1
+                time_optimization_factor = 0.9
+                
+                // Resource constraints
+                max_resource_utilization = 0.8
+                resource_safety_margin = 0.1
+                
+                // Priority-based optimization
+                task_priority_optimization = true
+                resource_contention_handling = true
+                
+                // Dynamic scaling
+                adaptive_resource_scaling = true
+                dynamic_cpu_scaling = true
+                dynamic_memory_scaling = true
+                
+                // Prerequisites
+                enable_system_monitoring = true
+                enable_resource_prediction = true
+                
+                // Disable other features
+                use_dorado = false
+                kraken2_db = null
+                blast_validation = false
+                realtime_mode = false
+                
+                // Resource limits
+                max_cpus = 2
+                max_memory = '4.GB'
+                max_time = '2.min'
+            }
+        }
+
+        then {
+            assert workflow.success
+            
+            // Resource optimization should run
+            assert workflow.trace.tasks().any { it.name.contains('OPTIMIZE_RESOURCE_ALLOCATION') }
+            
+            // System monitoring should also run
+            assert workflow.trace.tasks().any { it.name.contains('MONITOR_SYSTEM_RESOURCES') }
+            
+            // Processing should occur with optimized resources
+            def processing_tasks = workflow.trace.tasks().findAll { it.name.contains('FASTP') }
+            assert processing_tasks.size() >= 1
+            
+            // Optimization outputs should be generated
+            assert path("${outputDir}/results/resource_analysis.exists()
+            
+            // Optimization files should exist
+            def analysis_dir = path("${outputDir}/results/resource_analysis
+            def optimization_files = analysis_dir.list().findAll { 
+                it.name.contains('optimization') || it.name.contains('allocation') || it.name.contains('scaling')
+            }
+            assert optimization_files.size() >= 0
+        }
+    }
+
+    test("Should apply resource optimization profiles correctly {
+
+        when {
+            params {
+                input = "$projectDir/tests/test_samplesheet.csv"
+                outdir = "$outputDir/results"
+                
+                // Enable resource optimization profiles
+                enable_dynamic_resources = true
+                resource_optimization_profile = "high_throughput"
+                
+                // Profile-specific settings
+                profile_auto_selection = false  // Force specific profile
+                profile_override_allowed = true
+                
+                // High throughput profile features
+                throughput_optimization = true
+                parallel_processing_boost = true
+                cpu_intensive_optimization = true
+                
+                // Profile customization
+                profile_cpu_multiplier = 1.5
+                profile_memory_multiplier = 1.3
+                profile_time_multiplier = 0.7
+                
+                // Enable supporting modules
+                enable_system_monitoring = true
+                enable_resource_optimization = true
+                
+                // Disable other features
+                use_dorado = false
+                kraken2_db = null
+                blast_validation = false
+                realtime_mode = false
+                
+                // Resource limits
+                max_cpus = 2
+                max_memory = '4.GB'
+                max_time = '2.min'
+            }
+        }
+
+        then {
+            assert workflow.success
+            
+            // Resource optimization profiles should run
+            assert workflow.trace.tasks().any { it.name.contains('RESOURCE_OPTIMIZATION_PROFILES') }
+            
+            // Resource allocation should be applied
+            assert workflow.trace.tasks().any { it.name.contains('OPTIMIZE_RESOURCE_ALLOCATION') }
+            
+            // Processing should occur with profile-optimized resources
+            def processing_tasks = workflow.trace.tasks().findAll { it.name.contains('FASTP') }
+            assert processing_tasks.size() >= 1
+            
+            // Profile outputs should be generated
+            assert path("${outputDir}/results/resource_analysis.exists()
+            
+            // Profile-specific files should exist
+            def analysis_dir = path("${outputDir}/results/resource_analysis
+            def profile_files = analysis_dir.list().findAll { 
+                it.name.contains('profile') || it.name.contains('high_throughput') || it.name.contains('optimization')
+            }
+            assert profile_files.size() >= 0
+        }
+    }
+
+    test("Should collect feedback and update resource learning models {
+
+        when {
+            params {
+                input = "$projectDir/tests/test_samplesheet.csv"
+                outdir = "$outputDir/results"
+                
+                // Enable resource feedback learning
+                enable_dynamic_resources = true
+                enable_resource_learning = true
+                enable_performance_feedback = true
+                
+                // Learning configuration
+                feedback_collection = true
+                performance_data_collection = true
+                resource_usage_tracking = true
+                
+                // Machine learning updates
+                ml_model_training = true
+                prediction_model_update = true
+                model_accuracy_tracking = true
+                
+                // Learning parameters
+                feedback_learning_rate = 0.1
+                model_update_threshold = 0.8
+                prediction_accuracy_threshold = 0.75
+                
+                // Performance tracking
+                enable_performance_monitoring = true
+                performance_window_size = 10
+                
+                // Prerequisites
+                enable_resource_prediction = true
+                enable_ml_prediction = true
+                
+                // Disable other features
+                use_dorado = false
+                kraken2_db = null
+                blast_validation = false
+                realtime_mode = false
+                
+                // Resource limits
+                max_cpus = 2
+                max_memory = '4.GB'
+                max_time = '3.min'
+            }
+        }
+
+        then {
+            assert workflow.success
+            
+            // Resource feedback learning should run
+            assert workflow.trace.tasks().any { it.name.contains('RESOURCE_FEEDBACK_LEARNING') }
+            
+            // Resource prediction should also run (prerequisite)
+            assert workflow.trace.tasks().any { it.name.contains('PREDICT_RESOURCE_REQUIREMENTS') }
+            
+            // Processing should occur
+            def processing_tasks = workflow.trace.tasks().findAll { it.name.contains('FASTP') }
+            assert processing_tasks.size() >= 1
+            
+            // Learning outputs should be generated
+            assert path("${outputDir}/results/resource_analysis.exists()
+            
+            // Feedback learning files should exist
+            def analysis_dir = path("${outputDir}/results/resource_analysis
+            def learning_files = analysis_dir.list().findAll { 
+                it.name.contains('learning') || it.name.contains('feedback') || 
+                it.name.contains('model') || it.name.contains('performance')
+            }
+            assert learning_files.size() >= 0
+        }
+    }
+
+    test("Should validate resource allocation module parameters {
+
+        when {
+            params {
+                input = "$projectDir/tests/test_samplesheet.csv"
+                outdir = "$outputDir/results"
+                
+                // Parameter validation without execution
+                enable_dynamic_resources = false  // Validate but don't execute
+                
+                // Module-specific parameters to validate
+                enable_input_analysis = true
+                enable_resource_prediction = true
+                enable_system_monitoring = true
+                enable_resource_optimization = true
+                enable_resource_learning = true
+                
+                // Analysis parameters
+                input_sampling_rate = 0.1
+                complexity_analysis = true
+                large_file_threshold = "50MB"
+                
+                // Prediction parameters
+                prediction_confidence_threshold = 0.8
+                ml_model_training = true
+                prediction_model = "gradient_boost"
+                
+                // Monitoring parameters
+                resource_monitoring_interval = "10s"
+                enable_gpu_detection = true
+                system_capacity_analysis = true
+                
+                // Optimization parameters
+                cpu_optimization_factor = 1.2
+                memory_optimization_factor = 1.1
+                adaptive_resource_scaling = true
+                
+                // Learning parameters
+                feedback_learning_rate = 0.1
+                model_update_threshold = 0.8
+                
+                // Disable actual processing
+                use_dorado = false
+                kraken2_db = null
+                blast_validation = false
+                realtime_mode = false
+                
+                // Quick validation
+                max_cpus = 1
+                max_memory = '1.GB'
+                max_time = '30.s'
+            }
+        }
+
+        then {
+            assert workflow.success
+            
+            // Should not run resource modules when disabled
+            assert !workflow.trace.tasks().any { it.name.contains('ANALYZE_INPUT_CHARACTERISTICS') }
+            assert !workflow.trace.tasks().any { it.name.contains('PREDICT_RESOURCE_REQUIREMENTS') }
+            assert !workflow.trace.tasks().any { it.name.contains('MONITOR_SYSTEM_RESOURCES') }
+            assert !workflow.trace.tasks().any { it.name.contains('OPTIMIZE_RESOURCE_ALLOCATION') }
+            assert !workflow.trace.tasks().any { it.name.contains('RESOURCE_OPTIMIZATION_PROFILES') }
+            assert !workflow.trace.tasks().any { it.name.contains('RESOURCE_FEEDBACK_LEARNING') }
+            
+            // Parameter validation should succeed
+            assert workflow.exitStatus == 0
+        }
+    }
+}

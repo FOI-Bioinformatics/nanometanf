@@ -5,26 +5,14 @@ nextflow_pipeline {
 
     test("Should discover and process pre-demultiplexed barcode folders") {
 
-        setup {
-            // Create test barcode directory structure
-            run("mkdir -p $outputDir/test_barcodes/barcode01")
-            run("mkdir -p $outputDir/test_barcodes/barcode02")  
-            run("mkdir -p $outputDir/test_barcodes/unclassified")
-            
-            // Copy test FASTQ files to barcode directories
-            run("cp $projectDir/tests/test_sample.fastq.gz $outputDir/test_barcodes/barcode01/")
-            run("cp $projectDir/tests/test_sample.fastq.gz $outputDir/test_barcodes/barcode02/reads.fastq.gz")
-            run("cp $projectDir/tests/test_sample.fastq.gz $outputDir/test_barcodes/unclassified/unclass.fastq.gz")
-        }
-
         when {
             params {
                 // Use barcode directory input
-                barcode_input_dir = "$outputDir/test_barcodes"
+                barcode_input_dir = "$projectDir/tests/test_data/barcode_structure"
                 outdir = "$outputDir/results"
                 
-                // Disable other input methods
-                input = null
+                // Provide required input parameter (empty samplesheet for barcode mode)
+                input = "$projectDir/tests/empty_samplesheet.csv"
                 pod5_input_dir = null
                 use_dorado = false
                 realtime_mode = false
@@ -58,12 +46,6 @@ nextflow_pipeline {
     }
 
     test("Should handle empty barcode directories gracefully") {
-
-        setup {
-            // Create empty barcode directories
-            run("mkdir -p $outputDir/empty_barcodes/barcode01")
-            run("mkdir -p $outputDir/empty_barcodes/barcode02")
-        }
 
         when {
             params {

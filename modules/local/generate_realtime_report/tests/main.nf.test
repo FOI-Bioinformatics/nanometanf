@@ -1,0 +1,440 @@
+nextflow_process {
+
+    name "Test GENERATE_REALTIME_REPORT"
+    script "../main.nf"
+    process "GENERATE_REALTIME_REPORT"
+
+    test("Should generate HTML real-time report from statistics") {
+
+        setup {
+            // Create test snapshot statistics
+            script """
+            cat > $outputDir/test_snapshot.json << 'EOF'
+{
+  "batch_info": {
+    "batch_id": "batch_test_001",
+    "batch_time": "2024-09-12_14-30-45-123",
+    "processing_time_formatted": "2024-09-12T14:30:45"
+  },
+  "file_statistics": {
+    "file_count": 5,
+    "total_size_mb": 25.5,
+    "estimated_total_reads": 125000,
+    "compressed_files": 3
+  },
+  "quality_indicators": {
+    "compressed_ratio": 0.6,
+    "large_files_ratio": 0.2
+  },
+  "priority_analysis": {
+    "high_priority_files": 2,
+    "average_priority": 75.5
+  },
+  "timing_analysis": {
+    "average_file_age_ms": 300000,
+    "oldest_file_age_ms": 600000,
+    "newest_file_age_ms": 60000
+  }
+}
+EOF
+            """)
+            
+            // Create test cumulative statistics
+            script """
+            cat > $outputDir/test_cumulative.json << 'EOF'
+{
+  "session_info": {
+    "total_batches": 10,
+    "session_start_formatted": "2024-09-12T14:00:00"
+  },
+  "totals": {
+    "total_files": 50,
+    "total_size_mb": 250.0
+  },
+  "performance": {
+    "session_duration_seconds": 1800,
+    "files_per_second": 0.028,
+    "mb_per_second": 0.14,
+    "reads_per_second": 69,
+    "batches_per_minute": 0.33
+  },
+  "source_summary": {
+    "unique_directories": ["/data/barcode01", "/data/barcode02"],
+    "unique_samples": ["sample1", "sample2", "sample3"],
+    "directory_totals": {"/data/barcode01": 25, "/data/barcode02": 25}
+  }
+}
+EOF
+            """)
+        }
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [
+                        batch_id: 'batch_test_001',
+                        batch_time: '2024-09-12_14-30-45-123'
+                    ],
+                    file('$outputDir/test_snapshot.json'),
+                    file('$outputDir/test_cumulative.json')
+                ]
+                input[1] = [
+                    report_format: 'html',
+                    refresh_interval_ms: 30000,
+                    enable_auto_refresh: true,
+                    pipeline_version: '1.0.0'
+                ]
+                """
+            }
+        }
+
+        then {
+            assert process.success
+            assert process.out.html.size() == 1
+            
+            // Check that HTML report was generated
+            def (meta, html_report) = process.out.html[0]
+            assert meta.batch_id == 'batch_test_001'
+            assert html_report != null
+            assert path(html_report).exists()
+            
+            // Verify HTML content contains expected elements
+            def html_content = path(html_report).text
+            assert html_content.contains('<html')
+            assert html_content.contains('Nanometa Real-time')
+            assert html_content.contains('batch_test_001')
+            assert html_content.contains('file_count')
+            
+            // Check versions output
+            assert process.out.versions.size() == 1
+            assert path(process.out.versions[0]).getText().contains('python')
+        }
+    }
+
+    test("Should generate report with barcode-specific analysis") {
+
+        setup {
+            // Create snapshot with barcode information
+            script """
+            cat > $outputDir/barcode_snapshot.json << 'EOF'
+{
+  "batch_info": {
+    "batch_id": "batch_barcode_001",
+    "batch_time": "2024-09-12_15-00-00-000",
+    "processing_time_formatted": "2024-09-12T15:00:00"
+  },
+  "file_statistics": {
+    "file_count": 8,
+    "total_size_mb": 40.0,
+    "estimated_total_reads": 200000,
+    "compressed_files": 6
+  },
+  "source_analysis": {
+    "watch_directories": ["/data/barcode01", "/data/barcode02", "/data/unclassified"],
+    "directory_file_counts": {
+      "/data/barcode01": 3,
+      "/data/barcode02": 3,
+      "/data/unclassified": 2
+    },
+    "sample_ids": ["barcode01", "barcode02", "unclassified"]
+  },
+  "quality_indicators": {
+    "compressed_ratio": 0.75,
+    "large_files_ratio": 0.125
+  }
+}
+EOF
+            """)
+            
+            script """
+            cat > $outputDir/barcode_cumulative.json << 'EOF'
+{
+  "session_info": {
+    "total_batches": 15,
+    "session_start_formatted": "2024-09-12T14:30:00"
+  },
+  "totals": {
+    "total_files": 120,
+    "total_size_mb": 600.0
+  },
+  "performance": {
+    "session_duration_seconds": 1800,
+    "files_per_second": 0.067,
+    "mb_per_second": 0.33,
+    "reads_per_second": 167,
+    "batches_per_minute": 0.5
+  },
+  "source_summary": {
+    "unique_directories": ["/data/barcode01", "/data/barcode02", "/data/barcode03", "/data/unclassified"],
+    "unique_samples": ["barcode01", "barcode02", "barcode03", "unclassified"],
+    "directory_totals": {
+      "/data/barcode01": 40,
+      "/data/barcode02": 35,
+      "/data/barcode03": 25,
+      "/data/unclassified": 20
+    }
+  }
+}
+EOF
+            """)
+        }
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [
+                        batch_id: 'batch_barcode_001',
+                        batch_time: '2024-09-12_15-00-00-000'
+                    ],
+                    file('$outputDir/barcode_snapshot.json'),
+                    file('$outputDir/barcode_cumulative.json')
+                ]
+                input[1] = [
+                    report_format: 'html',
+                    enable_barcode_analysis: true,
+                    enable_source_dashboard: true,
+                    enable_quality_dashboard: true
+                ]
+                """
+            }
+        }
+
+        then {
+            assert process.success
+            assert process.out.html.size() == 1
+            
+            def (meta, html_report) = process.out.html[0]
+            assert meta.batch_id == 'batch_barcode_001'
+            assert path(html_report).exists()
+            
+            // Verify barcode-specific content
+            def html_content = path(html_report).text
+            assert html_content.contains('barcode01') || html_content.contains('barcode02')
+            assert html_content.contains('Data Sources') || html_content.contains('directories')
+            
+            assert process.out.versions.size() == 1
+        }
+    }
+
+    test("Should handle alerts and quality indicators") {
+
+        setup {
+            // Create snapshot with quality alerts
+            script """
+            cat > $outputDir/alert_snapshot.json << 'EOF'
+{
+  "batch_info": {
+    "batch_id": "batch_alert_001",
+    "batch_time": "2024-09-12_16-00-00-000",
+    "processing_time_formatted": "2024-09-12T16:00:00"
+  },
+  "file_statistics": {
+    "file_count": 3,
+    "total_size_mb": 15.0,
+    "estimated_total_reads": 75000,
+    "compressed_files": 1
+  },
+  "quality_indicators": {
+    "compressed_ratio": 0.33,
+    "large_files_ratio": 0.67,
+    "high_priority_ratio": 0.67
+  },
+  "priority_analysis": {
+    "high_priority_files": 2,
+    "average_priority": 120.5
+  }
+}
+EOF
+            """)
+            
+            script """
+            cat > $outputDir/alert_cumulative.json << 'EOF'
+{
+  "session_info": {
+    "total_batches": 5,
+    "session_start_formatted": "2024-09-12T15:30:00"
+  },
+  "totals": {
+    "total_files": 15,
+    "total_size_mb": 75.0
+  },
+  "performance": {
+    "session_duration_seconds": 1800,
+    "files_per_second": 0.0083,
+    "mb_per_second": 0.042,
+    "reads_per_second": 21,
+    "batches_per_minute": 0.17
+  }
+}
+EOF
+            """)
+            
+            // Create alerts file
+            script """
+            cat > $outputDir/alerts.json << 'EOF'
+{
+  "alerts": [
+    {
+      "type": "quality_warning",
+      "level": "warning",
+      "message": "Low compression ratio detected (33%)"
+    },
+    {
+      "type": "performance_alert",
+      "level": "error", 
+      "message": "Processing rate below threshold"
+    }
+  ]
+}
+EOF
+            """)
+        }
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [
+                        batch_id: 'batch_alert_001',
+                        batch_time: '2024-09-12_16-00-00-000'
+                    ],
+                    file('$outputDir/alert_snapshot.json'),
+                    file('$outputDir/alert_cumulative.json')
+                ]
+                input[1] = [
+                    report_format: 'html',
+                    enable_quality_indicators: true,
+                    quality_alert_threshold: 0.7,
+                    enable_performance_alerts: true
+                ]
+                """
+            }
+        }
+
+        then {
+            assert process.success
+            assert process.out.html.size() == 1
+            
+            def (meta, html_report) = process.out.html[0]
+            assert path(html_report).exists()
+            
+            // Check for alert content in HTML
+            def html_content = path(html_content).text
+            assert html_content.contains('alert') || html_content.contains('warning') || html_content.contains('Quality')
+            
+            assert process.out.versions.size() == 1
+        }
+    }
+
+    test("Should generate minimal report for edge cases") {
+
+        setup {
+            script """
+            cat > $outputDir/minimal_snapshot.json << 'EOF'
+{
+  "batch_info": {
+    "batch_id": "batch_minimal_001",
+    "batch_time": "2024-09-12_17-00-00-000",
+    "processing_time_formatted": "2024-09-12T17:00:00"
+  },
+  "file_statistics": {
+    "file_count": 0,
+    "total_size_mb": 0.0,
+    "estimated_total_reads": 0
+  }
+}
+EOF
+            """)
+            
+            script """
+            cat > $outputDir/minimal_cumulative.json << 'EOF'
+{
+  "session_info": {
+    "total_batches": 1,
+    "session_start_formatted": "2024-09-12T17:00:00"
+  },
+  "totals": {
+    "total_files": 0,
+    "total_size_mb": 0.0
+  },
+  "performance": {
+    "session_duration_seconds": 60,
+    "files_per_second": 0,
+    "mb_per_second": 0,
+    "reads_per_second": 0,
+    "batches_per_minute": 1.0
+  }
+}
+EOF
+            """)
+        }
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [
+                        batch_id: 'batch_minimal_001',
+                        batch_time: '2024-09-12_17-00-00-000'
+                    ],
+                    file('$outputDir/minimal_snapshot.json'),
+                    file('$outputDir/minimal_cumulative.json')
+                ]
+                input[1] = [
+                    report_format: 'html',
+                    handle_empty_batches: true
+                ]
+                """
+            }
+        }
+
+        then {
+            assert process.success
+            assert process.out.html.size() == 1
+            
+            def (meta, html_report) = process.out.html[0]
+            assert path(html_report).exists()
+            
+            // Should handle empty data gracefully
+            def html_content = path(html_report).text
+            assert html_content.contains('<html') && html_content.contains('</html>')
+            
+            assert process.out.versions.size() == 1
+        }
+    }
+
+    test("Should run in stub mode") {
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [
+                        batch_id: 'stub_test',
+                        batch_time: '2024-09-12_18-00-00-000'
+                    ],
+                    [],
+                    []
+                ]
+                input[1] = [
+                    report_format: 'html'
+                ]
+                """
+            }
+            
+            stub true
+        }
+
+        then {
+            assert process.success
+            assert process.out.html.size() == 1
+            assert process.out.versions.size() == 1
+            
+            def (meta, html_report) = process.out.html[0]
+            assert meta.batch_id == 'stub_test'
+            assert path(html_report).exists()
+        }
+    }
+}

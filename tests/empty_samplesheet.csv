@@ -1,1 +1,1 @@
-sample,fastq,barcode
+group,replicate,barcode,input_file,genome,transcriptome

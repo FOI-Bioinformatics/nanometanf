@@ -1,0 +1,233 @@
+nextflow_process {
+
+    name "Test ANALYZE_INPUT_CHARACTERISTICS"
+    script "../main.nf"
+    process "ANALYZE_INPUT_CHARACTERISTICS"
+
+    test("Should analyze FASTQ file characteristics") {
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [
+                        id: 'test_sample',
+                        single_end: true
+                    ],
+                    file('$projectDir/tests/test_sample.fastq.gz')
+                ]
+                input[1] = [
+                    sampling_rate: 0.1,
+                    complexity_analysis: true,
+                    size_analysis: true,
+                    compression_analysis: true
+                ]
+                """
+            }
+        }
+
+        then {
+            assert process.success
+            assert process.out.characteristics.size() == 1
+            
+            // Check that characteristics file was generated
+            def (meta, characteristics_file) = process.out.characteristics[0]
+            assert meta.id == 'test_sample'
+            assert characteristics_file != null
+            assert path(characteristics_file).exists()
+            
+            // Check versions output
+            assert process.out.versions.size() == 1
+            assert path(process.out.versions[0]).getText().contains('python')
+        }
+    }
+
+    test("Should analyze POD5 file characteristics") {
+
+        setup {
+            // Create dummy POD5 file for testing
+            script "echo 'dummy pod5 content for analysis' > $outputDir/test.pod5")
+        }
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [
+                        id: 'test_pod5',
+                        single_end: true,
+                        file_type: 'pod5'
+                    ],
+                    file('$outputDir/test.pod5')
+                ]
+                input[1] = [
+                    sampling_rate: 0.05,
+                    complexity_analysis: true,
+                    size_analysis: true,
+                    read_length_analysis: true
+                ]
+                """
+            }
+        }
+
+        then {
+            assert process.success
+            assert process.out.characteristics.size() == 1
+            
+            def (meta, characteristics_file) = process.out.characteristics[0]
+            assert meta.id == 'test_pod5'
+            assert meta.file_type == 'pod5'
+            assert path(characteristics_file).exists()
+            
+            assert process.out.versions.size() == 1
+        }
+    }
+
+    test("Should handle multiple input files") {
+
+        setup {
+            // Create test files
+            script "cp $projectDir/tests/test_sample.fastq.gz $outputDir/sample1.fastq.gz")
+            script "cp $projectDir/tests/test_sample.fastq.gz $outputDir/sample2.fastq.gz")
+        }
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [
+                        id: 'test_multiple',
+                        single_end: true
+                    ],
+                    [
+                        file('$outputDir/sample1.fastq.gz'),
+                        file('$outputDir/sample2.fastq.gz')
+                    ]
+                ]
+                input[1] = [
+                    sampling_rate: 0.1,
+                    complexity_analysis: true,
+                    aggregate_analysis: true
+                ]
+                """
+            }
+        }
+
+        then {
+            assert process.success
+            assert process.out.characteristics.size() == 1
+            
+            def (meta, characteristics_file) = process.out.characteristics[0]
+            assert meta.id == 'test_multiple'
+            assert path(characteristics_file).exists()
+            
+            assert process.out.versions.size() == 1
+        }
+    }
+
+    test("Should perform complexity analysis") {
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [
+                        id: 'complexity_test',
+                        single_end: true
+                    ],
+                    file('$projectDir/tests/test_sample.fastq.gz')
+                ]
+                input[1] = [
+                    sampling_rate: 0.2,
+                    complexity_analysis: true,
+                    complexity_window_size: 1000,
+                    complexity_threshold: 0.8
+                ]
+                """
+            }
+        }
+
+        then {
+            assert process.success
+            assert process.out.characteristics.size() == 1
+            
+            def (meta, characteristics_file) = process.out.characteristics[0]
+            assert meta.id == 'complexity_test'
+            assert path(characteristics_file).exists()
+            
+            // Check that complexity analysis data exists in file
+            def characteristics_content = path(characteristics_file).text
+            assert characteristics_content.contains('complexity') || characteristics_content.contains('entropy')
+            
+            assert process.out.versions.size() == 1
+        }
+    }
+
+    test("Should handle configuration edge cases") {
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [
+                        id: 'edge_case_test',
+                        single_end: true
+                    ],
+                    file('$projectDir/tests/test_sample.fastq.gz')
+                ]
+                input[1] = [
+                    sampling_rate: 1.0,  // Full sampling
+                    complexity_analysis: false,
+                    size_analysis: true,
+                    compression_analysis: true,
+                    read_count_estimation: true
+                ]
+                """
+            }
+        }
+
+        then {
+            assert process.success
+            assert process.out.characteristics.size() == 1
+            
+            def (meta, characteristics_file) = process.out.characteristics[0]
+            assert meta.id == 'edge_case_test'
+            assert path(characteristics_file).exists()
+            
+            assert process.out.versions.size() == 1
+        }
+    }
+
+    test("Should run in stub mode") {
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [
+                        id: 'stub_test',
+                        single_end: true
+                    ],
+                    []
+                ]
+                input[1] = [
+                    sampling_rate: 0.1,
+                    complexity_analysis: true
+                ]
+                """
+            }
+            
+            stub true
+        }
+
+        then {
+            assert process.success
+            assert process.out.characteristics.size() == 1
+            assert process.out.versions.size() == 1
+            
+            def (meta, characteristics_file) = process.out.characteristics[0]
+            assert meta.id == 'stub_test'
+            assert path(characteristics_file).exists()
+        }
+    }
+}

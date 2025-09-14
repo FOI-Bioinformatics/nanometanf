@@ -19,7 +19,7 @@ include { QC_ANALYSIS                } from '../subworkflows/local/qc_analysis'
 include { ASSEMBLY                   } from '../subworkflows/local/assembly'
 include { TAXONOMIC_CLASSIFICATION   } from '../subworkflows/local/taxonomic_classification'
 include { VALIDATION                 } from '../subworkflows/local/validation'
-include { DYNAMIC_RESOURCE_ALLOCATION } from '../subworkflows/local/dynamic_resource_allocation'
+// include { DYNAMIC_RESOURCE_ALLOCATION } from '../subworkflows/local/dynamic_resource_allocation'
 
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

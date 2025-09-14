@@ -9,7 +9,7 @@ nextflow_process {
     tag "kraken2/kraken2"
 
     setup {
-        run("UNTAR") {
+        script "UNTAR") {
             script "modules/nf-core/untar/main.nf"
             process {
                 """
