@@ -40,7 +40,7 @@ nextflow_pipeline {
                 // Integration-optimized batching
                 batch_size = 4
                 batch_interval = "5s"
-                max_files = "12"
+                max_files = 12
                 
                 // Enhanced real-time features
                 enable_adaptive_batching = true
@@ -259,7 +259,7 @@ nextflow_pipeline {
                 // Stream-optimized configuration
                 batch_size = 3
                 batch_interval = "4s"
-                max_files = "1"
+                max_files = 1
                 
                 // Priority-based processing (simulate urgent samples)
                 priority_samples = "barcode01,barcode02"
