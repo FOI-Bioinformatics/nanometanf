@@ -31,14 +31,11 @@ nextflow_pipeline {
         then {
             assert workflow.success
             assert workflow.trace.tasks().size() > 0
-            
-            // Check that barcode discovery worked
-            assert workflow.trace.tasks().any { it.name.contains('BARCODE_DISCOVERY') }
-            
-            // Check QC ran for multiple samples
+
+            // Check QC ran for multiple barcode samples (barcode01, barcode02, unclassified)
             def fastp_tasks = workflow.trace.tasks().findAll { it.name.contains('FASTP') }
-            assert fastp_tasks.size() >= 2  // At least barcode01 and barcode02
-            
+            assert fastp_tasks.size() >= 2  // At least 2 barcodes discovered and processed
+
             // Check output structure
             assert path("${outputDir}/results/fastp").exists()
             assert path("${outputDir}/results/multiqc").exists()

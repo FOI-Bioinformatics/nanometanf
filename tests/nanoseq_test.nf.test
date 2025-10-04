@@ -49,7 +49,7 @@ nextflow_pipeline {
                 
                 // Test Dorado parameters without POD5 files
                 use_dorado = true
-                dorado_path = params.dorado_path ?: '/usr/local/bin/dorado'
+                dorado_path = '/Users/andreassjodin/Downloads/dorado-1.1.1-osx-arm64/bin/dorado'
                 pod5_input_dir = null  // No POD5 - should skip Dorado
                 demultiplex = false
                 barcode_kit = 'SQK-PBK004'
@@ -87,7 +87,7 @@ nextflow_pipeline {
                 
                 // Test with local POD5 data + existing FASTQ
                 use_dorado = true
-                dorado_path = params.dorado_path ?: '/usr/local/bin/dorado'
+                dorado_path = '/Users/andreassjodin/Downloads/dorado-1.1.1-osx-arm64/bin/dorado'
                 pod5_input_dir = "$projectDir/assets/test_data/minimal_nanoseq/pod5"
                 dorado_model = 'dna_r10.4.1_e4.3_400bps_fast@v4.1.0'
                 demultiplex = false
