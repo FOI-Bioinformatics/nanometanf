@@ -30,18 +30,11 @@ workflow REALTIME_MONITORING {
         
         //
         // CHANNEL: Create batches for processing
+        // Note: Timer-based batching removed for v1.0 stability
+        // Files are batched by size only when using max_files limit
         //
         ch_batched_files = ch_input_files
             .buffer(size: batch_size, remainder: true)
-            .mix(
-                // Also emit batches on time interval
-                Channel
-                    .timer(batch_interval)
-                    .combine(ch_input_files.collect())
-                    .filter { timer, files -> files.size() > 0 }
-                    .map { timer, files -> files }
-            )
-            .unique() // Remove duplicate batches
         
         //
         // CHANNEL: Convert files to meta map format
