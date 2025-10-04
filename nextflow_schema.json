@@ -254,7 +254,8 @@
             "default": "5min"
         },
         "max_files": {
-            "type": "string"
+            "type": "integer",
+            "description": "Maximum number of files to process in real-time mode (limits watchPath file detection)"
         },
         "watch_directories": {
             "type": "array",
