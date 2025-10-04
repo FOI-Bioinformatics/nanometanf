@@ -11,3 +11,7 @@ null/
 .nf-test.*
 test_results
 test_*
+
+# Temporary development scripts
+/*.sh
+!bin/*.sh
