@@ -1,0 +1,7 @@
+{
+  "sample_id": "unicode_test_\u2122\ufe0f_\u00a9\ufe0f_\u00ae\ufe0f",
+  "file_info": {
+    "filename": "\u6d4b\u8bd5\u6587\u4ef6.fastq",
+    "description": "\u0422\u0435\u0441\u0442\u043e\u0432\u044b\u0439 \u0444\u0430\u0439\u043b \u0441 unicode \u0441\u0438\u043c\u0432\u043e\u043b\u0430\u043c\u0438"
+  }
+}

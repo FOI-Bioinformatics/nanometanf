@@ -1,0 +1,22 @@
+{
+  "batch_id": "batch_001",
+  "timestamp": "2024-01-15T10:00:00",
+  "sample_id": "test_sample",
+  "batch_metrics": {
+    "files_processed": 10,
+    "total_reads": 50000,
+    "total_bases": 100000000,
+    "average_read_length": 2000,
+    "average_quality": 15.5
+  },
+  "quality_metrics": {
+    "q10_reads": 48000,
+    "q20_reads": 35000,
+    "q30_reads": 15000
+  },
+  "processing_time": {
+    "start_time": "2024-01-15T09:00:00",
+    "end_time": "2024-01-15T10:00:00",
+    "duration_seconds": 3600
+  }
+}

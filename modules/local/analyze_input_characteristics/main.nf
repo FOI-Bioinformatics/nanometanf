@@ -29,9 +29,9 @@ process ANALYZE_INPUT_CHARACTERISTICS {
     from datetime import datetime
     
     # Input metadata and configuration
-    meta = ${groovy.json.JsonBuilder(meta).toString()}
-    tool_context = ${groovy.json.JsonBuilder(tool_context).toString()}
-    resource_config = ${groovy.json.JsonBuilder(resource_config).toString()}
+    meta = json.loads('${new groovy.json.JsonBuilder(meta).toString()}')
+    tool_context = json.loads('${new groovy.json.JsonBuilder(tool_context).toString()}')
+    resource_config = json.loads('${new groovy.json.JsonBuilder(resource_config).toString()}')
     
     files = [${files.collect { "'${it}'" }.join(', ')}]
     

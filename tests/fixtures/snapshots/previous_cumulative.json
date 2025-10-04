@@ -1,0 +1,20 @@
+{
+  "total_batches_processed": 1,
+  "total_files_processed": 2,
+  "total_size_gb": 0.09,
+  "total_reads_processed": 18000,
+  "first_batch_timestamp": 1640995200000,
+  "last_batch_timestamp": 1640995200000,
+  "processing_duration_hours": 0.0,
+  "average_batch_size_mb": 90.0,
+  "average_files_per_batch": 2.0,
+  "cumulative_metrics": {
+    "average_file_size_mb": 45.0,
+    "compression_ratio": 1.0,
+    "priority_distribution": {
+      "high": 1,
+      "medium": 1,
+      "low": 0
+    }
+  }
+}

@@ -53,15 +53,14 @@ workflow ENHANCED_REALTIME_MONITORING {
             log.info "Starting monitoring for directory: ${watch_dir}"
             
             // Monitor each directory and add metadata
-            def dir_channel = Channel
-                .watchPath("${watch_dir}/${file_pattern}", 'create,modify')
-                .until { file ->
-                    // Stop condition based on max_files
-                    params.max_files && getProcessedFileCount() >= params.max_files.toInteger()
-                }
-                .map { file -> 
-                    addFileMetadata(file, watch_dir)
-                }
+            def watched = Channel.watchPath("${watch_dir}/${file_pattern}", 'create,modify')
+
+            def dir_channel = (params.max_files
+                ? watched.take(params.max_files.toInteger())
+                : watched
+            ).map { file ->
+                addFileMetadata(file, watch_dir)
+            }
                 
             ch_monitored_files = ch_monitored_files.mix(dir_channel)
         }

@@ -1,0 +1,71 @@
+nextflow_process {
+
+    name "Test UPDATE_CUMULATIVE_STATS"
+    script "../main.nf"
+    process "UPDATE_CUMULATIVE_STATS"
+
+    tag "modules"
+    tag "modules_local"
+    tag "update_cumulative_stats"
+
+    test("Should update cumulative stats with first batch") {
+
+        tag "first_batch"
+        tag "snapshot"
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [batch_id: 'batch_001'],
+                    file('$projectDir/tests/fixtures/snapshots/basic_snapshot.json'),
+                    []
+                ]
+                input[1] = [
+                    enable_alerts: true,
+                    alert_thresholds: [
+                        batch_size_mb: 100,
+                        total_reads_millions: 1
+                    ]
+                ]
+                """
+            }
+        }
+
+        then {
+            assertAll(
+                { assert process.success },
+                { assert snapshot(process.out).match() }
+            )
+        }
+    }
+
+    test("Should update cumulative stats with previous data") {
+
+        tag "cumulative_update"
+        tag "snapshot"
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [batch_id: 'batch_002'],
+                    file('$projectDir/tests/fixtures/snapshots/basic_snapshot.json'),
+                    file('$projectDir/tests/fixtures/snapshots/previous_cumulative.json')
+                ]
+                input[1] = [
+                    enable_trending: true,
+                    calculate_rates: true
+                ]
+                """
+            }
+        }
+
+        then {
+            assertAll(
+                { assert process.success },
+                { assert snapshot(process.out).match() }
+            )
+        }
+    }
+}

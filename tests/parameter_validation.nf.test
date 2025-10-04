@@ -7,7 +7,7 @@ nextflow_pipeline {
 
         when {
             params {
-                input = "$projectDir/assets/test_data/minimal_nanoseq_samplesheet.csv"
+                input = "$projectDir/assets/test_data/test_samplesheet_absolute.csv"
                 outdir = "$outputDir"
                 
                 // Test all key parameters

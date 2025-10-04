@@ -1,0 +1,37 @@
+{
+    "Should predict resource requirements from input characteristics": {
+        "content": [
+            {
+                "0": [
+                    [
+                        {
+                            "id": "test_prediction",
+                            "single_end": true
+                        },
+                        "test_prediction_resource_predictions.json:md5,f60dab994303ada363d086d2831087c0"
+                    ]
+                ],
+                "1": [
+                    "versions.yml:md5,8411434d9b17cd52810288a4f3fe34e8"
+                ],
+                "predictions": [
+                    [
+                        {
+                            "id": "test_prediction",
+                            "single_end": true
+                        },
+                        "test_prediction_resource_predictions.json:md5,f60dab994303ada363d086d2831087c0"
+                    ]
+                ],
+                "versions": [
+                    "versions.yml:md5,8411434d9b17cd52810288a4f3fe34e8"
+                ]
+            }
+        ],
+        "meta": {
+            "nf-test": "0.9.2",
+            "nextflow": "25.04.7"
+        },
+        "timestamp": "2025-10-03T07:35:33.569353"
+    }
+}

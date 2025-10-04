@@ -7,7 +7,7 @@ process APPLY_DYNAMIC_RESOURCES {
     val target_process_name
 
     output:
-    tuple val(meta), val(dynamic_config), emit: config
+    tuple val(meta), path("dynamic_config.json"), emit: config
     path "versions.yml", emit: versions
 
     when:
@@ -20,8 +20,8 @@ process APPLY_DYNAMIC_RESOURCES {
     import json
     import os
     from pathlib import Path
-    
-    meta = ${groovy.json.JsonBuilder(meta).toString()}
+
+    meta = json.loads('${new groovy.json.JsonBuilder(meta).toString()}')
     target_process = "${target_process_name}"
     
     # Load optimal allocation
@@ -30,11 +30,15 @@ process APPLY_DYNAMIC_RESOURCES {
     
     # Extract the Nextflow process configuration
     dynamic_config = allocation.get('nextflow_process_config', {})
-    
+
     print(f"Dynamic resource configuration for {meta['id']} -> {target_process}:")
     for key, value in dynamic_config.items():
         print(f"  {key}: {value}")
-    
+
+    # Write dynamic config to file
+    with open('dynamic_config.json', 'w') as f:
+        json.dump(dynamic_config, f, indent=2)
+
     # Generate versions file
     with open('versions.yml', 'w') as f:
         f.write('''\"${task.process}\":
@@ -44,8 +48,52 @@ process APPLY_DYNAMIC_RESOURCES {
 
     stub:
     """
-    echo '{}' > stub_config.json
-    
+    # Create comprehensive dynamic resource configuration matching real output structure
+    cat > ${meta.id}_dynamic_config.json << 'EOF'
+{
+    "sample_id": "${meta.id}",
+    "target_process": "${target_process_name}",
+    "configuration_timestamp": "\$(date -Iseconds)",
+    "nextflow_process_config": {
+        "cpus": 4,
+        "memory": "8.GB",
+        "time": "6.h",
+        "disk": "50.GB"
+    },
+    "resource_allocation": {
+        "cpu_cores": 4,
+        "memory_mb": 8192,
+        "memory_gb": 8,
+        "time_hours": 6,
+        "disk_gb": 50
+    },
+    "optimization_metadata": {
+        "profile_used": "balanced",
+        "safety_factor_applied": 0.8,
+        "prediction_confidence": 0.85,
+        "allocation_strategy": "predictive"
+    },
+    "system_constraints": {
+        "max_available_cpus": 16,
+        "max_available_memory_gb": 64,
+        "gpu_available": false,
+        "accelerator_type": "none"
+    },
+    "performance_estimates": {
+        "estimated_runtime_minutes": 45,
+        "estimated_throughput_mb_per_min": 100,
+        "estimated_efficiency_score": 0.78
+    },
+    "retry_configuration": {
+        "error_strategy": "retry",
+        "max_retries": 3,
+        "retry_multiplier": 1.5,
+        "max_memory": "16.GB",
+        "max_time": "12.h"
+    }
+}
+EOF
+
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
         python: "3.9"

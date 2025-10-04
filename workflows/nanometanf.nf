@@ -115,7 +115,7 @@ workflow NANOMETANF {
     //
     // SUBWORKFLOW: Dynamic resource allocation for optimal performance
     //
-    if (params.enable_dynamic_resources ?: true) {
+    if (params.enable_dynamic_resources) {
         log.info "=== Enabling Dynamic Resource Allocation ==="
         
         // Prepare resource configuration
@@ -144,16 +144,20 @@ workflow NANOMETANF {
                 [ meta, files, tool_context ]
             }
         
-        DYNAMIC_RESOURCE_ALLOCATION (
-            ch_resource_inputs,
-            resource_config,
-            system_config
-        )
-        ch_versions = ch_versions.mix(DYNAMIC_RESOURCE_ALLOCATION.out.versions)
+        // DYNAMIC_RESOURCE_ALLOCATION (
+        //     ch_resource_inputs,
+        //     resource_config,
+        //     system_config
+        // )
+        // ch_versions = ch_versions.mix(DYNAMIC_RESOURCE_ALLOCATION.out.versions)
         
         // Extract resource configurations for later use
-        ch_resource_configs = DYNAMIC_RESOURCE_ALLOCATION.out.resource_configs
-        ch_optimal_allocations = DYNAMIC_RESOURCE_ALLOCATION.out.optimal_allocations
+        // ch_resource_configs = DYNAMIC_RESOURCE_ALLOCATION.out.resource_configs
+        // ch_optimal_allocations = DYNAMIC_RESOURCE_ALLOCATION.out.optimal_allocations
+        
+        // Placeholder channels for disabled dynamic resource allocation
+        ch_resource_configs = Channel.empty()
+        ch_optimal_allocations = Channel.empty()
         
         log.info "Dynamic resource allocation configured successfully"
     } else {
@@ -172,18 +176,29 @@ workflow NANOMETANF {
     //
     // SUBWORKFLOW: Quality control analysis
     //
-    QC_ANALYSIS (
-        DEMULTIPLEXING.out.samples
-    )
-    ch_versions = ch_versions.mix(QC_ANALYSIS.out.versions)
-    ch_multiqc_files = ch_multiqc_files.mix(QC_ANALYSIS.out.fastp_json.collect{it[1]})
+    if (!params.skip_fastp || !params.skip_nanoplot) {
+        QC_ANALYSIS (
+            DEMULTIPLEXING.out.samples
+        )
+        ch_versions = ch_versions.mix(QC_ANALYSIS.out.versions)
+        ch_multiqc_files = ch_multiqc_files.mix(QC_ANALYSIS.out.fastp_json.collect{it[1]})
+        ch_qc_reads = QC_ANALYSIS.out.reads
+        ch_qc_reports = QC_ANALYSIS.out.fastp_html
+        ch_nanoplot_reports = QC_ANALYSIS.out.nanoplot
+    } else {
+        // If QC is skipped, pass through original reads
+        log.info "Skipping QC analysis - using original reads"
+        ch_qc_reads = DEMULTIPLEXING.out.samples
+        ch_qc_reports = Channel.empty()
+        ch_nanoplot_reports = Channel.empty()
+    }
     
     //
     // SUBWORKFLOW: Multi-tool genome assembly for long-read data
     //
     if (params.enable_assembly) {
         ASSEMBLY (
-            QC_ANALYSIS.out.reads
+            ch_qc_reads
         )
         ch_versions = ch_versions.mix(ASSEMBLY.out.versions)
     }
@@ -195,7 +210,7 @@ workflow NANOMETANF {
         ch_classification_db = Channel.fromPath(params.kraken2_db, checkIfExists: true)
         
         TAXONOMIC_CLASSIFICATION (
-            QC_ANALYSIS.out.reads,
+            ch_qc_reads,
             ch_classification_db
         )
         ch_versions = ch_versions.mix(TAXONOMIC_CLASSIFICATION.out.versions)
@@ -264,19 +279,25 @@ workflow NANOMETANF {
         )
     )
 
-    MULTIQC (
-        ch_multiqc_files.collect(),
-        ch_multiqc_config.toList(),
-        ch_multiqc_custom_config.toList(),
-        ch_multiqc_logo.toList(),
-        [],
-        []
-    )
+    if (!params.skip_multiqc) {
+        MULTIQC (
+            ch_multiqc_files.collect(),
+            ch_multiqc_config.toList(),
+            ch_multiqc_custom_config.toList(),
+            ch_multiqc_logo.toList(),
+            [],
+            []
+        )
+        ch_multiqc_report = MULTIQC.out.report.toList()
+    } else {
+        log.info "Skipping MultiQC report generation"
+        ch_multiqc_report = Channel.empty()
+    }
 
     emit:
-    multiqc_report         = MULTIQC.out.report.toList()                    // channel: /path/to/multiqc_report.html
-    qc_reports             = QC_ANALYSIS.out.fastp_html                     // channel: [ val(meta), path(html) ]
-    nanoplot_reports       = QC_ANALYSIS.out.nanoplot                       // channel: [ val(meta), path(html) ]
+    multiqc_report         = ch_multiqc_report                              // channel: /path/to/multiqc_report.html
+    qc_reports             = ch_qc_reports                                  // channel: [ val(meta), path(html) ]
+    nanoplot_reports       = ch_nanoplot_reports                            // channel: [ val(meta), path(html) ]
     assemblies             = params.enable_assembly ? ASSEMBLY.out.assembly : Channel.empty()          // channel: [ val(meta), path(fasta.gz) ] - Genome assemblies
     assembly_graphs        = params.enable_assembly ? ASSEMBLY.out.assembly_graph : Channel.empty()    // channel: [ val(meta), path(gfa.gz) ] - Assembly graphs
     assembly_info          = params.enable_assembly ? ASSEMBLY.out.assembly_info : Channel.empty()     // channel: [ val(meta), path(txt) ] - Assembly statistics

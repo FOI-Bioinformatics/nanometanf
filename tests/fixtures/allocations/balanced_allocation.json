@@ -1,0 +1,24 @@
+{
+  "sample_id": "balanced_test",
+  "optimization_timestamp": "2024-10-02T21:00:00",
+  "tool_context": {
+    "tool_name": "fastp"
+  },
+  "optimized_allocation": {
+    "cpu_cores": 4,
+    "memory_gb": 8.0,
+    "gpu_enabled": false,
+    "estimated_runtime_hours": 1.0
+  },
+  "nextflow_process_config": {
+    "cpus": 4,
+    "memory": "8.GB",
+    "time": "1.0h",
+    "queue": "normal"
+  },
+  "resource_efficiency": {
+    "overall_efficiency": 0.85,
+    "cpu_utilization_est": 0.9,
+    "memory_utilization_est": 0.8
+  }
+}

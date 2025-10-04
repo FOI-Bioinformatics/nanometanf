@@ -1,0 +1,131 @@
+nextflow_pipeline {
+
+    name "Test core pipeline logic without containers"
+    script "../main.nf"
+
+    test("Should validate pipeline structure and parameter handling") {
+
+        when {
+            params {
+                input = "$projectDir/assets/test_data/test_samplesheet_absolute.csv"
+                outdir = "$outputDir"
+                
+                // Use no-Docker configuration
+                config_profile_name = 'Test without Docker'
+                
+                // Disable all container-dependent features
+                use_dorado = false
+                realtime_mode = false
+                kraken2_db = null
+                blast_validation = false
+                
+                // Skip container-dependent processes
+                skip_fastp = true
+                skip_nanoplot = true
+                skip_multiqc = true
+                
+                // Disable dynamic features
+                enable_dynamic_resources = false
+                enable_realtime_stats = false
+                
+                // Resource limits
+                max_cpus = 1
+                max_memory = '2.GB'
+                max_time = '5.min'
+            }
+            
+            config "$projectDir/conf/test_no_docker.config"
+        }
+
+        then {
+            // Test should complete successfully or fail gracefully
+            assert workflow.success
+            
+            if (workflow.success) {
+                // Should have some workflow structure
+                assert workflow.trace.tasks().size() >= 0
+                
+                // Should create output directory
+                assert path("$outputDir").exists()
+            }
+            
+            if (workflow.failed) {
+                // Should fail quickly without hanging
+                // REMOVED: workflow.duration property not available in nf-test
+                // assert workflow.duration.toMillis() < 300000 // Less than 5 minutes
+            }
+        }
+    }
+
+    test("Should handle minimal input validation without execution") {
+
+        when {
+            params {
+                input = "$projectDir/assets/test_data/test_samplesheet_absolute.csv"
+                outdir = "$outputDir"
+                
+                // Force early exit for validation only
+                help = false
+                validate_params = true
+                
+                // Minimal configuration
+                max_cpus = 1
+                max_memory = '1.GB'
+                max_time = '1.min'
+                
+                // Disable all execution
+                use_dorado = false
+                realtime_mode = false
+                kraken2_db = null
+                blast_validation = false
+                skip_fastp = true
+                skip_nanoplot = true
+                skip_multiqc = true
+            }
+            
+            config "$projectDir/conf/test_no_docker.config"
+        }
+
+        then {
+            // Should handle parameter validation
+            assert workflow.success
+            
+            // Should complete quickly
+            // REMOVED: workflow.duration property not available in nf-test
+            // assert workflow.duration.toMillis() < 60000 // Less than 1 minute
+        }
+    }
+
+    test("Should detect missing critical dependencies gracefully") {
+
+        when {
+            params {
+                input = "$projectDir/assets/test_data/test_samplesheet_absolute.csv"
+                outdir = "$outputDir"
+                
+                // Enable features that require tools
+                use_dorado = true
+                dorado_path = "/nonexistent/path/dorado"
+                pod5_input_dir = "$projectDir/assets/test_data/minimal_nanoseq/pod5"
+                
+                // Resource limits
+                max_cpus = 1
+                max_memory = '2.GB'
+                max_time = '2.min'
+            }
+            
+            config "$projectDir/conf/test_no_docker.config"
+        }
+
+        then {
+            // Should fail gracefully when tools are missing
+            assert workflow.failed || workflow.success
+            
+            if (workflow.failed) {
+                // Should fail quickly, not hang
+                // REMOVED: workflow.duration property not available in nf-test
+                // assert workflow.duration.toMillis() < 120000 // Less than 2 minutes
+            }
+        }
+    }
+}

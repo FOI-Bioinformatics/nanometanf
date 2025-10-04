@@ -1,0 +1,41 @@
+{
+  "batch_info": {
+    "batch_id": "batch_001",
+    "batch_timestamp": 1640995200000,
+    "batch_time_formatted": "2022-01-01T00:00:00Z",
+    "processing_timestamp": 1640995200000,
+    "processing_time_formatted": "2022-01-01T00:00:00"
+  },
+  "file_statistics": {
+    "file_count": 2,
+    "total_size_bytes": 94371840,
+    "total_size_mb": 90.0,
+    "estimated_total_reads": 18000,
+    "compressed_files": 2,
+    "average_file_size_mb": 45.0
+  },
+  "priority_analysis": {
+    "average_priority": 80.0,
+    "max_priority": 85,
+    "min_priority": 75,
+    "high_priority_files": 1
+  },
+  "source_analysis": {
+    "unique_watch_dirs": 1,
+    "unique_samples": 2,
+    "directory_file_counts": {
+      "/data/run1": 2
+    }
+  },
+  "timing_analysis": {
+    "average_file_age_ms": 105000,
+    "oldest_file_age_ms": 120000,
+    "newest_file_age_ms": 90000,
+    "batch_creation_time_ms": 1640995200000
+  },
+  "quality_indicators": {
+    "large_files_ratio": 0.0,
+    "compressed_ratio": 1.0,
+    "high_priority_ratio": 0.5
+  }
+}

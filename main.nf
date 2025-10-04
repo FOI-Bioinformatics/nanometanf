@@ -24,9 +24,8 @@ include { getGenomeAttribute      } from './subworkflows/local/utils_nfcore_nano
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
 
-// TODO nf-core: Remove this line if you don't need a FASTA file
-//   This is an example of how to use getGenomeAttribute() to fetch parameters
-//   from igenomes.config using `--genome`
+// Reference genome FASTA file for validation workflows and BLAST database creation
+// Uses getGenomeAttribute() to fetch parameters from igenomes.config using `--genome`
 params.fasta = getGenomeAttribute('fasta')
 
 /*
@@ -52,10 +51,15 @@ workflow FOIBIOINFORMATICS_NANOMETANF {
         samplesheet
     )
     emit:
-    multiqc_report     = NANOMETANF.out.multiqc_report   // channel: /path/to/multiqc_report.html
-    qc_reports         = NANOMETANF.out.qc_reports       // channel: [ val(meta), path(html) ]
-    kraken2_reports    = NANOMETANF.out.kraken2_reports  // channel: [ val(meta), path(txt) ]
-    blast_results      = NANOMETANF.out.blast_results    // channel: [ val(meta), path(txt) ]
+    multiqc_report         = NANOMETANF.out.multiqc_report         // channel: /path/to/multiqc_report.html
+    qc_reports             = NANOMETANF.out.qc_reports             // channel: [ val(meta), path(html) ]
+    nanoplot_reports       = NANOMETANF.out.nanoplot_reports       // channel: [ val(meta), path(html) ]
+    classification_reports = NANOMETANF.out.classification_reports // channel: [ val(meta), path(txt) ]
+    standardized_reports   = NANOMETANF.out.standardized_reports   // channel: [ val(meta), path(tsv/csv/etc) ]
+    blast_results          = NANOMETANF.out.blast_results          // channel: [ val(meta), path(txt) ]
+    assemblies             = NANOMETANF.out.assemblies             // channel: [ val(meta), path(fasta.gz) ]
+    assembly_graphs        = NANOMETANF.out.assembly_graphs        // channel: [ val(meta), path(gfa.gz) ]
+    versions               = NANOMETANF.out.versions               // channel: [ path(versions.yml) ]
 }
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

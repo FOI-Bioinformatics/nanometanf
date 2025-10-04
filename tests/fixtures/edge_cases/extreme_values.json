@@ -1,0 +1,8 @@
+{
+  "sample_id": "extreme_test",
+  "total_size_bytes": 9999999999999,
+  "total_estimated_reads": -1,
+  "complexity_metrics": {
+    "overall_complexity": 999.99
+  }
+}

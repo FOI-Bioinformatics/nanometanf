@@ -1,258 +1,300 @@
 # CLAUDE.md
 
-Developer guidance for **foi-bioinformatics/nanometanf**, a nf-core compliant Nextflow pipeline for comprehensive real-time nanopore sequencing data analysis with integrated basecalling, quality control, taxonomic classification, and validation workflows.
+**Developer Guide for foi-bioinformatics/nanometanf**
 
-## Scientific Context
+This file provides guidance for AI assistants (Claude) and developers working on the nanometanf pipeline. For user documentation, see [README.md](README.md) and [docs/user/](docs/user/).
 
-This pipeline addresses critical bioinformatics challenges in Oxford Nanopore Technologies (ONT) sequencing workflows:
-- **Real-time analysis** during active sequencing runs for pathogen detection
-- **Multiple input modalities** supporting laboratory preprocessing workflows
-- **Scalable taxonomic profiling** with Kraken2 for metagenomics applications
-- **Quality-controlled basecalling** with modern Dorado algorithms
-- **Reproducible containerized execution** following nf-core best practices
+## Pipeline Overview
 
-## Architecture
+**nanometanf** is a nf-core compliant Nextflow pipeline for comprehensive real-time Oxford Nanopore Technologies (ONT) sequencing data analysis, serving as the computational backend for Nanometa Live.
 
-**Core Components:**
-- `main.nf` - Pipeline entry point with workflow routing logic
-- `workflows/nanometanf.nf` - Main workflow orchestration with intelligent input type detection
-- `nextflow.config` - Comprehensive parameter configuration (54+ parameters)
-- `nextflow_schema.json` - JSON Schema parameter validation and documentation
+**Core Capabilities:**
+- Real-time analysis during active sequencing runs
+- POD5 basecalling with Dorado
+- Pre-demultiplexed barcode directory processing
+- Taxonomic classification with Kraken2
+- Quality control and validation workflows
 
-**Subworkflows (9):**
-- `realtime_monitoring.nf` - watchPath-based FASTQ file monitoring for live sequencing
-- `realtime_pod5_monitoring.nf` - watchPath-based POD5 file monitoring with basecalling
-- `dorado_basecalling.nf` - High-accuracy POD5 basecalling with Dorado
-- `barcode_discovery.nf` - **NEW** - Automated discovery of pre-demultiplexed barcode directories
-- `demultiplexing.nf` - **ENHANCED** - Complete Dorado-based demultiplexing with proper output handling
-- `qc_analysis.nf` - Comprehensive quality control with FASTP and NanoPlot
-- `taxonomic_classification.nf` - Kraken2-based taxonomic profiling
-- `validation.nf` - BLAST-based validation for targeted species confirmation
-- `dynamic_resource_allocation.nf` - **NEW** - Intelligent resource prediction and optimization system
+## Critical Files for Development
 
-**Modules (16):**
-- nf-core: fastp, fastqc, kraken2/kraken2, blast/blastn, blast/makeblastdb, multiqc, nanoplot, untar
-- local: dorado_basecaller, dorado_demux **NEW** - Complete demultiplexing implementation
-- local resource modules: analyze_input_characteristics, monitor_system_resources, predict_resource_requirements, optimize_resource_allocation, resource_optimization_profiles, resource_feedback_learning
+### Configuration
+- `nextflow.config` - Main configuration file (150+ parameters)
+- `nextflow_schema.json` - Parameter validation schema
+- `conf/base.config` - Base process resource configuration
+- `conf/modules.config` - Module-specific configurations
+- `conf/qc_profiles.config` - QC strategy profiles
 
-## Prerequisites
+### Core Workflow Files
+- `main.nf` - Pipeline entry point
+- `workflows/nanometanf.nf` - Main workflow orchestration
+- `lib/WorkflowMain.groovy` - Workflow initialization logic
+- `lib/WorkflowNanometanf.groovy` - Pipeline-specific workflow logic
+
+### Subworkflows (subworkflows/local/)
+- `realtime_monitoring.nf` - **CRITICAL** - Real-time FASTQ file monitoring (watchPath)
+- `realtime_pod5_monitoring.nf` - **CRITICAL** - Real-time POD5 monitoring + basecalling
+- `enhanced_realtime_monitoring.nf` - Advanced real-time with priority/batching
+- `dorado_basecalling.nf` - POD5 basecalling workflow
+- `barcode_discovery.nf` - Automated barcode directory discovery
+- `qc_analysis.nf` - Quality control workflow
+- `taxonomic_classification.nf` - Kraken2 taxonomic profiling
+- `validation.nf` - BLAST validation
+- `dynamic_resource_allocation.nf` - **EXPERIMENTAL** - Intelligent resource optimization
+
+### Key Modules (modules/local/)
+- `dorado_basecaller/` - Dorado basecalling module
+- `dorado_demux/` - Dorado demultiplexing module
+- Resource allocation modules (analyze_input_characteristics, monitor_system_resources, etc.)
+
+### Testing Infrastructure
+- `tests/` - nf-test test suite directory
+- `tests/fixtures/` - **IMPORTANT** - Pre-created test data (avoids setup{} timing issues)
+- `tests/edge_cases/` - Edge case test scenarios
+- `nf-test.config` - nf-test configuration
+- `tests/nextflow.config` - Test-specific Nextflow configuration
+
+## Development Prerequisites
 
 ```bash
-# Required Java environment
+# Required Java environment for nf-test
 export JAVA_HOME=$CONDA_PREFIX/lib/jvm
 export PATH=$JAVA_HOME/bin:$PATH
+
+# Verify setup
+nextflow -version  # Should be >= 24.10.5
+nf-test version    # Should be >= 0.9.0
 ```
 
-## Execution Modes
+## Key Development Patterns
 
-**1. Standard FASTQ Processing (Laboratory preprocessed samples):**
-```bash
-nextflow run . --input samplesheet.csv --outdir results
+### 1. Real-time Monitoring with watchPath()
+
+**CRITICAL**: Real-time monitoring is a core feature. The `watchPath()` operator requires proper limiting to avoid infinite hangs:
+
+```groovy
+// CORRECT pattern (used in all realtime_*.nf subworkflows)
+def ch_watched = Channel.watchPath("${dir}/${pattern}", 'create,modify')
+ch_files = params.max_files
+    ? ch_watched.take(params.max_files.toInteger())
+    : ch_watched
+
+// WRONG - will hang forever in tests
+Channel.watchPath(...).until { file -> /* condition */ }
 ```
 
-**2. Pre-demultiplexed Barcode Directories (NEW - Common laboratory workflow):**
-```bash
-nextflow run . --barcode_input_dir /path/to/barcode/folders --outdir results
-# Automatically discovers barcode01/, barcode02/, unclassified/ directories
+**Files using watchPath():**
+- `subworkflows/local/realtime_monitoring.nf:25-29`
+- `subworkflows/local/realtime_pod5_monitoring.nf:27-32`
+- `subworkflows/local/enhanced_realtime_monitoring.nf:56-63`
+
+### 2. Test Fixtures Pattern
+
+**CRITICAL**: Pipeline validation runs BEFORE nf-test `setup{}` blocks execute. Always use pre-created fixtures for workflow/pipeline tests:
+
+```groovy
+// CORRECT - uses pre-existing fixture
+when {
+    params {
+        input = "$projectDir/tests/fixtures/samplesheets/minimal.csv"
+        outdir = "$outputDir"
+    }
+}
+
+// WRONG - samplesheet doesn't exist yet during validation
+setup {
+    """
+    cat > $outputDir/test.csv << 'EOF'
+    sample,fastq,barcode
+    EOF
+    """
+}
+when {
+    params {
+        input = "$outputDir/test.csv"  // FAILS - file not created yet
+    }
+}
 ```
 
-**3. Singleplex POD5 Basecalling:**
+**Fixture location:** `tests/fixtures/`
+- `tests/fixtures/samplesheets/` - Pre-created samplesheet CSV files
+- `tests/fixtures/fastq/` - Test FASTQ files
+- `tests/fixtures/pod5/` - Test POD5 files
+- `tests/fixtures/README.md` - Fixture pattern documentation
+
+### 3. nf-core Compliance
+
+Run these commands before committing:
+
 ```bash
-nextflow run . --use_dorado --pod5_input_dir /path/to/pod5 --dorado_model dna_r10.4.1_e4.3_400bps_hac@v5.0.0 --outdir results
+# Pipeline linting
+nf-core lint
+
+# Schema validation
+nf-core schema lint
+
+# Module/subworkflow updates
+nf-core modules update
+nf-core subworkflows update
 ```
 
-**4. Multiplex POD5 with Dorado Demultiplexing (FIXED):**
-```bash
-nextflow run . --use_dorado --pod5_input_dir /path/to/pod5 --barcode_kit SQK-NBD114-24 --trim_barcodes --outdir results
-```
-
-**5. Real-time FASTQ Monitoring (Live sequencing):**
-```bash
-nextflow run . --realtime_mode --nanopore_output_dir /path/to/watch --file_pattern "**/*.fastq{,.gz}" --outdir results
-```
-
-**6. Real-time POD5 Processing with Basecalling (Live sequencing + basecalling):**
-```bash
-nextflow run . --realtime_mode --use_dorado --nanopore_output_dir /path/to/pod5 --file_pattern "**/*.pod5" --outdir results
-```
-
-**7. Dynamic Resource Allocation (Intelligent resource optimization - NEW):**
-```bash
-# Auto-select optimal profile based on system characteristics
-nextflow run . --input samplesheet.csv --optimization_profile auto --outdir results
-
-# Use specific optimization profile for high-throughput processing
-nextflow run . --input samplesheet.csv --optimization_profile high_throughput --outdir results
-
-# GPU-optimized processing for Dorado basecalling
-nextflow run . --use_dorado --pod5_input_dir /path/to/pod5 --optimization_profile gpu_optimized --outdir results
-```
-
-**Available profiles:** docker, singularity, conda, test, local_test
-
-## Comprehensive Testing Framework
+### 4. Testing Workflow
 
 ```bash
-# Complete nf-test suite (12+ tests including new functionality)
+# Run full test suite
+export JAVA_HOME=$CONDA_PREFIX/lib/jvm && export PATH=$JAVA_HOME/bin:$PATH
 nf-test test --verbose
 
-# New functionality tests
-nf-test test tests/barcode_discovery.nf.test            # Pre-demux barcode directory discovery
-nf-test test tests/dorado_multiplex.nf.test             # POD5 multiplex demultiplexing 
-nf-test test modules/local/dorado_demux/tests/main.nf.test     # Dorado demux module unit test
-nf-test test subworkflows/local/barcode_discovery/tests/main.nf.test  # Barcode discovery unit test
-
-# Existing comprehensive tests
-nf-test test tests/nanoseq_test.nf.test                 # Complete workflow with nf-core data
-nf-test test tests/dorado_pod5.nf.test                  # Singleplex POD5 basecalling
-nf-test test tests/realtime_processing.nf.test         # Real-time FASTQ monitoring
-nf-test test tests/parameter_validation.nf.test        # Schema validation
-
-# Manual testing with local resources
-nextflow run . -c conf/local_test.config --input test_samplesheet.csv --outdir test_results
-
-# nf-core compliance validation
-nf-core lint                    # Pipeline compliance (passing)
-nf-core modules list local      # Module tracking
-nf-core schema lint             # Parameter schema validation
-```
-
-## Key Parameters
-
-**Input/Output:**
-- `--input` - Samplesheet CSV with nanopore format: `sample,fastq,barcode`
-- `--barcode_input_dir` - **NEW** - Directory containing pre-demultiplexed barcode folders (alternative to samplesheet)
-- `--outdir` - Output directory (required)
-
-**Input Type Selection (mutually exclusive):**
-```bash
-# Option 1: Samplesheet-based input (standard)
---input samplesheet.csv
-
-# Option 2: Pre-demultiplexed barcode directories (NEW)
---barcode_input_dir /path/to/barcode_folders/
-
-# Option 3: POD5 directory input
---pod5_input_dir /path/to/pod5/ --use_dorado
-
-# Option 4: Real-time monitoring
---realtime_mode --nanopore_output_dir /path/to/monitor/
-```
-
-**Samplesheet Format (Nanopore-specific):**
-```csv
-sample,fastq,barcode
-SAMPLE_1,sample1.fastq.gz,
-SAMPLE_2,sample2.fastq.gz,BC01
-```
-- `barcode` column optional (empty for non-barcoded samples)
-- Empty samplesheets only work with `--realtime_mode true`
-- **Do not mix POD5 and FASTQ in same run** - choose one workflow type
-
-**Dorado Integration (default: disabled):**
-- `--use_dorado true` - Enable basecalling from POD5 files
-- `--dorado_path` - Binary path (/Users/andreassjodin/Downloads/dorado-1.1.1-osx-arm64/bin/dorado)
-- `--pod5_input_dir` - POD5 files directory
-- `--dorado_model` - Basecalling model (default: dna_r10.4.1_e4.3_400bps_hac@v5.0.0)
-- `--barcode_kit` - Barcode kit for demultiplexing (e.g., SQK-NBD114-24) **FIXED**
-- `--trim_barcodes true` - Remove barcode sequences from demultiplexed reads
-- `--min_qscore 9` - Minimum quality threshold for basecalling
-
-**Real-time Processing (default: disabled):**
-- `--realtime_mode false` - Enable file monitoring (bypasses samplesheet file paths)
-- `--nanopore_output_dir` - Directory to monitor
-- `--file_pattern` - File matching pattern (default: `**/*.fastq{,.gz}` for FASTQ, `**/*.pod5` for POD5)
-- `--batch_size 10` - Files per batch
-- `--batch_interval 5min` - Processing interval
-- **Note**: Empty samplesheets only work with real-time mode enabled
-
-**Analysis Options:**
-- `--kraken2_db` - Taxonomic classification database
-- `--blast_validation false` - Enable BLAST validation
-- `--skip_fastp false` - Disable quality filtering
-- `--skip_nanoplot false` - Disable nanopore QC
-
-**Dynamic Resource Allocation (NEW - Intelligent Performance Optimization):**
-- `--enable_dynamic_resources true` - Enable intelligent resource allocation system
-- `--optimization_profile auto` - Resource optimization profile selection:
-  - `auto` - Automatic profile selection based on system characteristics
-  - `high_throughput` - Maximum processing speed with high resource usage
-  - `balanced` - Balanced resource usage for standard processing
-  - `resource_conservative` - Minimal resource usage for constrained environments
-  - `gpu_optimized` - Optimized for GPU-accelerated workloads (Dorado basecalling)
-  - `realtime_optimized` - Low-latency processing for real-time analysis
-  - `development_testing` - Fast processing for development workflows
-- `--resource_safety_factor 0.8` - Safety factor for resource allocation (0.0-1.0)
-- `--enable_gpu_optimization true` - Enable GPU-specific optimizations
-- `--resource_monitoring_interval 30` - System monitoring interval in seconds
-- `--enable_performance_logging true` - Enable detailed performance logging
-
-## Configuration Files
-- `conf/local_test.config` - Local development (2GB memory, 1 CPU)
-- `conf/test.config` - nf-core test profile
-- `conf/test_dorado.config` - Dorado testing configuration
-
-## Documentation
-- `docs/qc_guide.md` - Quality control analysis guide
-- `docs/dynamic_resource_allocation.md` - **NEW** - Comprehensive guide to intelligent resource allocation system
-
-## Testing Infrastructure
-
-**nf-test Implementation:**
-- `tests/nanoseq_test.nf.test` - Complete pipeline tests with nf-core datasets
-- `tests/dorado_pod5.nf.test` - Dorado basecalling tests with POD5 data
-- `tests/parameter_validation.nf.test` - Fast parameter validation
-- Local nf-core nanoseq test data in `assets/test_data/`
-
-**Test Data Sources:**
-- nf-core test-datasets (nanoseq branch)
-- Local FASTQ files: MCF7_directcDNA_replicate3.fastq.gz, K562_directRNA_replicate6.fastq.gz
-- Local POD5 files: batch_0.pod5 (664KB from nf-core nanoseq test data)
-- Absolute paths in samplesheets for proper validation
-
-**Test Execution:**
-```bash
-export JAVA_HOME=$CONDA_PREFIX/lib/jvm && export PATH=$JAVA_HOME/bin:$PATH
-
-# Test FASTQ processing with nf-core data
+# Run specific test file
 nf-test test tests/nanoseq_test.nf.test --verbose
 
-# Test Dorado basecalling with POD5 data  
-nf-test test tests/dorado_pod5.nf.test --verbose
-
-# Quick parameter validation
-nf-test test tests/parameter_validation.nf.test --verbose
+# Run tests with specific tag
+nf-test test --tag core
 ```
+
+## Important Parameters
+
+### Input Mode Selection (Mutually Exclusive)
+- `--input` - Samplesheet CSV (standard mode)
+- `--barcode_input_dir` - Pre-demultiplexed barcode directories
+- `--pod5_input_dir` + `--use_dorado` - POD5 basecalling mode
+
+### Real-time Processing
+- `--realtime_mode` - Enable real-time file monitoring (default: false)
+- `--nanopore_output_dir` - Directory to monitor for new files
+- `--file_pattern` - File matching pattern (default: `**/*.fastq{,.gz}`)
+- `--max_files` - **CRITICAL FOR TESTS** - Limit files processed (prevents watchPath hangs)
+- `--batch_size` - Files per batch (default: 10)
+
+### Experimental Features (Disabled by Default for v1.0)
+- `--enable_dynamic_resources` - Intelligent resource allocation (default: false)
+- `--optimization_profile` - Resource optimization profile (default: auto)
+
+## Documentation Structure
+
+```
+docs/
+├── README.md                      # Documentation index
+├── user/                          # User-facing documentation
+│   ├── usage.md                   # Pipeline usage guide
+│   ├── output.md                  # Output file descriptions
+│   └── qc_guide.md                # Quality control guide
+└── development/                   # Developer documentation
+    ├── testing_guide.md           # Testing guide
+    ├── TESTING.md                 # Comprehensive testing documentation
+    ├── production_deployment.md   # Production deployment guide
+    └── dynamic_resource_allocation.md  # Dynamic resource feature docs
+```
+
+## Common Development Tasks
+
+### Adding a New Module
+
+```bash
+# Install nf-core module
+nf-core modules install <module_name>
+
+# Create local module
+nf-core modules create <module_name>
+
+# Update module
+nf-core modules update <module_name>
+```
+
+### Adding a New Test
+
+1. Create test data in `tests/fixtures/` if needed
+2. Create test file `tests/<test_name>.nf.test`
+3. Use fixtures for samplesheet inputs
+4. Set `max_files` for real-time tests
+5. Run `nf-test test tests/<test_name>.nf.test --verbose`
+
+### Debugging Failed Tests
+
+```bash
+# Check test log
+cat .nf-test/tests/<test_id>/meta/nextflow.log
+
+# Check test output
+ls -la .nf-test/tests/<test_id>/output/
+
+# Run test with detailed output
+nf-test test <test_file> --verbose --debug
+```
+
+## Architecture Details
+
+### Input Type Detection Logic
+
+The pipeline automatically detects input type in `workflows/nanometanf.nf`:
+
+1. **Real-time POD5 mode**: `realtime_mode && use_dorado && pod5_input_dir`
+2. **Real-time FASTQ mode**: `realtime_mode && !use_dorado && nanopore_output_dir`
+3. **Static POD5 basecalling**: `!realtime_mode && use_dorado && pod5_input_dir`
+4. **Barcode directory discovery**: `!realtime_mode && barcode_input_dir`
+5. **Standard samplesheet**: `!realtime_mode && input`
+
+### Channel Flow
+
+```
+Input Detection
+  ↓
+Basecalling (if POD5)
+  ↓
+Barcode Discovery (if --barcode_input_dir)
+  ↓
+Quality Control (FASTP/Filtlong)
+  ↓
+Taxonomic Classification (Kraken2)
+  ↓
+Validation (BLAST, if enabled)
+  ↓
+MultiQC Report
+```
+
+## Known Issues and Constraints
+
+1. **Real-time tests require `max_files`** - Without it, watchPath() will wait indefinitely
+2. **Setup blocks don't work for pipeline tests** - Use fixtures instead
+3. **Dynamic resources experimental** - Disabled by default for v1.0 stability
+4. **Input types mutually exclusive** - Cannot mix POD5 and FASTQ in same run
 
 ## nf-core Tools Integration
 
-**Essential Developer Commands:**
-- `nf-core lint` - Pipeline compliance checking against nf-core guidelines
-- `nf-core modules` - Nextflow DSL2 module management (8 modules installed)
-- `nf-core subworkflows` - Nextflow DSL2 subworkflow management  
-- `nf-core schema` - Parameter validation and schema management (52 parameters)
-- `nf-core sync` - Sync TEMPLATE branch with nf-core template updates
-- `nf-core bump-version` - Update pipeline version numbers
-
-**Pipeline Management:**
-- `nf-core download` - Download pipelines and container images
-- `nf-core create-params-file` - Generate parameter files for runs
-- `nf-core launch` - Interactive pipeline launcher with GUI
-
-**Key Features:**
-- Complete modules.json tracking for reproducible module versions
-- Automated template synchronization via TEMPLATE branch
-- Schema-driven parameter validation with 52 defined parameters
-- Compliance checking against nf-core community standards
-
-**Update Workflow:**
 ```bash
-# Update nf-core tools to latest version
-conda update nf-core
-
-# Sync pipeline template changes
+# Update pipeline template
 nf-core sync
 
-# Update individual modules
-nf-core modules update
+# Bump version
+nf-core bump-version <new_version>
+
+# Create params file
+nf-core create-params-file
+
+# Download pipeline for offline use
+nf-core download foi-bioinformatics/nanometanf
 ```
+
+## Git Workflow
+
+```bash
+# Never skip hooks or force push to main
+git add <files>
+git commit -m "descriptive message"  # Hooks will run automatically
+git push origin <branch>
+
+# Create PR using GitHub CLI
+gh pr create --title "Title" --body "Description"
+```
+
+## Additional Resources
+
+- [nf-core guidelines](https://nf-co.re/docs/contributing/guidelines)
+- [Nextflow documentation](https://www.nextflow.io/docs/latest/)
+- [nf-test documentation](https://www.nf-test.com/)
+- [Dorado documentation](https://github.com/nanoporetech/dorado)
+
+---
+
+**Last Updated**: 2025-10-04
+**Pipeline Version**: 1.0.0dev
+**Nextflow Version**: >=24.10.5

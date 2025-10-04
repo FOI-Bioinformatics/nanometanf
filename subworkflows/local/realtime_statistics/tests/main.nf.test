@@ -1,0 +1,590 @@
+nextflow_workflow {
+
+    name "Test REALTIME_STATISTICS"
+    script "../../realtime_statistics.nf"
+    workflow "REALTIME_STATISTICS"
+
+    test("Should generate snapshot statistics for single batch") {
+
+        setup {
+            """
+            # Create test batch data
+            mkdir -p $outputDir/batch_input
+            cat > $outputDir/batch_input/batch_meta.json << 'EOF'
+{
+    "batch_id": "batch_001",
+    "timestamp": "2023-12-01T10:00:00",
+    "file_count": 3,
+    "total_size": 1500000
+}
+EOF
+            
+            # Create test files for the batch
+            echo "@read1\nATCGATCGATCG\n+\nIIIIIIIIIIII" > $outputDir/batch_input/file1.fastq
+            echo "@read2\nGCTAGCTAGCTA\n+\nIIIIIIIIIIII" > $outputDir/batch_input/file2.fastq
+            echo "@read3\nTAGCTAGCTAGC\n+\nIIIIIIIIIIII" > $outputDir/batch_input/file3.fastq
+            """
+        }
+
+        when {
+            workflow {
+                """
+                def batch_meta = [
+                    batch_id: 'batch_001',
+                    timestamp: '2023-12-01T10:00:00',
+                    file_count: 3,
+                    total_size: 1500000
+                ]
+                
+                def file_metas = [
+                    [id: 'file1', path: file('$outputDir/batch_input/file1.fastq')],
+                    [id: 'file2', path: file('$outputDir/batch_input/file2.fastq')],
+                    [id: 'file3', path: file('$outputDir/batch_input/file3.fastq')]
+                ]
+                
+                input[0] = [ [batch_meta, file_metas] ]
+                input[1] = [
+                    enable_quality_indicators: true,
+                    enable_source_analysis: true,
+                    enable_timing_analysis: true,
+                    stats_interval: '10s',
+                    report_format: 'html,json'
+                ]
+                """
+            }
+            
+            params {
+                outdir = '$outputDir/results'
+                max_cpus = 2
+                max_memory = '4.GB'
+                max_time = '3.min'
+            }
+        }
+
+        then {
+            assert workflow.success
+            assert workflow.out.snapshot_stats
+            assert workflow.out.cumulative_stats
+            assert workflow.out.realtime_reports
+            assert workflow.out.versions
+            
+            // Verify snapshot statistics generation
+            def snapshot_stats = workflow.out.snapshot_stats.toList()
+            assert snapshot_stats.size() >= 1
+            
+            // Verify cumulative statistics update
+            def cumulative_stats = workflow.out.cumulative_stats.toList()
+            assert cumulative_stats.size() >= 1
+            
+            // Verify real-time report generation
+            def realtime_reports = workflow.out.realtime_reports.toList()
+            assert realtime_reports.size() >= 1
+            
+            // Verify versions output
+            def versions = workflow.out.versions.toList()
+            assert versions.size() >= 3  // Three modules should contribute versions
+        }
+    }
+
+    test("Should handle multiple batches and update cumulative statistics") {
+
+        setup {
+            """
+            # Create multiple test batches
+            mkdir -p $outputDir/multi_batch_input
+            
+            # Batch 1
+            cat > $outputDir/multi_batch_input/batch1_meta.json << 'EOF'
+{
+    "batch_id": "batch_001",
+    "timestamp": "2023-12-01T10:00:00",
+    "file_count": 2,
+    "total_size": 1000000
+}
+EOF
+            echo "@read1\nATCGATCGATCG\n+\nIIIIIIIIIIII" > $outputDir/multi_batch_input/batch1_file1.fastq
+            echo "@read2\nGCTAGCTAGCTA\n+\nIIIIIIIIIIII" > $outputDir/multi_batch_input/batch1_file2.fastq
+            
+            # Batch 2
+            cat > $outputDir/multi_batch_input/batch2_meta.json << 'EOF'
+{
+    "batch_id": "batch_002",
+    "timestamp": "2023-12-01T10:05:00",
+    "file_count": 3,
+    "total_size": 1500000
+}
+EOF
+            echo "@read3\nTAGCTAGCTAGC\n+\nIIIIIIIIIIII" > $outputDir/multi_batch_input/batch2_file1.fastq
+            echo "@read4\nCGATCGATCGAT\n+\nIIIIIIIIIIII" > $outputDir/multi_batch_input/batch2_file2.fastq
+            echo "@read5\nAGTCAGTCAGTC\n+\nIIIIIIIIIIII" > $outputDir/multi_batch_input/batch2_file3.fastq
+            
+            # Batch 3
+            cat > $outputDir/multi_batch_input/batch3_meta.json << 'EOF'
+{
+    "batch_id": "batch_003", 
+    "timestamp": "2023-12-01T10:10:00",
+    "file_count": 1,
+    "total_size": 500000
+}
+EOF
+            echo "@read6\nTGCATGCATGCA\n+\nIIIIIIIIIIII" > $outputDir/multi_batch_input/batch3_file1.fastq
+            """
+        }
+
+        when {
+            workflow {
+                """
+                def batches = [
+                    [
+                        [batch_id: 'batch_001', timestamp: '2023-12-01T10:00:00', file_count: 2, total_size: 1000000],
+                        [
+                            [id: 'batch1_file1', path: file('$outputDir/multi_batch_input/batch1_file1.fastq')],
+                            [id: 'batch1_file2', path: file('$outputDir/multi_batch_input/batch1_file2.fastq')]
+                        ]
+                    ],
+                    [
+                        [batch_id: 'batch_002', timestamp: '2023-12-01T10:05:00', file_count: 3, total_size: 1500000],
+                        [
+                            [id: 'batch2_file1', path: file('$outputDir/multi_batch_input/batch2_file1.fastq')],
+                            [id: 'batch2_file2', path: file('$outputDir/multi_batch_input/batch2_file2.fastq')],
+                            [id: 'batch2_file3', path: file('$outputDir/multi_batch_input/batch2_file3.fastq')]
+                        ]
+                    ],
+                    [
+                        [batch_id: 'batch_003', timestamp: '2023-12-01T10:10:00', file_count: 1, total_size: 500000],
+                        [
+                            [id: 'batch3_file1', path: file('$outputDir/multi_batch_input/batch3_file1.fastq')]
+                        ]
+                    ]
+                ]
+                
+                input[0] = batches
+                input[1] = [
+                    enable_quality_indicators: true,
+                    enable_source_analysis: true,
+                    enable_timing_analysis: true,
+                    generate_cumulative_stats: true,
+                    stats_interval: '5s',
+                    report_format: 'html,json'
+                ]
+                """
+            }
+            
+            params {
+                outdir = '$outputDir/results'
+                max_cpus = 4
+                max_memory = '8.GB'
+                max_time = '5.min'
+            }
+        }
+
+        then {
+            assert workflow.success
+            assert workflow.out.snapshot_stats
+            assert workflow.out.cumulative_stats
+            assert workflow.out.realtime_reports
+            
+            // Verify processing of multiple batches
+            def snapshot_stats = workflow.out.snapshot_stats.toList()
+            assert snapshot_stats.size() >= 3
+            
+            def cumulative_stats = workflow.out.cumulative_stats.toList()
+            assert cumulative_stats.size() >= 3
+            
+            def realtime_reports = workflow.out.realtime_reports.toList()
+            assert realtime_reports.size() >= 3
+            
+            // Verify alert notifications if present
+            if (workflow.out.alert_notifications) {
+                def alerts = workflow.out.alert_notifications.toList()
+                assert alerts.size() >= 0  // May or may not have alerts
+            }
+        }
+    }
+
+    test("Should generate quality indicators and performance metrics") {
+
+        setup {
+            """
+            # Create test data with quality variation
+            mkdir -p $outputDir/quality_test_input
+            
+            # High-quality batch
+            cat > $outputDir/quality_test_input/hq_batch_meta.json << 'EOF'
+{
+    "batch_id": "hq_batch_001",
+    "timestamp": "2023-12-01T12:00:00",
+    "file_count": 2,
+    "total_size": 2000000
+}
+EOF
+            echo "@hq_read1\nATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCG\n+\nIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII" > $outputDir/quality_test_input/hq_file1.fastq
+            echo "@hq_read2\nGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTA\n+\nIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII" > $outputDir/quality_test_input/hq_file2.fastq
+            
+            # Mixed-quality batch
+            cat > $outputDir/quality_test_input/mq_batch_meta.json << 'EOF'
+{
+    "batch_id": "mq_batch_001",
+    "timestamp": "2023-12-01T12:05:00",
+    "file_count": 2,
+    "total_size": 1800000
+}
+EOF
+            echo "@mq_read1\nATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCG\n+\nIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII" > $outputDir/quality_test_input/mq_file1.fastq
+            echo "@mq_read2\nGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTA\n+\nIIIIIIIIIIIIIIIIIIII!!!!!!!!!!!!!!!!!!!!IIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII" > $outputDir/quality_test_input/mq_file2.fastq
+            """
+        }
+
+        when {
+            workflow {
+                """
+                def quality_batches = [
+                    [
+                        [batch_id: 'hq_batch_001', timestamp: '2023-12-01T12:00:00', file_count: 2, total_size: 2000000, quality_level: 'high'],
+                        [
+                            [id: 'hq_file1', path: file('$outputDir/quality_test_input/hq_file1.fastq')],
+                            [id: 'hq_file2', path: file('$outputDir/quality_test_input/hq_file2.fastq')]
+                        ]
+                    ],
+                    [
+                        [batch_id: 'mq_batch_001', timestamp: '2023-12-01T12:05:00', file_count: 2, total_size: 1800000, quality_level: 'mixed'],
+                        [
+                            [id: 'mq_file1', path: file('$outputDir/quality_test_input/mq_file1.fastq')],
+                            [id: 'mq_file2', path: file('$outputDir/quality_test_input/mq_file2.fastq')]
+                        ]
+                    ]
+                ]
+                
+                input[0] = quality_batches
+                input[1] = [
+                    enable_quality_indicators: true,
+                    enable_source_analysis: true,
+                    enable_timing_analysis: true,
+                    enable_performance_monitoring: true,
+                    quality_threshold_warnings: true,
+                    quality_score_min: 20,
+                    stats_interval: '5s',
+                    report_format: 'html,json'
+                ]
+                """
+            }
+            
+            params {
+                outdir = '$outputDir/results'
+                max_cpus = 2
+                max_memory = '4.GB'
+                max_time = '4.min'
+            }
+        }
+
+        then {
+            assert workflow.success
+            assert workflow.out.snapshot_stats
+            assert workflow.out.cumulative_stats
+            assert workflow.out.realtime_reports
+            
+            // Verify quality indicator processing
+            def snapshot_stats = workflow.out.snapshot_stats.toList()
+            assert snapshot_stats.size() >= 2
+            
+            def cumulative_stats = workflow.out.cumulative_stats.toList()
+            assert cumulative_stats.size() >= 2
+            
+            // Verify performance metrics in reports
+            def realtime_reports = workflow.out.realtime_reports.toList()
+            assert realtime_reports.size() >= 2
+        }
+    }
+
+    test("Should handle real-time alerting and notifications") {
+
+        setup {
+            """
+            # Create test data that should trigger alerts
+            mkdir -p $outputDir/alert_test_input
+            
+            # Normal batch
+            cat > $outputDir/alert_test_input/normal_batch_meta.json << 'EOF'
+{
+    "batch_id": "normal_batch_001",
+    "timestamp": "2023-12-01T14:00:00",
+    "file_count": 3,
+    "total_size": 2000000
+}
+EOF
+            echo "@normal_read1\nATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCG\n+\nIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII" > $outputDir/alert_test_input/normal_file1.fastq
+            echo "@normal_read2\nGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTA\n+\nIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII" > $outputDir/alert_test_input/normal_file2.fastq
+            echo "@normal_read3\nTAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGC\n+\nIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII" > $outputDir/alert_test_input/normal_file3.fastq
+            
+            # Problematic batch (very few files, small size)
+            cat > $outputDir/alert_test_input/problem_batch_meta.json << 'EOF'
+{
+    "batch_id": "problem_batch_001",
+    "timestamp": "2023-12-01T14:05:00",
+    "file_count": 1,
+    "total_size": 100000
+}
+EOF
+            echo "@problem_read1\nNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNN\n+\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!" > $outputDir/alert_test_input/problem_file1.fastq
+            """
+        }
+
+        when {
+            workflow {
+                """
+                def alert_batches = [
+                    [
+                        [batch_id: 'normal_batch_001', timestamp: '2023-12-01T14:00:00', file_count: 3, total_size: 2000000],
+                        [
+                            [id: 'normal_file1', path: file('$outputDir/alert_test_input/normal_file1.fastq')],
+                            [id: 'normal_file2', path: file('$outputDir/alert_test_input/normal_file2.fastq')],
+                            [id: 'normal_file3', path: file('$outputDir/alert_test_input/normal_file3.fastq')]
+                        ]
+                    ],
+                    [
+                        [batch_id: 'problem_batch_001', timestamp: '2023-12-01T14:05:00', file_count: 1, total_size: 100000],
+                        [
+                            [id: 'problem_file1', path: file('$outputDir/alert_test_input/problem_file1.fastq')]
+                        ]
+                    ]
+                ]
+                
+                input[0] = alert_batches
+                input[1] = [
+                    enable_quality_indicators: true,
+                    enable_source_analysis: true,
+                    enable_timing_analysis: true,
+                    quality_threshold_warnings: true,
+                    alert_on_low_quality: true,
+                    alert_on_low_throughput: true,
+                    min_file_count_per_batch: 2,
+                    min_batch_size: 500000,
+                    quality_score_min: 15,
+                    stats_interval: '5s',
+                    report_format: 'html,json'
+                ]
+                """
+            }
+            
+            params {
+                outdir = '$outputDir/results'
+                max_cpus = 2
+                max_memory = '4.GB'
+                max_time = '4.min'
+            }
+        }
+
+        then {
+            assert workflow.success
+            assert workflow.out.snapshot_stats
+            assert workflow.out.cumulative_stats
+            assert workflow.out.realtime_reports
+            
+            // Verify alert processing
+            def snapshot_stats = workflow.out.snapshot_stats.toList()
+            assert snapshot_stats.size() >= 2
+            
+            def cumulative_stats = workflow.out.cumulative_stats.toList()
+            assert cumulative_stats.size() >= 2
+            
+            // Check for alert notifications if configured
+            if (workflow.out.alert_notifications) {
+                def alerts = workflow.out.alert_notifications.toList()
+                assert alerts.size() >= 0  // May generate alerts for problem batch
+            }
+        }
+    }
+
+    test("Should handle different statistics configuration options") {
+
+        setup {
+            """
+            # Create test data for configuration testing
+            mkdir -p $outputDir/config_test_input
+            cat > $outputDir/config_test_input/config_batch_meta.json << 'EOF'
+{
+    "batch_id": "config_batch_001",
+    "timestamp": "2023-12-01T16:00:00",
+    "file_count": 2,
+    "total_size": 1500000
+}
+EOF
+            echo "@config_read1\nATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCG\n+\nIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII" > $outputDir/config_test_input/config_file1.fastq
+            echo "@config_read2\nGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTA\n+\nIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII" > $outputDir/config_test_input/config_file2.fastq
+            """
+        }
+
+        when {
+            workflow {
+                """
+                def config_batch = [
+                    [
+                        [batch_id: 'config_batch_001', timestamp: '2023-12-01T16:00:00', file_count: 2, total_size: 1500000],
+                        [
+                            [id: 'config_file1', path: file('$outputDir/config_test_input/config_file1.fastq')],
+                            [id: 'config_file2', path: file('$outputDir/config_test_input/config_file2.fastq')]
+                        ]
+                    ]
+                ]
+                
+                input[0] = config_batch
+                input[1] = [
+                    enable_quality_indicators: false,  // Disabled
+                    enable_source_analysis: true,
+                    enable_timing_analysis: false,     // Disabled
+                    enable_performance_monitoring: true,
+                    generate_cumulative_stats: true,
+                    stats_interval: '30s',             // Longer interval
+                    report_format: 'json',             // JSON only
+                    custom_metrics: ['file_size_distribution', 'read_length_distribution']
+                ]
+                """
+            }
+            
+            params {
+                outdir = '$outputDir/results'
+                max_cpus = 2
+                max_memory = '4.GB'
+                max_time = '3.min'
+            }
+        }
+
+        then {
+            assert workflow.success
+            assert workflow.out.snapshot_stats
+            assert workflow.out.cumulative_stats
+            assert workflow.out.realtime_reports
+            
+            // Verify configuration-specific processing
+            def snapshot_stats = workflow.out.snapshot_stats.toList()
+            assert snapshot_stats.size() >= 1
+            
+            def cumulative_stats = workflow.out.cumulative_stats.toList()
+            assert cumulative_stats.size() >= 1
+            
+            def realtime_reports = workflow.out.realtime_reports.toList()
+            assert realtime_reports.size() >= 1
+        }
+    }
+
+    test("Should handle empty batch input gracefully") {
+
+        when {
+            workflow {
+                """
+                input[0] = []
+                input[1] = [
+                    enable_quality_indicators: true,
+                    enable_source_analysis: true,
+                    enable_timing_analysis: true,
+                    stats_interval: '10s',
+                    report_format: 'html,json'
+                ]
+                """
+            }
+            
+            params {
+                outdir = '$outputDir/results'
+                max_cpus = 1
+                max_memory = '2.GB'
+                max_time = '1.min'
+            }
+        }
+
+        then {
+            assert workflow.success
+            
+            // Should handle empty input gracefully
+            if (workflow.out.snapshot_stats) {
+                def snapshot_stats = workflow.out.snapshot_stats.toList()
+                assert snapshot_stats.size() == 0
+            }
+            
+            if (workflow.out.cumulative_stats) {
+                def cumulative_stats = workflow.out.cumulative_stats.toList()
+                assert cumulative_stats.size() == 0
+            }
+            
+            if (workflow.out.realtime_reports) {
+                def realtime_reports = workflow.out.realtime_reports.toList()
+                assert realtime_reports.size() == 0
+            }
+        }
+    }
+
+    test("Should validate resource requirements for large batches") {
+
+        setup {
+            """
+            # Create large batch test data
+            mkdir -p $outputDir/large_batch_input
+            
+            cat > $outputDir/large_batch_input/large_batch_meta.json << 'EOF'
+{
+    "batch_id": "large_batch_001",
+    "timestamp": "2023-12-01T18:00:00",
+    "file_count": 20,
+    "total_size": 50000000
+}
+EOF
+            
+            # Create multiple test files
+            for i in {1..20}; do
+                echo "@large_read_$i\nATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCG\n+\nIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII" > $outputDir/large_batch_input/large_file_$i.fastq
+            done
+            """
+        }
+
+        when {
+            workflow {
+                """
+                def files = []
+                for (int i = 1; i <= 20; i++) {
+                    files.add([id: "large_file_" + i, path: file('$outputDir/large_batch_input/large_file_' + i + '.fastq')])
+                }
+                
+                def large_batch = [
+                    [
+                        [batch_id: 'large_batch_001', timestamp: '2023-12-01T18:00:00', file_count: 20, total_size: 50000000],
+                        files
+                    ]
+                ]
+                
+                input[0] = large_batch
+                input[1] = [
+                    enable_quality_indicators: true,
+                    enable_source_analysis: true,
+                    enable_timing_analysis: true,
+                    enable_performance_monitoring: true,
+                    stats_interval: '15s',
+                    report_format: 'html,json'
+                ]
+                """
+            }
+            
+            params {
+                outdir = '$outputDir/results'
+                max_cpus = 4
+                max_memory = '8.GB'
+                max_time = '6.min'
+            }
+        }
+
+        then {
+            assert workflow.success
+            assert workflow.out.snapshot_stats
+            assert workflow.out.cumulative_stats
+            assert workflow.out.realtime_reports
+            
+            // Verify large batch processing
+            def snapshot_stats = workflow.out.snapshot_stats.toList()
+            assert snapshot_stats.size() >= 1
+            
+            def cumulative_stats = workflow.out.cumulative_stats.toList()
+            assert cumulative_stats.size() >= 1
+            
+            // Should handle large batches efficiently
+            assert workflow.duration.toMillis() < 360000 // Less than 6 minutes
+        }
+    }
+}

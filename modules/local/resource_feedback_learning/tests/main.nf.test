@@ -1,0 +1,799 @@
+nextflow_process {
+
+    name "Test COLLECT_PERFORMANCE_FEEDBACK"
+    script "../main.nf"
+    process "COLLECT_PERFORMANCE_FEEDBACK"
+
+    test("Should collect basic performance feedback") {
+
+        setup {
+            """
+            cat > $outputDir/predictions.json << 'EOF'
+{
+  "tool_context": {
+    "tool_name": "kraken2",
+    "input_size_mb": 1000
+  },
+  "predictions": {
+    "cpu_requirements": {
+      "predicted_cores": 8
+    },
+    "memory_requirements": {
+      "predicted_memory_gb": 16.0
+    },
+    "runtime_estimates": {
+      "predicted_runtime_hours": 2.5
+    }
+  },
+  "input_characteristics_summary": {
+    "total_size_gb": 1.0,
+    "complexity_score": 1.2
+  }
+}
+EOF
+
+            cat > $outputDir/allocations.json << 'EOF'
+{
+  "optimized_allocation": {
+    "cpu_cores": 8,
+    "memory_gb": 16.0,
+    "estimated_runtime_hours": 2.5
+  }
+}
+EOF
+
+            cat > $outputDir/actual_metrics.json << 'EOF'
+{
+  "resource_usage": {
+    "peak_cpu_cores": 7.2,
+    "peak_memory_gb": 14.5,
+    "avg_cpu_utilization_percent": 75.0,
+    "avg_memory_utilization_percent": 85.0
+  },
+  "timing": {
+    "total_runtime_hours": 2.8
+  }
+}
+EOF
+            """
+        }
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [
+                        id: 'feedback_test',
+                        single_end: true
+                    ],
+                    file('$outputDir/predictions.json'),
+                    file('$outputDir/allocations.json'),
+                    file('$outputDir/actual_metrics.json')
+                ]
+                input[1] = [
+                    enable_learning: true,
+                    accuracy_threshold: 0.8
+                ]
+                """
+            }
+        }
+
+        then {
+            assert process.success
+            assert process.out.feedback.size() == 1
+            assert process.out.learning_update.size() == 1
+            
+            def (meta, feedback_file) = process.out.feedback[0]
+            assert meta.id == 'feedback_test'
+            assert path(feedback_file).exists()
+            
+            def learning_file = process.out.learning_update[0]
+            assert path(learning_file).exists()
+            
+            // Check feedback content
+            def feedback_content = path(feedback_file).text
+            assert feedback_content.contains('performance_summary') || feedback_content.contains('accuracy')
+            assert feedback_content.contains('efficiency') || feedback_content.contains('recommendations')
+            
+            // Check learning update content
+            def learning_content = path(learning_file).text
+            assert learning_content.contains('learning_data') || learning_content.contains('tool_name')
+            
+            assert process.out.versions.size() == 1
+        }
+    }
+
+    test("Should handle high accuracy predictions") {
+
+        setup {
+            """
+            cat > $outputDir/accurate_predictions.json << 'EOF'
+{
+  "tool_context": {
+    "tool_name": "fastp",
+    "input_size_mb": 500
+  },
+  "predictions": {
+    "cpu_requirements": {
+      "predicted_cores": 4
+    },
+    "memory_requirements": {
+      "predicted_memory_gb": 8.0
+    },
+    "runtime_estimates": {
+      "predicted_runtime_hours": 1.0
+    }
+  },
+  "input_characteristics_summary": {
+    "total_size_gb": 0.5,
+    "complexity_score": 0.8
+  }
+}
+EOF
+
+            cat > $outputDir/accurate_allocations.json << 'EOF'
+{
+  "optimized_allocation": {
+    "cpu_cores": 4,
+    "memory_gb": 8.0,
+    "estimated_runtime_hours": 1.0
+  }
+}
+EOF
+
+            cat > $outputDir/accurate_actual.json << 'EOF'
+{
+  "resource_usage": {
+    "peak_cpu_cores": 3.9,
+    "peak_memory_gb": 7.8,
+    "avg_cpu_utilization_percent": 95.0,
+    "avg_memory_utilization_percent": 92.0
+  },
+  "timing": {
+    "total_runtime_hours": 1.05
+  }
+}
+EOF
+            """
+        }
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [
+                        id: 'accurate_test',
+                        single_end: true
+                    ],
+                    file('$outputDir/accurate_predictions.json'),
+                    file('$outputDir/accurate_allocations.json'),
+                    file('$outputDir/accurate_actual.json')
+                ]
+                input[1] = [
+                    enable_learning: true,
+                    high_accuracy_reward: true
+                ]
+                """
+            }
+        }
+
+        then {
+            assert process.success
+            assert process.out.feedback.size() == 1
+            assert process.out.learning_update.size() == 1
+            
+            def (meta, feedback_file) = process.out.feedback[0]
+            def feedback_content = path(feedback_file).text
+            assert feedback_content.contains('high') || feedback_content.contains('accurate') || feedback_content.contains('efficient')
+            
+            def learning_file = process.out.learning_update[0]
+            def learning_content = path(learning_file).text
+            assert learning_content.contains('fastp') || learning_content.contains('prediction_corrections')
+            
+            assert process.out.versions.size() == 1
+        }
+    }
+
+    test("Should detect low efficiency scenarios") {
+
+        setup {
+            """
+            cat > $outputDir/inefficient_predictions.json << 'EOF'
+{
+  "tool_context": {
+    "tool_name": "flye",
+    "input_size_mb": 2000
+  },
+  "predictions": {
+    "cpu_requirements": {
+      "predicted_cores": 16
+    },
+    "memory_requirements": {
+      "predicted_memory_gb": 64.0
+    },
+    "runtime_estimates": {
+      "predicted_runtime_hours": 6.0
+    }
+  },
+  "input_characteristics_summary": {
+    "total_size_gb": 2.0,
+    "complexity_score": 1.5
+  }
+}
+EOF
+
+            cat > $outputDir/over_allocations.json << 'EOF'
+{
+  "optimized_allocation": {
+    "cpu_cores": 16,
+    "memory_gb": 64.0,
+    "estimated_runtime_hours": 6.0
+  }
+}
+EOF
+
+            cat > $outputDir/low_usage_actual.json << 'EOF'
+{
+  "resource_usage": {
+    "peak_cpu_cores": 6.0,
+    "peak_memory_gb": 20.0,
+    "avg_cpu_utilization_percent": 25.0,
+    "avg_memory_utilization_percent": 30.0
+  },
+  "timing": {
+    "total_runtime_hours": 5.5
+  }
+}
+EOF
+            """
+        }
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [
+                        id: 'inefficient_test',
+                        single_end: true
+                    ],
+                    file('$outputDir/inefficient_predictions.json'),
+                    file('$outputDir/over_allocations.json'),
+                    file('$outputDir/low_usage_actual.json')
+                ]
+                input[1] = [
+                    enable_learning: true,
+                    efficiency_analysis: true
+                ]
+                """
+            }
+        }
+
+        then {
+            assert process.success
+            assert process.out.feedback.size() == 1
+            assert process.out.learning_update.size() == 1
+            
+            def (meta, feedback_file) = process.out.feedback[0]
+            def feedback_content = path(feedback_file).text
+            assert feedback_content.contains('over-allocation') || feedback_content.contains('waste') || feedback_content.contains('low')
+            assert feedback_content.contains('optimization_opportunities') || feedback_content.contains('recommendations')
+            
+            def learning_file = process.out.learning_update[0]
+            def learning_content = path(learning_file).text
+            assert learning_content.contains('flye') || learning_content.contains('scaling_factor')
+            
+            assert process.out.versions.size() == 1
+        }
+    }
+
+    test("Should analyze GPU workload feedback") {
+
+        setup {
+            """
+            cat > $outputDir/gpu_predictions.json << 'EOF'
+{
+  "tool_context": {
+    "tool_name": "dorado_basecaller",
+    "input_size_mb": 3000,
+    "gpu_enabled": true
+  },
+  "predictions": {
+    "cpu_requirements": {
+      "predicted_cores": 8
+    },
+    "memory_requirements": {
+      "predicted_memory_gb": 32.0
+    },
+    "runtime_estimates": {
+      "predicted_runtime_hours": 4.0
+    }
+  },
+  "input_characteristics_summary": {
+    "total_size_gb": 3.0,
+    "complexity_score": 2.0
+  }
+}
+EOF
+
+            cat > $outputDir/gpu_allocations.json << 'EOF'
+{
+  "optimized_allocation": {
+    "cpu_cores": 8,
+    "memory_gb": 32.0,
+    "gpu_enabled": true,
+    "estimated_runtime_hours": 4.0
+  }
+}
+EOF
+
+            cat > $outputDir/gpu_actual.json << 'EOF'
+{
+  "resource_usage": {
+    "peak_cpu_cores": 6.5,
+    "peak_memory_gb": 28.0,
+    "avg_cpu_utilization_percent": 80.0,
+    "avg_memory_utilization_percent": 85.0,
+    "gpu_utilization_percent": 95.0,
+    "gpu_memory_usage_gb": 22.0
+  },
+  "timing": {
+    "total_runtime_hours": 1.2
+  }
+}
+EOF
+            """
+        }
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [
+                        id: 'gpu_feedback_test',
+                        single_end: true
+                    ],
+                    file('$outputDir/gpu_predictions.json'),
+                    file('$outputDir/gpu_allocations.json'),
+                    file('$outputDir/gpu_actual.json')
+                ]
+                input[1] = [
+                    enable_learning: true,
+                    gpu_analysis: true
+                ]
+                """
+            }
+        }
+
+        then {
+            assert process.success
+            assert process.out.feedback.size() == 1
+            assert process.out.learning_update.size() == 1
+            
+            def (meta, feedback_file) = process.out.feedback[0]
+            def feedback_content = path(feedback_file).text
+            assert feedback_content.contains('dorado') || feedback_content.contains('gpu') || feedback_content.contains('acceleration')
+            
+            def learning_file = process.out.learning_update[0]
+            def learning_content = path(learning_file).text
+            assert learning_content.contains('dorado_basecaller') || learning_content.contains('pattern_recognition')
+            
+            assert process.out.versions.size() == 1
+        }
+    }
+
+    test("Should handle malformed input gracefully") {
+
+        setup {
+            """
+            cat > $outputDir/malformed_predictions.json << 'EOF'
+{
+  "tool_context": {
+    "tool_name": "unknown_tool"
+  },
+  "predictions": {
+    "cpu_requirements": {
+      "predicted_cores": "invalid"
+    },
+    "memory_requirements": null,
+    "runtime_estimates": {}
+  }
+}
+EOF
+
+            cat > $outputDir/malformed_allocations.json << 'EOF'
+{
+  "optimized_allocation": {
+    "invalid_field": true
+  }
+}
+EOF
+
+            cat > $outputDir/malformed_actual.json << 'EOF'
+{
+  "resource_usage": {
+    "invalid_data": "test"
+  },
+  "timing": null
+}
+EOF
+            """
+        }
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [
+                        id: 'malformed_test',
+                        single_end: true
+                    ],
+                    file('$outputDir/malformed_predictions.json'),
+                    file('$outputDir/malformed_allocations.json'),
+                    file('$outputDir/malformed_actual.json')
+                ]
+                input[1] = [
+                    enable_learning: true,
+                    handle_errors: true
+                ]
+                """
+            }
+        }
+
+        then {
+            assert process.success
+            assert process.out.feedback.size() == 1
+            assert process.out.learning_update.size() == 1
+            
+            def (meta, feedback_file) = process.out.feedback[0]
+            assert path(feedback_file).exists()
+            
+            // Should generate some feedback despite malformed input
+            def feedback_content = path(feedback_file).text
+            assert feedback_content.contains('sample_id') || feedback_content.contains('malformed_test')
+            
+            def learning_file = process.out.learning_update[0]
+            assert path(learning_file).exists()
+            
+            assert process.out.versions.size() == 1
+        }
+    }
+
+    test("Should run in stub mode") {
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [
+                        id: 'stub_test',
+                        single_end: true
+                    ],
+                    [],
+                    [],
+                    []
+                ]
+                input[1] = [
+                    enable_learning: true
+                ]
+                """
+            }
+            
+            stub true
+        }
+
+        then {
+            assert process.success
+            assert process.out.feedback.size() == 1
+            assert process.out.learning_update.size() == 1
+            assert process.out.versions.size() == 1
+            
+            def (meta, feedback_file) = process.out.feedback[0]
+            assert meta.id == 'stub_test'
+            assert path(feedback_file).exists()
+            
+            def learning_file = process.out.learning_update[0]
+            assert path(learning_file).exists()
+        }
+    }
+}
+
+nextflow_process {
+
+    name "Test UPDATE_LEARNING_MODEL"
+    script "../main.nf"
+    process "UPDATE_LEARNING_MODEL"
+
+    test("Should update learning model from feedback") {
+
+        setup {
+            """
+            cat > $outputDir/feedback1.json << 'EOF'
+{
+  "sample_id": "sample1",
+  "tool_context": {
+    "tool_name": "kraken2"
+  },
+  "performance_summary": {
+    "prediction_accuracy": {
+      "score": 0.85,
+      "level": "high"
+    },
+    "resource_efficiency": {
+      "cpu_efficiency": 0.9,
+      "memory_efficiency": 0.8,
+      "overall_efficiency": 0.85
+    }
+  },
+  "detailed_analysis": {
+    "learning_insights": {
+      "tool_specific_learnings": {
+        "kraken2": {
+          "input_size_gb": 2.0,
+          "cpu_cores_per_gb": 4.0,
+          "memory_gb_per_input_gb": 8.0,
+          "runtime_hours_per_gb": 1.5
+        }
+      },
+      "pattern_recognition": {
+        "data_complexity_factor": 1.2,
+        "performance_correlation": {
+          "complexity_vs_cpu": 4.8,
+          "complexity_vs_memory": 9.6,
+          "complexity_vs_runtime": 1.8
+        }
+      }
+    }
+  }
+}
+EOF
+
+            cat > $outputDir/feedback2.json << 'EOF'
+{
+  "sample_id": "sample2",
+  "tool_context": {
+    "tool_name": "kraken2"
+  },
+  "performance_summary": {
+    "prediction_accuracy": {
+      "score": 0.75,
+      "level": "medium"
+    },
+    "resource_efficiency": {
+      "cpu_efficiency": 0.7,
+      "memory_efficiency": 0.9,
+      "overall_efficiency": 0.8
+    }
+  },
+  "detailed_analysis": {
+    "learning_insights": {
+      "tool_specific_learnings": {
+        "kraken2": {
+          "input_size_gb": 1.5,
+          "cpu_cores_per_gb": 3.5,
+          "memory_gb_per_input_gb": 7.5,
+          "runtime_hours_per_gb": 1.2
+        }
+      }
+    }
+  }
+}
+EOF
+
+            cat > $outputDir/historical_model.json << 'EOF'
+{
+  "model_version": 1,
+  "prediction_algorithms": {
+    "kraken2": {
+      "cpu_scaling_factor": 3.0,
+      "memory_scaling_factor": 6.0,
+      "runtime_scaling_factor": 1.0
+    }
+  }
+}
+EOF
+            """
+        }
+
+        when {
+            process {
+                """
+                input[0] = [
+                    file('$outputDir/feedback1.json'),
+                    file('$outputDir/feedback2.json')
+                ]
+                input[1] = file('$outputDir/historical_model.json')
+                input[2] = [
+                    learning_rate: 0.3,
+                    min_samples_for_update: 2
+                ]
+                """
+            }
+        }
+
+        then {
+            assert process.success
+            assert process.out.model.size() == 1
+            assert process.out.statistics.size() == 1
+            
+            def model_file = process.out.model[0]
+            assert path(model_file).exists()
+            
+            def stats_file = process.out.statistics[0]
+            assert path(stats_file).exists()
+            
+            // Check updated model content
+            def model_content = path(model_file).text
+            assert model_content.contains('model_version') && model_content.contains('2')
+            assert model_content.contains('prediction_algorithms') || model_content.contains('kraken2')
+            
+            // Check learning statistics
+            def stats_content = path(stats_file).text
+            assert stats_content.contains('learning_summary') || stats_content.contains('total_feedback_samples')
+            assert stats_content.contains('accuracy_trends') || stats_content.contains('efficiency_trends')
+            
+            assert process.out.versions.size() == 1
+        }
+    }
+
+    test("Should handle multiple tools in learning update") {
+
+        setup {
+            """
+            cat > $outputDir/multi_tool_feedback1.json << 'EOF'
+{
+  "sample_id": "multi1",
+  "tool_context": {
+    "tool_name": "fastp"
+  },
+  "performance_summary": {
+    "prediction_accuracy": {
+      "score": 0.9
+    },
+    "resource_efficiency": {
+      "overall_efficiency": 0.85
+    }
+  },
+  "detailed_analysis": {
+    "learning_insights": {
+      "tool_specific_learnings": {
+        "fastp": {
+          "input_size_gb": 1.0,
+          "cpu_cores_per_gb": 2.0,
+          "memory_gb_per_input_gb": 4.0,
+          "runtime_hours_per_gb": 0.5
+        }
+      }
+    }
+  }
+}
+EOF
+
+            cat > $outputDir/multi_tool_feedback2.json << 'EOF'
+{
+  "sample_id": "multi2",
+  "tool_context": {
+    "tool_name": "flye"
+  },
+  "performance_summary": {
+    "prediction_accuracy": {
+      "score": 0.7
+    },
+    "resource_efficiency": {
+      "overall_efficiency": 0.6
+    }
+  },
+  "detailed_analysis": {
+    "learning_insights": {
+      "tool_specific_learnings": {
+        "flye": {
+          "input_size_gb": 3.0,
+          "cpu_cores_per_gb": 5.0,
+          "memory_gb_per_input_gb": 12.0,
+          "runtime_hours_per_gb": 3.0
+        }
+      }
+    }
+  }
+}
+EOF
+            """
+        }
+
+        when {
+            process {
+                """
+                input[0] = [
+                    file('$outputDir/multi_tool_feedback1.json'),
+                    file('$outputDir/multi_tool_feedback2.json')
+                ]
+                input[1] = []
+                input[2] = [
+                    learning_rate: 0.5,
+                    multi_tool_learning: true
+                ]
+                """
+            }
+        }
+
+        then {
+            assert process.success
+            assert process.out.model.size() == 1
+            assert process.out.statistics.size() == 1
+            
+            def model_file = process.out.model[0]
+            def model_content = path(model_file).text
+            assert model_content.contains('fastp') && model_content.contains('flye')
+            assert model_content.contains('prediction_algorithms')
+            
+            def stats_file = process.out.statistics[0]
+            def stats_content = path(stats_file).text
+            assert stats_content.contains('tools_analyzed') && stats_content.contains('2')
+            
+            assert process.out.versions.size() == 1
+        }
+    }
+
+    test("Should handle no feedback data gracefully") {
+
+        when {
+            process {
+                """
+                input[0] = []
+                input[1] = []
+                input[2] = [
+                    learning_rate: 0.3,
+                    handle_empty_input: true
+                ]
+                """
+            }
+        }
+
+        then {
+            assert process.success
+            assert process.out.model.size() == 1
+            assert process.out.statistics.size() == 1
+            
+            def model_file = process.out.model[0]
+            assert path(model_file).exists()
+            
+            def stats_file = process.out.statistics[0]
+            assert path(stats_file).exists()
+            
+            // Should generate default model and stats
+            def stats_content = path(stats_file).text
+            assert stats_content.contains('total_feedback_samples') && stats_content.contains('0')
+            
+            assert process.out.versions.size() == 1
+        }
+    }
+
+    test("Should run learning model update in stub mode") {
+
+        when {
+            process {
+                """
+                input[0] = []
+                input[1] = []
+                input[2] = [
+                    learning_rate: 0.3
+                ]
+                """
+            }
+            
+            stub true
+        }
+
+        then {
+            assert process.success
+            assert process.out.model.size() == 1
+            assert process.out.statistics.size() == 1
+            assert process.out.versions.size() == 1
+            
+            def model_file = process.out.model[0]
+            assert path(model_file).exists()
+            
+            def stats_file = process.out.statistics[0]
+            assert path(stats_file).exists()
+        }
+    }
+}

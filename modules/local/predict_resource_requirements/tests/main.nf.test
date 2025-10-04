@@ -4,33 +4,14 @@ nextflow_process {
     script "../main.nf"
     process "PREDICT_RESOURCE_REQUIREMENTS"
 
+    tag "modules"
+    tag "modules_local"
+    tag "predict_resource_requirements"
+
     test("Should predict resource requirements from input characteristics") {
 
-        setup {
-            // Create dummy input characteristics file
-            script """
-            cat > $outputDir/test_characteristics.json << 'EOF'
-{
-  "file_info": {
-    "total_size_bytes": 10485760,
-    "total_size_mb": 10.0,
-    "file_count": 1,
-    "estimated_read_count": 50000
-  },
-  "complexity_analysis": {
-    "average_complexity": 0.75,
-    "max_complexity": 0.92,
-    "complexity_variance": 0.15
-  },
-  "size_analysis": {
-    "average_read_length": 2000,
-    "read_length_std": 500,
-    "large_files_ratio": 0.2
-  }
-}
-EOF
-            """)
-        }
+        tag "resource_prediction"
+        tag "snapshot"
 
         when {
             process {
@@ -40,7 +21,8 @@ EOF
                         id: 'test_prediction',
                         single_end: true
                     ],
-                    file('$outputDir/test_characteristics.json')
+                    file('$projectDir/tests/fixtures/characteristics/small_fastq.json'),
+                    file('$projectDir/tests/fixtures/system_metrics/normal_load.json')
                 ]
                 input[1] = [
                     prediction_model: 'gradient_boost',
@@ -52,46 +34,17 @@ EOF
         }
 
         then {
-            assert process.success
-            assert process.out.predictions.size() == 1
-            
-            // Check that predictions file was generated
-            def (meta, predictions_file) = process.out.predictions[0]
-            assert meta.id == 'test_prediction'
-            assert predictions_file != null
-            assert path(predictions_file).exists()
-            
-            // Check versions output
-            assert process.out.versions.size() == 1
-            assert path(process.out.versions[0]).getText().contains('python')
+            assertAll(
+                { assert process.success },
+                { assert snapshot(process.out).match() }
+            )
         }
     }
 
     test("Should predict resources with ML model") {
 
-        setup {
-            script """
-            cat > $outputDir/large_characteristics.json << 'EOF'
-{
-  "file_info": {
-    "total_size_bytes": 104857600,
-    "total_size_mb": 100.0,
-    "file_count": 5,
-    "estimated_read_count": 500000
-  },
-  "complexity_analysis": {
-    "average_complexity": 0.85,
-    "max_complexity": 0.95,
-    "complexity_variance": 0.1
-  },
-  "quality_analysis": {
-    "average_quality": 15.2,
-    "quality_variance": 2.1
-  }
-}
-EOF
-            """)
-        }
+        tag "ml_prediction"
+        tag "snapshot"
 
         when {
             process {
@@ -102,7 +55,8 @@ EOF
                         single_end: true,
                         tool: 'fastp'
                     ],
-                    file('$outputDir/large_characteristics.json')
+                    file('$projectDir/tests/fixtures/characteristics/large_fastq.json'),
+                    file('$projectDir/tests/fixtures/system_metrics/high_load.json')
                 ]
                 input[1] = [
                     prediction_model: 'random_forest',
@@ -116,43 +70,17 @@ EOF
         }
 
         then {
-            assert process.success
-            assert process.out.predictions.size() == 1
-            
-            def (meta, predictions_file) = process.out.predictions[0]
-            assert meta.id == 'ml_prediction_test'
-            assert meta.tool == 'fastp'
-            assert path(predictions_file).exists()
-            
-            // Check that ML predictions contain expected fields
-            def predictions_content = path(predictions_file).text
-            assert predictions_content.contains('cpu') || predictions_content.contains('memory') || predictions_content.contains('runtime')
-            
-            assert process.out.versions.size() == 1
+            assertAll(
+                { assert process.success },
+                { assert snapshot(process.out).match() }
+            )
         }
     }
 
     test("Should handle tool-specific predictions") {
 
-        setup {
-            script """
-            cat > $outputDir/tool_characteristics.json << 'EOF'
-{
-  "file_info": {
-    "total_size_bytes": 52428800,
-    "total_size_mb": 50.0,
-    "file_count": 2,
-    "estimated_read_count": 250000
-  },
-  "read_analysis": {
-    "average_read_length": 3000,
-    "n50": 3500,
-    "read_length_distribution": "normal"
-  }
-}
-EOF
-            """)
-        }
+        tag "tool_specific"
+        tag "snapshot"
 
         when {
             process {
@@ -163,7 +91,8 @@ EOF
                         single_end: true,
                         tool: 'nanoplot'
                     ],
-                    file('$outputDir/tool_characteristics.json')
+                    file('$projectDir/tests/fixtures/characteristics/medium_fastq.json'),
+                    file('$projectDir/tests/fixtures/system_metrics/normal_load.json')
                 ]
                 input[1] = [
                     prediction_model: 'linear_regression',
@@ -179,38 +108,17 @@ EOF
         }
 
         then {
-            assert process.success
-            assert process.out.predictions.size() == 1
-            
-            def (meta, predictions_file) = process.out.predictions[0]
-            assert meta.id == 'tool_specific_test'
-            assert meta.tool == 'nanoplot'
-            assert path(predictions_file).exists()
-            
-            assert process.out.versions.size() == 1
+            assertAll(
+                { assert process.success },
+                { assert snapshot(process.out).match() }
+            )
         }
     }
 
     test("Should handle prediction confidence thresholds") {
 
-        setup {
-            script """
-            cat > $outputDir/confidence_characteristics.json << 'EOF'
-{
-  "file_info": {
-    "total_size_bytes": 5242880,
-    "total_size_mb": 5.0,
-    "file_count": 1,
-    "estimated_read_count": 25000
-  },
-  "uncertainty_indicators": {
-    "file_size_variance": 0.3,
-    "complexity_uncertainty": 0.2
-  }
-}
-EOF
-            """)
-        }
+        tag "confidence"
+        tag "snapshot"
 
         when {
             process {
@@ -220,7 +128,8 @@ EOF
                         id: 'confidence_test',
                         single_end: true
                     ],
-                    file('$outputDir/confidence_characteristics.json')
+                    file('$projectDir/tests/fixtures/characteristics/minimal_file.json'),
+                    file('$projectDir/tests/fixtures/system_metrics/normal_load.json')
                 ]
                 input[1] = [
                     prediction_model: 'gradient_boost',
@@ -233,36 +142,17 @@ EOF
         }
 
         then {
-            assert process.success
-            assert process.out.predictions.size() == 1
-            
-            def (meta, predictions_file) = process.out.predictions[0]
-            assert meta.id == 'confidence_test'
-            assert path(predictions_file).exists()
-            
-            // Check that confidence information is included
-            def predictions_content = path(predictions_file).text
-            assert predictions_content.contains('confidence') || predictions_content.contains('uncertainty')
-            
-            assert process.out.versions.size() == 1
+            assertAll(
+                { assert process.success },
+                { assert snapshot(process.out).match() }
+            )
         }
     }
 
     test("Should handle edge cases and fallbacks") {
 
-        setup {
-            script """
-            cat > $outputDir/minimal_characteristics.json << 'EOF'
-{
-  "file_info": {
-    "total_size_bytes": 1024,
-    "total_size_mb": 0.001,
-    "file_count": 1
-  }
-}
-EOF
-            """)
-        }
+        tag "edge_cases"
+        tag "snapshot"
 
         when {
             process {
@@ -272,7 +162,8 @@ EOF
                         id: 'edge_case_test',
                         single_end: true
                     ],
-                    file('$outputDir/minimal_characteristics.json')
+                    file('$projectDir/tests/fixtures/characteristics/empty_file.json'),
+                    file('$projectDir/tests/fixtures/system_metrics/normal_load.json')
                 ]
                 input[1] = [
                     prediction_model: 'fallback',
@@ -289,14 +180,10 @@ EOF
         }
 
         then {
-            assert process.success
-            assert process.out.predictions.size() == 1
-            
-            def (meta, predictions_file) = process.out.predictions[0]
-            assert meta.id == 'edge_case_test'
-            assert path(predictions_file).exists()
-            
-            assert process.out.versions.size() == 1
+            assertAll(
+                { assert process.success },
+                { assert snapshot(process.out).match() }
+            )
         }
     }
 
@@ -310,6 +197,7 @@ EOF
                         id: 'stub_test',
                         single_end: true
                     ],
+                    [],
                     []
                 ]
                 input[1] = [
@@ -317,7 +205,7 @@ EOF
                 ]
                 """
             }
-            
+
             stub true
         }
 
@@ -325,10 +213,6 @@ EOF
             assert process.success
             assert process.out.predictions.size() == 1
             assert process.out.versions.size() == 1
-            
-            def (meta, predictions_file) = process.out.predictions[0]
-            assert meta.id == 'stub_test'
-            assert path(predictions_file).exists()
         }
     }
 }

@@ -1,0 +1,26 @@
+{
+  "sample_id": "medium_test",
+  "analysis_timestamp": "2024-01-15T10:00:00",
+  "tool_context": {},
+  "file_count": 1,
+  "total_size_bytes": 104857600,
+  "total_size_mb": 100.0,
+  "total_size_gb": 0.1,
+  "total_estimated_reads": 500000,
+  "total_estimated_bases": 1000000000,
+  "average_file_size_mb": 100.0,
+  "estimated_coverage": "10x",
+  "complexity_metrics": {
+    "overall_complexity": 0.8,
+    "size_complexity": "medium",
+    "read_complexity": "medium"
+  },
+  "processing_hints": {
+    "recommended_parallelization": 4,
+    "memory_intensive": false,
+    "cpu_intensive": true,
+    "io_intensive": false,
+    "gpu_beneficial": false
+  },
+  "file_details": []
+}

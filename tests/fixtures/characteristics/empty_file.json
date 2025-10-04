@@ -1,0 +1,26 @@
+{
+  "sample_id": "empty_test",
+  "analysis_timestamp": "2024-01-15T10:00:00",
+  "tool_context": {},
+  "file_count": 1,
+  "total_size_bytes": 0,
+  "total_size_mb": 0.0,
+  "total_size_gb": 0.0,
+  "total_estimated_reads": 0,
+  "total_estimated_bases": 0,
+  "average_file_size_mb": 0.0,
+  "estimated_coverage": "0x",
+  "complexity_metrics": {
+    "overall_complexity": 0.0,
+    "size_complexity": "none",
+    "read_complexity": "none"
+  },
+  "processing_hints": {
+    "recommended_parallelization": 1,
+    "memory_intensive": false,
+    "cpu_intensive": false,
+    "io_intensive": false,
+    "gpu_beneficial": false
+  },
+  "file_details": []
+}

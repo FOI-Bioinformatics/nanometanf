@@ -1,0 +1,77 @@
+{
+  "sample_id": "conservative_test",
+  "prediction_timestamp": "2024-10-02T20:00:00",
+  "tool_context": {
+    "tool_name": "nanoplot"
+  },
+  "input_characteristics_summary": {
+    "total_size_gb": 2.0,
+    "total_estimated_reads": 10000,
+    "file_count": 1,
+    "complexity_score": 0.8
+  },
+  "system_context_summary": {
+    "cpu_cores_available": 4,
+    "memory_gb_available": 8.0,
+    "gpu_available": false,
+    "current_load": "low"
+  },
+  "predictions": {
+    "cpu_requirements": {
+      "predicted_cores": 2,
+      "base_cores": 1,
+      "scaling_factor": 0.02,
+      "complexity_adjustment": 0.8,
+      "tool_profile": {
+        "base_cores": 1,
+        "scaling_factor": 0.02,
+        "max_cores": 4
+      }
+    },
+    "memory_requirements": {
+      "predicted_memory_gb": 4.0,
+      "base_memory_gb": 2.0,
+      "scaling_component": 2.0,
+      "complexity_adjustment": 0.8,
+      "tool_profile": {
+        "base_memory_gb": 2.0,
+        "scaling_factor": 0.3,
+        "max_memory_gb": 16.0
+      }
+    },
+    "runtime_estimates": {
+      "predicted_runtime_seconds": 1800,
+      "predicted_runtime_minutes": 30.0,
+      "predicted_runtime_hours": 0.5,
+      "base_processing_time": 1500,
+      "startup_time": 180,
+      "parallelization_efficiency": 0.9
+    },
+    "io_requirements": {
+      "temp_space_gb": 5.0,
+      "read_throughput_mb_s": 80,
+      "write_throughput_mb_s": 60,
+      "io_pattern": "sequential",
+      "multiple_files": false,
+      "concurrent_io": false
+    }
+  },
+  "confidence_metrics": {
+    "confidence_score": 0.910,
+    "confidence_level": "high",
+    "factors": {
+      "data_completeness": 0.95,
+      "system_metrics_quality": 0.9,
+      "file_type_certainty": 0.92,
+      "size_reasonableness": 0.88
+    }
+  },
+  "recommendations": {
+    "optimal_cpu_cores": 2,
+    "optimal_memory_gb": 4.0,
+    "estimated_runtime_hours": 0.5,
+    "temp_space_gb": 5.0,
+    "gpu_acceleration": false,
+    "priority_level": "low"
+  }
+}

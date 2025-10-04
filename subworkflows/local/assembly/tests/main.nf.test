@@ -1,0 +1,466 @@
+nextflow_workflow {
+
+    name "Test ASSEMBLY"
+    script "../../assembly.nf"
+    workflow "ASSEMBLY"
+
+    test("Should perform basic Flye assembly") {
+
+        setup {
+            """
+            # Create test nanopore reads
+            cp $projectDir/tests/test_sample.fastq.gz $outputDir/assembly_reads.fastq.gz
+            """
+        }
+
+        when {
+            workflow {
+                """
+                input[0] = [
+                    [
+                        [id: 'flye_test', single_end: true],
+                        file('$outputDir/assembly_reads.fastq.gz')
+                    ]
+                ]
+                """
+            }
+            
+            params {
+                assembler = 'flye'
+                genome_size = '5m'
+                sequencing_mode = '--nano-raw'
+                max_cpus = 2
+                max_memory = '4.GB'
+                max_time = '5.min'
+            }
+        }
+
+        then {
+            assert workflow.success
+            assert workflow.out.assembly
+            assert workflow.out.assembly_graph
+            assert workflow.out.assembly_info
+            assert workflow.out.assembler_used
+            assert workflow.out.versions
+            
+            // Verify Flye assembly outputs
+            def assemblies = workflow.out.assembly.toList()
+            assert assemblies.size() >= 1
+            
+            def graphs = workflow.out.assembly_graph.toList()
+            assert graphs.size() >= 1
+            
+            def info = workflow.out.assembly_info.toList()
+            assert info.size() >= 1
+            
+            // Check assembler identification
+            def assembler_used = workflow.out.assembler_used.getVal()
+            assert assembler_used == 'flye'
+        }
+    }
+
+    test("Should perform Miniasm assembly with overlap detection") {
+
+        setup {
+            """
+            # Create test reads for miniasm
+            cp $projectDir/tests/test_sample.fastq.gz $outputDir/miniasm_reads.fastq.gz
+            """
+        }
+
+        when {
+            workflow {
+                """
+                input[0] = [
+                    [
+                        [id: 'miniasm_test', single_end: true],
+                        file('$outputDir/miniasm_reads.fastq.gz')
+                    ]
+                ]
+                """
+            }
+            
+            params {
+                assembler = 'miniasm'
+                max_cpus = 2
+                max_memory = '4.GB'
+                max_time = '5.min'
+            }
+        }
+
+        then {
+            assert workflow.success
+            assert workflow.out.assembly
+            assert workflow.out.assembly_graph
+            assert workflow.out.assembler_used
+            assert workflow.out.versions
+            
+            // Verify Miniasm assembly outputs
+            def assemblies = workflow.out.assembly.toList()
+            assert assemblies.size() >= 1
+            
+            def graphs = workflow.out.assembly_graph.toList()
+            assert graphs.size() >= 1
+            
+            // Check assembler identification
+            def assembler_used = workflow.out.assembler_used.getVal()
+            assert assembler_used == 'miniasm'
+            
+            // Miniasm doesn't provide assembly info
+            if (workflow.out.assembly_info) {
+                def info = workflow.out.assembly_info.toList()
+                assert info.size() == 0
+            }
+        }
+    }
+
+    test("Should handle different genome size parameters") {
+
+        setup {
+            """
+            # Create reads for genome size testing
+            cp $projectDir/tests/test_sample.fastq.gz $outputDir/genome_size_reads.fastq.gz
+            """
+        }
+
+        when {
+            workflow {
+                """
+                input[0] = [
+                    [
+                        [id: 'genome_size_test', single_end: true],
+                        file('$outputDir/genome_size_reads.fastq.gz')
+                    ]
+                ]
+                """
+            }
+            
+            params {
+                assembler = 'flye'
+                genome_size = '2.5m'  // Smaller genome
+                sequencing_mode = '--nano-raw'
+                max_cpus = 2
+                max_memory = '4.GB'
+                max_time = '5.min'
+            }
+        }
+
+        then {
+            assert workflow.success
+            assert workflow.out.assembly
+            assert workflow.out.assembly_graph
+            assert workflow.out.assembly_info
+            
+            // Verify assembly with custom genome size
+            def assemblies = workflow.out.assembly.toList()
+            assert assemblies.size() >= 1
+        }
+    }
+
+    test("Should handle different sequencing modes") {
+
+        setup {
+            """
+            # Create reads for sequencing mode testing
+            cp $projectDir/tests/test_sample.fastq.gz $outputDir/seq_mode_reads.fastq.gz
+            """
+        }
+
+        when {
+            workflow {
+                """
+                input[0] = [
+                    [
+                        [id: 'seq_mode_test', single_end: true],
+                        file('$outputDir/seq_mode_reads.fastq.gz')
+                    ]
+                ]
+                """
+            }
+            
+            params {
+                assembler = 'flye'
+                genome_size = '5m'
+                sequencing_mode = '--nano-corr'  // Corrected reads mode
+                max_cpus = 2
+                max_memory = '4.GB'
+                max_time = '5.min'
+            }
+        }
+
+        then {
+            assert workflow.success
+            assert workflow.out.assembly
+            assert workflow.out.assembly_graph
+            assert workflow.out.assembly_info
+            
+            // Verify assembly with corrected reads mode
+            def assemblies = workflow.out.assembly.toList()
+            assert assemblies.size() >= 1
+        }
+    }
+
+    test("Should process multiple samples in batch") {
+
+        setup {
+            """
+            # Create multiple samples for batch assembly
+            cp $projectDir/tests/test_sample.fastq.gz $outputDir/batch_sample1.fastq.gz
+            cp $projectDir/tests/test_sample.fastq.gz $outputDir/batch_sample2.fastq.gz
+            cp $projectDir/tests/test_sample.fastq.gz $outputDir/batch_sample3.fastq.gz
+            """
+        }
+
+        when {
+            workflow {
+                """
+                input[0] = [
+                    [
+                        [id: 'batch_sample1', single_end: true],
+                        file('$outputDir/batch_sample1.fastq.gz')
+                    ],
+                    [
+                        [id: 'batch_sample2', single_end: true],
+                        file('$outputDir/batch_sample2.fastq.gz')
+                    ],
+                    [
+                        [id: 'batch_sample3', single_end: true],
+                        file('$outputDir/batch_sample3.fastq.gz')
+                    ]
+                ]
+                """
+            }
+            
+            params {
+                assembler = 'flye'
+                genome_size = '5m'
+                sequencing_mode = '--nano-raw'
+                max_cpus = 2
+                max_memory = '4.GB'
+                max_time = '8.min'
+            }
+        }
+
+        then {
+            assert workflow.success
+            assert workflow.out.assembly
+            assert workflow.out.assembly_graph
+            assert workflow.out.assembly_info
+            
+            // Verify batch processing
+            def assemblies = workflow.out.assembly.toList()
+            assert assemblies.size() >= 3
+            
+            def graphs = workflow.out.assembly_graph.toList()
+            assert graphs.size() >= 3
+            
+            def info = workflow.out.assembly_info.toList()
+            assert info.size() >= 3
+        }
+    }
+
+    test("Should handle high-accuracy nanopore reads") {
+
+        setup {
+            """
+            # Create reads for high-accuracy testing
+            cp $projectDir/tests/test_sample.fastq.gz $outputDir/hac_reads.fastq.gz
+            """
+        }
+
+        when {
+            workflow {
+                """
+                input[0] = [
+                    [
+                        [id: 'hac_test', single_end: true],
+                        file('$outputDir/hac_reads.fastq.gz')
+                    ]
+                ]
+                """
+            }
+            
+            params {
+                assembler = 'flye'
+                genome_size = '5m'
+                sequencing_mode = '--nano-hq'  // High-quality mode
+                flye_extra_args = '--meta'
+                max_cpus = 2
+                max_memory = '4.GB'
+                max_time = '5.min'
+            }
+        }
+
+        then {
+            assert workflow.success
+            assert workflow.out.assembly
+            assert workflow.out.assembly_graph
+            assert workflow.out.assembly_info
+            
+            // Verify high-quality assembly
+            def assemblies = workflow.out.assembly.toList()
+            assert assemblies.size() >= 1
+        }
+    }
+
+    test("Should handle large genome assembly") {
+
+        setup {
+            """
+            # Create reads for large genome testing
+            cp $projectDir/tests/test_sample.fastq.gz $outputDir/large_genome_reads.fastq.gz
+            """
+        }
+
+        when {
+            workflow {
+                """
+                input[0] = [
+                    [
+                        [id: 'large_genome_test', single_end: true],
+                        file('$outputDir/large_genome_reads.fastq.gz')
+                    ]
+                ]
+                """
+            }
+            
+            params {
+                assembler = 'flye'
+                genome_size = '100m'  // Large genome (100Mb)
+                sequencing_mode = '--nano-raw'
+                max_cpus = 2
+                max_memory = '6.GB'
+                max_time = '8.min'
+            }
+        }
+
+        then {
+            assert workflow.success
+            assert workflow.out.assembly
+            assert workflow.out.assembly_graph
+            assert workflow.out.assembly_info
+            
+            // Verify large genome assembly
+            def assemblies = workflow.out.assembly.toList()
+            assert assemblies.size() >= 1
+        }
+    }
+
+    test("Should handle empty input gracefully") {
+
+        when {
+            workflow {
+                """
+                input[0] = []
+                """
+            }
+            
+            params {
+                assembler = 'flye'
+                genome_size = '5m'
+                max_cpus = 1
+                max_memory = '2.GB'
+                max_time = '1.min'
+            }
+        }
+
+        then {
+            // Should handle empty input gracefully
+            assert workflow.success
+            
+            if (workflow.success) {
+                // Empty outputs expected
+                if (workflow.out.assembly) {
+                    def assemblies = workflow.out.assembly.toList()
+                    assert assemblies.size() == 0
+                }
+            }
+        }
+    }
+
+    test("Should reject invalid assembler parameter") {
+
+        setup {
+            """
+            # Create reads for invalid assembler testing
+            cp $projectDir/tests/test_sample.fastq.gz $outputDir/invalid_assembler_reads.fastq.gz
+            """
+        }
+
+        when {
+            workflow {
+                """
+                input[0] = [
+                    [
+                        [id: 'invalid_assembler_test', single_end: true],
+                        file('$outputDir/invalid_assembler_reads.fastq.gz')
+                    ]
+                ]
+                """
+            }
+            
+            params {
+                assembler = 'invalid_assembler'  // Invalid assembler
+                genome_size = '5m'
+                max_cpus = 1
+                max_memory = '2.GB'
+                max_time = '1.min'
+            }
+        }
+
+        then {
+            // Should fail due to invalid assembler
+            assert workflow.failed
+            
+            // Should fail quickly during parameter validation
+            assert workflow.duration.toMillis() < 60000 // Less than 1 minute
+        }
+    }
+
+    test("Should compare Flye vs Miniasm assembly strategies") {
+
+        setup {
+            """
+            # Create identical reads for comparison
+            cp $projectDir/tests/test_sample.fastq.gz $outputDir/comparison_reads.fastq.gz
+            """
+        }
+
+        when {
+            workflow {
+                """
+                input[0] = [
+                    [
+                        [id: 'comparison_test', single_end: true],
+                        file('$outputDir/comparison_reads.fastq.gz')
+                    ]
+                ]
+                """
+            }
+            
+            params {
+                assembler = 'flye'  // Primary assembler for comparison
+                genome_size = '5m'
+                sequencing_mode = '--nano-raw'
+                max_cpus = 2
+                max_memory = '4.GB'
+                max_time = '5.min'
+            }
+        }
+
+        then {
+            assert workflow.success
+            assert workflow.out.assembly
+            assert workflow.out.assembly_graph
+            assert workflow.out.assembly_info
+            assert workflow.out.assembler_used
+            
+            // Verify comparison-ready outputs
+            def assemblies = workflow.out.assembly.toList()
+            assert assemblies.size() >= 1
+            
+            def assembler_used = workflow.out.assembler_used.getVal()
+            assert assembler_used == 'flye'
+        }
+    }
+}

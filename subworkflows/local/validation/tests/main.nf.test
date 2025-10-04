@@ -1,0 +1,375 @@
+nextflow_workflow {
+
+    name "Test VALIDATION"
+    script "../../validation.nf"
+    workflow "VALIDATION"
+
+    test("Should perform basic BLAST sequence validation") {
+
+        setup {
+            """
+            # Create test FASTA query file
+            cat > $outputDir/query_sequences.fasta << 'EOF'
+>test_sequence_1
+ATGCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGAT
+>test_sequence_2
+ATGCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGAT
+EOF
+
+            # Create mock BLAST database directory
+            mkdir -p $outputDir/mock_blast_db
+            echo "Mock BLAST database" > $outputDir/mock_blast_db/test_db.nhr
+            echo "Mock BLAST index" > $outputDir/mock_blast_db/test_db.nin
+            echo "Mock BLAST sequences" > $outputDir/mock_blast_db/test_db.nsq
+            """
+        }
+
+        when {
+            workflow {
+                """
+                input[0] = [
+                    [
+                        [id: 'validation_test', single_end: true],
+                        file('$outputDir/query_sequences.fasta')
+                    ]
+                ]
+                input[1] = file('$outputDir/mock_blast_db')
+                """
+            }
+            
+            params {
+                max_cpus = 2
+                max_memory = '4.GB'
+                max_time = '2.min'
+            }
+        }
+
+        then {
+            assert workflow.success
+            assert workflow.out.txt
+            assert workflow.out.versions
+            
+            // Verify BLAST validation output
+            def blast_results = workflow.out.txt.toList()
+            assert blast_results.size() >= 1
+            
+            // Check versions output
+            def versions = workflow.out.versions.toList()
+            assert versions.size() >= 1
+        }
+    }
+
+    test("Should handle multiple query sequences") {
+
+        setup {
+            """
+            # Create multiple query sequences
+            cat > $outputDir/multiple_queries.fasta << 'EOF'
+>query_sequence_1
+ATGCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGAT
+>query_sequence_2
+CGCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATG
+>query_sequence_3
+GCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCG
+>query_sequence_4
+TCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGA
+EOF
+
+            # Create mock database
+            mkdir -p $outputDir/multi_blast_db
+            echo "Multiple query mock database" > $outputDir/multi_blast_db/multi_db.nhr
+            echo "Multiple query mock index" > $outputDir/multi_blast_db/multi_db.nin
+            echo "Multiple query mock sequences" > $outputDir/multi_blast_db/multi_db.nsq
+            """
+        }
+
+        when {
+            workflow {
+                """
+                input[0] = [
+                    [
+                        [id: 'multi_query_test', single_end: true],
+                        file('$outputDir/multiple_queries.fasta')
+                    ]
+                ]
+                input[1] = file('$outputDir/multi_blast_db')
+                """
+            }
+            
+            params {
+                max_cpus = 2
+                max_memory = '4.GB'
+                max_time = '3.min'
+            }
+        }
+
+        then {
+            assert workflow.success
+            assert workflow.out.txt
+            
+            // Verify processing of multiple sequences
+            def blast_results = workflow.out.txt.toList()
+            assert blast_results.size() >= 1
+        }
+    }
+
+    test("Should process batch validation for multiple samples") {
+
+        setup {
+            """
+            # Create multiple sample FASTA files
+            cat > $outputDir/sample1_queries.fasta << 'EOF'
+>sample1_seq1
+ATGCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGAT
+>sample1_seq2
+CGCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATG
+EOF
+
+            cat > $outputDir/sample2_queries.fasta << 'EOF'
+>sample2_seq1
+GCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCG
+>sample2_seq2
+TCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGA
+EOF
+
+            cat > $outputDir/sample3_queries.fasta << 'EOF'
+>sample3_seq1
+GATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATC
+EOF
+
+            # Create mock database
+            mkdir -p $outputDir/batch_blast_db
+            echo "Batch validation mock database" > $outputDir/batch_blast_db/batch_db.nhr
+            echo "Batch validation mock index" > $outputDir/batch_blast_db/batch_db.nin
+            echo "Batch validation mock sequences" > $outputDir/batch_blast_db/batch_db.nsq
+            """
+        }
+
+        when {
+            workflow {
+                """
+                input[0] = [
+                    [
+                        [id: 'batch_sample1', single_end: true],
+                        file('$outputDir/sample1_queries.fasta')
+                    ],
+                    [
+                        [id: 'batch_sample2', single_end: true],
+                        file('$outputDir/sample2_queries.fasta')
+                    ],
+                    [
+                        [id: 'batch_sample3', single_end: true],
+                        file('$outputDir/sample3_queries.fasta')
+                    ]
+                ]
+                input[1] = file('$outputDir/batch_blast_db')
+                """
+            }
+            
+            params {
+                max_cpus = 2
+                max_memory = '4.GB'
+                max_time = '4.min'
+            }
+        }
+
+        then {
+            assert workflow.success
+            assert workflow.out.txt
+            
+            // Verify batch processing
+            def blast_results = workflow.out.txt.toList()
+            assert blast_results.size() >= 3
+        }
+    }
+
+    test("Should handle different BLAST output formats") {
+
+        setup {
+            """
+            # Create query with diverse sequences
+            cat > $outputDir/format_queries.fasta << 'EOF'
+>format_test_sequence
+ATGCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGAT
+EOF
+
+            # Create mock database
+            mkdir -p $outputDir/format_blast_db
+            echo "Format test mock database" > $outputDir/format_blast_db/format_db.nhr
+            echo "Format test mock index" > $outputDir/format_blast_db/format_db.nin
+            echo "Format test mock sequences" > $outputDir/format_blast_db/format_db.nsq
+            """
+        }
+
+        when {
+            workflow {
+                """
+                input[0] = [
+                    [
+                        [id: 'format_test', single_end: true],
+                        file('$outputDir/format_queries.fasta')
+                    ]
+                ]
+                input[1] = file('$outputDir/format_blast_db')
+                """
+            }
+            
+            params {
+                blast_outfmt = 6  // Tabular format
+                blast_evalue = 1e-5
+                blast_max_target_seqs = 50
+                max_cpus = 2
+                max_memory = '4.GB'
+                max_time = '2.min'
+            }
+        }
+
+        then {
+            assert workflow.success
+            assert workflow.out.txt
+            
+            // Verify format-specific output
+            def blast_results = workflow.out.txt.toList()
+            assert blast_results.size() >= 1
+        }
+    }
+
+    test("Should validate sequences with stringent parameters") {
+
+        setup {
+            """
+            # Create high-quality query sequences
+            cat > $outputDir/stringent_queries.fasta << 'EOF'
+>high_quality_sequence
+ATGCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGAT
+EOF
+
+            # Create mock database
+            mkdir -p $outputDir/stringent_blast_db
+            echo "Stringent validation mock database" > $outputDir/stringent_blast_db/stringent_db.nhr
+            echo "Stringent validation mock index" > $outputDir/stringent_blast_db/stringent_db.nin
+            echo "Stringent validation mock sequences" > $outputDir/stringent_blast_db/stringent_db.nsq
+            """
+        }
+
+        when {
+            workflow {
+                """
+                input[0] = [
+                    [
+                        [id: 'stringent_test', single_end: true],
+                        file('$outputDir/stringent_queries.fasta')
+                    ]
+                ]
+                input[1] = file('$outputDir/stringent_blast_db')
+                """
+            }
+            
+            params {
+                blast_evalue = 1e-10       // Very stringent e-value
+                blast_word_size = 28       // Larger word size
+                blast_gapopen = 5          // Gap penalties
+                blast_gapextend = 2
+                blast_max_target_seqs = 10 // Fewer targets
+                max_cpus = 2
+                max_memory = '4.GB'
+                max_time = '2.min'
+            }
+        }
+
+        then {
+            assert workflow.success
+            assert workflow.out.txt
+            
+            // Verify stringent validation
+            def blast_results = workflow.out.txt.toList()
+            assert blast_results.size() >= 1
+        }
+    }
+
+    test("Should handle empty query input gracefully") {
+
+        when {
+            workflow {
+                """
+                input[0] = []
+                input[1] = file('$projectDir/assets/test_data')  // Use any existing directory
+                """
+            }
+            
+            params {
+                max_cpus = 1
+                max_memory = '2.GB'
+                max_time = '1.min'
+            }
+        }
+
+        then {
+            // Should handle empty input gracefully
+            assert workflow.success
+            
+            if (workflow.success) {
+                // Empty outputs expected
+                if (workflow.out.txt) {
+                    def blast_results = workflow.out.txt.toList()
+                    assert blast_results.size() == 0
+                }
+            }
+        }
+    }
+
+    test("Should validate with custom BLAST parameters") {
+
+        setup {
+            """
+            # Create diverse query sequences for custom parameter testing
+            cat > $outputDir/custom_queries.fasta << 'EOF'
+>custom_sequence_1
+ATGCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGAT
+>custom_sequence_2
+CGCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATG
+EOF
+
+            # Create mock database
+            mkdir -p $outputDir/custom_blast_db
+            echo "Custom parameters mock database" > $outputDir/custom_blast_db/custom_db.nhr
+            echo "Custom parameters mock index" > $outputDir/custom_blast_db/custom_db.nin
+            echo "Custom parameters mock sequences" > $outputDir/custom_blast_db/custom_db.nsq
+            """
+        }
+
+        when {
+            workflow {
+                """
+                input[0] = [
+                    [
+                        [id: 'custom_test', single_end: true],
+                        file('$outputDir/custom_queries.fasta')
+                    ]
+                ]
+                input[1] = file('$outputDir/custom_blast_db')
+                """
+            }
+            
+            params {
+                blast_outfmt = "6 qseqid sseqid pident length mismatch gapopen qstart qend sstart send evalue bitscore"
+                blast_task = "blastn"
+                blast_dust = "yes"
+                blast_penalty = -3
+                blast_reward = 2
+                max_cpus = 2
+                max_memory = '4.GB'
+                max_time = '2.min'
+            }
+        }
+
+        then {
+            assert workflow.success
+            assert workflow.out.txt
+            
+            // Verify custom parameter processing
+            def blast_results = workflow.out.txt.toList()
+            assert blast_results.size() >= 1
+        }
+    }
+}

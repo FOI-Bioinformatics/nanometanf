@@ -480,12 +480,19 @@ If you would like to contribute to this pipeline, please see the [contributing g
 
 ## Citations
 
-<!-- TODO nf-core: Add citation for pipeline after first release. Uncomment lines below and update Zenodo doi and badge at the top of this file. -->
-<!-- If you use foi-bioinformatics/nanometanf for your analysis, please cite it using the following doi: [10.5281/zenodo.XXXXXX](https://doi.org/10.5281/zenodo.XXXXXX) -->
+If you use foi-bioinformatics/nanometanf for your analysis, please cite it as:
 
-<!-- TODO nf-core: Add bibliography of tools and data used in your pipeline -->
+> Sjödin, A. (2024). foi-bioinformatics/nanometanf: Comprehensive real-time nanopore sequencing data analysis pipeline. Available at: https://github.com/foi-bioinformatics/nanometanf
 
 An extensive list of references for the tools used by the pipeline can be found in the [`CITATIONS.md`](CITATIONS.md) file.
+
+### Key Tools
+
+- **Dorado** for basecalling: Oxford Nanopore Technologies (2023)
+- **Kraken2** for taxonomic classification: Wood et al. (2019) 
+- **FastP** for quality control: Chen et al. (2018)
+- **BLAST** for validation: Camacho et al. (2009)
+- **Nextflow** for workflow management: Di Tommaso et al. (2017)
 
 This pipeline uses code and infrastructure developed and maintained by the [nf-core](https://nf-co.re) community, reused here under the [MIT license](https://github.com/nf-core/tools/blob/main/LICENSE).
 

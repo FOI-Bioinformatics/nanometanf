@@ -66,7 +66,7 @@ input = "$projectDir/tests/test_samplesheet.csv"
         }
 
         then {
-            assert workflow.success || workflow.failed // May fail if test DB doesn't exist
+            assert workflow.success // May fail if test DB doesn't exist
             
             if (workflow.success) {
                 // Check Kraken2 ran if database exists

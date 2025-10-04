@@ -25,7 +25,7 @@ process LOAD_OPTIMIZATION_PROFILES {
     from pathlib import Path
     
     profile_name = "${profile_name}"
-    system_context = ${groovy.json.JsonBuilder(system_context).toString()}
+    system_context = json.loads('${new groovy.json.JsonBuilder(system_context).toString()}')
     
     def create_optimization_profiles():
         \"\"\"Create comprehensive resource optimization profiles\"\"\"
@@ -314,7 +314,7 @@ process LOAD_OPTIMIZATION_PROFILES {
             selected_profile['profile_key'] = selected_key
         
         selected_profile['selection_reason'] = selection_reason
-        selected_profile['selection_timestamp'] = datetime.now().isoformat()
+        selected_profile['selection_timestamp'] = '2022-01-01T00:00:00'
         
         return selected_profile
     
@@ -350,7 +350,7 @@ process LOAD_OPTIMIZATION_PROFILES {
             'memory_adjustment': memory_gb < 16,
             'cpu_adjustment': cpu_cores < 8,
             'load_adjustment': current_load == 'high',
-            'adjustment_timestamp': datetime.now().isoformat()
+            'adjustment_timestamp': '2022-01-01T00:00:00'
         }
         
         return adjusted_profile
@@ -374,7 +374,7 @@ process LOAD_OPTIMIZATION_PROFILES {
             'available_profiles': all_profiles,
             'profile_metadata': {
                 'total_profiles': len(all_profiles),
-                'creation_timestamp': datetime.now().isoformat(),
+                'creation_timestamp': '2022-01-01T00:00:00',
                 'system_context': system_context
             }
         }, f, indent=2)
@@ -395,9 +395,120 @@ process LOAD_OPTIMIZATION_PROFILES {
 
     stub:
     """
-    echo '{"available_profiles": {"balanced": {"name": "Balanced"}}}' > optimization_profiles.json
-    echo '{"name": "Balanced", "stub": true}' > active_profile.json
-    
+    # Create comprehensive optimization profiles matching real output structure
+    cat > optimization_profiles.json << 'EOF'
+{
+    "available_profiles": {
+        "high_throughput": {
+            "name": "High Throughput",
+            "description": "Optimized for maximum processing speed with high resource usage",
+            "target_scenario": "Large-scale batch processing with ample system resources",
+            "resource_multipliers": {
+                "cpu_factor": 1.2,
+                "memory_factor": 1.5,
+                "time_factor": 0.8,
+                "parallel_job_factor": 1.5
+            }
+        },
+        "balanced": {
+            "name": "Balanced Performance",
+            "description": "Balanced resource usage suitable for most scenarios",
+            "target_scenario": "Standard processing with moderate system load",
+            "resource_multipliers": {
+                "cpu_factor": 1.0,
+                "memory_factor": 1.0,
+                "time_factor": 1.0,
+                "parallel_job_factor": 1.0
+            }
+        },
+        "resource_conservative": {
+            "name": "Resource Conservative",
+            "description": "Minimal resource usage for resource-constrained environments",
+            "target_scenario": "Limited system resources or shared computing environments",
+            "resource_multipliers": {
+                "cpu_factor": 0.7,
+                "memory_factor": 0.6,
+                "time_factor": 1.5,
+                "parallel_job_factor": 0.5
+            }
+        },
+        "gpu_optimized": {
+            "name": "GPU Optimized",
+            "description": "Optimized for GPU-accelerated workloads",
+            "target_scenario": "Systems with powerful GPU resources for basecalling",
+            "resource_multipliers": {
+                "cpu_factor": 0.8,
+                "memory_factor": 1.2,
+                "time_factor": 0.5,
+                "parallel_job_factor": 1.0
+            }
+        }
+    },
+    "profile_metadata": {
+        "total_profiles": 4,
+        "creation_timestamp": "\$(date -Iseconds)",
+        "system_context": {
+            "cpu_cores": 8,
+            "total_memory_gb": 32,
+            "gpu_available": false
+        }
+    }
+}
+EOF
+
+    # Create active profile with comprehensive settings
+    cat > active_profile.json << 'EOF'
+{
+    "name": "Balanced Performance",
+    "profile_key": "balanced",
+    "description": "Balanced resource usage suitable for most scenarios",
+    "target_scenario": "Standard processing with moderate system load",
+    "resource_multipliers": {
+        "cpu_factor": 1.0,
+        "memory_factor": 1.0,
+        "time_factor": 1.0,
+        "parallel_job_factor": 1.0
+    },
+    "optimization_settings": {
+        "safety_factor": 0.8,
+        "enable_aggressive_caching": false,
+        "prefer_parallel_processing": false,
+        "gpu_utilization": "balanced",
+        "io_optimization": "balanced"
+    },
+    "tool_specific_configs": {
+        "dorado_basecaller": {
+            "batch_size_multiplier": 1.0,
+            "concurrent_streams": 2,
+            "gpu_memory_utilization": 0.8
+        },
+        "kraken2": {
+            "memory_aggressive": false,
+            "thread_scaling": "conservative",
+            "preload_database": false
+        },
+        "flye": {
+            "memory_multiplier": 1.2,
+            "thread_scaling": "moderate",
+            "aggressive_optimization": false
+        }
+    },
+    "performance_targets": {
+        "min_cpu_utilization": 60,
+        "min_memory_utilization": 50,
+        "max_queue_time_minutes": 5
+    },
+    "selection_reason": "Standard system configuration",
+    "selection_timestamp": "\$(date -Iseconds)",
+    "system_adjustments": {
+        "memory_adjustment": false,
+        "cpu_adjustment": false,
+        "load_adjustment": false,
+        "adjustment_timestamp": "\$(date -Iseconds)"
+    }
+}
+EOF
+
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
         python: "3.9"

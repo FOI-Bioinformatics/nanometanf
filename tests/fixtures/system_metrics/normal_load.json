@@ -1,0 +1,21 @@
+{
+  "timestamp": "2024-01-15T10:00:00",
+  "system_metrics": {
+    "cpu_usage_percent": 45.2,
+    "memory_usage_percent": 62.5,
+    "disk_usage_percent": 55.0,
+    "load_average_1min": 2.5,
+    "load_average_5min": 2.2,
+    "load_average_15min": 2.0
+  },
+  "available_resources": {
+    "available_cpus": 6,
+    "available_memory_gb": 12.0,
+    "available_disk_gb": 450.0
+  },
+  "gpu_metrics": {
+    "gpu_available": false,
+    "gpu_count": 0
+  },
+  "status": "normal"
+}

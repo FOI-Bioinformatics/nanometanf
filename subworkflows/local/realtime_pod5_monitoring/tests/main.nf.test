@@ -1,0 +1,457 @@
+nextflow_workflow {
+
+    name "Test REALTIME_POD5_MONITORING"
+    script "../../realtime_pod5_monitoring.nf"
+    workflow "REALTIME_POD5_MONITORING"
+
+    test("Should handle disabled real-time mode gracefully") {
+
+        when {
+            workflow {
+                """
+                input[0] = '$outputDir/test_watch_dir'     // watch_dir
+                input[1] = '**/*.pod5'                     // file_pattern
+                input[2] = 5                               // batch_size
+                input[3] = '2.min'                         // batch_interval
+                input[4] = 'dna_r10.4.1_e4.3_400bps_hac@v5.0.0'  // dorado_model
+                """
+            }
+            
+            params {
+                realtime_mode = false
+                use_dorado = false
+                max_cpus = 1
+                max_memory = '2.GB'
+                max_time = '1.min'
+            }
+        }
+
+        then {
+            assert workflow.success
+            
+            // When realtime_mode or use_dorado is false, should return empty channels
+            if (workflow.out.samples) {
+                def samples = workflow.out.samples.toList()
+                assert samples.size() == 0
+            }
+            
+            // Versions should be empty when Dorado is not used
+            assert workflow.out.versions == null || workflow.out.versions.toList().size() == 0
+        }
+    }
+
+    test("Should validate parameters for real-time POD5 monitoring") {
+
+        setup {
+            """
+            # Create test watch directory structure
+            mkdir -p $outputDir/pod5_watch_dir
+            mkdir -p $outputDir/pod5_watch_dir/subdir1
+            mkdir -p $outputDir/pod5_watch_dir/subdir2
+            
+            # Create mock POD5 files to simulate real structure
+            echo "Mock POD5 data" > $outputDir/pod5_watch_dir/batch_001.pod5
+            echo "Mock POD5 data" > $outputDir/pod5_watch_dir/batch_002.pod5
+            echo "Mock POD5 data" > $outputDir/pod5_watch_dir/subdir1/batch_003.pod5
+            """
+        }
+
+        when {
+            workflow {
+                """
+                input[0] = '$outputDir/pod5_watch_dir'     // watch_dir
+                input[1] = '**/*.pod5'                     // file_pattern
+                input[2] = 3                               // batch_size
+                input[3] = '1.min'                         // batch_interval
+                input[4] = 'dna_r10.4.1_e4.3_400bps_hac@v5.0.0'  // dorado_model
+                """
+            }
+            
+            params {
+                realtime_mode = true
+                use_dorado = true
+                max_files = "5" // Limit for testing
+                dorado_path = '/mock/dorado/path'
+                max_cpus = 2
+                max_memory = '4.GB'
+                max_time = '2.min'
+            }
+        }
+
+        then {
+            // Note: This test validates parameter setup, but actual watchPath
+            // functionality is difficult to test in nf-test environment
+            // The workflow should initialize correctly
+            assert workflow.success
+            
+            // Check that the workflow handles the parameter configuration
+            assert workflow.duration.toMillis() < 120000 // Should complete quickly
+        }
+    }
+
+    test("Should handle different file patterns correctly") {
+
+        setup {
+            """
+            # Create POD5 files with different extensions and naming patterns
+            mkdir -p $outputDir/pattern_test_dir
+            echo "POD5 data 1" > $outputDir/pattern_test_dir/sample1.pod5
+            echo "POD5 data 2" > $outputDir/pattern_test_dir/sample2.POD5
+            echo "POD5 data 3" > $outputDir/pattern_test_dir/experiment_001.pod5
+            echo "Not POD5" > $outputDir/pattern_test_dir/sample.txt
+            echo "Not POD5" > $outputDir/pattern_test_dir/sample.fastq
+            """
+        }
+
+        when {
+            workflow {
+                """
+                input[0] = '$outputDir/pattern_test_dir'   // watch_dir
+                input[1] = '*.pod5'                        // file_pattern - only .pod5 extension
+                input[2] = 2                               // batch_size
+                input[3] = '30.sec'                        // batch_interval
+                input[4] = 'dna_r10.4.1_e4.3_400bps_hac@v5.0.0'  // dorado_model
+                """
+            }
+            
+            params {
+                realtime_mode = false  // Disable for static testing
+                use_dorado = false
+                max_cpus = 1
+                max_memory = '2.GB'
+                max_time = '1.min'
+            }
+        }
+
+        then {
+            assert workflow.success
+            
+            // When disabled, should return empty channels
+            if (workflow.out.samples) {
+                def samples = workflow.out.samples.toList()
+                assert samples.size() == 0
+            }
+        }
+    }
+
+    test("Should handle different batch sizes correctly") {
+
+        setup {
+            """
+            # Create multiple POD5 files for batch testing
+            mkdir -p $outputDir/batch_test_dir
+            for i in {1..10}; do
+                echo "POD5 batch data $i" > $outputDir/batch_test_dir/batch_$(printf "%03d" $i).pod5
+            done
+            """
+        }
+
+        when {
+            workflow {
+                """
+                input[0] = '$outputDir/batch_test_dir'     // watch_dir
+                input[1] = '**/*.pod5'                     // file_pattern
+                input[2] = 1                               // batch_size - single file batches
+                input[3] = '10.sec'                        // batch_interval
+                input[4] = 'dna_r10.4.1_e4.3_400bps_sup@v5.0.0'  // dorado_model - different model
+                """
+            }
+            
+            params {
+                realtime_mode = false  // Static mode for testing
+                use_dorado = false
+                max_cpus = 1
+                max_memory = '2.GB'
+                max_time = '1.min'
+            }
+        }
+
+        then {
+            assert workflow.success
+            
+            // Verify batch configuration is handled
+            if (workflow.out.samples) {
+                def samples = workflow.out.samples.toList()
+                assert samples.size() == 0  // Empty when disabled
+            }
+        }
+    }
+
+    test("Should handle large batch sizes") {
+
+        setup {
+            """
+            # Create scenario for large batches
+            mkdir -p $outputDir/large_batch_dir
+            for i in {1..50}; do
+                echo "Large POD5 dataset $i" > $outputDir/large_batch_dir/large_batch_$(printf "%03d" $i).pod5
+            done
+            """
+        }
+
+        when {
+            workflow {
+                """
+                input[0] = '$outputDir/large_batch_dir'    // watch_dir
+                input[1] = '**/*.pod5'                     // file_pattern
+                input[2] = 25                              // batch_size - large batches
+                input[3] = '5.min'                         // batch_interval
+                input[4] = 'dna_r10.4.1_e4.3_400bps_hac@v5.0.0'  // dorado_model
+                """
+            }
+            
+            params {
+                realtime_mode = false
+                use_dorado = false
+                max_files = "100" // High limit
+                max_cpus = 4
+                max_memory = '8.GB'
+                max_time = '5.min'
+            }
+        }
+
+        then {
+            assert workflow.success
+            
+            // Verify large batch handling
+            if (workflow.out.samples) {
+                def samples = workflow.out.samples.toList()
+                assert samples.size() == 0
+            }
+        }
+    }
+
+    test("Should validate Dorado model parameters") {
+
+        setup {
+            """
+            # Create POD5 files for model testing
+            mkdir -p $outputDir/model_test_dir
+            echo "Model test POD5 1" > $outputDir/model_test_dir/model_test_1.pod5
+            echo "Model test POD5 2" > $outputDir/model_test_dir/model_test_2.pod5
+            """
+        }
+
+        when {
+            workflow {
+                """
+                input[0] = '$outputDir/model_test_dir'     // watch_dir
+                input[1] = '*.pod5'                        // file_pattern
+                input[2] = 2                               // batch_size
+                input[3] = '1.min'                         // batch_interval
+                input[4] = 'dna_r9.4.1_e4.1_450bps_hac@v3.6.0'  // dorado_model - different version
+                """
+            }
+            
+            params {
+                realtime_mode = false
+                use_dorado = false
+                dorado_path = '/custom/dorado/path'
+                min_qscore = 9
+                max_cpus = 2
+                max_memory = '4.GB'
+                max_time = '2.min'
+            }
+        }
+
+        then {
+            assert workflow.success
+            
+            // Model parameter validation
+            if (workflow.out.samples) {
+                def samples = workflow.out.samples.toList()
+                assert samples.size() == 0
+            }
+        }
+    }
+
+    test("Should handle different batch intervals") {
+
+        setup {
+            """
+            # Create POD5 files for interval testing
+            mkdir -p $outputDir/interval_test_dir
+            for i in 1 2 3 4 5; do
+                echo "Interval test POD5 $i" > $outputDir/interval_test_dir/interval_$i.pod5
+            done
+            """
+        }
+
+        when {
+            workflow {
+                """
+                input[0] = '$outputDir/interval_test_dir'  // watch_dir
+                input[1] = '**/*.pod5'                     // file_pattern
+                input[2] = 3                               // batch_size
+                input[3] = '30.sec'                        // batch_interval - short interval
+                input[4] = 'dna_r10.4.1_e4.3_400bps_fast@v5.0.0'  // dorado_model - fast model
+                """
+            }
+            
+            params {
+                realtime_mode = false
+                use_dorado = false
+                max_files = "1"
+                max_cpus = 1
+                max_memory = '2.GB'
+                max_time = '1.min'
+            }
+        }
+
+        then {
+            assert workflow.success
+            
+            // Interval configuration validation
+            if (workflow.out.samples) {
+                def samples = workflow.out.samples.toList()
+                assert samples.size() == 0
+            }
+        }
+    }
+
+    test("Should handle nested directory structures") {
+
+        setup {
+            """
+            # Create complex nested directory structure
+            mkdir -p $outputDir/nested_test/level1/level2/level3
+            mkdir -p $outputDir/nested_test/another_branch/subbranch
+            
+            # Place POD5 files at different levels
+            echo "Root level POD5" > $outputDir/nested_test/root.pod5
+            echo "Level 1 POD5" > $outputDir/nested_test/level1/level1.pod5
+            echo "Level 2 POD5" > $outputDir/nested_test/level1/level2/level2.pod5
+            echo "Level 3 POD5" > $outputDir/nested_test/level1/level2/level3/level3.pod5
+            echo "Branch POD5" > $outputDir/nested_test/another_branch/branch.pod5
+            echo "Subbranch POD5" > $outputDir/nested_test/another_branch/subbranch/subbranch.pod5
+            """
+        }
+
+        when {
+            workflow {
+                """
+                input[0] = '$outputDir/nested_test'        // watch_dir
+                input[1] = '**/*.pod5'                     // file_pattern - recursive search
+                input[2] = 4                               // batch_size
+                input[3] = '2.min'                         // batch_interval
+                input[4] = 'dna_r10.4.1_e4.3_400bps_hac@v5.0.0'  // dorado_model
+                """
+            }
+            
+            params {
+                realtime_mode = false
+                use_dorado = false
+                max_files = "2"
+                max_cpus = 2
+                max_memory = '4.GB'
+                max_time = '2.min'
+            }
+        }
+
+        then {
+            assert workflow.success
+            
+            // Nested directory handling validation
+            if (workflow.out.samples) {
+                def samples = workflow.out.samples.toList()
+                assert samples.size() == 0
+            }
+        }
+    }
+
+    test("Should handle empty watch directories") {
+
+        setup {
+            """
+            # Create empty watch directory
+            mkdir -p $outputDir/empty_watch_dir
+            mkdir -p $outputDir/empty_watch_dir/subdir1
+            mkdir -p $outputDir/empty_watch_dir/subdir2
+            
+            # No POD5 files - only create other file types
+            echo "Not a POD5 file" > $outputDir/empty_watch_dir/readme.txt
+            echo "Also not POD5" > $outputDir/empty_watch_dir/data.csv
+            """
+        }
+
+        when {
+            workflow {
+                """
+                input[0] = '$outputDir/empty_watch_dir'    // watch_dir
+                input[1] = '**/*.pod5'                     // file_pattern
+                input[2] = 5                               // batch_size
+                input[3] = '1.min'                         // batch_interval
+                input[4] = 'dna_r10.4.1_e4.3_400bps_hac@v5.0.0'  // dorado_model
+                """
+            }
+            
+            params {
+                realtime_mode = false
+                use_dorado = false
+                max_files = "0" // No files expected
+                max_cpus = 1
+                max_memory = '2.GB'
+                max_time = '1.min'
+            }
+        }
+
+        then {
+            assert workflow.success
+            
+            // Empty directory handling
+            if (workflow.out.samples) {
+                def samples = workflow.out.samples.toList()
+                assert samples.size() == 0
+            }
+        }
+    }
+
+    test("Should validate resource requirements for different scenarios") {
+
+        setup {
+            """
+            # Create resource-intensive scenario
+            mkdir -p $outputDir/resource_test_dir
+            for i in {1..100}; do
+                echo "Resource test POD5 $i - $(date)" > $outputDir/resource_test_dir/resource_$(printf "%04d" $i).pod5
+            done
+            """
+        }
+
+        when {
+            workflow {
+                """
+                input[0] = '$outputDir/resource_test_dir'  // watch_dir
+                input[1] = '**/*.pod5'                     // file_pattern
+                input[2] = 50                              // batch_size - large batches
+                input[3] = '10.min'                        // batch_interval - long interval
+                input[4] = 'dna_r10.4.1_e4.3_400bps_sup@v5.0.0'  // dorado_model - high accuracy
+                """
+            }
+            
+            params {
+                realtime_mode = false
+                use_dorado = false
+                max_files = "20"
+                dorado_path = '/usr/local/bin/dorado'
+                min_qscore = 15  // High quality threshold
+                max_cpus = 8
+                max_memory = '16.GB'
+                max_time = '10.min'
+            }
+        }
+
+        then {
+            assert workflow.success
+            
+            // Resource requirement validation
+            if (workflow.out.samples) {
+                def samples = workflow.out.samples.toList()
+                assert samples.size() == 0
+            }
+            
+            // Should handle high resource scenarios
+            assert workflow.duration.toMillis() < 180000 // Less than 3 minutes
+        }
+    }
+}

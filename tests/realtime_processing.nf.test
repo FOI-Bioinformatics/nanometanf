@@ -16,7 +16,7 @@ input = "$projectDir/tests/test_samplesheet.csv"
                 file_pattern = "**/*.fastq{,.gz}"
                 batch_size = 10
                 batch_interval = "5min"
-                max_files = 100
+                max_files = "10"
                 
                 // Disable other features
                 use_dorado = false
@@ -71,7 +71,8 @@ input = "$projectDir/tests/test_samplesheet.csv"
             
             if (workflow.failed) {
                 // Should fail quickly due to missing directory
-                assert workflow.duration.toMillis() < 60000 // Less than 1 minute
+                // REMOVED: workflow.duration property not available in nf-test
+                // assert workflow.duration.toMillis() < 60000 // Less than 1 minute
             }
         }
     }

@@ -1,0 +1,78 @@
+{
+  "sample_id": "high_throughput_test",
+  "prediction_timestamp": "2024-10-02T20:00:00",
+  "tool_context": {
+    "tool_name": "kraken2"
+  },
+  "input_characteristics_summary": {
+    "total_size_gb": 50.0,
+    "total_estimated_reads": 500000,
+    "file_count": 4,
+    "complexity_score": 1.2
+  },
+  "system_context_summary": {
+    "cpu_cores_available": 16,
+    "memory_gb_available": 64.0,
+    "gpu_available": false,
+    "current_load": "high"
+  },
+  "predictions": {
+    "cpu_requirements": {
+      "predicted_cores": 8,
+      "base_cores": 2,
+      "scaling_factor": 0.05,
+      "complexity_adjustment": 1.2,
+      "tool_profile": {
+        "base_cores": 2,
+        "scaling_factor": 0.05,
+        "max_cores": 8,
+        "memory_bound": true
+      }
+    },
+    "memory_requirements": {
+      "predicted_memory_gb": 32.0,
+      "base_memory_gb": 16.0,
+      "scaling_component": 16.0,
+      "complexity_adjustment": 1.2,
+      "tool_profile": {
+        "base_memory_gb": 16.0,
+        "scaling_factor": 0.8,
+        "max_memory_gb": 64.0
+      }
+    },
+    "runtime_estimates": {
+      "predicted_runtime_seconds": 7200,
+      "predicted_runtime_minutes": 120.0,
+      "predicted_runtime_hours": 2.0,
+      "base_processing_time": 6000,
+      "startup_time": 600,
+      "parallelization_efficiency": 0.8
+    },
+    "io_requirements": {
+      "temp_space_gb": 75.0,
+      "read_throughput_mb_s": 150,
+      "write_throughput_mb_s": 120,
+      "io_pattern": "random",
+      "multiple_files": true,
+      "concurrent_io": false
+    }
+  },
+  "confidence_metrics": {
+    "confidence_score": 0.850,
+    "confidence_level": "high",
+    "factors": {
+      "data_completeness": 0.95,
+      "system_metrics_quality": 0.88,
+      "file_type_certainty": 0.85,
+      "size_reasonableness": 0.75
+    }
+  },
+  "recommendations": {
+    "optimal_cpu_cores": 8,
+    "optimal_memory_gb": 32.0,
+    "estimated_runtime_hours": 2.0,
+    "temp_space_gb": 75.0,
+    "gpu_acceleration": false,
+    "priority_level": "high"
+  }
+}

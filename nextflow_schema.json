@@ -4,7 +4,7 @@
     "title": "foi-bioinformatics/nanometanf pipeline parameters",
     "description": "Backend of Nanometa-Live",
     "type": "object",
-    "definitions": {
+    "$defs": {
         "input_output_options": {
             "title": "Input/output options",
             "type": "object",
@@ -221,27 +221,12 @@
                 "trace_report_suffix": {
                     "type": "string",
                     "fa_icon": "far calendar",
-                    "description": "Suffix to add to the trace report filename. Default is the date and time in the format yyyy-MM-dd_HH-mm-ss.",
-                    "hidden": true,
-                    "default": "2025-09-11_21-01-49"
+                    "description": "Suffix to add to the trace report filename. Dynamically generated as date and time in the format yyyy-MM-dd_HH-mm-ss. Set in nextflow.config.",
+                    "hidden": true
                 }
             }
         }
     },
-    "allOf": [
-        {
-            "$ref": "#/definitions/input_output_options"
-        },
-        {
-            "$ref": "#/definitions/reference_genome_options"
-        },
-        {
-            "$ref": "#/definitions/institutional_config_options"
-        },
-        {
-            "$ref": "#/definitions/generic_options"
-        }
-    ],
     "properties": {
         "realtime_mode": {
             "type": "boolean"
@@ -320,8 +305,7 @@
             "description": "Alert threshold for minimum compression ratio (data quality indicator)"
         },
         "use_dorado": {
-            "type": "boolean",
-            "default": false
+            "type": "boolean"
         },
         "dorado_path": {
             "type": "string",
@@ -374,7 +358,6 @@
         },
         "enable_assembly": {
             "type": "boolean",
-            "default": false,
             "description": "Enable genome assembly step for long-read nanopore data"
         },
         "assembler": {
@@ -402,12 +385,10 @@
         },
         "enable_adapter_trimming": {
             "type": "boolean",
-            "default": false,
             "description": "Enable nanopore adapter trimming with PORECHOP (recommended for filtlong)"
         },
         "enable_qc_benchmark": {
             "type": "boolean",
-            "default": false,
             "description": "Enable QC tool performance benchmarking (compares FASTP vs FILTLONG)"
         },
         "filtlong_min_length": {
@@ -452,6 +433,10 @@
         "skip_nanoplot": {
             "type": "boolean",
             "description": "Skip NanoPlot visualization"
+        },
+        "skip_multiqc": {
+            "type": "boolean",
+            "description": "Skip MultiQC report generation"
         },
         "help": {
             "type": "boolean"
@@ -527,5 +512,11 @@
             "maximum": 1.0,
             "description": "Minimum confidence for resource predictions"
         }
-    }
+    },
+    "allOf": [
+        {"$ref": "#/$defs/input_output_options"},
+        {"$ref": "#/$defs/reference_genome_options"},
+        {"$ref": "#/$defs/institutional_config_options"},
+        {"$ref": "#/$defs/generic_options"}
+    ]
 }

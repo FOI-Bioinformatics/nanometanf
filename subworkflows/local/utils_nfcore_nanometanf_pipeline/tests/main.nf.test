@@ -1,0 +1,489 @@
+nextflow_workflow {
+
+    name "Test PIPELINE_INITIALISATION"
+    script "../main.nf"
+    workflow "PIPELINE_INITIALISATION"
+
+    test("Should initialize pipeline with valid nanopore samplesheet") {
+
+        when {
+            workflow {
+                """
+                input[0] = false  // version
+                input[1] = true   // validate_params
+                input[2] = false  // monochrome_logs
+                input[3] = []     // nextflow_cli_args
+                input[4] = "test_output"  // outdir
+                input[5] = "$projectDir/tests/test_samplesheet.csv"  // input samplesheet
+                """
+            }
+        }
+
+        then {
+            assert workflow.success
+            assert workflow.out.samplesheet
+            assert workflow.out.versions
+
+            // Check that samplesheet channel was created
+            def samplesheet_items = workflow.out.samplesheet.toList().getVal()
+            assert samplesheet_items.size() > 0
+
+            // Verify each item has correct structure: [meta, [fastq_files]]
+            samplesheet_items.each { item ->
+                assert item.size() == 2
+                def meta = item[0]
+                def fastqs = item[1]
+
+                // Check meta structure
+                assert meta.containsKey('id')
+                assert meta.containsKey('single_end')
+                assert meta.single_end == true  // Nanopore data is always single-end
+
+                // Check fastq files
+                assert fastqs instanceof List
+                assert fastqs.size() > 0
+            }
+        }
+    }
+
+    test("Should add barcode information when provided in samplesheet") {
+
+        setup {
+            // Create test samplesheet with barcode information
+            def test_samplesheet = file("$workDir/test_barcode_samplesheet.csv")
+            test_samplesheet.text = """sample,fastq,barcode
+barcode_sample_1,$projectDir/tests/test_sample.fastq.gz,BC01
+barcode_sample_2,$projectDir/tests/test_sample.fastq.gz,BC02
+"""
+        }
+
+        when {
+            workflow {
+                """
+                input[0] = false
+                input[1] = true
+                input[2] = false
+                input[3] = []
+                input[4] = "test_output"
+                input[5] = "$workDir/test_barcode_samplesheet.csv"
+                """
+            }
+        }
+
+        then {
+            assert workflow.success
+
+            def samplesheet_items = workflow.out.samplesheet.toList().getVal()
+            assert samplesheet_items.size() == 2
+
+            // Verify barcode information is added to meta
+            samplesheet_items.each { item ->
+                def meta = item[0]
+                assert meta.containsKey('barcode')
+                assert meta.barcode in ['BC01', 'BC02']
+            }
+        }
+    }
+
+    test("Should handle samplesheet without barcode column") {
+
+        setup {
+            // Create test samplesheet without barcodes
+            def test_samplesheet = file("$workDir/test_no_barcode_samplesheet.csv")
+            test_samplesheet.text = """sample,fastq,barcode
+simple_sample,$projectDir/tests/test_sample.fastq.gz,
+"""
+        }
+
+        when {
+            workflow {
+                """
+                input[0] = false
+                input[1] = true
+                input[2] = false
+                input[3] = []
+                input[4] = "test_output"
+                input[5] = "$workDir/test_no_barcode_samplesheet.csv"
+                """
+            }
+        }
+
+        then {
+            assert workflow.success
+
+            def samplesheet_items = workflow.out.samplesheet.toList().getVal()
+            assert samplesheet_items.size() == 1
+
+            // Verify no barcode in meta when empty
+            def meta = samplesheet_items[0][0]
+            assert meta.single_end == true
+            // Barcode should not be added if empty/whitespace
+            if (meta.containsKey('barcode')) {
+                assert meta.barcode != ""
+            }
+        }
+    }
+
+    test("Should group multiple runs of same sample") {
+
+        setup {
+            // Create samplesheet with multiple runs of same sample
+            def test_samplesheet = file("$workDir/test_multi_run_samplesheet.csv")
+            test_samplesheet.text = """sample,fastq,barcode
+multi_sample,$projectDir/tests/test_sample.fastq.gz,
+multi_sample,$projectDir/tests/test_sample.fastq.gz,
+"""
+        }
+
+        when {
+            workflow {
+                """
+                input[0] = false
+                input[1] = true
+                input[2] = false
+                input[3] = []
+                input[4] = "test_output"
+                input[5] = "$workDir/test_multi_run_samplesheet.csv"
+                """
+            }
+        }
+
+        then {
+            assert workflow.success
+
+            def samplesheet_items = workflow.out.samplesheet.toList().getVal()
+            // Multiple runs should be grouped into single item
+            assert samplesheet_items.size() == 1
+
+            def meta = samplesheet_items[0][0]
+            def fastqs = samplesheet_items[0][1]
+
+            assert meta.id == 'multi_sample'
+            // Should have multiple FASTQ files from different runs
+            assert fastqs.size() == 2
+        }
+    }
+
+    test("Should enforce single-end for all nanopore data") {
+
+        setup {
+            // Create samplesheet with multiple samples
+            def test_samplesheet = file("$workDir/test_endedness_samplesheet.csv")
+            test_samplesheet.text = """sample,fastq,barcode
+sample_A,$projectDir/tests/test_sample.fastq.gz,
+sample_B,$projectDir/tests/test_sample.fastq.gz,BC03
+sample_C,$projectDir/tests/test_sample.fastq.gz,
+"""
+        }
+
+        when {
+            workflow {
+                """
+                input[0] = false
+                input[1] = true
+                input[2] = false
+                input[3] = []
+                input[4] = "test_output"
+                input[5] = "$workDir/test_endedness_samplesheet.csv"
+                """
+            }
+        }
+
+        then {
+            assert workflow.success
+
+            def samplesheet_items = workflow.out.samplesheet.toList().getVal()
+            assert samplesheet_items.size() == 3
+
+            // All samples should be single-end
+            samplesheet_items.each { item ->
+                def meta = item[0]
+                assert meta.single_end == true
+            }
+        }
+    }
+
+    test("Should trim whitespace from barcode values") {
+
+        setup {
+            // Create samplesheet with whitespace in barcode
+            def test_samplesheet = file("$workDir/test_whitespace_samplesheet.csv")
+            test_samplesheet.text = """sample,fastq,barcode
+trim_sample,$projectDir/tests/test_sample.fastq.gz,  BC05
+"""
+        }
+
+        when {
+            workflow {
+                """
+                input[0] = false
+                input[1] = true
+                input[2] = false
+                input[3] = []
+                input[4] = "test_output"
+                input[5] = "$workDir/test_whitespace_samplesheet.csv"
+                """
+            }
+        }
+
+        then {
+            assert workflow.success
+
+            def samplesheet_items = workflow.out.samplesheet.toList().getVal()
+            assert samplesheet_items.size() == 1
+
+            def meta = samplesheet_items[0][0]
+            if (meta.containsKey('barcode')) {
+                // Barcode should be trimmed
+                assert meta.barcode == 'BC05'
+                assert !meta.barcode.startsWith(' ')
+                assert !meta.barcode.endsWith(' ')
+            }
+        }
+    }
+
+    test("Should handle empty samplesheet") {
+
+        when {
+            workflow {
+                """
+                input[0] = false
+                input[1] = true
+                input[2] = false
+                input[3] = []
+                input[4] = "test_output"
+                input[5] = "$projectDir/tests/empty_samplesheet.csv"
+                """
+            }
+        }
+
+        then {
+            // Empty samplesheet should complete (used with realtime mode)
+            assert workflow.success
+
+            if (workflow.success) {
+                def samplesheet_items = workflow.out.samplesheet.toList().getVal()
+                assert samplesheet_items.size() == 0
+            }
+        }
+    }
+
+    test("Should produce versions output") {
+
+        when {
+            workflow {
+                """
+                input[0] = false
+                input[1] = true
+                input[2] = false
+                input[3] = []
+                input[4] = "test_output"
+                input[5] = "$projectDir/tests/test_samplesheet.csv"
+                """
+            }
+        }
+
+        then {
+            assert workflow.success
+            assert workflow.out.versions
+
+            // Versions channel should be present (may be empty)
+            def versions_list = workflow.out.versions.toList().getVal()
+            assert versions_list != null
+        }
+    }
+
+    test("Should handle long file paths in samplesheet") {
+
+        setup {
+            // Create samplesheet with absolute paths
+            def test_samplesheet = file("$workDir/test_long_path_samplesheet.csv")
+            def long_path = "$projectDir/tests/test_sample.fastq.gz"
+            test_samplesheet.text = """sample,fastq,barcode
+long_path_sample,${long_path},BC10
+"""
+        }
+
+        when {
+            workflow {
+                """
+                input[0] = false
+                input[1] = true
+                input[2] = false
+                input[3] = []
+                input[4] = "test_output"
+                input[5] = "$workDir/test_long_path_samplesheet.csv"
+                """
+            }
+        }
+
+        then {
+            assert workflow.success
+
+            def samplesheet_items = workflow.out.samplesheet.toList().getVal()
+            assert samplesheet_items.size() == 1
+
+            def meta = samplesheet_items[0][0]
+            def fastqs = samplesheet_items[0][1]
+
+            assert meta.id == 'long_path_sample'
+            assert fastqs.size() > 0
+        }
+    }
+
+    test("Should handle special characters in sample names") {
+
+        setup {
+            // Create samplesheet with special characters (allowed by schema)
+            def test_samplesheet = file("$workDir/test_special_chars_samplesheet.csv")
+            test_samplesheet.text = """sample,fastq,barcode
+sample-01_A,$projectDir/tests/test_sample.fastq.gz,
+sample.02.B,$projectDir/tests/test_sample.fastq.gz,BC11
+"""
+        }
+
+        when {
+            workflow {
+                """
+                input[0] = false
+                input[1] = true
+                input[2] = false
+                input[3] = []
+                input[4] = "test_output"
+                input[5] = "$workDir/test_special_chars_samplesheet.csv"
+                """
+            }
+        }
+
+        then {
+            assert workflow.success
+
+            def samplesheet_items = workflow.out.samplesheet.toList().getVal()
+            assert samplesheet_items.size() == 2
+
+            def sample_ids = samplesheet_items.collect { it[0].id }
+            assert sample_ids.contains('sample-01_A')
+            assert sample_ids.contains('sample.02.B')
+        }
+    }
+}
+
+
+nextflow_workflow {
+
+    name "Test PIPELINE_COMPLETION"
+    script "../main.nf"
+    workflow "PIPELINE_COMPLETION"
+
+    test("Should complete successfully with minimal configuration") {
+
+        when {
+            workflow {
+                """
+                input[0] = null   // email
+                input[1] = null   // email_on_fail
+                input[2] = false  // plaintext_email
+                input[3] = "test_output"  // outdir
+                input[4] = false  // monochrome_logs
+                input[5] = null   // hook_url
+                input[6] = Channel.empty()  // multiqc_report
+                """
+            }
+        }
+
+        then {
+            assert workflow.success
+            // PIPELINE_COMPLETION doesn't emit channels, just registers handlers
+        }
+    }
+
+    test("Should handle completion with MultiQC report") {
+
+        when {
+            workflow {
+                """
+                input[0] = null
+                input[1] = null
+                input[2] = false
+                input[3] = "test_output"
+                input[4] = false
+                input[5] = null
+                input[6] = Channel.of("multiqc_report.html")
+                """
+            }
+        }
+
+        then {
+            assert workflow.success
+        }
+    }
+
+    test("Should handle completion with email configuration") {
+
+        when {
+            workflow {
+                """
+                input[0] = "test@example.com"
+                input[1] = "fail@example.com"
+                input[2] = true  // plaintext_email
+                input[3] = "test_output"
+                input[4] = false
+                input[5] = null
+                input[6] = Channel.empty()
+                """
+            }
+        }
+
+        then {
+            assert workflow.success
+        }
+    }
+
+    test("Should handle completion with hook URL") {
+
+        when {
+            workflow {
+                """
+                input[0] = null
+                input[1] = null
+                input[2] = false
+                input[3] = "test_output"
+                input[4] = false
+                input[5] = "https://hooks.example.com/notify"
+                input[6] = Channel.empty()
+                """
+            }
+        }
+
+        then {
+            assert workflow.success
+        }
+    }
+
+    test("Should handle monochrome logs mode") {
+
+        when {
+            workflow {
+                """
+                input[0] = null
+                input[1] = null
+                input[2] = false
+                input[3] = "test_output"
+                input[4] = true  // monochrome_logs
+                input[5] = null
+                input[6] = Channel.empty()
+                """
+            }
+        }
+
+        then {
+            assert workflow.success
+        }
+    }
+}
+
+
+// Note: Function tests for Groovy helper functions (validateInputSamplesheet,
+// genomeExistsError, getGenomeAttribute) are covered indirectly through workflow tests above.
+// Direct function testing in nf-test has limitations with Groovy closures and requires
+// complex setup that provides limited additional value beyond the workflow integration tests.

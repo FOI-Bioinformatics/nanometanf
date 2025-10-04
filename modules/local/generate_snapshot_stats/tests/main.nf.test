@@ -1,0 +1,160 @@
+nextflow_process {
+
+    name "Test GENERATE_SNAPSHOT_STATS"
+    script "../main.nf"
+    process "GENERATE_SNAPSHOT_STATS"
+
+    tag "modules"
+    tag "modules_local"
+    tag "generate_snapshot_stats"
+
+    test("Should generate basic snapshot statistics") {
+
+        tag "basic_snapshot"
+        tag "snapshot"
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [
+                        batch_id: 'batch_001',
+                        batch_timestamp: 1640995200000,
+                        batch_time: '2022-01-01T00:00:00Z'
+                    ],
+                    [
+                        [
+                            file_name: 'sample1.fastq.gz',
+                            file_path: '/data/sample1.fastq.gz',
+                            file_size: 52428800,
+                            estimated_reads: 10000,
+                            is_compressed: true,
+                            priority_score: 85,
+                            watch_dir: '/data/run1',
+                            sample_id: 'sample_1',
+                            file_age_ms: 120000
+                        ],
+                        [
+                            file_name: 'sample2.fastq.gz',
+                            file_path: '/data/sample2.fastq.gz',
+                            file_size: 41943040,
+                            estimated_reads: 8000,
+                            is_compressed: true,
+                            priority_score: 75,
+                            watch_dir: '/data/run1',
+                            sample_id: 'sample_2',
+                            file_age_ms: 90000
+                        ]
+                    ]
+                ]
+                input[1] = [
+                    enable_quality_analysis: true,
+                    priority_threshold: 80
+                ]
+                """
+            }
+        }
+
+        then {
+            assertAll(
+                { assert process.success },
+                { assert snapshot(process.out).match() }
+            )
+        }
+    }
+
+    test("Should handle empty batch gracefully") {
+
+        tag "empty_batch"
+        tag "snapshot"
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [
+                        batch_id: 'batch_empty',
+                        batch_timestamp: 1640998800000,
+                        batch_time: '2022-01-01T01:00:00Z'
+                    ],
+                    []
+                ]
+                input[1] = [
+                    handle_empty_batches: true,
+                    generate_placeholder_stats: true
+                ]
+                """
+            }
+        }
+
+        then {
+            assertAll(
+                { assert process.success },
+                { assert snapshot(process.out).match() }
+            )
+        }
+    }
+
+    test("Should handle multiple directories and high priority files") {
+
+        tag "multi_directory"
+        tag "snapshot"
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [
+                        batch_id: 'batch_multi',
+                        batch_timestamp: 1640995800000,
+                        batch_time: '2022-01-01T00:10:00Z'
+                    ],
+                    [
+                        [
+                            file_name: 'urgent1.fastq.gz',
+                            file_size: 62914560,
+                            estimated_reads: 12000,
+                            is_compressed: true,
+                            priority_score: 150,
+                            watch_dir: '/urgent',
+                            sample_id: 'critical_case',
+                            file_age_ms: 30000
+                        ],
+                        [
+                            file_name: 'run2_sample1.fastq.gz',
+                            file_size: 41943040,
+                            estimated_reads: 8000,
+                            is_compressed: true,
+                            priority_score: 95,
+                            watch_dir: '/data/run2',
+                            sample_id: 'patient_B',
+                            file_age_ms: 45000
+                        ],
+                        [
+                            file_name: 'normal.fastq.gz',
+                            file_size: 31457280,
+                            estimated_reads: 6000,
+                            is_compressed: true,
+                            priority_score: 80,
+                            watch_dir: '/standard',
+                            sample_id: 'routine_sample',
+                            file_age_ms: 180000
+                        ]
+                    ]
+                ]
+                input[1] = [
+                    priority_analysis: true,
+                    high_priority_threshold: 100
+                ]
+                """
+            }
+        }
+
+        then {
+            assertAll(
+                { assert process.success },
+                { assert snapshot(process.out).match() }
+            )
+        }
+    }
+}

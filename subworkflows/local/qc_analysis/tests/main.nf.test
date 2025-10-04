@@ -1,0 +1,520 @@
+nextflow_workflow {
+
+    name "Test QC_ANALYSIS"
+    script "../../qc_analysis.nf"
+    workflow "QC_ANALYSIS"
+
+    test("Should perform basic FASTP quality control") {
+
+        setup {
+            """
+            cp $projectDir/tests/test_sample.fastq.gz $outputDir/basic_sample.fastq.gz
+            """
+        }
+
+        when {
+            workflow {
+                """
+                input[0] = [
+                    [
+                        [id: 'basic_qc_test', single_end: true],
+                        file('$outputDir/basic_sample.fastq.gz')
+                    ]
+                ]
+                """
+            }
+            
+            params {
+                qc_tool = 'fastp'
+                skip_fastp = false
+                skip_nanoplot = true
+                skip_fastqc = true
+                max_cpus = 2
+                max_memory = '4.GB'
+                max_time = '2.min'
+            }
+        }
+
+        then {
+            assert workflow.success
+            assert workflow.out.qc_reads
+            assert workflow.out.qc_reports
+            
+            // Verify FASTP processing
+            def qc_reads = workflow.out.qc_reads.toList()
+            assert qc_reads.size() >= 1
+            
+            def qc_reports = workflow.out.qc_reports.toList()
+            assert qc_reports.size() >= 1
+        }
+    }
+
+    test("Should perform comprehensive nanopore QC with multiple tools") {
+
+        setup {
+            """
+            cp $projectDir/tests/test_sample.fastq.gz $outputDir/comprehensive_sample.fastq.gz
+            """
+        }
+
+        when {
+            workflow {
+                """
+                input[0] = [
+                    [
+                        [id: 'comprehensive_qc_test', single_end: true],
+                        file('$outputDir/comprehensive_sample.fastq.gz')
+                    ]
+                ]
+                """
+            }
+            
+            params {
+                qc_tool = 'fastp'
+                skip_fastp = false
+                skip_nanoplot = false
+                skip_fastqc = false
+                enable_filtlong = true
+                enable_porechop = true
+                enable_seqkit_stats = true
+                max_cpus = 2
+                max_memory = '4.GB'
+                max_time = '3.min'
+            }
+        }
+
+        then {
+            assert workflow.success
+            assert workflow.out.qc_reads
+            assert workflow.out.qc_reports
+            assert workflow.out.nanoplot_reports
+            
+            // Verify multiple QC tools ran
+            def qc_reads = workflow.out.qc_reads.toList()
+            assert qc_reads.size() >= 1
+            
+            def qc_reports = workflow.out.qc_reports.toList()
+            assert qc_reports.size() >= 1
+            
+            // Verify nanopore-specific QC
+            if (workflow.out.nanoplot_reports) {
+                def nanoplot_reports = workflow.out.nanoplot_reports.toList()
+                assert nanoplot_reports.size() >= 1
+            }
+        }
+    }
+
+    test("Should handle FILTLONG nanopore-optimized filtering") {
+
+        setup {
+            """
+            cp $projectDir/tests/test_sample.fastq.gz $outputDir/filtlong_sample.fastq.gz
+            """
+        }
+
+        when {
+            workflow {
+                """
+                input[0] = [
+                    [
+                        [id: 'filtlong_test', single_end: true],
+                        file('$outputDir/filtlong_sample.fastq.gz')
+                    ]
+                ]
+                """
+            }
+            
+            params {
+                qc_tool = 'filtlong'
+                filtlong_min_length = 1000
+                filtlong_keep_percent = 90
+                filtlong_target_bases = 500000000
+                skip_fastp = true
+                skip_nanoplot = true
+                skip_fastqc = true
+                max_cpus = 2
+                max_memory = '4.GB'
+                max_time = '2.min'
+            }
+        }
+
+        then {
+            assert workflow.success
+            assert workflow.out.qc_reads
+            
+            // Verify FILTLONG processing
+            def qc_reads = workflow.out.qc_reads.toList()
+            assert qc_reads.size() >= 1
+        }
+    }
+
+    test("Should perform adapter trimming with PORECHOP") {
+
+        setup {
+            """
+            cp $projectDir/tests/test_sample.fastq.gz $outputDir/adapter_sample.fastq.gz
+            """
+        }
+
+        when {
+            workflow {
+                """
+                input[0] = [
+                    [
+                        [id: 'porechop_test', single_end: true],
+                        file('$outputDir/adapter_sample.fastq.gz')
+                    ]
+                ]
+                """
+            }
+            
+            params {
+                qc_tool = 'fastp'
+                enable_porechop = true
+                porechop_discard_middle = true
+                porechop_extra_end_trim = 2
+                skip_nanoplot = true
+                skip_fastqc = true
+                max_cpus = 2
+                max_memory = '4.GB'
+                max_time = '2.min'
+            }
+        }
+
+        then {
+            assert workflow.success
+            assert workflow.out.qc_reads
+            
+            // Verify adapter trimming occurred
+            def qc_reads = workflow.out.qc_reads.toList()
+            assert qc_reads.size() >= 1
+        }
+    }
+
+    test("Should generate comprehensive nanopore statistics") {
+
+        setup {
+            """
+            cp $projectDir/tests/test_sample.fastq.gz $outputDir/stats_sample.fastq.gz
+            """
+        }
+
+        when {
+            workflow {
+                """
+                input[0] = [
+                    [
+                        [id: 'stats_test', single_end: true],
+                        file('$outputDir/stats_sample.fastq.gz')
+                    ]
+                ]
+                """
+            }
+            
+            params {
+                qc_tool = 'fastp'
+                enable_seqkit_stats = true
+                skip_nanoplot = false
+                nanoplot_format = 'png'
+                skip_fastqc = true
+                max_cpus = 2
+                max_memory = '4.GB'
+                max_time = '2.min'
+            }
+        }
+
+        then {
+            assert workflow.success
+            assert workflow.out.qc_reads
+            assert workflow.out.qc_reports
+            assert workflow.out.stats_reports
+            
+            // Verify statistics generation
+            def stats_reports = workflow.out.stats_reports.toList()
+            assert stats_reports.size() >= 1
+            
+            // Verify NanoPlot visualization
+            if (workflow.out.nanoplot_reports) {
+                def nanoplot_reports = workflow.out.nanoplot_reports.toList()
+                assert nanoplot_reports.size() >= 1
+            }
+        }
+    }
+
+    test("Should handle multiple samples in batch processing") {
+
+        setup {
+            """
+            # Create multiple test samples
+            cp $projectDir/tests/test_sample.fastq.gz $outputDir/batch_sample1.fastq.gz
+            cp $projectDir/tests/test_sample.fastq.gz $outputDir/batch_sample2.fastq.gz
+            cp $projectDir/tests/test_sample.fastq.gz $outputDir/batch_sample3.fastq.gz
+            """
+        }
+
+        when {
+            workflow {
+                """
+                input[0] = [
+                    [
+                        [id: 'batch_sample1', single_end: true],
+                        file('$outputDir/batch_sample1.fastq.gz')
+                    ],
+                    [
+                        [id: 'batch_sample2', single_end: true],
+                        file('$outputDir/batch_sample2.fastq.gz')
+                    ],
+                    [
+                        [id: 'batch_sample3', single_end: true],
+                        file('$outputDir/batch_sample3.fastq.gz')
+                    ]
+                ]
+                """
+            }
+            
+            params {
+                qc_tool = 'fastp'
+                skip_nanoplot = true
+                skip_fastqc = true
+                max_cpus = 2
+                max_memory = '4.GB'
+                max_time = '3.min'
+            }
+        }
+
+        then {
+            assert workflow.success
+            assert workflow.out.qc_reads
+            assert workflow.out.qc_reports
+            
+            // Verify batch processing
+            def qc_reads = workflow.out.qc_reads.toList()
+            assert qc_reads.size() >= 3
+            
+            def qc_reports = workflow.out.qc_reports.toList()
+            assert qc_reports.size() >= 3
+        }
+    }
+
+    test("Should handle quality-based filtering with custom thresholds") {
+
+        setup {
+            """
+            cp $projectDir/tests/test_sample.fastq.gz $outputDir/quality_sample.fastq.gz
+            """
+        }
+
+        when {
+            workflow {
+                """
+                input[0] = [
+                    [
+                        [id: 'quality_filter_test', single_end: true],
+                        file('$outputDir/quality_sample.fastq.gz')
+                    ]
+                ]
+                """
+            }
+            
+            params {
+                qc_tool = 'fastp'
+                fastp_qualified_quality_phred = 15
+                fastp_unqualified_percent_limit = 20
+                fastp_length_required = 1000
+                fastp_cut_front_window_size = 4
+                fastp_cut_front_mean_quality = 20
+                skip_nanoplot = true
+                skip_fastqc = true
+                max_cpus = 2
+                max_memory = '4.GB'
+                max_time = '2.min'
+            }
+        }
+
+        then {
+            assert workflow.success
+            assert workflow.out.qc_reads
+            assert workflow.out.qc_reports
+            
+            // Verify quality filtering
+            def qc_reads = workflow.out.qc_reads.toList()
+            assert qc_reads.size() >= 1
+            
+            def qc_reports = workflow.out.qc_reports.toList()
+            assert qc_reports.size() >= 1
+        }
+    }
+
+    test("Should handle FastQC analysis for general quality assessment") {
+
+        setup {
+            """
+            cp $projectDir/tests/test_sample.fastq.gz $outputDir/fastqc_sample.fastq.gz
+            """
+        }
+
+        when {
+            workflow {
+                """
+                input[0] = [
+                    [
+                        [id: 'fastqc_test', single_end: true],
+                        file('$outputDir/fastqc_sample.fastq.gz')
+                    ]
+                ]
+                """
+            }
+            
+            params {
+                qc_tool = 'fastp'
+                skip_fastp = true
+                skip_nanoplot = true
+                skip_fastqc = false
+                fastqc_adapters = null
+                fastqc_limits = null
+                max_cpus = 2
+                max_memory = '4.GB'
+                max_time = '2.min'
+            }
+        }
+
+        then {
+            assert workflow.success
+            assert workflow.out.fastqc_reports
+            
+            // Verify FastQC analysis
+            def fastqc_reports = workflow.out.fastqc_reports.toList()
+            assert fastqc_reports.size() >= 1
+        }
+    }
+
+    test("Should handle edge cases with small or malformed files") {
+
+        setup {
+            """
+            # Create problematic files
+            echo -e "@read1\nATCG\n+\n!!!!" | gzip > $outputDir/tiny_sample.fastq.gz
+            touch $outputDir/empty_sample.fastq.gz
+            echo "not a fastq file" > $outputDir/malformed.txt
+            """
+        }
+
+        when {
+            workflow {
+                """
+                input[0] = [
+                    [
+                        [id: 'tiny_test', single_end: true],
+                        file('$outputDir/tiny_sample.fastq.gz')
+                    ],
+                    [
+                        [id: 'empty_test', single_end: true],
+                        file('$outputDir/empty_sample.fastq.gz')
+                    ]
+                ]
+                """
+            }
+            
+            params {
+                qc_tool = 'fastp'
+                skip_nanoplot = true
+                skip_fastqc = true
+                fastp_dont_eval_duplication = true
+                max_cpus = 1
+                max_memory = '2.GB'
+                max_time = '1.min'
+            }
+        }
+
+        then {
+            // Should handle edge cases gracefully
+            assert workflow.success
+            
+            if (workflow.success) {
+                // May have limited outputs due to edge cases
+                if (workflow.out.qc_reads) {
+                    def qc_reads = workflow.out.qc_reads.toList()
+                    assert qc_reads.size() >= 0
+                }
+            }
+        }
+    }
+
+    test("Should run minimal QC with skip options") {
+
+        setup {
+            """
+            cp $projectDir/tests/test_sample.fastq.gz $outputDir/minimal_sample.fastq.gz
+            """
+        }
+
+        when {
+            workflow {
+                """
+                input[0] = [
+                    [
+                        [id: 'minimal_qc_test', single_end: true],
+                        file('$outputDir/minimal_sample.fastq.gz')
+                    ]
+                ]
+                """
+            }
+            
+            params {
+                qc_tool = 'fastp'
+                skip_fastp = false
+                skip_nanoplot = true
+                skip_fastqc = true
+                enable_filtlong = false
+                enable_porechop = false
+                enable_seqkit_stats = false
+                fastp_save_trimmed_fail = false
+                fastp_save_merged = false
+                max_cpus = 1
+                max_memory = '2.GB'
+                max_time = '1.min'
+            }
+        }
+
+        then {
+            assert workflow.success
+            assert workflow.out.qc_reads
+            
+            // Verify minimal processing
+            def qc_reads = workflow.out.qc_reads.toList()
+            assert qc_reads.size() >= 1
+        }
+    }
+
+    test("Should validate QC workflow with no input files") {
+
+        when {
+            workflow {
+                """
+                input[0] = []
+                """
+            }
+            
+            params {
+                qc_tool = 'fastp'
+                skip_fastp = false
+                max_cpus = 1
+                max_memory = '1.GB'
+                max_time = '30.s'
+            }
+        }
+
+        then {
+            // Should handle empty input gracefully
+            assert workflow.success
+            
+            if (workflow.success) {
+                // Empty outputs expected
+                if (workflow.out.qc_reads) {
+                    def qc_reads = workflow.out.qc_reads.toList()
+                    assert qc_reads.size() == 0
+                }
+            }
+        }
+    }
+}

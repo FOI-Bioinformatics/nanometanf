@@ -26,9 +26,9 @@ process GENERATE_SNAPSHOT_STATS {
     from pathlib import Path
     
     # Batch metadata
-    batch_meta = ${groovy.json.JsonBuilder(batch_meta).toString()}
-    file_metas = ${groovy.json.JsonBuilder(file_metas).toString()}
-    stats_config = ${groovy.json.JsonBuilder(stats_config).toString()}
+    batch_meta = json.loads('${new groovy.json.JsonBuilder(batch_meta).toString()}')
+    file_metas = json.loads('${new groovy.json.JsonBuilder(file_metas).toString()}')
+    stats_config = json.loads('${new groovy.json.JsonBuilder(stats_config).toString()}')
     
     # Calculate snapshot statistics
     snapshot_stats = {
@@ -36,8 +36,8 @@ process GENERATE_SNAPSHOT_STATS {
             'batch_id': batch_meta['batch_id'],
             'batch_timestamp': batch_meta['batch_timestamp'],
             'batch_time_formatted': batch_meta['batch_time'],
-            'processing_timestamp': int(time.time() * 1000),
-            'processing_time_formatted': datetime.now().isoformat()
+            'processing_timestamp': batch_meta['batch_timestamp'],
+            'processing_time_formatted': batch_meta['batch_time']
         },
         'file_statistics': {
             'file_count': len(file_metas),
@@ -54,9 +54,9 @@ process GENERATE_SNAPSHOT_STATS {
             'high_priority_files': sum(1 for f in file_metas if f.get('priority_score', 0) > 100)
         },
         'source_analysis': {
-            'watch_directories': list(set(f.get('watch_dir', 'unknown') for f in file_metas)),
+            'watch_directories': sorted(list(set(f.get('watch_dir', 'unknown') for f in file_metas))),
             'directory_file_counts': {},
-            'sample_ids': list(set(f.get('sample_id', 'unknown') for f in file_metas))
+            'sample_ids': sorted(list(set(f.get('sample_id', 'unknown') for f in file_metas)))
         },
         'timing_analysis': {
             'batch_creation_time_ms': batch_meta.get('batch_timestamp', 0),
@@ -105,7 +105,7 @@ process GENERATE_SNAPSHOT_STATS {
     stub:
     """
     echo '{"batch_id": "${batch_meta.batch_id}", "stub": true}' > ${batch_meta.batch_id}_snapshot.json
-    
+
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
         python: "3.9"

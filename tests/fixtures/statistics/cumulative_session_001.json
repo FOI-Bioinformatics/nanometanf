@@ -1,0 +1,23 @@
+{
+  "session_id": "session_001",
+  "timestamp": "2024-01-15T10:00:00",
+  "sample_id": "test_sample",
+  "cumulative_metrics": {
+    "total_files_processed": 100,
+    "total_reads": 500000,
+    "total_bases": 1000000000,
+    "average_read_length": 2000,
+    "average_quality": 15.8
+  },
+  "cumulative_quality_metrics": {
+    "q10_reads": 480000,
+    "q20_reads": 350000,
+    "q30_reads": 150000
+  },
+  "session_duration": {
+    "start_time": "2024-01-15T00:00:00",
+    "current_time": "2024-01-15T10:00:00",
+    "duration_hours": 10
+  },
+  "batch_count": 10
+}

@@ -19,22 +19,23 @@ process UPDATE_CUMULATIVE_STATS {
     script:
     def args = task.ext.args ?: ''
     def has_previous = previous_cumulative.name != 'input.1' && previous_cumulative.size() > 0
-    
+    def has_previous_py = has_previous ? 'True' : 'False'
+
     """
     #!/usr/bin/env python3
-    
+
     import json
     import time
     from datetime import datetime, timedelta
     from pathlib import Path
-    
+
     # Load current snapshot
     with open('${snapshot_stats}', 'r') as f:
         snapshot = json.load(f)
-    
+
     # Load previous cumulative state if it exists
     cumulative = {}
-    if ${has_previous} and Path('${previous_cumulative}').exists():
+    if ${has_previous_py} and Path('${previous_cumulative}').exists():
         try:
             with open('${previous_cumulative}', 'r') as f:
                 cumulative = json.load(f)
@@ -159,7 +160,7 @@ process UPDATE_CUMULATIVE_STATS {
     
     # Generate alerts based on configurable thresholds
     alerts = []
-    stats_config = ${groovy.json.JsonBuilder(stats_config).toString()}
+    stats_config = json.loads('${new groovy.json.JsonBuilder(stats_config).toString()}')
     
     # Performance alerts
     if 'performance_thresholds' in stats_config:
@@ -245,10 +246,89 @@ process UPDATE_CUMULATIVE_STATS {
 
     stub:
     """
-    echo '{"session_info": {"total_batches": 1}, "stub": true}' > cumulative_stats.json
-    echo '{"alerts": []}' > alerts.json
-    echo '{"session_info": {"total_batches": 1}}' > cumulative_state.json
-    
+    # Create comprehensive cumulative statistics matching real output structure
+    cat > cumulative_stats.json << 'EOF'
+{
+    "session_info": {
+        "session_start": \$(date +%s)000,
+        "session_start_formatted": "\$(date -Iseconds)",
+        "total_batches": 3,
+        "last_update": \$(date +%s)000,
+        "last_update_formatted": "\$(date -Iseconds)"
+    },
+    "totals": {
+        "total_files": 15,
+        "total_size_bytes": 157286400,
+        "total_size_mb": 150.0,
+        "total_estimated_reads": 37500,
+        "total_compressed_files": 9
+    },
+    "averages": {
+        "avg_files_per_batch": 5.0,
+        "avg_batch_size_mb": 50.0,
+        "avg_reads_per_batch": 12500.0,
+        "avg_file_size_mb": 10.0
+    },
+    "performance": {
+        "files_per_second": 2.5,
+        "mb_per_second": 25.0,
+        "reads_per_second": 6250.0,
+        "batches_per_minute": 30.0,
+        "session_duration_seconds": 360.0
+    },
+    "trends": {
+        "batch_timestamps": [\$(date +%s)000, \$(date +%s)000, \$(date +%s)000],
+        "batch_file_counts": [5, 5, 5],
+        "batch_sizes_mb": [50.0, 50.0, 50.0],
+        "batch_read_counts": [12500, 12500, 12500]
+    },
+    "quality_trends": {
+        "compression_ratios": [0.6, 0.6, 0.6],
+        "priority_scores": [75.5, 75.5, 75.5],
+        "large_file_ratios": [0.4, 0.4, 0.4]
+    },
+    "source_summary": {
+        "unique_directories": ["/data/nanopore/run1"],
+        "unique_samples": ["sample_001", "sample_002"],
+        "directory_totals": {
+            "/data/nanopore/run1": 15
+        }
+    }
+}
+EOF
+
+    # Create alerts file with sample alerts
+    cat > alerts.json << 'EOF'
+{
+    "batch_id": "${batch_meta.batch_id}",
+    "timestamp": \$(date +%s)000,
+    "alert_count": 2,
+    "alerts": [
+        {
+            "type": "performance",
+            "level": "info",
+            "message": "High throughput detected: 2.5 files/sec",
+            "timestamp": \$(date +%s)000,
+            "metric": "files_per_second",
+            "value": 2.5,
+            "threshold": 1.0
+        },
+        {
+            "type": "quality",
+            "level": "info",
+            "message": "Good compression ratio: 0.60",
+            "timestamp": \$(date +%s)000,
+            "metric": "compression_ratio",
+            "value": 0.6,
+            "threshold": 0.5
+        }
+    ]
+}
+EOF
+
+    # Create cumulative state (copy of cumulative stats for next iteration)
+    cp cumulative_stats.json cumulative_state.json
+
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
         python: "3.9"

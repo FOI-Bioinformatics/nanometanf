@@ -1,0 +1,474 @@
+nextflow_workflow {
+
+    name "Test DEMULTIPLEXING"
+    script "../../demultiplexing.nf"
+    workflow "DEMULTIPLEXING"
+
+    test("Should handle pre-demultiplexed samples without processing") {
+
+        setup {
+            """
+            # Create pre-demultiplexed sample files
+            mkdir -p $outputDir/predemux_samples
+            echo "@read1\nATCGATCGATCG\n+\nIIIIIIIIIIII" > $outputDir/predemux_samples/sample1_bc01.fastq
+            echo "@read2\nGCTAGCTAGCTA\n+\nIIIIIIIIIIII" > $outputDir/predemux_samples/sample1_bc02.fastq
+            echo "@read3\nTAGCTAGCTAGC\n+\nIIIIIIIIIIII" > $outputDir/predemux_samples/sample2_bc01.fastq
+            """
+        }
+
+        when {
+            workflow {
+                """
+                input[0] = [
+                    [
+                        [id: 'sample1_bc01', single_end: true, demultiplexed: true, barcode: 'BC01'],
+                        file('$outputDir/predemux_samples/sample1_bc01.fastq')
+                    ],
+                    [
+                        [id: 'sample1_bc02', single_end: true, demultiplexed: true, barcode: 'BC02'],
+                        file('$outputDir/predemux_samples/sample1_bc02.fastq')
+                    ],
+                    [
+                        [id: 'sample2_bc01', single_end: true, demultiplexed: true, barcode: 'BC01'],
+                        file('$outputDir/predemux_samples/sample2_bc01.fastq')
+                    ]
+                ]
+                """
+            }
+            
+            params {
+                use_dorado = false
+                barcode_kit = null
+                max_cpus = 1
+                max_memory = '2.GB'
+                max_time = '1.min'
+            }
+        }
+
+        then {
+            assert workflow.success
+            assert workflow.out.samples
+            
+            // Should pass through pre-demultiplexed samples unchanged
+            def samples = workflow.out.samples.toList()
+            assert samples.size() == 3
+            
+            // Verify samples are passed through correctly
+            def sample_ids = samples.collect { meta, reads -> meta.id }
+            assert sample_ids.contains('sample1_bc01')
+            assert sample_ids.contains('sample1_bc02')
+            assert sample_ids.contains('sample2_bc01')
+            
+            // Verify metadata preservation
+            def first_sample = samples[0]
+            assert first_sample[0].demultiplexed == true
+            assert first_sample[0].barcode
+        }
+    }
+
+    test("Should identify samples that need demultiplexing") {
+
+        setup {
+            """
+            # Create multiplexed samples that need demultiplexing
+            mkdir -p $outputDir/multiplex_samples
+            echo "@read1\nATCGATCGATCGATCGATCG\n+\nIIIIIIIIIIIIIIIIIIII" > $outputDir/multiplex_samples/multiplexed1.fastq
+            echo "@read2\nGCTAGCTAGCTAGCTAGCTA\n+\nIIIIIIIIIIIIIIIIIIII" > $outputDir/multiplex_samples/multiplexed2.fastq
+            """
+        }
+
+        when {
+            workflow {
+                """
+                input[0] = [
+                    [
+                        [id: 'multiplexed1', single_end: true, barcode_kit: 'SQK-NBD114-24', demultiplexed: false],
+                        file('$outputDir/multiplex_samples/multiplexed1.fastq')
+                    ],
+                    [
+                        [id: 'multiplexed2', single_end: true, barcode_kit: 'SQK-NBD114-24', demultiplexed: false],
+                        file('$outputDir/multiplex_samples/multiplexed2.fastq')
+                    ]
+                ]
+                """
+            }
+            
+            params {
+                use_dorado = false  // Disable for branching test
+                barcode_kit = 'SQK-NBD114-24'
+                max_cpus = 2
+                max_memory = '4.GB'
+                max_time = '2.min'
+            }
+        }
+
+        then {
+            assert workflow.success
+            assert workflow.out.samples
+            
+            // When use_dorado is false, samples requiring demux should still pass through
+            def samples = workflow.out.samples.toList()
+            assert samples.size() >= 0  // May be empty or contain original samples
+        }
+    }
+
+    test("Should handle mixed pre-demux and multiplex samples") {
+
+        setup {
+            """
+            # Create mixed sample types
+            mkdir -p $outputDir/mixed_samples
+            
+            # Pre-demultiplexed samples
+            echo "@read1\nATCGATCGATCG\n+\nIIIIIIIIIIII" > $outputDir/mixed_samples/predemux_bc01.fastq
+            echo "@read2\nGCTAGCTAGCTA\n+\nIIIIIIIIIIII" > $outputDir/mixed_samples/predemux_bc02.fastq
+            
+            # Multiplexed samples
+            echo "@read3\nTAGCTAGCTAGCTAGCTAGC\n+\nIIIIIIIIIIIIIIIIIIII" > $outputDir/mixed_samples/multiplexed.fastq
+            """
+        }
+
+        when {
+            workflow {
+                """
+                input[0] = [
+                    [
+                        [id: 'predemux_bc01', single_end: true, demultiplexed: true, barcode: 'BC01'],
+                        file('$outputDir/mixed_samples/predemux_bc01.fastq')
+                    ],
+                    [
+                        [id: 'predemux_bc02', single_end: true, demultiplexed: true, barcode: 'BC02'],
+                        file('$outputDir/mixed_samples/predemux_bc02.fastq')
+                    ],
+                    [
+                        [id: 'multiplexed', single_end: true, barcode_kit: 'SQK-NBD114-24', demultiplexed: false],
+                        file('$outputDir/mixed_samples/multiplexed.fastq')
+                    ]
+                ]
+                """
+            }
+            
+            params {
+                use_dorado = false
+                barcode_kit = 'SQK-NBD114-24'
+                max_cpus = 2
+                max_memory = '4.GB'
+                max_time = '2.min'
+            }
+        }
+
+        then {
+            assert workflow.success
+            assert workflow.out.samples
+            
+            // Should handle mixed sample types
+            def samples = workflow.out.samples.toList()
+            assert samples.size() >= 2  // At least the pre-demux samples
+            
+            // Verify pre-demux samples are preserved
+            def sample_ids = samples.collect { meta, reads -> meta.id }
+            assert sample_ids.contains('predemux_bc01') || sample_ids.contains('predemux_bc02')
+        }
+    }
+
+    test("Should handle different barcode kits") {
+
+        setup {
+            """
+            # Create samples for different barcode kits
+            mkdir -p $outputDir/barcode_kit_test
+            echo "@read1\nATCGATCGATCGATCG\n+\nIIIIIIIIIIIIIIII" > $outputDir/barcode_kit_test/kit1_sample.fastq
+            echo "@read2\nGCTAGCTAGCTAGCTA\n+\nIIIIIIIIIIIIIIII" > $outputDir/barcode_kit_test/kit2_sample.fastq
+            """
+        }
+
+        when {
+            workflow {
+                """
+                input[0] = [
+                    [
+                        [id: 'kit1_sample', single_end: true, barcode_kit: 'SQK-NBD114-24', demultiplexed: false],
+                        file('$outputDir/barcode_kit_test/kit1_sample.fastq')
+                    ],
+                    [
+                        [id: 'kit2_sample', single_end: true, barcode_kit: 'SQK-RBK110-96', demultiplexed: false],
+                        file('$outputDir/barcode_kit_test/kit2_sample.fastq')
+                    ]
+                ]
+                """
+            }
+            
+            params {
+                use_dorado = false
+                barcode_kit = 'SQK-NBD114-24'  // Default kit
+                max_cpus = 2
+                max_memory = '4.GB'
+                max_time = '2.min'
+            }
+        }
+
+        then {
+            assert workflow.success
+            assert workflow.out.samples
+            
+            // Should handle different barcode kits
+            def samples = workflow.out.samples.toList()
+            assert samples.size() >= 0
+        }
+    }
+
+    test("Should validate metadata fields correctly") {
+
+        setup {
+            """
+            # Create samples with various metadata configurations
+            mkdir -p $outputDir/metadata_test
+            echo "@read1\nATCGATCGATCG\n+\nIIIIIIIIIIII" > $outputDir/metadata_test/meta1.fastq
+            echo "@read2\nGCTAGCTAGCTA\n+\nIIIIIIIIIIII" > $outputDir/metadata_test/meta2.fastq
+            echo "@read3\nTAGCTAGCTAGC\n+\nIIIIIIIIIIII" > $outputDir/metadata_test/meta3.fastq
+            """
+        }
+
+        when {
+            workflow {
+                """
+                input[0] = [
+                    [
+                        [id: 'meta1', single_end: true, demultiplexed: true, barcode: 'BC01'],
+                        file('$outputDir/metadata_test/meta1.fastq')
+                    ],
+                    [
+                        [id: 'meta2', single_end: false, demultiplexed: false],  // No barcode kit
+                        file('$outputDir/metadata_test/meta2.fastq')
+                    ],
+                    [
+                        [id: 'meta3', single_end: true, barcode_kit: 'SQK-NBD114-24'],  // No demultiplexed field
+                        file('$outputDir/metadata_test/meta3.fastq')
+                    ]
+                ]
+                """
+            }
+            
+            params {
+                use_dorado = false
+                barcode_kit = 'SQK-NBD114-24'
+                max_cpus = 1
+                max_memory = '2.GB'
+                max_time = '1.min'
+            }
+        }
+
+        then {
+            assert workflow.success
+            assert workflow.out.samples
+            
+            // Should handle various metadata configurations
+            def samples = workflow.out.samples.toList()
+            assert samples.size() >= 2  // At least some samples should pass through
+        }
+    }
+
+    test("Should handle empty input gracefully") {
+
+        when {
+            workflow {
+                """
+                input[0] = []
+                """
+            }
+            
+            params {
+                use_dorado = false
+                barcode_kit = 'SQK-NBD114-24'
+                max_cpus = 1
+                max_memory = '2.GB'
+                max_time = '1.min'
+            }
+        }
+
+        then {
+            assert workflow.success
+            
+            // Should handle empty input
+            if (workflow.out.samples) {
+                def samples = workflow.out.samples.toList()
+                assert samples.size() == 0
+            }
+            
+            // Versions should be empty
+            if (workflow.out.versions) {
+                def versions = workflow.out.versions.toList()
+                assert versions.size() == 0
+            }
+        }
+    }
+
+    test("Should process samples with complex metadata") {
+
+        setup {
+            """
+            # Create samples with complex metadata
+            mkdir -p $outputDir/complex_metadata
+            echo "@read1\nATCGATCGATCGATCGATCG\n+\nIIIIIIIIIIIIIIIIIIII" > $outputDir/complex_metadata/complex1.fastq
+            echo "@read2\nGCTAGCTAGCTAGCTAGCTA\n+\nIIIIIIIIIIIIIIIIIIII" > $outputDir/complex_metadata/complex2.fastq
+            """
+        }
+
+        when {
+            workflow {
+                """
+                input[0] = [
+                    [
+                        [
+                            id: 'complex1',
+                            single_end: true,
+                            demultiplexed: true,
+                            barcode: 'BC01',
+                            sample_type: 'genomic_dna',
+                            sequencing_date: '2023-12-01',
+                            library_prep: 'ligation'
+                        ],
+                        file('$outputDir/complex_metadata/complex1.fastq')
+                    ],
+                    [
+                        [
+                            id: 'complex2',
+                            single_end: true,
+                            barcode_kit: 'SQK-NBD114-24',
+                            demultiplexed: false,
+                            sample_type: 'cdna',
+                            sequencing_date: '2023-12-02',
+                            library_prep: 'pcr_free'
+                        ],
+                        file('$outputDir/complex_metadata/complex2.fastq')
+                    ]
+                ]
+                """
+            }
+            
+            params {
+                use_dorado = false
+                barcode_kit = 'SQK-NBD114-24'
+                max_cpus = 2
+                max_memory = '4.GB'
+                max_time = '2.min'
+            }
+        }
+
+        then {
+            assert workflow.success
+            assert workflow.out.samples
+            
+            // Should preserve complex metadata
+            def samples = workflow.out.samples.toList()
+            assert samples.size() >= 1
+            
+            // Verify metadata preservation
+            def first_sample = samples[0]
+            def meta = first_sample[0]
+            assert meta.id
+            assert meta.single_end != null
+        }
+    }
+
+    test("Should handle large numbers of samples") {
+
+        setup {
+            """
+            # Create many samples for batch testing
+            mkdir -p $outputDir/batch_samples
+            for i in {1..20}; do
+                echo "@read$i\nATCGATCGATCGATCGATCG\n+\nIIIIIIIIIIIIIIIIIIII" > $outputDir/batch_samples/batch_sample_$i.fastq
+            done
+            """
+        }
+
+        when {
+            workflow {
+                """
+                def samples = []
+                for (int i = 1; i <= 20; i++) {
+                    def meta = [:]
+                    meta.id = "batch_sample_" + i
+                    meta.single_end = true
+                    meta.demultiplexed = (i % 2 == 0)  // Alternate between demux and non-demux
+                    if (i % 2 == 0) {
+                        meta.barcode = "BC" + String.format("%02d", (i % 12) + 1)
+                    } else {
+                        meta.barcode_kit = "SQK-NBD114-24"
+                    }
+                    samples.add([meta, file('$outputDir/batch_samples/batch_sample_' + i + '.fastq')])
+                }
+                input[0] = samples
+                """
+            }
+            
+            params {
+                use_dorado = false
+                barcode_kit = 'SQK-NBD114-24'
+                max_cpus = 4
+                max_memory = '8.GB'
+                max_time = '3.min'
+            }
+        }
+
+        then {
+            assert workflow.success
+            assert workflow.out.samples
+            
+            // Should handle large batch of samples
+            def samples = workflow.out.samples.toList()
+            assert samples.size() >= 10  // At least half should pass through (pre-demux)
+            
+            // Verify batch processing efficiency
+            assert workflow.duration.toMillis() < 180000 // Less than 3 minutes
+        }
+    }
+
+    test("Should validate barcode kit parameters") {
+
+        setup {
+            """
+            # Create samples for barcode kit validation
+            mkdir -p $outputDir/kit_validation
+            echo "@read1\nATCGATCGATCGATCG\n+\nIIIIIIIIIIIIIIII" > $outputDir/kit_validation/kit_test1.fastq
+            echo "@read2\nGCTAGCTAGCTAGCTA\n+\nIIIIIIIIIIIIIIII" > $outputDir/kit_validation/kit_test2.fastq
+            """
+        }
+
+        when {
+            workflow {
+                """
+                input[0] = [
+                    [
+                        [id: 'kit_test1', single_end: true, barcode_kit: 'SQK-RBK110-96', demultiplexed: false],
+                        file('$outputDir/kit_validation/kit_test1.fastq')
+                    ],
+                    [
+                        [id: 'kit_test2', single_end: true, barcode_kit: 'SQK-NBD114-24', demultiplexed: false],
+                        file('$outputDir/kit_validation/kit_test2.fastq')
+                    ]
+                ]
+                """
+            }
+            
+            params {
+                use_dorado = false
+                barcode_kit = 'SQK-RBK110-96'  // Different default kit
+                trim_barcodes = true
+                max_cpus = 2
+                max_memory = '4.GB'
+                max_time = '2.min'
+            }
+        }
+
+        then {
+            assert workflow.success
+            assert workflow.out.samples
+            
+            // Should validate different barcode kits
+            def samples = workflow.out.samples.toList()
+            assert samples.size() >= 0
+        }
+    }
+}

@@ -1,0 +1,72 @@
+{
+    "Should update cumulative stats with first batch": {
+        "content": [
+            {
+                "0": [
+                    
+                ],
+                "1": [
+                    
+                ],
+                "2": [
+                    
+                ],
+                "3": [
+                    
+                ],
+                "alerts": [
+                    
+                ],
+                "cumulative_stats": [
+                    
+                ],
+                "state": [
+                    
+                ],
+                "versions": [
+                    
+                ]
+            }
+        ],
+        "meta": {
+            "nf-test": "0.9.2",
+            "nextflow": "25.04.7"
+        },
+        "timestamp": "2025-10-03T07:26:47.791579"
+    },
+    "Should update cumulative stats with previous data": {
+        "content": [
+            {
+                "0": [
+                    
+                ],
+                "1": [
+                    
+                ],
+                "2": [
+                    
+                ],
+                "3": [
+                    
+                ],
+                "alerts": [
+                    
+                ],
+                "cumulative_stats": [
+                    
+                ],
+                "state": [
+                    
+                ],
+                "versions": [
+                    
+                ]
+            }
+        ],
+        "meta": {
+            "nf-test": "0.9.2",
+            "nextflow": "25.04.7"
+        },
+        "timestamp": "2025-10-03T07:26:50.866532"
+    }
+}

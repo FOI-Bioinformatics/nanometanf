@@ -1,0 +1,240 @@
+nextflow_process {
+
+    name "Test OPTIMIZE_RESOURCE_ALLOCATION"
+    script "../main.nf"
+    process "OPTIMIZE_RESOURCE_ALLOCATION"
+
+    tag "modules"
+    tag "modules_local"
+    tag "optimize_resource_allocation"
+
+    test("Should optimize basic resource allocation") {
+
+        tag "basic_optimization"
+        tag "snapshot"
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [
+                        id: 'basic_optimization_test',
+                        single_end: true
+                    ],
+                    file('$projectDir/tests/fixtures/predictions/balanced_prediction.json'),
+                    file('$projectDir/tests/fixtures/system_metrics/normal_load.json')
+                ]
+                input[1] = [
+                    safety_factor: 0.8,
+                    enable_gpu_optimization: false
+                ]
+                """
+            }
+        }
+
+        then {
+            assertAll(
+                { assert process.success },
+                { assert snapshot(process.out).match() }
+            )
+        }
+    }
+
+    test("Should handle high priority workload optimization") {
+
+        tag "high_priority"
+        tag "snapshot"
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [
+                        id: 'high_priority_test',
+                        single_end: true
+                    ],
+                    file('$projectDir/tests/fixtures/predictions/high_throughput_prediction.json'),
+                    file('$projectDir/tests/fixtures/system_metrics/high_load.json')
+                ]
+                input[1] = [
+                    safety_factor: 0.9,
+                    priority_boost: true
+                ]
+                """
+            }
+        }
+
+        then {
+            assertAll(
+                { assert process.success },
+                { assert snapshot(process.out).match() }
+            )
+        }
+    }
+
+    test("Should optimize GPU-enabled workload") {
+
+        tag "gpu_optimization"
+        tag "snapshot"
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [
+                        id: 'gpu_optimization_test',
+                        single_end: true
+                    ],
+                    file('$projectDir/tests/fixtures/predictions/balanced_prediction.json'),
+                    file('$projectDir/tests/fixtures/system_metrics/gpu_available.json')
+                ]
+                input[1] = [
+                    safety_factor: 0.8,
+                    enable_gpu_optimization: true,
+                    gpu_acceleration_strategy: "aggressive"
+                ]
+                """
+            }
+        }
+
+        then {
+            assertAll(
+                { assert process.success },
+                { assert snapshot(process.out).match() }
+            )
+        }
+    }
+
+    test("Should handle system under resource pressure") {
+
+        tag "resource_pressure"
+        tag "snapshot"
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [
+                        id: 'pressure_test',
+                        single_end: true
+                    ],
+                    file('$projectDir/tests/fixtures/predictions/conservative_prediction.json'),
+                    file('$projectDir/tests/fixtures/system_metrics/high_load.json')
+                ]
+                input[1] = [
+                    safety_factor: 0.6,
+                    conservative_mode: true,
+                    pressure_management: true
+                ]
+                """
+            }
+        }
+
+        then {
+            assertAll(
+                { assert process.success },
+                { assert snapshot(process.out).match() }
+            )
+        }
+    }
+
+    test("Should optimize for low priority workload") {
+
+        tag "low_priority"
+        tag "snapshot"
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [
+                        id: 'low_priority_test',
+                        single_end: true
+                    ],
+                    file('$projectDir/tests/fixtures/predictions/balanced_prediction.json'),
+                    file('$projectDir/tests/fixtures/system_metrics/normal_load.json')
+                ]
+                input[1] = [
+                    safety_factor: 0.7,
+                    background_mode: true,
+                    shared_system: true
+                ]
+                """
+            }
+        }
+
+        then {
+            assertAll(
+                { assert process.success },
+                { assert snapshot(process.out).match() }
+            )
+        }
+    }
+
+    test("Should handle Apple Silicon GPU optimization") {
+
+        tag "apple_silicon"
+        tag "snapshot"
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [
+                        id: 'apple_gpu_test',
+                        single_end: true
+                    ],
+                    file('$projectDir/tests/fixtures/predictions/balanced_prediction.json'),
+                    file('$projectDir/tests/fixtures/system_metrics/gpu_available.json')
+                ]
+                input[1] = [
+                    safety_factor: 0.85,
+                    enable_gpu_optimization: true,
+                    apple_silicon_optimizations: true
+                ]
+                """
+            }
+        }
+
+        then {
+            assertAll(
+                { assert process.success },
+                { assert snapshot(process.out).match() }
+            )
+        }
+    }
+
+    test("Should handle invalid predictions gracefully") {
+
+        tag "edge_cases"
+        tag "snapshot"
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [
+                        id: 'invalid_input_test',
+                        single_end: true
+                    ],
+                    file('$projectDir/tests/fixtures/edge_cases/extreme_predictions.json'),
+                    file('$projectDir/tests/fixtures/system_metrics/normal_load.json')
+                ]
+                input[1] = [
+                    safety_factor: 0.8,
+                    handle_invalid_input: true,
+                    use_fallback_defaults: true
+                ]
+                """
+            }
+        }
+
+        then {
+            assertAll(
+                { assert process.success },
+                { assert snapshot(process.out).match() }
+            )
+        }
+    }
+
+}

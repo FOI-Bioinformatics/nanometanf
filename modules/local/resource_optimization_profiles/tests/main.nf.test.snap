@@ -1,0 +1,60 @@
+{
+    "Should load high throughput profile": {
+        "content": [
+            {
+                "0": [
+                    "optimization_profiles.json:md5,55b7f2d7d57660aaf5f461218b0c0935"
+                ],
+                "1": [
+                    "active_profile.json:md5,1c78d1fd0f9f05ec466a547523f622d4"
+                ],
+                "2": [
+                    "versions.yml:md5,640841b43c323e224293c2d3e866ed27"
+                ],
+                "active_profile": [
+                    "active_profile.json:md5,1c78d1fd0f9f05ec466a547523f622d4"
+                ],
+                "profiles": [
+                    "optimization_profiles.json:md5,55b7f2d7d57660aaf5f461218b0c0935"
+                ],
+                "versions": [
+                    "versions.yml:md5,640841b43c323e224293c2d3e866ed27"
+                ]
+            }
+        ],
+        "meta": {
+            "nf-test": "0.9.2",
+            "nextflow": "25.04.7"
+        },
+        "timestamp": "2025-10-03T09:26:58.991234"
+    },
+    "Should load auto profile": {
+        "content": [
+            {
+                "0": [
+                    "optimization_profiles.json:md5,ea8099a133f8c5bc863cd4599dfc0532"
+                ],
+                "1": [
+                    "active_profile.json:md5,9b378a617b1f004d891334fa57bb9382"
+                ],
+                "2": [
+                    "versions.yml:md5,640841b43c323e224293c2d3e866ed27"
+                ],
+                "active_profile": [
+                    "active_profile.json:md5,9b378a617b1f004d891334fa57bb9382"
+                ],
+                "profiles": [
+                    "optimization_profiles.json:md5,ea8099a133f8c5bc863cd4599dfc0532"
+                ],
+                "versions": [
+                    "versions.yml:md5,640841b43c323e224293c2d3e866ed27"
+                ]
+            }
+        ],
+        "meta": {
+            "nf-test": "0.9.2",
+            "nextflow": "25.04.7"
+        },
+        "timestamp": "2025-10-03T09:27:02.568382"
+    }
+}

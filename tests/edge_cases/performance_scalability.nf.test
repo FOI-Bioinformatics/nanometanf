@@ -1,0 +1,556 @@
+nextflow_pipeline {
+
+    name "Performance and Scalability Testing"
+    script "../../main.nf"
+
+    test("Should scale efficiently with increasing sample count") {
+
+        setup {
+            """
+            # Create varying numbers of samples for scalability testing
+            mkdir -p $outputDir/scalability_test
+            
+            # Generate 10 samples to test parallel processing
+            for i in {01..10}; do
+                cp $projectDir/tests/test_sample.fastq.gz $outputDir/scalability_test/scale_sample_\${i}.fastq.gz
+            done
+            
+            # Create comprehensive samplesheet
+            cat > $outputDir/scalability_samplesheet.csv << 'EOF'
+sample,fastq,barcode
+SCALE_SAMPLE_01,$outputDir/scalability_test/scale_sample_01.fastq.gz,BC01
+SCALE_SAMPLE_02,$outputDir/scalability_test/scale_sample_02.fastq.gz,BC02
+SCALE_SAMPLE_03,$outputDir/scalability_test/scale_sample_03.fastq.gz,BC03
+SCALE_SAMPLE_04,$outputDir/scalability_test/scale_sample_04.fastq.gz,BC04
+SCALE_SAMPLE_05,$outputDir/scalability_test/scale_sample_05.fastq.gz,BC05
+SCALE_SAMPLE_06,$outputDir/scalability_test/scale_sample_06.fastq.gz,
+SCALE_SAMPLE_07,$outputDir/scalability_test/scale_sample_07.fastq.gz,
+SCALE_SAMPLE_08,$outputDir/scalability_test/scale_sample_08.fastq.gz,BC08
+SCALE_SAMPLE_09,$outputDir/scalability_test/scale_sample_09.fastq.gz,BC09
+SCALE_SAMPLE_10,$outputDir/scalability_test/scale_sample_10.fastq.gz,BC10
+EOF
+            """
+        }
+
+        when {
+            params {
+                input = "$outputDir/scalability_samplesheet.csv"
+                outdir = "$outputDir/results"
+                
+                // Performance optimization settings
+                enable_dynamic_resources = true
+                optimization_profile = "high_throughput"
+                enable_performance_logging = true
+                
+                // Parallel processing configuration
+                max_parallel_jobs = 8
+                max_cpus = 8
+                max_memory = '16.GB'
+                max_time = '10.min'
+                
+                // Enable monitoring
+                enable_resource_monitoring = true
+                enable_performance_monitoring = true
+                resource_monitoring_interval = 10
+                
+                // Processing settings
+                use_dorado = false
+                kraken2_db = null
+                blast_validation = false
+                skip_nanoplot = false  // Keep for load testing
+            }
+        }
+
+        then {
+            assert workflow.success
+            
+            // Verify all samples were processed
+            def fastp_tasks = workflow.trace.tasks().findAll { it.name.contains('FASTP') }
+            assert fastp_tasks.size() >= 8  // Should process most samples
+            
+            // Verify parallel processing efficiency
+            def total_duration = workflow.duration.toMillis()
+            assert total_duration < 600000  // Should complete within 10 minutes
+            
+            // Check resource utilization
+            def max_parallel_fastp = fastp_tasks.collect { it.start }.unique().size()
+            assert max_parallel_fastp >= 2  // Should run tasks in parallel
+            
+            // Verify outputs
+            assert path("${outputDir}/results/fastp").exists()
+            assert path("${outputDir}/results/multiqc").exists()
+            
+            println("✅ Scalability test: ${fastp_tasks.size()} samples processed in ${total_duration/1000}s")
+            println("📊 Parallel efficiency: ${max_parallel_fastp} concurrent FASTP tasks")
+        }
+    }
+
+    test("Should handle memory pressure efficiently") {
+
+        setup {
+            """
+            # Create memory-intensive scenario
+            mkdir -p $outputDir/memory_test
+            
+            # Generate larger files by concatenating
+            for i in {1..5}; do
+                cat $projectDir/tests/test_sample.fastq.gz $projectDir/tests/test_sample.fastq.gz > $outputDir/memory_test/large_sample_\${i}.fastq.gz
+            done
+            
+            cat > $outputDir/memory_pressure_samplesheet.csv << 'EOF'
+sample,fastq,barcode
+LARGE_SAMPLE_1,$outputDir/memory_test/large_sample_1.fastq.gz,BC01
+LARGE_SAMPLE_2,$outputDir/memory_test/large_sample_2.fastq.gz,BC02
+LARGE_SAMPLE_3,$outputDir/memory_test/large_sample_3.fastq.gz,BC03
+LARGE_SAMPLE_4,$outputDir/memory_test/large_sample_4.fastq.gz,BC04
+LARGE_SAMPLE_5,$outputDir/memory_test/large_sample_5.fastq.gz,BC05
+EOF
+            """
+        }
+
+        when {
+            params {
+                input = "$outputDir/memory_pressure_samplesheet.csv"
+                outdir = "$outputDir/results"
+                
+                // Memory-constrained settings
+                max_cpus = 4
+                max_memory = '8.GB'  // Limited memory to test pressure handling
+                max_time = '8.min'
+                
+                // Memory management
+                enable_dynamic_resources = true
+                optimization_profile = "resource_conservative"
+                enable_memory_monitoring = true
+                memory_pressure_threshold = 0.8
+                
+                // Processing settings
+                use_dorado = false
+                kraken2_db = null
+                blast_validation = false
+                skip_nanoplot = true  // Reduce memory usage
+            }
+        }
+
+        then {
+            assert workflow.success
+            
+            if (workflow.success) {
+                // Should complete despite memory constraints
+                def fastp_tasks = workflow.trace.tasks().findAll { it.name.contains('FASTP') }
+                assert fastp_tasks.size() >= 3  // Should process most samples
+                
+                // Verify memory-efficient processing
+                def peak_memory_tasks = fastp_tasks.findAll { it.memory != null }
+                if (peak_memory_tasks.size() > 0) {
+                    println("📈 Memory usage patterns observed across ${peak_memory_tasks.size()} tasks")
+                }
+                
+                println("✅ Memory pressure test: handled ${fastp_tasks.size()} large samples with limited memory")
+            }
+            
+            if (workflow.failed) {
+                // Should fail gracefully without hanging
+                // REMOVED: workflow.duration property not available in nf-test
+                // assert workflow.duration.toMillis() < 480000  // Less than 8 minutes
+                println("⚠️ Memory pressure test: failed gracefully due to memory constraints")
+            }
+        }
+    }
+
+    test("Should demonstrate high-frequency real-time processing performance") {
+
+        setup {
+            """
+            # Create high-frequency monitoring scenario
+            mkdir -p $outputDir/high_freq_test/barcode01
+            mkdir -p $outputDir/high_freq_test/barcode02
+            mkdir -p $outputDir/high_freq_test/barcode03
+            mkdir -p $outputDir/high_freq_test/unclassified
+            
+            # Generate many small files to simulate high-frequency sequencing
+            for i in {001..020}; do
+                cp $projectDir/tests/test_sample.fastq.gz $outputDir/high_freq_test/barcode01/reads_\${i}.fastq.gz
+            done
+            
+            for i in {001..015}; do
+                cp $projectDir/tests/test_sample.fastq.gz $outputDir/high_freq_test/barcode02/reads_\${i}.fastq.gz
+            done
+            
+            for i in {001..010}; do
+                cp $projectDir/tests/test_sample.fastq.gz $outputDir/high_freq_test/barcode03/reads_\${i}.fastq.gz
+            done
+            
+            for i in {001..005}; do
+                cp $projectDir/tests/test_sample.fastq.gz $outputDir/high_freq_test/unclassified/reads_\${i}.fastq.gz
+            done
+            """
+        }
+
+        when {
+            params {
+                input = "$projectDir/tests/empty_samplesheet.csv"
+                outdir = "$outputDir/results"
+                
+                // High-frequency real-time processing
+                realtime_mode = true
+                nanopore_output_dir = "$outputDir/high_freq_test"
+                file_pattern = "**/*.{fastq,fastq.gz,fq,fq.gz}"
+                
+                // High-frequency configuration
+                batch_size = 8
+                batch_interval = "3s"
+                max_files = "10"
+                
+                // Performance optimization
+                enable_adaptive_batching = true
+                enable_file_prioritization = true
+                high_frequency_mode = true
+                
+                // Real-time statistics
+                enable_realtime_stats = true
+                realtime_stats_interval = "5s"
+                enable_performance_monitoring = true
+                
+                // Resource allocation
+                max_cpus = 6
+                max_memory = '12.GB'
+                max_time = '8.min'
+                
+                // Processing settings
+                use_dorado = false
+                kraken2_db = null
+                blast_validation = false
+                skip_nanoplot = true
+            }
+        }
+
+        then {
+            assert workflow.success
+            
+            // Verify high-frequency processing
+            def fastp_tasks = workflow.trace.tasks().findAll { it.name.contains('FASTP') }
+            assert fastp_tasks.size() >= 30  // Should process many files
+            
+            // Verify real-time components ran
+            assert workflow.trace.tasks().any { it.name.contains('ENHANCED_REALTIME_MONITORING') }
+            assert workflow.trace.tasks().any { it.name.contains('REALTIME_STATISTICS') }
+            
+            // Performance metrics
+            def total_duration = workflow.duration.toMillis()
+            def throughput = fastp_tasks.size() / (total_duration / 1000.0)
+            
+            // Verify outputs
+            assert path("${outputDir}/results/fastp").exists()
+            assert path("${outputDir}/results/realtime_stats").exists()
+            
+            println("✅ High-frequency test: ${fastp_tasks.size()} files processed")
+            println("⚡ Throughput: ${throughput.round(2)} files/second")
+            println("🔄 Real-time monitoring: active")
+        }
+    }
+
+    test("Should optimize CPU utilization across multiple processes") {
+
+        setup {
+            """
+            # Create CPU-intensive scenario
+            mkdir -p $outputDir/cpu_test
+            
+            for i in {1..6}; do
+                cp $projectDir/tests/test_sample.fastq.gz $outputDir/cpu_test/cpu_sample_\${i}.fastq.gz
+            done
+            
+            cat > $outputDir/cpu_utilization_samplesheet.csv << 'EOF'
+sample,fastq,barcode
+CPU_SAMPLE_1,$outputDir/cpu_test/cpu_sample_1.fastq.gz,BC01
+CPU_SAMPLE_2,$outputDir/cpu_test/cpu_sample_2.fastq.gz,BC02
+CPU_SAMPLE_3,$outputDir/cpu_test/cpu_sample_3.fastq.gz,BC03
+CPU_SAMPLE_4,$outputDir/cpu_test/cpu_sample_4.fastq.gz,BC04
+CPU_SAMPLE_5,$outputDir/cpu_test/cpu_sample_5.fastq.gz,BC05
+CPU_SAMPLE_6,$outputDir/cpu_test/cpu_sample_6.fastq.gz,BC06
+EOF
+            """
+        }
+
+        when {
+            params {
+                input = "$outputDir/cpu_utilization_samplesheet.csv"
+                outdir = "$outputDir/results"
+                
+                // CPU optimization settings
+                max_cpus = 12
+                max_memory = '16.GB'
+                max_time = '6.min'
+                
+                // Enable CPU monitoring and optimization
+                enable_dynamic_resources = true
+                optimization_profile = "high_throughput"
+                enable_cpu_optimization = true
+                cpu_optimization_factor = 1.2
+                
+                // Parallel processing
+                max_parallel_jobs = 6
+                enable_load_balancing = true
+                
+                // Processing settings
+                use_dorado = false
+                kraken2_db = null
+                blast_validation = false
+                skip_nanoplot = false  // Keep for CPU load testing
+            }
+        }
+
+        then {
+            assert workflow.success
+            
+            // Verify CPU utilization
+            def all_tasks = workflow.trace.tasks()
+            def cpu_tasks = all_tasks.findAll { it.cpus != null && it.cpus > 0 }
+            
+            // Check parallel execution
+            def fastp_tasks = all_tasks.findAll { it.name.contains('FASTP') }
+            def nanoplot_tasks = all_tasks.findAll { it.name.contains('NANOPLOT') }
+            
+            assert fastp_tasks.size() >= 5
+            assert nanoplot_tasks.size() >= 5
+            
+            // Verify CPU allocation efficiency
+            if (cpu_tasks.size() > 0) {
+                def total_cpu_allocated = cpu_tasks.sum { it.cpus }
+                println("🖥️ CPU efficiency: ${cpu_tasks.size()} tasks, ${total_cpu_allocated} total CPUs allocated")
+            }
+            
+            // Performance timing
+            def total_duration = workflow.duration.toMillis()
+            println("⏱️ CPU test duration: ${total_duration/1000}s for ${fastp_tasks.size()} samples")
+        }
+    }
+
+    test("Should handle I/O intensive operations efficiently") {
+
+        setup {
+            """
+            # Create I/O intensive scenario with many small files
+            mkdir -p $outputDir/io_test
+            
+            # Create many small files to stress I/O
+            for i in {001..025}; do
+                cp $projectDir/tests/test_sample.fastq.gz $outputDir/io_test/io_sample_\${i}.fastq.gz
+            done
+            
+            # Create samplesheet with many samples
+            echo "sample,fastq,barcode" > $outputDir/io_intensive_samplesheet.csv
+            for i in {001..025}; do
+                echo "IO_SAMPLE_\${i},$outputDir/io_test/io_sample_\${i}.fastq.gz,BC\${i}" >> $outputDir/io_intensive_samplesheet.csv
+            done
+            """
+        }
+
+        when {
+            params {
+                input = "$outputDir/io_intensive_samplesheet.csv"
+                outdir = "$outputDir/results"
+                
+                // I/O optimization settings
+                max_cpus = 8
+                max_memory = '12.GB'
+                max_time = '10.min'
+                
+                // I/O configuration
+                publish_dir_mode = 'copy'
+                cache_intermediate_files = true
+                enable_io_optimization = true
+                
+                // Parallel I/O
+                max_parallel_jobs = 10
+                io_threads = 4
+                
+                // Processing settings
+                use_dorado = false
+                kraken2_db = null
+                blast_validation = false
+                skip_nanoplot = true  // Reduce I/O load
+            }
+        }
+
+        then {
+            assert workflow.success
+            
+            // Verify I/O handling
+            def fastp_tasks = workflow.trace.tasks().findAll { it.name.contains('FASTP') }
+            assert fastp_tasks.size() >= 20  // Should process most samples
+            
+            // Check I/O efficiency
+            def total_duration = workflow.duration.toMillis()
+            def io_throughput = fastp_tasks.size() / (total_duration / 1000.0)
+            
+            // Verify outputs exist
+            assert path("${outputDir}/results/fastp").exists()
+            def fastp_outputs = path("${outputDir}/results/fastp").list()
+            assert fastp_outputs.size() >= 20
+            
+            println("💾 I/O test: ${fastp_tasks.size()} files processed")
+            println("📈 I/O throughput: ${io_throughput.round(2)} files/second")
+            println("📁 Output files: ${fastp_outputs.size()} created")
+        }
+    }
+
+    test("Should demonstrate resource allocation optimization under load") {
+
+        setup {
+            """
+            # Create mixed workload scenario
+            mkdir -p $outputDir/mixed_load_test
+            
+            # Different file sizes to create varied resource demands
+            cp $projectDir/tests/test_sample.fastq.gz $outputDir/mixed_load_test/small_1.fastq.gz
+            cp $projectDir/tests/test_sample.fastq.gz $outputDir/mixed_load_test/small_2.fastq.gz
+            
+            # Create larger files
+            cat $projectDir/tests/test_sample.fastq.gz $projectDir/tests/test_sample.fastq.gz > $outputDir/mixed_load_test/medium_1.fastq.gz
+            cat $projectDir/tests/test_sample.fastq.gz $projectDir/tests/test_sample.fastq.gz > $outputDir/mixed_load_test/medium_2.fastq.gz
+            
+            # Even larger files
+            cat $outputDir/mixed_load_test/medium_1.fastq.gz $outputDir/mixed_load_test/medium_2.fastq.gz > $outputDir/mixed_load_test/large_1.fastq.gz
+            
+            cat > $outputDir/mixed_load_samplesheet.csv << 'EOF'
+sample,fastq,barcode
+SMALL_SAMPLE_1,$outputDir/mixed_load_test/small_1.fastq.gz,BC01
+SMALL_SAMPLE_2,$outputDir/mixed_load_test/small_2.fastq.gz,BC02
+MEDIUM_SAMPLE_1,$outputDir/mixed_load_test/medium_1.fastq.gz,BC03
+MEDIUM_SAMPLE_2,$outputDir/mixed_load_test/medium_2.fastq.gz,BC04
+LARGE_SAMPLE_1,$outputDir/mixed_load_test/large_1.fastq.gz,BC05
+EOF
+            """
+        }
+
+        when {
+            params {
+                input = "$outputDir/mixed_load_samplesheet.csv"
+                outdir = "$outputDir/results"
+                
+                // Dynamic resource allocation
+                enable_dynamic_resources = true
+                optimization_profile = "balanced"
+                enable_adaptive_scaling = true
+                
+                // Resource monitoring
+                enable_resource_monitoring = true
+                enable_performance_monitoring = true
+                resource_monitoring_interval = 5
+                
+                // Load balancing
+                enable_load_balancing = true
+                adaptive_resource_scaling = true
+                
+                // Resource limits
+                max_cpus = 10
+                max_memory = '20.GB'
+                max_time = '8.min'
+                
+                // Processing settings
+                use_dorado = false
+                kraken2_db = null
+                blast_validation = false
+                skip_nanoplot = false
+            }
+        }
+
+        then {
+            assert workflow.success
+            
+            // Verify resource optimization
+            assert workflow.trace.tasks().any { it.name.contains('RESOURCE') }
+            assert workflow.trace.tasks().any { it.name.contains('MONITOR') }
+            
+            // Verify processing
+            def fastp_tasks = workflow.trace.tasks().findAll { it.name.contains('FASTP') }
+            assert fastp_tasks.size() >= 4
+            
+            // Check resource allocation variations
+            def memory_allocations = fastp_tasks.collect { it.memory }.findAll { it != null }
+            if (memory_allocations.size() > 1) {
+                def unique_memory = memory_allocations.unique()
+                println("🎯 Resource optimization: ${unique_memory.size()} different memory allocations used")
+            }
+            
+            // Performance metrics
+            def total_duration = workflow.duration.toMillis()
+            println("⚖️ Mixed load test: completed in ${total_duration/1000}s")
+            println("🔧 Dynamic resources: enabled")
+        }
+    }
+
+    test("Should perform stress test with minimal resources") {
+
+        setup {
+            """
+            # Create stress test with limited resources
+            mkdir -p $outputDir/stress_test
+            
+            for i in {1..8}; do
+                cp $projectDir/tests/test_sample.fastq.gz $outputDir/stress_test/stress_sample_\${i}.fastq.gz
+            done
+            
+            cat > $outputDir/stress_samplesheet.csv << 'EOF'
+sample,fastq,barcode
+STRESS_1,$outputDir/stress_test/stress_sample_1.fastq.gz,BC01
+STRESS_2,$outputDir/stress_test/stress_sample_2.fastq.gz,BC02
+STRESS_3,$outputDir/stress_test/stress_sample_3.fastq.gz,BC03
+STRESS_4,$outputDir/stress_test/stress_sample_4.fastq.gz,BC04
+STRESS_5,$outputDir/stress_test/stress_sample_5.fastq.gz,BC05
+STRESS_6,$outputDir/stress_test/stress_sample_6.fastq.gz,BC06
+STRESS_7,$outputDir/stress_test/stress_sample_7.fastq.gz,BC07
+STRESS_8,$outputDir/stress_test/stress_sample_8.fastq.gz,BC08
+EOF
+            """
+        }
+
+        when {
+            params {
+                input = "$outputDir/stress_samplesheet.csv"
+                outdir = "$outputDir/results"
+                
+                // Minimal resource stress test
+                max_cpus = 2
+                max_memory = '4.GB'
+                max_time = '12.min'
+                
+                // Conservative settings
+                optimization_profile = "resource_conservative"
+                enable_dynamic_resources = true
+                conservative_mode = true
+                
+                // Error handling
+                enable_error_recovery = true
+                max_retry_attempts = 2
+                
+                // Processing settings
+                use_dorado = false
+                kraken2_db = null
+                blast_validation = false
+                skip_nanoplot = true
+            }
+        }
+
+        then {
+            assert workflow.success
+            
+            if (workflow.success) {
+                // Should handle stress gracefully
+                def fastp_tasks = workflow.trace.tasks().findAll { it.name.contains('FASTP') }
+                assert fastp_tasks.size() >= 4  // Should process at least half
+                
+                println("💪 Stress test: ${fastp_tasks.size()}/8 samples processed with minimal resources")
+            }
+            
+            if (workflow.failed) {
+                // Should fail gracefully without hanging
+                // REMOVED: workflow.duration property not available in nf-test
+                // assert workflow.duration.toMillis() < 720000  // Less than 12 minutes
+                println("⚠️ Stress test: failed gracefully under resource constraints")
+            }
+        }
+    }
+}

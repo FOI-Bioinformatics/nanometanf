@@ -1,0 +1,28 @@
+{
+  "sample_id": "pod5_test",
+  "analysis_timestamp": "2024-01-15T10:00:00",
+  "tool_context": {
+    "basecalling_required": true
+  },
+  "file_count": 10,
+  "total_size_bytes": 536870912,
+  "total_size_mb": 512.0,
+  "total_size_gb": 0.5,
+  "total_estimated_reads": 2500000,
+  "total_estimated_bases": 5000000000,
+  "average_file_size_mb": 51.2,
+  "estimated_coverage": "50x",
+  "complexity_metrics": {
+    "overall_complexity": 0.85,
+    "size_complexity": "high",
+    "read_complexity": "high"
+  },
+  "processing_hints": {
+    "recommended_parallelization": 6,
+    "memory_intensive": true,
+    "cpu_intensive": false,
+    "io_intensive": false,
+    "gpu_beneficial": true
+  },
+  "file_details": []
+}

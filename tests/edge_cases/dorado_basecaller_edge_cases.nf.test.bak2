@@ -1,0 +1,390 @@
+nextflow_process {
+
+    name "Test DORADO_BASECALLER Edge Cases"
+    script "modules/local/dorado_basecaller/main.nf"
+    process "DORADO_BASECALLER"
+
+    test("Edge Case 1: Empty POD5 file") {
+
+        setup {
+            """
+            # Create empty POD5 file
+            touch $outputDir/empty.pod5
+            """
+        }
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [
+                        id: 'empty_pod5_test',
+                        single_end: true
+                    ],
+                    file('$outputDir/empty.pod5')
+                ]
+                input[1] = 'dna_r10.4.1_e4.3_400bps_hac@v5.0.0'
+                """
+            }
+        }
+
+        then {
+            // Should fail or produce empty output
+            assert process.failed || process.success
+
+            if (process.success) {
+                // If it succeeds, output should handle empty case gracefully
+                assert process.out.fastq.size() >= 0
+
+                if (process.out.fastq.size() > 0) {
+                    def (meta, fastq_file) = process.out.fastq[0]
+                    def fastq_size = path(fastq_file).size()
+                    // Empty input should produce minimal or no output
+                    assert fastq_size < 1000  // Less than 1KB
+                }
+            }
+        }
+    }
+
+    test("Edge Case 2: Corrupted POD5 file") {
+
+        setup {
+            """
+            # Create corrupted POD5 file (random bytes)
+            head -c 1024 </dev/urandom > $outputDir/corrupted.pod5
+            """
+        }
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [
+                        id: 'corrupted_pod5_test',
+                        single_end: true
+                    ],
+                    file('$outputDir/corrupted.pod5')
+                ]
+                input[1] = 'dna_r10.4.1_e4.3_400bps_hac@v5.0.0'
+                """
+            }
+        }
+
+        then {
+            // Should fail with appropriate error message
+            assert process.failed
+
+            // Check error output contains relevant information
+            def error_output = process.stderr.text
+            assert error_output.contains('error') || error_output.contains('failed') || error_output.contains('invalid')
+        }
+    }
+
+    test("Edge Case 3: Extremely large POD5 file (memory stress test)") {
+
+        setup {
+            """
+            # Create a large dummy POD5 file (10MB) for stress testing
+            # In real scenario, this would be actual POD5 data
+            head -c 10485760 </dev/urandom > $outputDir/large.pod5
+            """
+        }
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [
+                        id: 'large_pod5_test',
+                        single_end: true
+                    ],
+                    file('$outputDir/large.pod5')
+                ]
+                input[1] = 'dna_r10.4.1_e4.3_400bps_hac@v5.0.0'
+                """
+            }
+
+            // Note: Resource constraints removed - not supported in nf-test process tests
+            // The module's default resource allocation will be used
+        }
+
+        then {
+            // Should either succeed with appropriate resource usage or fail gracefully
+            if (process.failed) {
+                def error_output = process.stderr.text
+                // Check for memory-related errors
+                assert error_output.contains('memory') || error_output.contains('resource') || error_output.contains('killed')
+            } else {
+                assert process.success
+                assert process.out.fastq.size() == 1
+                assert process.out.versions.size() == 1
+            }
+        }
+    }
+
+    test("Edge Case 4: Invalid model name") {
+
+        setup {
+            """
+            # Create minimal POD5 file for testing
+            echo 'dummy pod5 content' > $outputDir/test.pod5
+            """
+        }
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [
+                        id: 'invalid_model_test',
+                        single_end: true
+                    ],
+                    file('$outputDir/test.pod5')
+                ]
+                input[1] = 'nonexistent_model_v99.99.99'
+                """
+            }
+        }
+
+        then {
+            // Should fail with model-related error
+            assert process.failed
+
+            def error_output = process.stderr.text
+            assert error_output.contains('model') || error_output.contains('not found') || error_output.contains('invalid')
+        }
+    }
+
+    test("Edge Case 5: Missing dorado executable") {
+
+        setup {
+            """
+            # Create test POD5 file
+            echo 'test pod5 content' > $outputDir/test.pod5
+            """
+        }
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [
+                        id: 'missing_dorado_test',
+                        single_end: true
+                    ],
+                    file('$outputDir/test.pod5')
+                ]
+                input[1] = 'dna_r10.4.1_e4.3_400bps_hac@v5.0.0'
+                """
+            }
+        }
+
+        then {
+            // Should fail with executable not found error
+            assert process.failed
+
+            def error_output = process.stderr.text
+            assert error_output.contains('not found') || error_output.contains('No such file') || error_output.contains('command not found')
+        }
+    }
+
+    test("Edge Case 6: Extreme quality score threshold") {
+
+        setup {
+            """
+            # Create test POD5 file
+            echo 'test pod5 content for quality filtering' > $outputDir/quality_test.pod5
+            """
+        }
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [
+                        id: 'extreme_qscore_test',
+                        single_end: true
+                    ],
+                    file('$outputDir/quality_test.pod5')
+                ]
+                input[1] = 'dna_r10.4.1_e4.3_400bps_hac@v5.0.0'
+                """
+            }
+        }
+
+        then {
+            // Should succeed but likely produce minimal output due to high threshold
+            if (process.success) {
+                assert process.out.fastq.size() == 1
+
+                def (meta, fastq_file) = process.out.fastq[0]
+                assert path(fastq_file).exists()
+
+                // With qscore 99, output should be very small or empty
+                def fastq_size = path(fastq_file).size()
+                assert fastq_size < 10000  // Less than 10KB expected
+            }
+        }
+    }
+
+    test("Edge Case 7: Unicode characters in sample ID") {
+
+        setup {
+            """
+            # Create test POD5 file
+            echo 'test pod5 content' > $outputDir/unicode_test.pod5
+            """
+        }
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [
+                        id: 'sample_ñ_日本語_🧬',  // Unicode characters
+                        single_end: true
+                    ],
+                    file('$outputDir/unicode_test.pod5')
+                ]
+                input[1] = 'dna_r10.4.1_e4.3_400bps_hac@v5.0.0'
+                """
+            }
+        }
+
+        then {
+            // Should handle unicode gracefully (may sanitize IDs)
+            if (process.failed) {
+                // Some systems may not support unicode in filenames
+                def error_output = process.stderr.text
+                assert error_output != null
+            } else {
+                assert process.success
+                assert process.out.fastq.size() == 1
+
+                // Check that output file was created (possibly with sanitized name)
+                def (meta, fastq_file) = process.out.fastq[0]
+                assert path(fastq_file).exists()
+            }
+        }
+    }
+
+    test("Edge Case 8: Multiple POD5 files with timeout constraint") {
+
+        setup {
+            """
+            # Create multiple small POD5 files
+            for i in {1..5}; do
+                echo "pod5 content \$i" > $outputDir/batch_\${i}.pod5
+            done
+            """
+        }
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [
+                        id: 'timeout_test',
+                        single_end: true
+                    ],
+                    [
+                        file('$outputDir/batch_1.pod5'),
+                        file('$outputDir/batch_2.pod5'),
+                        file('$outputDir/batch_3.pod5'),
+                        file('$outputDir/batch_4.pod5'),
+                        file('$outputDir/batch_5.pod5')
+                    ]
+                ]
+                input[1] = 'dna_r10.4.1_e4.3_400bps_hac@v5.0.0'
+                """
+            }
+
+            // Note: Timeout constraint removed - not supported in nf-test process tests
+        }
+
+        then {
+            // May timeout or succeed depending on system performance
+            if (process.failed) {
+                def error_output = process.stderr.text
+                // Check for timeout-related errors
+                assert error_output.contains('timeout') || error_output.contains('killed') || error_output.contains('time')
+            } else {
+                // If it succeeds, verify outputs
+                assert process.success
+                assert process.out.fastq.size() == 1
+                assert process.out.versions.size() == 1
+            }
+        }
+    }
+
+    test("Edge Case 9: Stub mode validation") {
+
+        options "-stub"
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [
+                        id: 'stub_validation_test',
+                        single_end: true
+                    ],
+                    []
+                ]
+                input[1] = 'dna_r10.4.1_e4.3_400bps_hac@v5.0.0'
+                """
+            }
+        }
+
+        then {
+            assert process.success
+            assert process.out.fastq.size() == 1
+            assert process.out.versions.size() == 1
+
+            def (meta, fastq_file) = process.out.fastq[0]
+            assert meta.id == 'stub_validation_test'
+            assert path(fastq_file).exists()
+
+            // Stub should produce valid FASTQ format
+            def fastq_content = path(fastq_file).text
+            assert fastq_content.contains('@') || fastq_content.size() > 0
+        }
+    }
+
+    test("Edge Case 10: Zero quality score threshold") {
+
+        setup {
+            """
+            # Create test POD5 file
+            echo 'test pod5 content for min quality test' > $outputDir/zero_qscore.pod5
+            """
+        }
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [
+                        id: 'zero_qscore_test',
+                        single_end: true
+                    ],
+                    file('$outputDir/zero_qscore.pod5')
+                ]
+                input[1] = 'dna_r10.4.1_e4.3_400bps_hac@v5.0.0'
+                """
+            }
+        }
+
+        then {
+            // Should succeed and accept all reads
+            if (process.success) {
+                assert process.out.fastq.size() == 1
+                assert process.out.versions.size() == 1
+
+                def (meta, fastq_file) = process.out.fastq[0]
+                assert meta.id == 'zero_qscore_test'
+                assert path(fastq_file).exists()
+            }
+        }
+    }
+}

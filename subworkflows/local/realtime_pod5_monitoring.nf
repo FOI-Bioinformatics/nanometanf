@@ -24,13 +24,12 @@ workflow REALTIME_POD5_MONITORING {
         log.info "Batch size: ${batch_size}"
         log.info "Dorado model: ${dorado_model}"
         
-        ch_pod5_files = Channel
-            .watchPath("${watch_dir}/${file_pattern}", 'create,modify')
-            .until { file -> 
-                // Stop watching after processing max_files (if set)
-                params.max_files && 
-                Channel.watchPath("${watch_dir}/${file_pattern}").count() >= params.max_files
-            }
+        // Watch for POD5 files and limit if max_files is set
+        def ch_watched = Channel.watchPath("${watch_dir}/${file_pattern}", 'create,modify')
+
+        ch_pod5_files = params.max_files
+            ? ch_watched.take(params.max_files.toInteger())
+            : ch_watched
         
         //
         // CHANNEL: Create batches of POD5 files for processing

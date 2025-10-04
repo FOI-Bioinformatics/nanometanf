@@ -8,7 +8,7 @@ nextflow_process {
 
         setup {
             // Create test snapshot statistics
-            script """
+            """
             cat > $outputDir/test_snapshot.json << 'EOF'
 {
   "batch_info": {
@@ -37,10 +37,10 @@ nextflow_process {
   }
 }
 EOF
-            """)
+            """
             
             // Create test cumulative statistics
-            script """
+            """
             cat > $outputDir/test_cumulative.json << 'EOF'
 {
   "session_info": {
@@ -65,7 +65,7 @@ EOF
   }
 }
 EOF
-            """)
+            """
         }
 
         when {
@@ -116,7 +116,7 @@ EOF
 
         setup {
             // Create snapshot with barcode information
-            script """
+            """
             cat > $outputDir/barcode_snapshot.json << 'EOF'
 {
   "batch_info": {
@@ -145,9 +145,9 @@ EOF
   }
 }
 EOF
-            """)
+            """
             
-            script """
+            """
             cat > $outputDir/barcode_cumulative.json << 'EOF'
 {
   "session_info": {
@@ -177,7 +177,7 @@ EOF
   }
 }
 EOF
-            """)
+            """
         }
 
         when {
@@ -222,7 +222,7 @@ EOF
 
         setup {
             // Create snapshot with quality alerts
-            script """
+            """
             cat > $outputDir/alert_snapshot.json << 'EOF'
 {
   "batch_info": {
@@ -247,9 +247,9 @@ EOF
   }
 }
 EOF
-            """)
+            """
             
-            script """
+            """
             cat > $outputDir/alert_cumulative.json << 'EOF'
 {
   "session_info": {
@@ -269,10 +269,10 @@ EOF
   }
 }
 EOF
-            """)
+            """
             
             // Create alerts file
-            script """
+            """
             cat > $outputDir/alerts.json << 'EOF'
 {
   "alerts": [
@@ -289,7 +289,7 @@ EOF
   ]
 }
 EOF
-            """)
+            """
         }
 
         when {
@@ -331,7 +331,7 @@ EOF
     test("Should generate minimal report for edge cases") {
 
         setup {
-            script """
+            """
             cat > $outputDir/minimal_snapshot.json << 'EOF'
 {
   "batch_info": {
@@ -346,9 +346,9 @@ EOF
   }
 }
 EOF
-            """)
+            """
             
-            script """
+            """
             cat > $outputDir/minimal_cumulative.json << 'EOF'
 {
   "session_info": {
@@ -368,7 +368,7 @@ EOF
   }
 }
 EOF
-            """)
+            """
         }
 
         when {

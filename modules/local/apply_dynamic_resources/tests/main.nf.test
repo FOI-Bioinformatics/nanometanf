@@ -1,0 +1,206 @@
+nextflow_process {
+
+    name "Test APPLY_DYNAMIC_RESOURCES"
+    script "../main.nf"
+    process "APPLY_DYNAMIC_RESOURCES"
+
+    tag "modules"
+    tag "modules_local"
+    tag "apply_dynamic_resources"
+
+    test("Should apply basic resource adjustments") {
+
+        tag "basic_adjustment"
+        tag "snapshot"
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [
+                        id: 'basic_adjustment_test',
+                        single_end: true
+                    ],
+                    file('$projectDir/tests/fixtures/allocations/balanced_allocation.json')
+                ]
+                input[1] = [
+                    safety_factor: 0.8,
+                    apply_process_specific: true,
+                    respect_system_limits: true
+                ]
+                """
+            }
+        }
+
+        then {
+            assertAll(
+                { assert process.success },
+                { assert snapshot(process.out).match() }
+            )
+        }
+    }
+
+    test("Should handle aggressive resource scaling") {
+
+        tag "aggressive_scaling"
+        tag "snapshot"
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [
+                        id: 'aggressive_scaling_test',
+                        single_end: true
+                    ],
+                    file('$projectDir/tests/fixtures/allocations/balanced_allocation.json')
+                ]
+                input[1] = [
+                    safety_factor: 0.9,
+                    apply_process_specific: true,
+                    respect_system_limits: true,
+                    allow_aggressive_scaling: true
+                ]
+                """
+            }
+        }
+
+        then {
+            assertAll(
+                { assert process.success },
+                { assert snapshot(process.out).match() }
+            )
+        }
+    }
+
+    test("Should respect system resource limits") {
+
+        tag "system_limits"
+        tag "snapshot"
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [
+                        id: 'constrained_system_test',
+                        single_end: true
+                    ],
+                    file('$projectDir/tests/fixtures/allocations/balanced_allocation.json')
+                ]
+                input[1] = [
+                    safety_factor: 0.8,
+                    apply_process_specific: true,
+                    respect_system_limits: true,
+                    enforce_hard_limits: true
+                ]
+                """
+            }
+        }
+
+        then {
+            assertAll(
+                { assert process.success },
+                { assert snapshot(process.out).match() }
+            )
+        }
+    }
+
+    test("Should handle GPU resource allocation") {
+
+        tag "gpu_allocation"
+        tag "snapshot"
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [
+                        id: 'gpu_allocation_test',
+                        single_end: true
+                    ],
+                    file('$projectDir/tests/fixtures/allocations/balanced_allocation.json')
+                ]
+                input[1] = [
+                    safety_factor: 0.8,
+                    apply_gpu_optimization: true,
+                    gpu_allocation_strategy: "balanced"
+                ]
+                """
+            }
+        }
+
+        then {
+            assertAll(
+                { assert process.success },
+                { assert snapshot(process.out).match() }
+            )
+        }
+    }
+
+    test("Should generate conservative resource allocation") {
+
+        tag "conservative_allocation"
+        tag "snapshot"
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [
+                        id: 'conservative_allocation_test',
+                        single_end: true
+                    ],
+                    file('$projectDir/tests/fixtures/allocations/balanced_allocation.json')
+                ]
+                input[1] = [
+                    safety_factor: 0.6,
+                    apply_process_specific: true,
+                    conservative_mode: true,
+                    respect_shared_resources: true
+                ]
+                """
+            }
+        }
+
+        then {
+            assertAll(
+                { assert process.success },
+                { assert snapshot(process.out).match() }
+            )
+        }
+    }
+
+    test("Should handle invalid or malformed recommendations") {
+
+        tag "edge_cases"
+        tag "snapshot"
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [
+                        id: 'invalid_input_test',
+                        single_end: true
+                    ],
+                    file('$projectDir/tests/fixtures/edge_cases/extreme_allocation.json')
+                ]
+                input[1] = [
+                    safety_factor: 0.8,
+                    handle_invalid_input: true,
+                    use_fallback_defaults: true
+                ]
+                """
+            }
+        }
+
+        then {
+            assertAll(
+                { assert process.success },
+                { assert snapshot(process.out).match() }
+            )
+        }
+    }
+
+}

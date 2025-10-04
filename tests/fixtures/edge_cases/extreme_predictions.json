@@ -1,0 +1,77 @@
+{
+  "sample_id": "extreme_test",
+  "prediction_timestamp": "2024-10-02T20:00:00",
+  "tool_context": {
+    "tool_name": "unknown"
+  },
+  "input_characteristics_summary": {
+    "total_size_gb": 999.0,
+    "total_estimated_reads": 99999999,
+    "file_count": 100,
+    "complexity_score": 5.0
+  },
+  "system_context_summary": {
+    "cpu_cores_available": 1,
+    "memory_gb_available": 1.0,
+    "gpu_available": false,
+    "current_load": "critical"
+  },
+  "predictions": {
+    "cpu_requirements": {
+      "predicted_cores": 999,
+      "base_cores": 100,
+      "scaling_factor": 10.0,
+      "complexity_adjustment": 5.0,
+      "tool_profile": {
+        "base_cores": 1,
+        "scaling_factor": 0.01,
+        "max_cores": 1000
+      }
+    },
+    "memory_requirements": {
+      "predicted_memory_gb": 9999.0,
+      "base_memory_gb": 1000.0,
+      "scaling_component": 8999.0,
+      "complexity_adjustment": 5.0,
+      "tool_profile": {
+        "base_memory_gb": 1.0,
+        "scaling_factor": 10.0,
+        "max_memory_gb": 10000.0
+      }
+    },
+    "runtime_estimates": {
+      "predicted_runtime_seconds": 999999,
+      "predicted_runtime_minutes": 16666.0,
+      "predicted_runtime_hours": 277.78,
+      "base_processing_time": 900000,
+      "startup_time": 9999,
+      "parallelization_efficiency": 0.1
+    },
+    "io_requirements": {
+      "temp_space_gb": 9999.0,
+      "read_throughput_mb_s": 1,
+      "write_throughput_mb_s": 1,
+      "io_pattern": "random",
+      "multiple_files": true,
+      "concurrent_io": true
+    }
+  },
+  "confidence_metrics": {
+    "confidence_score": 0.100,
+    "confidence_level": "low",
+    "factors": {
+      "data_completeness": 0.2,
+      "system_metrics_quality": 0.1,
+      "file_type_certainty": 0.05,
+      "size_reasonableness": 0.05
+    }
+  },
+  "recommendations": {
+    "optimal_cpu_cores": 999,
+    "optimal_memory_gb": 9999.0,
+    "estimated_runtime_hours": 277.78,
+    "temp_space_gb": 9999.0,
+    "gpu_acceleration": false,
+    "priority_level": "critical"
+  }
+}

@@ -19,7 +19,7 @@ process MONITOR_SYSTEM_RESOURCES {
     
     """
     #!/usr/bin/env python3
-    
+
     import json
     import os
     import time
@@ -28,8 +28,8 @@ process MONITOR_SYSTEM_RESOURCES {
     import psutil
     from pathlib import Path
     from datetime import datetime
-    
-    system_config = ${groovy.json.JsonBuilder(system_config).toString()}
+
+    system_config = json.loads('${new groovy.json.JsonBuilder(system_config).toString()}')
     
     def get_cpu_info():
         """Get detailed CPU information"""
@@ -331,9 +331,80 @@ process MONITOR_SYSTEM_RESOURCES {
 
     stub:
     """
-    echo '{"hostname": "stub", "cpu": {"logical_cores": 4}, "memory": {"total_gb": 8}}' > system_metrics.json
-    echo '{"max_cpu_cores": 4, "max_memory_gb": 6}' > resource_limits.json
-    
+    cat > system_metrics.json <<'STUB_EOF'
+{
+  "timestamp": "2024-01-01T00:00:00",
+  "hostname": "stub-hostname",
+  "platform": "Linux",
+  "platform_version": "5.15.0",
+  "architecture": "x86_64",
+  "cpu": {
+    "physical_cores": 4,
+    "logical_cores": 8,
+    "current_freq_mhz": 2400.0,
+    "max_freq_mhz": 3200.0,
+    "architecture": "x86_64",
+    "cpu_brand": "Intel Core i7"
+  },
+  "memory": {
+    "total_gb": 16.0,
+    "available_gb": 12.0,
+    "used_gb": 4.0,
+    "free_gb": 12.0,
+    "utilization_percent": 25.0,
+    "swap_total_gb": 8.0,
+    "swap_used_gb": 0.0,
+    "swap_utilization_percent": 0.0
+  },
+  "gpu": {
+    "nvidia_gpus": [],
+    "apple_gpus": [],
+    "total_gpu_memory_gb": 0.0,
+    "gpu_available": false
+  },
+  "disk": {
+    "total_gb": 500.0,
+    "used_gb": 300.0,
+    "free_gb": 200.0,
+    "utilization_percent": 60.0,
+    "io_busy_percent": 5.0
+  },
+  "network": {
+    "interfaces": [],
+    "total_bytes_sent": 0,
+    "total_bytes_recv": 0
+  },
+  "current_load": {
+    "cpu_utilization_percent": 20.0,
+    "memory_utilization_percent": 25.0,
+    "load_average_1min": 1.5,
+    "load_average_5min": 1.2,
+    "load_average_15min": 1.0,
+    "active_processes": 150,
+    "load_classification": "low"
+  },
+  "monitoring_config": {}
+}
+STUB_EOF
+
+    cat > resource_limits.json <<'STUB_EOF'
+{
+  "max_cpu_cores": 6,
+  "max_memory_gb": 12.0,
+  "max_gpu_memory_gb": 0.0,
+  "recommended_parallel_jobs": 2,
+  "disk_space_warning_gb": 10,
+  "memory_pressure_threshold": 85,
+  "cpu_pressure_threshold": 80,
+  "current_capacity": {
+    "cpu_available_cores": 6,
+    "memory_available_gb": 12.0,
+    "can_handle_large_jobs": false,
+    "recommended_batch_size": 10
+  }
+}
+STUB_EOF
+
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
         python: "3.9"

@@ -1,0 +1,360 @@
+nextflow_workflow {
+
+    name "Test TAXONOMIC_CLASSIFICATION"
+    script "../../taxonomic_classification.nf"
+    workflow "TAXONOMIC_CLASSIFICATION"
+
+    test("Should perform basic Kraken2 taxonomic classification") {
+
+        setup {
+            """
+            # Create test data
+            cp $projectDir/tests/test_sample.fastq.gz $outputDir/classification_sample.fastq.gz
+            
+            # Create mock Kraken2 database directory
+            mkdir -p $outputDir/mock_kraken2_db
+            echo "Mock Kraken2 database" > $outputDir/mock_kraken2_db/hash.k2d
+            echo "Mock taxonomy" > $outputDir/mock_kraken2_db/taxo.k2d
+            echo "Mock options" > $outputDir/mock_kraken2_db/opts.k2d
+            """
+        }
+
+        when {
+            workflow {
+                """
+                input[0] = [
+                    [
+                        [id: 'classification_test', single_end: true],
+                        file('$outputDir/classification_sample.fastq.gz')
+                    ]
+                ]
+                input[1] = file('$outputDir/mock_kraken2_db')
+                """
+            }
+            
+            params {
+                classifier = 'kraken2'
+                taxpasta_format = 'tsv'
+                max_cpus = 2
+                max_memory = '4.GB'
+                max_time = '2.min'
+            }
+        }
+
+        then {
+            assert workflow.success
+            assert workflow.out.classified_reads
+            assert workflow.out.reports
+            assert workflow.out.versions
+            
+            // Verify Kraken2 processing
+            def reports = workflow.out.reports.toList()
+            assert reports.size() >= 1
+            
+            // Verify classified reads output
+            def classified_reads = workflow.out.classified_reads.toList()
+            assert classified_reads.size() >= 1
+        }
+    }
+
+    test("Should handle multiple classification formats") {
+
+        setup {
+            """
+            cp $projectDir/tests/test_sample.fastq.gz $outputDir/format_sample.fastq.gz
+            
+            # Create mock database
+            mkdir -p $outputDir/format_kraken2_db
+            echo "Mock database for format testing" > $outputDir/format_kraken2_db/hash.k2d
+            echo "Mock taxonomy data" > $outputDir/format_kraken2_db/taxo.k2d
+            echo "Mock options file" > $outputDir/format_kraken2_db/opts.k2d
+            """
+        }
+
+        when {
+            workflow {
+                """
+                input[0] = [
+                    [
+                        [id: 'format_test', single_end: true],
+                        file('$outputDir/format_sample.fastq.gz')
+                    ]
+                ]
+                input[1] = file('$outputDir/format_kraken2_db')
+                """
+            }
+            
+            params {
+                classifier = 'kraken2'
+                taxpasta_format = 'biom'
+                kraken2_save_output_fastqs = true
+                kraken2_save_readclassifications = true
+                max_cpus = 2
+                max_memory = '4.GB'
+                max_time = '2.min'
+            }
+        }
+
+        then {
+            assert workflow.success
+            assert workflow.out.classified_reads
+            assert workflow.out.unclassified_reads
+            assert workflow.out.reports
+            assert workflow.out.reads_assignment
+            
+            // Verify multiple output types
+            def classified_reads = workflow.out.classified_reads.toList()
+            assert classified_reads.size() >= 1
+            
+            def unclassified_reads = workflow.out.unclassified_reads.toList()
+            assert unclassified_reads.size() >= 1
+            
+            def assignments = workflow.out.reads_assignment.toList()
+            assert assignments.size() >= 1
+        }
+    }
+
+    test("Should process multiple samples in batch") {
+
+        setup {
+            """
+            # Create multiple test samples
+            cp $projectDir/tests/test_sample.fastq.gz $outputDir/batch_sample1.fastq.gz
+            cp $projectDir/tests/test_sample.fastq.gz $outputDir/batch_sample2.fastq.gz
+            cp $projectDir/tests/test_sample.fastq.gz $outputDir/batch_sample3.fastq.gz
+            
+            # Create mock database
+            mkdir -p $outputDir/batch_kraken2_db
+            echo "Mock batch database" > $outputDir/batch_kraken2_db/hash.k2d
+            echo "Mock batch taxonomy" > $outputDir/batch_kraken2_db/taxo.k2d
+            echo "Mock batch options" > $outputDir/batch_kraken2_db/opts.k2d
+            """
+        }
+
+        when {
+            workflow {
+                """
+                input[0] = [
+                    [
+                        [id: 'batch_sample1', single_end: true],
+                        file('$outputDir/batch_sample1.fastq.gz')
+                    ],
+                    [
+                        [id: 'batch_sample2', single_end: true],
+                        file('$outputDir/batch_sample2.fastq.gz')
+                    ],
+                    [
+                        [id: 'batch_sample3', single_end: true],
+                        file('$outputDir/batch_sample3.fastq.gz')
+                    ]
+                ]
+                input[1] = file('$outputDir/batch_kraken2_db')
+                """
+            }
+            
+            params {
+                classifier = 'kraken2'
+                taxpasta_format = 'tsv'
+                max_cpus = 2
+                max_memory = '4.GB'
+                max_time = '3.min'
+            }
+        }
+
+        then {
+            assert workflow.success
+            assert workflow.out.classified_reads
+            assert workflow.out.reports
+            
+            // Verify batch processing
+            def reports = workflow.out.reports.toList()
+            assert reports.size() >= 3
+            
+            def classified_reads = workflow.out.classified_reads.toList()
+            assert classified_reads.size() >= 3
+        }
+    }
+
+    test("Should handle classification confidence thresholds") {
+
+        setup {
+            """
+            cp $projectDir/tests/test_sample.fastq.gz $outputDir/confidence_sample.fastq.gz
+            
+            # Create mock database
+            mkdir -p $outputDir/confidence_kraken2_db
+            echo "Mock confidence database" > $outputDir/confidence_kraken2_db/hash.k2d
+            echo "Mock confidence taxonomy" > $outputDir/confidence_kraken2_db/taxo.k2d
+            echo "Mock confidence options" > $outputDir/confidence_kraken2_db/opts.k2d
+            """
+        }
+
+        when {
+            workflow {
+                """
+                input[0] = [
+                    [
+                        [id: 'confidence_test', single_end: true],
+                        file('$outputDir/confidence_sample.fastq.gz')
+                    ]
+                ]
+                input[1] = file('$outputDir/confidence_kraken2_db')
+                """
+            }
+            
+            params {
+                classifier = 'kraken2'
+                taxpasta_format = 'tsv'
+                kraken2_confidence = 0.75
+                kraken2_minimum_base_quality = 20
+                max_cpus = 2
+                max_memory = '4.GB'
+                max_time = '2.min'
+            }
+        }
+
+        then {
+            assert workflow.success
+            assert workflow.out.classified_reads
+            assert workflow.out.reports
+            
+            // Verify confidence-based processing
+            def reports = workflow.out.reports.toList()
+            assert reports.size() >= 1
+        }
+    }
+
+    test("Should standardize output with Taxpasta") {
+
+        setup {
+            """
+            cp $projectDir/tests/test_sample.fastq.gz $outputDir/taxpasta_sample.fastq.gz
+            
+            # Create mock database
+            mkdir -p $outputDir/taxpasta_kraken2_db
+            echo "Mock taxpasta database" > $outputDir/taxpasta_kraken2_db/hash.k2d
+            echo "Mock taxpasta taxonomy" > $outputDir/taxpasta_kraken2_db/taxo.k2d
+            echo "Mock taxpasta options" > $outputDir/taxpasta_kraken2_db/opts.k2d
+            """
+        }
+
+        when {
+            workflow {
+                """
+                input[0] = [
+                    [
+                        [id: 'taxpasta_test', single_end: true],
+                        file('$outputDir/taxpasta_sample.fastq.gz')
+                    ]
+                ]
+                input[1] = file('$outputDir/taxpasta_kraken2_db')
+                """
+            }
+            
+            params {
+                classifier = 'kraken2'
+                taxpasta_format = 'biom'
+                taxpasta_add_name = true
+                taxpasta_add_rank = true
+                taxpasta_add_lineage = true
+                max_cpus = 2
+                max_memory = '4.GB'
+                max_time = '2.min'
+            }
+        }
+
+        then {
+            assert workflow.success
+            assert workflow.out.reports
+            assert workflow.out.standardised_reports
+            
+            // Verify Taxpasta standardization
+            if (workflow.out.standardised_reports) {
+                def standardised = workflow.out.standardised_reports.toList()
+                assert standardised.size() >= 1
+            }
+        }
+    }
+
+    test("Should handle empty input gracefully") {
+
+        when {
+            workflow {
+                """
+                input[0] = []
+                input[1] = file('$projectDir/assets/test_data')  // Use any existing directory
+                """
+            }
+            
+            params {
+                classifier = 'kraken2'
+                taxpasta_format = 'tsv'
+                max_cpus = 1
+                max_memory = '2.GB'
+                max_time = '1.min'
+            }
+        }
+
+        then {
+            // Should handle empty input gracefully
+            assert workflow.success
+            
+            if (workflow.success) {
+                // Empty outputs expected
+                if (workflow.out.classified_reads) {
+                    def classified_reads = workflow.out.classified_reads.toList()
+                    assert classified_reads.size() == 0
+                }
+            }
+        }
+    }
+
+    test("Should support different Kraken2 database types") {
+
+        setup {
+            """
+            cp $projectDir/tests/test_sample.fastq.gz $outputDir/db_type_sample.fastq.gz
+            
+            # Create mock standard database
+            mkdir -p $outputDir/standard_kraken2_db
+            echo "Standard mock database" > $outputDir/standard_kraken2_db/hash.k2d
+            echo "Standard mock taxonomy" > $outputDir/standard_kraken2_db/taxo.k2d
+            echo "Standard mock options" > $outputDir/standard_kraken2_db/opts.k2d
+            """
+        }
+
+        when {
+            workflow {
+                """
+                input[0] = [
+                    [
+                        [id: 'db_type_test', single_end: true],
+                        file('$outputDir/db_type_sample.fastq.gz')
+                    ]
+                ]
+                input[1] = file('$outputDir/standard_kraken2_db')
+                """
+            }
+            
+            params {
+                classifier = 'kraken2'
+                taxpasta_format = 'tsv'
+                kraken2_use_names = true
+                kraken2_report_zero_counts = true
+                max_cpus = 2
+                max_memory = '4.GB'
+                max_time = '2.min'
+            }
+        }
+
+        then {
+            assert workflow.success
+            assert workflow.out.classified_reads
+            assert workflow.out.reports
+            
+            // Verify database-specific processing
+            def reports = workflow.out.reports.toList()
+            assert reports.size() >= 1
+        }
+    }
+}

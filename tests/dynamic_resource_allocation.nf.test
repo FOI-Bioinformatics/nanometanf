@@ -1,9 +1,9 @@
 nextflow_pipeline {
 
     name "Test dynamic resource allocation system"
-    ../main.nf"
+    script "../main.nf"
 
-    test("Should analyze input characteristics and predict resource requirements {
+    test("Should analyze input characteristics and predict resource requirements") {
 
         when {
             params {
@@ -62,11 +62,11 @@ nextflow_pipeline {
             assert workflow.trace.tasks().any { it.name.contains('FASTP') }
             
             // Check resource allocation outputs
-            assert path("${outputDir}/results/resource_analysis.exists()
-            assert path("${outputDir}/results/dynamic_resources.exists()
+            assert path("${outputDir}/results/resource_analysis").exists()
+            assert path("${outputDir}/results/dynamic_resources").exists()
             
             // Verify resource prediction files exist
-            def resource_outputs = path("${outputDir}/results/dynamic_resources.list()
+            def resource_outputs = path("${outputDir}/results/dynamic_resources").list()
             def resource_files = resource_outputs.findAll { 
                 it.name.contains('resource') || it.name.contains('prediction') || it.name.contains('optimization')
             }
@@ -74,7 +74,7 @@ nextflow_pipeline {
         }
     }
 
-    test("Should apply different resource optimization profiles {
+    test("Should apply different resource optimization profiles") {
 
         when {
             params {
@@ -127,11 +127,11 @@ nextflow_pipeline {
             assert processing_tasks.size() >= 1
             
             // Resource outputs should be generated
-            assert path("${outputDir}/results/resource_analysis.exists()
-            assert path("${outputDir}/results/dynamic_resources.exists()
+            assert path("${outputDir}/results/resource_analysis").exists()
+            assert path("${outputDir}/results/dynamic_resources").exists()
             
             // Profile-specific outputs should exist
-            def resource_dir = path("${outputDir}/results/dynamic_resources
+            def resource_dir = path("${outputDir}/results/dynamic_resources")
             def profile_files = resource_dir.list().findAll { 
                 it.name.contains('profile') || it.name.contains('high_throughput') 
             }
@@ -140,7 +140,7 @@ nextflow_pipeline {
         }
     }
 
-    test("Should monitor system resources and apply dynamic scaling {
+    test("Should monitor system resources and apply dynamic scaling") {
 
         when {
             params {
@@ -203,11 +203,11 @@ nextflow_pipeline {
             assert fastp_tasks.size() >= 1
             
             // System monitoring outputs should exist
-            assert path("${outputDir}/results/resource_analysis.exists()
-            assert path("${outputDir}/results/dynamic_resources.exists()
+            assert path("${outputDir}/results/resource_analysis").exists()
+            assert path("${outputDir}/results/dynamic_resources").exists()
             
             // System resource files should be generated
-            def resource_dir = path("${outputDir}/results/dynamic_resources
+            def resource_dir = path("${outputDir}/results/dynamic_resources")
             def monitoring_files = resource_dir.list().findAll { 
                 it.name.contains('system') || it.name.contains('monitoring') || it.name.contains('resources')
             }
@@ -215,7 +215,7 @@ nextflow_pipeline {
         }
     }
 
-    test("Should integrate resource learning and feedback system {
+    test("Should integrate resource learning and feedback system") {
 
         when {
             params {
@@ -279,11 +279,11 @@ nextflow_pipeline {
             assert processing_tasks.size() >= 1
             
             // Learning system outputs should exist
-            assert path("${outputDir}/results/resource_analysis.exists()
-            assert path("${outputDir}/results/dynamic_resources.exists()
+            assert path("${outputDir}/results/resource_analysis").exists()
+            assert path("${outputDir}/results/dynamic_resources").exists()
             
             // Learning-related files should be generated
-            def resource_dir = path("${outputDir}/results/dynamic_resources
+            def resource_dir = path("${outputDir}/results/dynamic_resources")
             def learning_files = resource_dir.list().findAll { 
                 it.name.contains('learning') || it.name.contains('feedback') || 
                 it.name.contains('model') || it.name.contains('prediction')
@@ -292,7 +292,7 @@ nextflow_pipeline {
         }
     }
 
-    test("Should handle resource allocation edge cases gracefully {
+    test("Should handle resource allocation edge cases gracefully") {
 
         when {
             params {
@@ -335,7 +335,7 @@ nextflow_pipeline {
 
         then {
             // Should handle edge cases gracefully
-            assert workflow.success || workflow.failed
+            assert workflow.success
             
             if (workflow.success) {
                 // If successful, minimal processing should occur
@@ -351,12 +351,13 @@ nextflow_pipeline {
             
             if (workflow.failed) {
                 // Should fail quickly if resources are insufficient
-                assert workflow.duration.toMillis() < 90000 // Less than 90 seconds
+                // REMOVED: workflow.duration property not available in nf-test
+                // assert workflow.duration.toMillis() < 90000 // Less than 90 seconds
             }
         }
     }
 
-    test("Should validate dynamic resource allocation parameters {
+    test("Should validate dynamic resource allocation parameters") {
 
         when {
             params {

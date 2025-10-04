@@ -27,8 +27,8 @@ process COLLECT_PERFORMANCE_FEEDBACK {
     from pathlib import Path
     
     # Load input data
-    meta = ${groovy.json.JsonBuilder(meta).toString()}
-    learning_config = ${groovy.json.JsonBuilder(learning_config).toString()}
+    meta = json.loads('${new groovy.json.JsonBuilder(meta).toString()}')
+    learning_config = json.loads('${new groovy.json.JsonBuilder(learning_config).toString()}')
     
     # Load prediction, allocation, and actual performance data
     with open('${predictions}', 'r') as f:
@@ -334,9 +334,140 @@ process COLLECT_PERFORMANCE_FEEDBACK {
 
     stub:
     """
-    echo '{"sample_id": "${meta.id}", "stub": true, "performance_summary": {"prediction_accuracy": {"score": 0.8}}}' > ${meta.id}_feedback_data.json
-    echo '{"update_timestamp": "stub", "learning_data": {}}' > performance_learning_update.json
-    
+    # Create comprehensive feedback data matching real output structure
+    cat > ${meta.id}_feedback_data.json << 'EOF'
+{
+    "sample_id": "${meta.id}",
+    "feedback_timestamp": "\$(date -Iseconds)",
+    "tool_context": {
+        "tool_name": "stub_tool",
+        "tool_version": "1.0"
+    },
+    "performance_summary": {
+        "prediction_accuracy": {
+            "score": 0.85,
+            "level": "high"
+        },
+        "resource_efficiency": {
+            "cpu_efficiency": 0.78,
+            "memory_efficiency": 0.82,
+            "overall_efficiency": 0.80
+        }
+    },
+    "detailed_analysis": {
+        "accuracy_breakdown": {
+            "cpu_accuracy": {
+                "predicted": 4,
+                "actual": 3.5,
+                "error_percentage": 12.5,
+                "accuracy_score": 0.875
+            },
+            "memory_accuracy": {
+                "predicted": 8,
+                "actual": 7.2,
+                "error_percentage": 10.0,
+                "accuracy_score": 0.90
+            },
+            "runtime_accuracy": {
+                "predicted": 2.0,
+                "actual": 1.8,
+                "error_percentage": 10.0,
+                "accuracy_score": 0.90
+            },
+            "overall_accuracy": {
+                "score": 0.85,
+                "level": "high"
+            }
+        },
+        "efficiency_breakdown": {
+            "cpu_efficiency": {
+                "allocated_cores": 4,
+                "peak_used_cores": 3.5,
+                "average_utilization": 75.0,
+                "peak_utilization": 87.5,
+                "efficiency_score": 0.78
+            },
+            "memory_efficiency": {
+                "allocated_gb": 8,
+                "peak_used_gb": 7.2,
+                "average_utilization": 80.0,
+                "peak_utilization": 90.0,
+                "efficiency_score": 0.82
+            },
+            "resource_waste": {
+                "cpu_cores_wasted": 0.5,
+                "memory_gb_wasted": 0.8,
+                "cpu_waste_percentage": 12.5,
+                "memory_waste_percentage": 10.0
+            },
+            "optimization_opportunities": []
+        },
+        "learning_insights": {
+            "prediction_adjustments": {
+                "cpu_scaling_factor": 0.95,
+                "memory_scaling_factor": 0.92
+            },
+            "tool_specific_learnings": {
+                "stub_tool": {
+                    "input_size_gb": 5.0,
+                    "cpu_cores_per_gb": 0.7,
+                    "memory_gb_per_input_gb": 1.44,
+                    "runtime_hours_per_gb": 0.36,
+                    "efficiency_notes": []
+                }
+            },
+            "pattern_recognition": {
+                "data_complexity_factor": 1.2,
+                "performance_correlation": {
+                    "complexity_vs_cpu": 4.2,
+                    "complexity_vs_memory": 8.64,
+                    "complexity_vs_runtime": 2.16
+                }
+            }
+        }
+    },
+    "actionable_recommendations": [
+        "Prediction accuracy is high - maintain current prediction algorithms",
+        "Resource efficiency is good - no major adjustments needed"
+    ],
+    "confidence_level": "high"
+}
+EOF
+
+    # Create learning update matching real output structure
+    cat > performance_learning_update.json << 'EOF'
+{
+    "update_timestamp": "\$(date -Iseconds)",
+    "sample_id": "${meta.id}",
+    "tool_name": "stub_tool",
+    "learning_data": {
+        "prediction_corrections": {
+            "cpu_scaling_factor": 0.95,
+            "memory_scaling_factor": 0.92
+        },
+        "tool_performance_data": {
+            "stub_tool": {
+                "input_size_gb": 5.0,
+                "cpu_cores_per_gb": 0.7,
+                "memory_gb_per_input_gb": 1.44,
+                "runtime_hours_per_gb": 0.36,
+                "efficiency_notes": []
+            }
+        },
+        "pattern_data": {
+            "data_complexity_factor": 1.2,
+            "performance_correlation": {
+                "complexity_vs_cpu": 4.2,
+                "complexity_vs_memory": 8.64,
+                "complexity_vs_runtime": 2.16
+            }
+        }
+    },
+    "update_confidence": 0.85,
+    "applicable_to_future": true
+}
+EOF
+
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
         python: "3.9"
@@ -374,9 +505,9 @@ process UPDATE_LEARNING_MODEL {
     from datetime import datetime, timedelta
     from pathlib import Path
     from collections import defaultdict
-    
-    learning_config = ${groovy.json.JsonBuilder(learning_config).toString()}
-    
+
+    learning_config = json.loads('${new groovy.json.JsonBuilder(learning_config).toString()}')
+
     def load_all_feedback_data(feedback_files):
         \"\"\"Load and aggregate all feedback data\"\"\"
         all_feedback = []

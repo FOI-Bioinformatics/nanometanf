@@ -1,0 +1,63 @@
+nextflow_process {
+
+    name "Test LOAD_OPTIMIZATION_PROFILES"
+    script "../main.nf"
+    process "LOAD_OPTIMIZATION_PROFILES"
+
+    tag "modules"
+    tag "modules_local"
+    tag "load_optimization_profiles"
+
+    test("Should load high throughput profile") {
+
+        tag "high_throughput"
+        tag "snapshot"
+
+        when {
+            process {
+                """
+                input[0] = 'high_throughput'
+                input[1] = [
+                    platform: 'local',
+                    available_cpus: 8,
+                    available_memory_gb: 16
+                ]
+                """
+            }
+        }
+
+        then {
+            assertAll(
+                { assert process.success },
+                { assert snapshot(process.out).match() }
+            )
+        }
+    }
+
+    test("Should load auto profile") {
+
+        tag "auto"
+        tag "snapshot"
+
+        when {
+            process {
+                """
+                input[0] = 'auto'
+                input[1] = [
+                    platform: 'local',
+                    available_cpus: 11,
+                    available_memory_gb: 18,
+                    has_gpu: false
+                ]
+                """
+            }
+        }
+
+        then {
+            assertAll(
+                { assert process.success },
+                { assert snapshot(process.out).match() }
+            )
+        }
+    }
+}

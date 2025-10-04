@@ -21,13 +21,12 @@ workflow REALTIME_MONITORING {
         log.info "Batch size: ${batch_size}"
         log.info "Batch interval: ${batch_interval}"
         
-        ch_input_files = Channel
-            .watchPath("${watch_dir}/${file_pattern}", 'create,modify')
-            .until { file -> 
-                // Stop watching after processing max_files (if set)
-                params.max_files && 
-                Channel.watchPath("${watch_dir}/${file_pattern}").count() >= params.max_files
-            }
+        // Watch for files and limit if max_files is set
+        def ch_watched = Channel.watchPath("${watch_dir}/${file_pattern}", 'create,modify')
+
+        ch_input_files = params.max_files
+            ? ch_watched.take(params.max_files.toInteger())
+            : ch_watched
         
         //
         // CHANNEL: Create batches for processing

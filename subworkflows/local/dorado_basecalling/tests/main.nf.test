@@ -1,0 +1,602 @@
+nextflow_workflow {
+
+    name "Test DORADO_BASECALLING"
+    script "../../dorado_basecalling.nf"
+    workflow "DORADO_BASECALLING"
+
+    test("Should perform basic Dorado basecalling without demultiplexing") {
+
+        setup {
+            """
+            # Create mock POD5 files for basecalling
+            mkdir -p $outputDir/pod5_input
+            echo "Mock POD5 data 1" > $outputDir/pod5_input/batch_001.pod5
+            echo "Mock POD5 data 2" > $outputDir/pod5_input/batch_002.pod5
+            echo "Mock POD5 data 3" > $outputDir/pod5_input/batch_003.pod5
+            """
+        }
+
+        when {
+            workflow {
+                """
+                input[0] = [
+                    [
+                        [id: 'single_sample', single_end: true],
+                        [
+                            file('$outputDir/pod5_input/batch_001.pod5'),
+                            file('$outputDir/pod5_input/batch_002.pod5'),
+                            file('$outputDir/pod5_input/batch_003.pod5')
+                        ]
+                    ]
+                ]
+                input[1] = 'dna_r10.4.1_e4.3_400bps_hac@v5.0.0'  // dorado_model
+                """
+            }
+            
+            params {
+                demultiplex = false
+                barcode_kit = null
+                use_dorado = true
+                dorado_path = '/mock/dorado/path'
+                min_qscore = 9
+                max_cpus = 4
+                max_memory = '8.GB'
+                max_time = '5.min'
+            }
+        }
+
+        then {
+            assert workflow.success
+            assert workflow.out.fastq
+            assert workflow.out.summary
+            assert workflow.out.versions
+            
+            // Verify basecalling output
+            def fastq_outputs = workflow.out.fastq.toList()
+            assert fastq_outputs.size() >= 1
+            
+            // Verify summary output
+            def summary_outputs = workflow.out.summary.toList()
+            assert summary_outputs.size() >= 1
+            
+            // Verify versions output
+            def versions = workflow.out.versions.toList()
+            assert versions.size() >= 1
+        }
+    }
+
+    test("Should perform Dorado basecalling with demultiplexing") {
+
+        setup {
+            """
+            # Create mock POD5 files for multiplexed basecalling
+            mkdir -p $outputDir/multiplex_pod5
+            echo "Multiplexed POD5 data 1" > $outputDir/multiplex_pod5/multiplex_001.pod5
+            echo "Multiplexed POD5 data 2" > $outputDir/multiplex_pod5/multiplex_002.pod5
+            echo "Multiplexed POD5 data 3" > $outputDir/multiplex_pod5/multiplex_003.pod5
+            """
+        }
+
+        when {
+            workflow {
+                """
+                input[0] = [
+                    [
+                        [id: 'multiplex_sample', single_end: true],
+                        [
+                            file('$outputDir/multiplex_pod5/multiplex_001.pod5'),
+                            file('$outputDir/multiplex_pod5/multiplex_002.pod5'),
+                            file('$outputDir/multiplex_pod5/multiplex_003.pod5')
+                        ]
+                    ]
+                ]
+                input[1] = 'dna_r10.4.1_e4.3_400bps_hac@v5.0.0'  // dorado_model
+                """
+            }
+            
+            params {
+                demultiplex = true
+                barcode_kit = 'SQK-NBD114-24'
+                use_dorado = true
+                trim_barcodes = true
+                dorado_path = '/mock/dorado/path'
+                min_qscore = 9
+                max_cpus = 4
+                max_memory = '8.GB'
+                max_time = '8.min'
+            }
+        }
+
+        then {
+            assert workflow.success
+            assert workflow.out.fastq
+            assert workflow.out.summary
+            assert workflow.out.versions
+            
+            // Verify demultiplexed output
+            def fastq_outputs = workflow.out.fastq.toList()
+            assert fastq_outputs.size() >= 1
+            
+            // Verify summary output for multiplex
+            def summary_outputs = workflow.out.summary.toList()
+            assert summary_outputs.size() >= 1
+            
+            // Should have versions from both basecalling and demultiplexing
+            def versions = workflow.out.versions.toList()
+            assert versions.size() >= 1
+        }
+    }
+
+    test("Should handle multiple POD5 samples in batch") {
+
+        setup {
+            """
+            # Create multiple POD5 sample directories
+            mkdir -p $outputDir/batch_pod5/sample1
+            mkdir -p $outputDir/batch_pod5/sample2
+            mkdir -p $outputDir/batch_pod5/sample3
+            
+            # Sample 1 POD5 files
+            echo "Sample 1 POD5 data A" > $outputDir/batch_pod5/sample1/s1_batch_001.pod5
+            echo "Sample 1 POD5 data B" > $outputDir/batch_pod5/sample1/s1_batch_002.pod5
+            
+            # Sample 2 POD5 files
+            echo "Sample 2 POD5 data A" > $outputDir/batch_pod5/sample2/s2_batch_001.pod5
+            echo "Sample 2 POD5 data B" > $outputDir/batch_pod5/sample2/s2_batch_002.pod5
+            
+            # Sample 3 POD5 files
+            echo "Sample 3 POD5 data A" > $outputDir/batch_pod5/sample3/s3_batch_001.pod5
+            echo "Sample 3 POD5 data B" > $outputDir/batch_pod5/sample3/s3_batch_002.pod5
+            """
+        }
+
+        when {
+            workflow {
+                """
+                input[0] = [
+                    [
+                        [id: 'batch_sample1', single_end: true],
+                        [
+                            file('$outputDir/batch_pod5/sample1/s1_batch_001.pod5'),
+                            file('$outputDir/batch_pod5/sample1/s1_batch_002.pod5')
+                        ]
+                    ],
+                    [
+                        [id: 'batch_sample2', single_end: true],
+                        [
+                            file('$outputDir/batch_pod5/sample2/s2_batch_001.pod5'),
+                            file('$outputDir/batch_pod5/sample2/s2_batch_002.pod5')
+                        ]
+                    ],
+                    [
+                        [id: 'batch_sample3', single_end: true],
+                        [
+                            file('$outputDir/batch_pod5/sample3/s3_batch_001.pod5'),
+                            file('$outputDir/batch_pod5/sample3/s3_batch_002.pod5')
+                        ]
+                    ]
+                ]
+                input[1] = 'dna_r10.4.1_e4.3_400bps_fast@v5.0.0'  // dorado_model - fast model
+                """
+            }
+            
+            params {
+                demultiplex = false
+                barcode_kit = null
+                use_dorado = true
+                dorado_path = '/mock/dorado/path'
+                min_qscore = 7
+                max_cpus = 8
+                max_memory = '16.GB'
+                max_time = '10.min'
+            }
+        }
+
+        then {
+            assert workflow.success
+            assert workflow.out.fastq
+            assert workflow.out.summary
+            
+            // Verify batch processing
+            def fastq_outputs = workflow.out.fastq.toList()
+            assert fastq_outputs.size() >= 3
+            
+            def summary_outputs = workflow.out.summary.toList()
+            assert summary_outputs.size() >= 3
+            
+            // Verify all samples processed
+            def sample_ids = fastq_outputs.collect { meta, fastq -> meta.id }
+            assert sample_ids.contains('batch_sample1')
+            assert sample_ids.contains('batch_sample2')
+            assert sample_ids.contains('batch_sample3')
+        }
+    }
+
+    test("Should handle different Dorado models correctly") {
+
+        setup {
+            """
+            # Create POD5 files for model testing
+            mkdir -p $outputDir/model_test_pod5
+            echo "Model test POD5 data 1" > $outputDir/model_test_pod5/model_test_001.pod5
+            echo "Model test POD5 data 2" > $outputDir/model_test_pod5/model_test_002.pod5
+            """
+        }
+
+        when {
+            workflow {
+                """
+                input[0] = [
+                    [
+                        [id: 'model_test_sample', single_end: true],
+                        [
+                            file('$outputDir/model_test_pod5/model_test_001.pod5'),
+                            file('$outputDir/model_test_pod5/model_test_002.pod5')
+                        ]
+                    ]
+                ]
+                input[1] = 'dna_r10.4.1_e4.3_400bps_sup@v5.0.0'  // dorado_model - super accurate
+                """
+            }
+            
+            params {
+                demultiplex = false
+                barcode_kit = null
+                use_dorado = true
+                dorado_path = '/mock/dorado/path'
+                min_qscore = 12  // Higher quality threshold
+                max_cpus = 6
+                max_memory = '12.GB'
+                max_time = '8.min'
+            }
+        }
+
+        then {
+            assert workflow.success
+            assert workflow.out.fastq
+            assert workflow.out.summary
+            
+            // Verify model-specific processing
+            def fastq_outputs = workflow.out.fastq.toList()
+            assert fastq_outputs.size() >= 1
+            
+            def summary_outputs = workflow.out.summary.toList()
+            assert summary_outputs.size() >= 1
+        }
+    }
+
+    test("Should handle mixed single and multiplex samples") {
+
+        setup {
+            """
+            # Create mixed POD5 samples
+            mkdir -p $outputDir/mixed_pod5
+            
+            # Single sample POD5 files
+            echo "Single sample POD5 1" > $outputDir/mixed_pod5/single_001.pod5
+            echo "Single sample POD5 2" > $outputDir/mixed_pod5/single_002.pod5
+            
+            # Multiplex sample POD5 files  
+            echo "Multiplex sample POD5 1" > $outputDir/mixed_pod5/multiplex_001.pod5
+            echo "Multiplex sample POD5 2" > $outputDir/mixed_pod5/multiplex_002.pod5
+            """
+        }
+
+        when {
+            workflow {
+                """
+                input[0] = [
+                    [
+                        [id: 'single_sample', single_end: true, demultiplex: false],
+                        [
+                            file('$outputDir/mixed_pod5/single_001.pod5'),
+                            file('$outputDir/mixed_pod5/single_002.pod5')
+                        ]
+                    ],
+                    [
+                        [id: 'multiplex_sample', single_end: true, demultiplex: true],
+                        [
+                            file('$outputDir/mixed_pod5/multiplex_001.pod5'),
+                            file('$outputDir/mixed_pod5/multiplex_002.pod5')
+                        ]
+                    ]
+                ]
+                input[1] = 'dna_r10.4.1_e4.3_400bps_hac@v5.0.0'  // dorado_model
+                """
+            }
+            
+            params {
+                demultiplex = false  // Global setting - individual meta takes precedence
+                barcode_kit = 'SQK-NBD114-24'
+                use_dorado = true
+                dorado_path = '/mock/dorado/path'
+                min_qscore = 9
+                max_cpus = 4
+                max_memory = '8.GB'
+                max_time = '6.min'
+            }
+        }
+
+        then {
+            assert workflow.success
+            assert workflow.out.fastq
+            assert workflow.out.summary
+            
+            // Verify mixed sample handling
+            def fastq_outputs = workflow.out.fastq.toList()
+            assert fastq_outputs.size() >= 2
+            
+            def summary_outputs = workflow.out.summary.toList()
+            assert summary_outputs.size() >= 2
+            
+            // Verify both sample types processed
+            def sample_ids = fastq_outputs.collect { meta, fastq -> meta.id }
+            assert sample_ids.contains('single_sample') || sample_ids.contains('multiplex_sample')
+        }
+    }
+
+    test("Should handle different barcode kits for demultiplexing") {
+
+        setup {
+            """
+            # Create POD5 files for different barcode kits
+            mkdir -p $outputDir/barcode_kit_pod5
+            echo "Barcode kit test POD5 1" > $outputDir/barcode_kit_pod5/kit_test_001.pod5
+            echo "Barcode kit test POD5 2" > $outputDir/barcode_kit_pod5/kit_test_002.pod5
+            """
+        }
+
+        when {
+            workflow {
+                """
+                input[0] = [
+                    [
+                        [id: 'barcode_kit_sample', single_end: true],
+                        [
+                            file('$outputDir/barcode_kit_pod5/kit_test_001.pod5'),
+                            file('$outputDir/barcode_kit_pod5/kit_test_002.pod5')
+                        ]
+                    ]
+                ]
+                input[1] = 'dna_r10.4.1_e4.3_400bps_hac@v5.0.0'  // dorado_model
+                """
+            }
+            
+            params {
+                demultiplex = true
+                barcode_kit = 'SQK-RBK110-96'  // Different barcode kit
+                use_dorado = true
+                trim_barcodes = true
+                dorado_path = '/mock/dorado/path'
+                min_qscore = 9
+                max_cpus = 4
+                max_memory = '8.GB'
+                max_time = '6.min'
+            }
+        }
+
+        then {
+            assert workflow.success
+            assert workflow.out.fastq
+            assert workflow.out.summary
+            
+            // Verify different barcode kit handling
+            def fastq_outputs = workflow.out.fastq.toList()
+            assert fastq_outputs.size() >= 1
+            
+            def summary_outputs = workflow.out.summary.toList()
+            assert summary_outputs.size() >= 1
+        }
+    }
+
+    test("Should handle large POD5 datasets") {
+
+        setup {
+            """
+            # Create large POD5 dataset
+            mkdir -p $outputDir/large_pod5_dataset
+            for i in {1..20}; do
+                echo "Large dataset POD5 file $i - $(date)" > $outputDir/large_pod5_dataset/large_$(printf "%03d" $i).pod5
+            done
+            """
+        }
+
+        when {
+            workflow {
+                """
+                def pod5_files = []
+                for (int i = 1; i <= 20; i++) {
+                    pod5_files.add(file('$outputDir/large_pod5_dataset/large_' + String.format("%03d", i) + '.pod5'))
+                }
+                
+                input[0] = [
+                    [
+                        [id: 'large_dataset', single_end: true],
+                        pod5_files
+                    ]
+                ]
+                input[1] = 'dna_r10.4.1_e4.3_400bps_fast@v5.0.0'  // dorado_model - fast for large dataset
+                """
+            }
+            
+            params {
+                demultiplex = false
+                barcode_kit = null
+                use_dorado = true
+                dorado_path = '/mock/dorado/path'
+                min_qscore = 7  // Lower threshold for speed
+                max_cpus = 8
+                max_memory = '16.GB'
+                max_time = '15.min'
+            }
+        }
+
+        then {
+            assert workflow.success
+            assert workflow.out.fastq
+            assert workflow.out.summary
+            
+            // Verify large dataset handling
+            def fastq_outputs = workflow.out.fastq.toList()
+            assert fastq_outputs.size() >= 1
+            
+            // Verify processing efficiency
+            assert workflow.duration.toMillis() < 900000 // Less than 15 minutes
+        }
+    }
+
+    test("Should handle empty POD5 input gracefully") {
+
+        when {
+            workflow {
+                """
+                input[0] = []
+                input[1] = 'dna_r10.4.1_e4.3_400bps_hac@v5.0.0'  // dorado_model
+                """
+            }
+            
+            params {
+                demultiplex = false
+                barcode_kit = null
+                use_dorado = true
+                dorado_path = '/mock/dorado/path'
+                max_cpus = 1
+                max_memory = '2.GB'
+                max_time = '1.min'
+            }
+        }
+
+        then {
+            assert workflow.success
+            
+            // Should handle empty input gracefully
+            if (workflow.out.fastq) {
+                def fastq_outputs = workflow.out.fastq.toList()
+                assert fastq_outputs.size() == 0
+            }
+            
+            if (workflow.out.summary) {
+                def summary_outputs = workflow.out.summary.toList()
+                assert summary_outputs.size() == 0
+            }
+        }
+    }
+
+    test("Should validate quality score thresholds") {
+
+        setup {
+            """
+            # Create POD5 files for quality testing
+            mkdir -p $outputDir/quality_test_pod5
+            echo "Quality test POD5 1" > $outputDir/quality_test_pod5/quality_001.pod5
+            echo "Quality test POD5 2" > $outputDir/quality_test_pod5/quality_002.pod5
+            """
+        }
+
+        when {
+            workflow {
+                """
+                input[0] = [
+                    [
+                        [id: 'quality_test', single_end: true],
+                        [
+                            file('$outputDir/quality_test_pod5/quality_001.pod5'),
+                            file('$outputDir/quality_test_pod5/quality_002.pod5')
+                        ]
+                    ]
+                ]
+                input[1] = 'dna_r10.4.1_e4.3_400bps_sup@v5.0.0'  // dorado_model - super accurate
+                """
+            }
+            
+            params {
+                demultiplex = false
+                barcode_kit = null
+                use_dorado = true
+                dorado_path = '/mock/dorado/path'
+                min_qscore = 15  // High quality threshold
+                max_cpus = 4
+                max_memory = '8.GB'
+                max_time = '6.min'
+            }
+        }
+
+        then {
+            assert workflow.success
+            assert workflow.out.fastq
+            assert workflow.out.summary
+            
+            // Verify quality threshold handling
+            def fastq_outputs = workflow.out.fastq.toList()
+            assert fastq_outputs.size() >= 1
+            
+            def summary_outputs = workflow.out.summary.toList()
+            assert summary_outputs.size() >= 1
+        }
+    }
+
+    test("Should handle complex metadata with POD5 processing") {
+
+        setup {
+            """
+            # Create POD5 files for complex metadata testing
+            mkdir -p $outputDir/complex_metadata_pod5
+            echo "Complex metadata POD5 1" > $outputDir/complex_metadata_pod5/complex_001.pod5
+            echo "Complex metadata POD5 2" > $outputDir/complex_metadata_pod5/complex_002.pod5
+            """
+        }
+
+        when {
+            workflow {
+                """
+                input[0] = [
+                    [
+                        [
+                            id: 'complex_sample',
+                            single_end: true,
+                            sample_type: 'genomic_dna',
+                            sequencing_date: '2023-12-01',
+                            library_prep: 'ligation',
+                            flowcell_id: 'PAH12345',
+                            run_id: 'run_20231201_001'
+                        ],
+                        [
+                            file('$outputDir/complex_metadata_pod5/complex_001.pod5'),
+                            file('$outputDir/complex_metadata_pod5/complex_002.pod5')
+                        ]
+                    ]
+                ]
+                input[1] = 'dna_r10.4.1_e4.3_400bps_hac@v5.0.0'  // dorado_model
+                """
+            }
+            
+            params {
+                demultiplex = false
+                barcode_kit = null
+                use_dorado = true
+                dorado_path = '/mock/dorado/path'
+                min_qscore = 9
+                max_cpus = 4
+                max_memory = '8.GB'
+                max_time = '5.min'
+            }
+        }
+
+        then {
+            assert workflow.success
+            assert workflow.out.fastq
+            assert workflow.out.summary
+            
+            // Verify complex metadata preservation
+            def fastq_outputs = workflow.out.fastq.toList()
+            assert fastq_outputs.size() >= 1
+            
+            // Check metadata preservation
+            def first_output = fastq_outputs[0]
+            def meta = first_output[0]
+            assert meta.id == 'complex_sample'
+            assert meta.sample_type == 'genomic_dna'
+            assert meta.sequencing_date == '2023-12-01'
+        }
+    }
+}

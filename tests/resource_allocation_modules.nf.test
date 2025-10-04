@@ -1,9 +1,9 @@
 nextflow_pipeline {
 
     name "Test individual dynamic resource allocation modules"
-    ../main.nf"
+    script "../main.nf"
 
-    test("Should analyze input characteristics for resource prediction {
+    test("Should analyze input characteristics for resource prediction") {
 
         when {
             params {
@@ -48,10 +48,10 @@ nextflow_pipeline {
             assert processing_tasks.size() >= 1
             
             // Analysis outputs should be generated
-            assert path("${outputDir}/results/resource_analysis.exists()
+            assert path("${outputDir}/results/resource_analysis").exists()
             
             // Input characteristic files should exist
-            def analysis_dir = path("${outputDir}/results/resource_analysis
+            def analysis_dir = path("${outputDir}/results/resource_analysis")
             def characteristic_files = analysis_dir.list().findAll { 
                 it.name.contains('characteristics') || it.name.contains('analysis') || it.name.contains('input')
             }
@@ -59,7 +59,7 @@ nextflow_pipeline {
         }
     }
 
-    test("Should predict resource requirements using ML algorithms {
+    test("Should predict resource requirements using ML algorithms") {
 
         when {
             params {
@@ -119,10 +119,10 @@ nextflow_pipeline {
             assert processing_tasks.size() >= 1
             
             // Prediction outputs should exist
-            assert path("${outputDir}/results/resource_analysis.exists()
+            assert path("${outputDir}/results/resource_analysis").exists()
             
             // Prediction files should be generated
-            def analysis_dir = path("${outputDir}/results/resource_analysis
+            def analysis_dir = path("${outputDir}/results/resource_analysis")
             def prediction_files = analysis_dir.list().findAll { 
                 it.name.contains('prediction') || it.name.contains('requirements') || it.name.contains('ml')
             }
@@ -130,7 +130,7 @@ nextflow_pipeline {
         }
     }
 
-    test("Should monitor system resources in real-time {
+    test("Should monitor system resources in real-time") {
 
         when {
             params {
@@ -183,10 +183,10 @@ nextflow_pipeline {
             assert processing_tasks.size() >= 1
             
             // Monitoring outputs should be generated
-            assert path("${outputDir}/results/resource_analysis.exists()
+            assert path("${outputDir}/results/resource_analysis").exists()
             
             // System monitoring files should exist
-            def analysis_dir = path("${outputDir}/results/resource_analysis
+            def analysis_dir = path("${outputDir}/results/resource_analysis")
             def monitoring_files = analysis_dir.list().findAll { 
                 it.name.contains('system') || it.name.contains('monitoring') || it.name.contains('resources')
             }
@@ -194,7 +194,7 @@ nextflow_pipeline {
         }
     }
 
-    test("Should optimize resource allocation based on system state {
+    test("Should optimize resource allocation based on system state") {
 
         when {
             params {
@@ -258,10 +258,10 @@ nextflow_pipeline {
             assert processing_tasks.size() >= 1
             
             // Optimization outputs should be generated
-            assert path("${outputDir}/results/resource_analysis.exists()
+            assert path("${outputDir}/results/resource_analysis").exists()
             
             // Optimization files should exist
-            def analysis_dir = path("${outputDir}/results/resource_analysis
+            def analysis_dir = path("${outputDir}/results/resource_analysis")
             def optimization_files = analysis_dir.list().findAll { 
                 it.name.contains('optimization') || it.name.contains('allocation') || it.name.contains('scaling')
             }
@@ -269,7 +269,7 @@ nextflow_pipeline {
         }
     }
 
-    test("Should apply resource optimization profiles correctly {
+    test("Should apply resource optimization profiles correctly") {
 
         when {
             params {
@@ -325,10 +325,10 @@ nextflow_pipeline {
             assert processing_tasks.size() >= 1
             
             // Profile outputs should be generated
-            assert path("${outputDir}/results/resource_analysis.exists()
+            assert path("${outputDir}/results/resource_analysis").exists()
             
             // Profile-specific files should exist
-            def analysis_dir = path("${outputDir}/results/resource_analysis
+            def analysis_dir = path("${outputDir}/results/resource_analysis")
             def profile_files = analysis_dir.list().findAll { 
                 it.name.contains('profile') || it.name.contains('high_throughput') || it.name.contains('optimization')
             }
@@ -336,7 +336,7 @@ nextflow_pipeline {
         }
     }
 
-    test("Should collect feedback and update resource learning models {
+    test("Should collect feedback and update resource learning models") {
 
         when {
             params {
@@ -398,10 +398,10 @@ nextflow_pipeline {
             assert processing_tasks.size() >= 1
             
             // Learning outputs should be generated
-            assert path("${outputDir}/results/resource_analysis.exists()
+            assert path("${outputDir}/results/resource_analysis").exists()
             
             // Feedback learning files should exist
-            def analysis_dir = path("${outputDir}/results/resource_analysis
+            def analysis_dir = path("${outputDir}/results/resource_analysis")
             def learning_files = analysis_dir.list().findAll { 
                 it.name.contains('learning') || it.name.contains('feedback') || 
                 it.name.contains('model') || it.name.contains('performance')
@@ -410,7 +410,7 @@ nextflow_pipeline {
         }
     }
 
-    test("Should validate resource allocation module parameters {
+    test("Should validate resource allocation module parameters") {
 
         when {
             params {

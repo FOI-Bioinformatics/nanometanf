@@ -1,0 +1,543 @@
+nextflow_workflow {
+
+    name "Test OUTPUT_ORGANIZATION"
+    script "../../output_organization.nf"
+    workflow "OUTPUT_ORGANIZATION"
+
+    test("Should organize single sample outputs correctly") {
+
+        setup {
+            """
+            # Create mock QC reports
+            mkdir -p $outputDir/mock_qc
+            echo "<html><body>QC Report</body></html>" > $outputDir/mock_qc/fastp_report.html
+            echo "<html><body>NanoPlot Report</body></html>" > $outputDir/mock_qc/nanoplot_report.html
+            
+            # Create mock classification reports
+            mkdir -p $outputDir/mock_classification
+            echo "taxid\tcount\tname" > $outputDir/mock_classification/kraken2_report.txt
+            echo "1\t100\troot" >> $outputDir/mock_classification/kraken2_report.txt
+            
+            # Create mock validation reports
+            mkdir -p $outputDir/mock_validation
+            echo "qseqid\tsseqid\tpident" > $outputDir/mock_validation/blast_results.txt
+            echo "seq1\tref1\t95.5" >> $outputDir/mock_validation/blast_results.txt
+            
+            # Create mock MultiQC report
+            mkdir -p $outputDir/mock_multiqc
+            echo "<html><body>MultiQC Report</body></html>" > $outputDir/mock_multiqc/multiqc_report.html
+            """
+        }
+
+        when {
+            workflow {
+                """
+                input[0] = [
+                    [
+                        [id: 'sample1', single_end: true],
+                        file('$outputDir/mock_qc/fastp_report.html')
+                    ]
+                ]
+                input[1] = [
+                    [
+                        [id: 'sample1', single_end: true],
+                        file('$outputDir/mock_qc/nanoplot_report.html')
+                    ]
+                ]
+                input[2] = [
+                    [
+                        [id: 'sample1', single_end: true],
+                        file('$outputDir/mock_classification/kraken2_report.txt')
+                    ]
+                ]
+                input[3] = [
+                    [
+                        [id: 'sample1', single_end: true],
+                        file('$outputDir/mock_validation/blast_results.txt')
+                    ]
+                ]
+                input[4] = [
+                    file('$outputDir/mock_multiqc/multiqc_report.html')
+                ]
+                """
+            }
+            
+            params {
+                outdir = '$outputDir/organized_results'
+            }
+        }
+
+        then {
+            assert workflow.success
+            assert workflow.out.qc_outputs
+            assert workflow.out.classification_outputs
+            assert workflow.out.validation_outputs
+            assert workflow.out.report_outputs
+            
+            // Verify QC outputs organization
+            def qc_outputs = workflow.out.qc_outputs.toList()
+            assert qc_outputs.size() >= 2
+            
+            // Verify classification outputs organization
+            def classification_outputs = workflow.out.classification_outputs.toList()
+            assert classification_outputs.size() >= 1
+            
+            // Verify validation outputs organization
+            def validation_outputs = workflow.out.validation_outputs.toList()
+            assert validation_outputs.size() >= 1
+            
+            // Verify report outputs organization
+            def report_outputs = workflow.out.report_outputs.toList()
+            assert report_outputs.size() >= 1
+        }
+    }
+
+    test("Should handle multiple samples in batch organization") {
+
+        setup {
+            """
+            # Create multiple sample QC reports
+            mkdir -p $outputDir/batch_qc
+            for i in 1 2 3; do
+                echo "<html><body>QC Report Sample $i</body></html>" > $outputDir/batch_qc/fastp_sample${i}.html
+                echo "<html><body>NanoPlot Sample $i</body></html>" > $outputDir/batch_qc/nanoplot_sample${i}.html
+            done
+            
+            # Create multiple classification reports
+            mkdir -p $outputDir/batch_classification
+            for i in 1 2 3; do
+                echo "taxid\tcount\tname" > $outputDir/batch_classification/kraken2_sample${i}.txt
+                echo "1\t$((100 * i))\troot" >> $outputDir/batch_classification/kraken2_sample${i}.txt
+            done
+            
+            # Create multiple validation reports
+            mkdir -p $outputDir/batch_validation
+            for i in 1 2 3; do
+                echo "qseqid\tsseqid\tpident" > $outputDir/batch_validation/blast_sample${i}.txt
+                echo "seq${i}\tref${i}\t9$i.5" >> $outputDir/batch_validation/blast_sample${i}.txt
+            done
+            
+            # Create MultiQC report
+            echo "<html><body>Batch MultiQC Report</body></html>" > $outputDir/batch_multiqc.html
+            """
+        }
+
+        when {
+            workflow {
+                """
+                input[0] = [
+                    [
+                        [id: 'batch_sample1', single_end: true],
+                        file('$outputDir/batch_qc/fastp_sample1.html')
+                    ],
+                    [
+                        [id: 'batch_sample2', single_end: true],
+                        file('$outputDir/batch_qc/fastp_sample2.html')
+                    ],
+                    [
+                        [id: 'batch_sample3', single_end: true],
+                        file('$outputDir/batch_qc/fastp_sample3.html')
+                    ]
+                ]
+                input[1] = [
+                    [
+                        [id: 'batch_sample1', single_end: true],
+                        file('$outputDir/batch_qc/nanoplot_sample1.html')
+                    ],
+                    [
+                        [id: 'batch_sample2', single_end: true],
+                        file('$outputDir/batch_qc/nanoplot_sample2.html')
+                    ],
+                    [
+                        [id: 'batch_sample3', single_end: true],
+                        file('$outputDir/batch_qc/nanoplot_sample3.html')
+                    ]
+                ]
+                input[2] = [
+                    [
+                        [id: 'batch_sample1', single_end: true],
+                        file('$outputDir/batch_classification/kraken2_sample1.txt')
+                    ],
+                    [
+                        [id: 'batch_sample2', single_end: true],
+                        file('$outputDir/batch_classification/kraken2_sample2.txt')
+                    ],
+                    [
+                        [id: 'batch_sample3', single_end: true],
+                        file('$outputDir/batch_classification/kraken2_sample3.txt')
+                    ]
+                ]
+                input[3] = [
+                    [
+                        [id: 'batch_sample1', single_end: true],
+                        file('$outputDir/batch_validation/blast_sample1.txt')
+                    ],
+                    [
+                        [id: 'batch_sample2', single_end: true],
+                        file('$outputDir/batch_validation/blast_sample2.txt')
+                    ],
+                    [
+                        [id: 'batch_sample3', single_end: true],
+                        file('$outputDir/batch_validation/blast_sample3.txt')
+                    ]
+                ]
+                input[4] = [
+                    file('$outputDir/batch_multiqc.html')
+                ]
+                """
+            }
+            
+            params {
+                outdir = '$outputDir/batch_organized_results'
+            }
+        }
+
+        then {
+            assert workflow.success
+            assert workflow.out.qc_outputs
+            assert workflow.out.classification_outputs
+            assert workflow.out.validation_outputs
+            
+            // Verify batch QC outputs organization
+            def qc_outputs = workflow.out.qc_outputs.toList()
+            assert qc_outputs.size() >= 6  // 3 fastp + 3 nanoplot
+            
+            // Verify batch classification outputs organization
+            def classification_outputs = workflow.out.classification_outputs.toList()
+            assert classification_outputs.size() >= 3
+            
+            // Verify batch validation outputs organization
+            def validation_outputs = workflow.out.validation_outputs.toList()
+            assert validation_outputs.size() >= 3
+        }
+    }
+
+    test("Should handle mixed output types and formats") {
+
+        setup {
+            """
+            # Create diverse output formats
+            mkdir -p $outputDir/mixed_outputs
+            
+            # Different QC report formats
+            echo "<html><body>HTML QC Report</body></html>" > $outputDir/mixed_outputs/qc_report.html
+            echo "JSON QC Report" > $outputDir/mixed_outputs/qc_report.json
+            
+            # Different classification formats
+            echo "Standard Kraken2 Report" > $outputDir/mixed_outputs/kraken2_standard.txt
+            echo "Custom Kraken2 Report" > $outputDir/mixed_outputs/kraken2_custom.report
+            
+            # Different validation formats
+            echo "BLAST XML Output" > $outputDir/mixed_outputs/blast_results.xml
+            echo "BLAST Tabular Output" > $outputDir/mixed_outputs/blast_results.tsv
+            
+            # MultiQC report
+            echo "<html><body>Mixed MultiQC Report</body></html>" > $outputDir/mixed_outputs/multiqc_mixed.html
+            """
+        }
+
+        when {
+            workflow {
+                """
+                input[0] = [
+                    [
+                        [id: 'mixed_sample', single_end: true],
+                        file('$outputDir/mixed_outputs/qc_report.html')
+                    ]
+                ]
+                input[1] = [
+                    [
+                        [id: 'mixed_sample', single_end: true],
+                        file('$outputDir/mixed_outputs/qc_report.json')
+                    ]
+                ]
+                input[2] = [
+                    [
+                        [id: 'mixed_sample', single_end: true],
+                        file('$outputDir/mixed_outputs/kraken2_standard.txt')
+                    ]
+                ]
+                input[3] = [
+                    [
+                        [id: 'mixed_sample', single_end: true],
+                        file('$outputDir/mixed_outputs/blast_results.xml')
+                    ]
+                ]
+                input[4] = [
+                    file('$outputDir/mixed_outputs/multiqc_mixed.html')
+                ]
+                """
+            }
+            
+            params {
+                outdir = '$outputDir/mixed_organized_results'
+            }
+        }
+
+        then {
+            assert workflow.success
+            assert workflow.out.qc_outputs
+            assert workflow.out.classification_outputs
+            assert workflow.out.validation_outputs
+            assert workflow.out.report_outputs
+            
+            // Verify mixed format handling
+            def qc_outputs = workflow.out.qc_outputs.toList()
+            assert qc_outputs.size() >= 2
+            
+            def classification_outputs = workflow.out.classification_outputs.toList()
+            assert classification_outputs.size() >= 1
+            
+            def validation_outputs = workflow.out.validation_outputs.toList()
+            assert validation_outputs.size() >= 1
+        }
+    }
+
+    test("Should organize outputs with custom outdir path") {
+
+        setup {
+            """
+            # Create test outputs for custom path testing
+            mkdir -p $outputDir/custom_path_test
+            echo "<html><body>Custom Path QC</body></html>" > $outputDir/custom_path_test/custom_qc.html
+            echo "<html><body>Custom Path NanoPlot</body></html>" > $outputDir/custom_path_test/custom_nanoplot.html
+            echo "Custom Kraken2 Report" > $outputDir/custom_path_test/custom_kraken2.txt
+            echo "Custom BLAST Results" > $outputDir/custom_path_test/custom_blast.txt
+            echo "<html><body>Custom MultiQC</body></html>" > $outputDir/custom_path_test/custom_multiqc.html
+            """
+        }
+
+        when {
+            workflow {
+                """
+                input[0] = [
+                    [
+                        [id: 'custom_sample', single_end: true],
+                        file('$outputDir/custom_path_test/custom_qc.html')
+                    ]
+                ]
+                input[1] = [
+                    [
+                        [id: 'custom_sample', single_end: true],
+                        file('$outputDir/custom_path_test/custom_nanoplot.html')
+                    ]
+                ]
+                input[2] = [
+                    [
+                        [id: 'custom_sample', single_end: true],
+                        file('$outputDir/custom_path_test/custom_kraken2.txt')
+                    ]
+                ]
+                input[3] = [
+                    [
+                        [id: 'custom_sample', single_end: true],
+                        file('$outputDir/custom_path_test/custom_blast.txt')
+                    ]
+                ]
+                input[4] = [
+                    file('$outputDir/custom_path_test/custom_multiqc.html')
+                ]
+                """
+            }
+            
+            params {
+                outdir = '$outputDir/very/deep/custom/output/directory'
+            }
+        }
+
+        then {
+            assert workflow.success
+            assert workflow.out.qc_outputs
+            assert workflow.out.classification_outputs
+            assert workflow.out.validation_outputs
+            assert workflow.out.report_outputs
+            
+            // Verify custom path organization
+            def qc_outputs = workflow.out.qc_outputs.toList()
+            assert qc_outputs.size() >= 2
+            
+            // Check that output paths contain custom directory structure
+            def first_qc_output = qc_outputs[0]
+            assert first_qc_output.size() == 3  // [meta, file, output_path]
+            def output_path = first_qc_output[2]
+            assert output_path.contains('very/deep/custom/output/directory')
+        }
+    }
+
+    test("Should handle empty input channels gracefully") {
+
+        when {
+            workflow {
+                """
+                input[0] = []  // Empty QC reports
+                input[1] = []  // Empty nanoplot reports
+                input[2] = []  // Empty kraken2 reports
+                input[3] = []  // Empty blast results
+                input[4] = []  // Empty multiqc report
+                """
+            }
+            
+            params {
+                outdir = '$outputDir/empty_organized_results'
+            }
+        }
+
+        then {
+            assert workflow.success
+            
+            // Verify empty channels are handled
+            if (workflow.out.qc_outputs) {
+                def qc_outputs = workflow.out.qc_outputs.toList()
+                assert qc_outputs.size() == 0
+            }
+            
+            if (workflow.out.classification_outputs) {
+                def classification_outputs = workflow.out.classification_outputs.toList()
+                assert classification_outputs.size() == 0
+            }
+            
+            if (workflow.out.validation_outputs) {
+                def validation_outputs = workflow.out.validation_outputs.toList()
+                assert validation_outputs.size() == 0
+            }
+            
+            if (workflow.out.report_outputs) {
+                def report_outputs = workflow.out.report_outputs.toList()
+                assert report_outputs.size() == 0
+            }
+        }
+    }
+
+    test("Should handle special characters in file names") {
+
+        setup {
+            """
+            # Create files with special characters
+            mkdir -p $outputDir/special_chars
+            echo "<html><body>Special QC</body></html>" > '$outputDir/special_chars/qc-report_sample#1.html'
+            echo "<html><body>Special NanoPlot</body></html>" > '$outputDir/special_chars/nanoplot_sample@2.html'
+            echo "Special Kraken2" > '$outputDir/special_chars/kraken2_sample&3.txt'
+            echo "Special BLAST" > '$outputDir/special_chars/blast_sample%4.txt'
+            echo "<html><body>Special MultiQC</body></html>" > '$outputDir/special_chars/multiqc_special-chars.html'
+            """
+        }
+
+        when {
+            workflow {
+                """
+                input[0] = [
+                    [
+                        [id: 'special_sample', single_end: true],
+                        file('$outputDir/special_chars/qc-report_sample#1.html')
+                    ]
+                ]
+                input[1] = [
+                    [
+                        [id: 'special_sample', single_end: true],
+                        file('$outputDir/special_chars/nanoplot_sample@2.html')
+                    ]
+                ]
+                input[2] = [
+                    [
+                        [id: 'special_sample', single_end: true],
+                        file('$outputDir/special_chars/kraken2_sample&3.txt')
+                    ]
+                ]
+                input[3] = [
+                    [
+                        [id: 'special_sample', single_end: true],
+                        file('$outputDir/special_chars/blast_sample%4.txt')
+                    ]
+                ]
+                input[4] = [
+                    file('$outputDir/special_chars/multiqc_special-chars.html')
+                ]
+                """
+            }
+            
+            params {
+                outdir = '$outputDir/special_organized_results'
+            }
+        }
+
+        then {
+            assert workflow.success
+            assert workflow.out.qc_outputs
+            assert workflow.out.classification_outputs
+            assert workflow.out.validation_outputs
+            assert workflow.out.report_outputs
+            
+            // Verify special character handling
+            def qc_outputs = workflow.out.qc_outputs.toList()
+            assert qc_outputs.size() >= 2
+        }
+    }
+
+    test("Should organize outputs with long file paths") {
+
+        setup {
+            """
+            # Create very long file names to test path handling
+            mkdir -p $outputDir/long_names
+            echo "<html><body>Long QC</body></html>" > '$outputDir/long_names/very_very_very_long_qc_report_with_detailed_sample_information_and_extended_metadata.html'
+            echo "<html><body>Long NanoPlot</body></html>" > '$outputDir/long_names/extremely_detailed_nanoplot_quality_control_report_with_comprehensive_analysis.html'
+            echo "Long Kraken2" > '$outputDir/long_names/comprehensive_taxonomic_classification_report_with_detailed_species_identification.txt'
+            echo "Long BLAST" > '$outputDir/long_names/detailed_blast_validation_results_with_comprehensive_alignment_statistics.txt'
+            echo "<html><body>Long MultiQC</body></html>" > '$outputDir/long_names/comprehensive_multiqc_quality_control_summary_report.html'
+            """
+        }
+
+        when {
+            workflow {
+                """
+                input[0] = [
+                    [
+                        [id: 'long_name_sample', single_end: true],
+                        file('$outputDir/long_names/very_very_very_long_qc_report_with_detailed_sample_information_and_extended_metadata.html')
+                    ]
+                ]
+                input[1] = [
+                    [
+                        [id: 'long_name_sample', single_end: true],
+                        file('$outputDir/long_names/extremely_detailed_nanoplot_quality_control_report_with_comprehensive_analysis.html')
+                    ]
+                ]
+                input[2] = [
+                    [
+                        [id: 'long_name_sample', single_end: true],
+                        file('$outputDir/long_names/comprehensive_taxonomic_classification_report_with_detailed_species_identification.txt')
+                    ]
+                ]
+                input[3] = [
+                    [
+                        [id: 'long_name_sample', single_end: true],
+                        file('$outputDir/long_names/detailed_blast_validation_results_with_comprehensive_alignment_statistics.txt')
+                    ]
+                ]
+                input[4] = [
+                    file('$outputDir/long_names/comprehensive_multiqc_quality_control_summary_report.html')
+                ]
+                """
+            }
+            
+            params {
+                outdir = '$outputDir/long_path_organized_results'
+            }
+        }
+
+        then {
+            assert workflow.success
+            assert workflow.out.qc_outputs
+            assert workflow.out.classification_outputs
+            assert workflow.out.validation_outputs
+            assert workflow.out.report_outputs
+            
+            // Verify long path handling
+            def qc_outputs = workflow.out.qc_outputs.toList()
+            assert qc_outputs.size() >= 2
+            
+            def classification_outputs = workflow.out.classification_outputs.toList()
+            assert classification_outputs.size() >= 1
+        }
+    }
+}

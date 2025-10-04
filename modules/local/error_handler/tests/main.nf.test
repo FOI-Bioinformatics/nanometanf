@@ -1,0 +1,303 @@
+nextflow_process {
+
+    name "Test ERROR_HANDLER"
+    script "../main.nf"
+    process "ERROR_HANDLER"
+
+    test("Should analyze basic error logs") {
+
+        setup {
+            """
+            cat > $outputDir/error.log << 'EOF'
+OutOfMemoryError: Java heap space
+    at com.example.MyClass.method(MyClass.java:42)
+    at java.base/java.lang.Thread.run(Thread.java:834)
+Process execution failed
+EOF
+            """
+        }
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [
+                        id: 'test_sample',
+                        single_end: true
+                    ],
+                    file('$outputDir/error.log')
+                ]
+                input[1] = 'memory_error'
+                """
+            }
+        }
+
+        then {
+            assert process.success
+            assert process.out.analysis.size() == 1
+            assert process.out.recovery.size() == 1
+            
+            def (meta, analysis_file) = process.out.analysis[0]
+            assert meta.id == 'test_sample'
+            assert path(analysis_file).exists()
+            
+            def (meta_rec, recovery_file) = process.out.recovery[0]
+            assert path(recovery_file).exists()
+            
+            // Check analysis content
+            def analysis_content = path(analysis_file).text
+            assert analysis_content.contains('memory') || analysis_content.contains('OutOfMemoryError')
+            
+            assert process.out.versions.size() == 1
+        }
+    }
+
+    test("Should handle multiple error files") {
+
+        setup {
+            """
+            cat > $outputDir/error1.log << 'EOF'
+Permission denied: /output/results
+Cannot write to directory
+EOF
+
+            cat > $outputDir/error2.log << 'EOF'
+Network timeout occurred
+Connection refused: registry.hub.docker.com:443
+EOF
+            """
+        }
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [
+                        id: 'multi_error_test',
+                        single_end: true
+                    ],
+                    [
+                        file('$outputDir/error1.log'),
+                        file('$outputDir/error2.log')
+                    ]
+                ]
+                input[1] = 'mixed_errors'
+                """
+            }
+        }
+
+        then {
+            assert process.success
+            assert process.out.analysis.size() == 1
+            assert process.out.recovery.size() == 1
+            
+            def (meta, analysis_file) = process.out.analysis[0]
+            assert meta.id == 'multi_error_test'
+            assert path(analysis_file).exists()
+            
+            assert process.out.versions.size() == 1
+        }
+    }
+
+    test("Should categorize different error types") {
+
+        setup {
+            """
+            cat > $outputDir/disk_error.log << 'EOF'
+No space left on device
+Disk quota exceeded
+write: /tmp/work: No space left on device
+EOF
+            """
+        }
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [
+                        id: 'disk_error_test',
+                        single_end: true
+                    ],
+                    file('$outputDir/disk_error.log')
+                ]
+                input[1] = 'disk_space_error'
+                """
+            }
+        }
+
+        then {
+            assert process.success
+            assert process.out.analysis.size() == 1
+            assert process.out.recovery.size() == 1
+            
+            def (meta, analysis_file) = process.out.analysis[0]
+            def analysis_content = path(analysis_file).text
+            assert analysis_content.contains('disk') || analysis_content.contains('space')
+            
+            def (meta_rec, recovery_file) = process.out.recovery[0]
+            def recovery_content = path(recovery_file).text
+            assert recovery_content.contains('clean') || recovery_content.contains('space')
+            
+            assert process.out.versions.size() == 1
+        }
+    }
+
+    test("Should handle network errors") {
+
+        setup {
+            """
+            cat > $outputDir/network_error.log << 'EOF'
+Connection timed out
+curl: (7) Failed to connect to registry.hub.docker.com port 443: Connection refused
+DNS resolution failed
+SSL certificate verify failed
+EOF
+            """
+        }
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [
+                        id: 'network_error_test',
+                        single_end: true
+                    ],
+                    file('$outputDir/network_error.log')
+                ]
+                input[1] = 'network_connectivity'
+                """
+            }
+        }
+
+        then {
+            assert process.success
+            assert process.out.analysis.size() == 1
+            assert process.out.recovery.size() == 1
+            
+            def (meta, analysis_file) = process.out.analysis[0]
+            def analysis_content = path(analysis_file).text
+            assert analysis_content.contains('network') || analysis_content.contains('connection')
+            
+            assert process.out.versions.size() == 1
+        }
+    }
+
+    test("Should handle empty or malformed error files") {
+
+        setup {
+            """
+            touch $outputDir/empty_error.log
+            echo "not really an error" > $outputDir/unclear_error.log
+            """
+        }
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [
+                        id: 'edge_case_test',
+                        single_end: true
+                    ],
+                    [
+                        file('$outputDir/empty_error.log'),
+                        file('$outputDir/unclear_error.log')
+                    ]
+                ]
+                input[1] = 'unknown_error'
+                """
+            }
+        }
+
+        then {
+            assert process.success
+            assert process.out.analysis.size() == 1
+            assert process.out.recovery.size() == 1
+            
+            def (meta, analysis_file) = process.out.analysis[0]
+            assert meta.id == 'edge_case_test'
+            assert path(analysis_file).exists()
+            
+            assert process.out.versions.size() == 1
+        }
+    }
+
+    test("Should run in stub mode") {
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [
+                        id: 'stub_test',
+                        single_end: true
+                    ],
+                    []
+                ]
+                input[1] = 'stub_context'
+                """
+            }
+            
+            stub true
+        }
+
+        then {
+            assert process.success
+            assert process.out.analysis.size() == 1
+            assert process.out.recovery.size() == 1
+            assert process.out.versions.size() == 1
+            
+            def (meta, analysis_file) = process.out.analysis[0]
+            assert meta.id == 'stub_test'
+            assert path(analysis_file).exists()
+        }
+    }
+
+    test("Should handle critical system errors") {
+
+        setup {
+            """
+            cat > $outputDir/critical_error.log << 'EOF'
+FATAL: kernel panic - not syncing
+Segmentation fault (core dumped)
+killed (signal 9)
+System is out of memory
+Cannot allocate memory
+EOF
+            """
+        }
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [
+                        id: 'critical_error_test',
+                        single_end: true
+                    ],
+                    file('$outputDir/critical_error.log')
+                ]
+                input[1] = 'critical_system_error'
+                """
+            }
+        }
+
+        then {
+            assert process.success
+            assert process.out.analysis.size() == 1
+            assert process.out.recovery.size() == 1
+            
+            def (meta, analysis_file) = process.out.analysis[0]
+            def analysis_content = path(analysis_file).text
+            assert analysis_content.contains('critical') || analysis_content.contains('fatal') || analysis_content.contains('memory')
+            
+            def (meta_rec, recovery_file) = process.out.recovery[0]
+            def recovery_content = path(recovery_file).text
+            assert recovery_content.contains('escalate') || recovery_content.contains('immediate')
+            
+            assert process.out.versions.size() == 1
+        }
+    }
+}

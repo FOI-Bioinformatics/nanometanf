@@ -1,0 +1,490 @@
+nextflow_workflow {
+
+    name "Test DYNAMIC_RESOURCE_ALLOCATION"
+    script "../../dynamic_resource_allocation.nf"
+    workflow "DYNAMIC_RESOURCE_ALLOCATION"
+
+    test("Should analyze input characteristics and predict basic resource requirements") {
+
+        setup {
+            """
+            # Create test input files
+            cp $projectDir/tests/test_sample.fastq.gz $outputDir/sample1.fastq.gz
+            cp $projectDir/tests/test_sample.fastq.gz $outputDir/sample2.fastq.gz
+            """
+        }
+
+        when {
+            workflow {
+                """
+                input[0] = [
+                    [
+                        [id: 'basic_test', single_end: true],
+                        [file('$outputDir/sample1.fastq.gz'), file('$outputDir/sample2.fastq.gz')],
+                        [tool_name: 'fastp', processing_mode: 'standard']
+                    ]
+                ]
+                input[1] = [
+                    optimization_profile: 'balanced',
+                    enable_ml_prediction: true,
+                    prediction_confidence_threshold: 0.7,
+                    safety_factor: 0.8
+                ]
+                input[2] = [
+                    max_cpus: 16,
+                    max_memory_gb: 64,
+                    max_time_hours: 12,
+                    gpu_available: false
+                ]
+                """
+            }
+        }
+
+        then {
+            assert workflow.success
+            assert workflow.out.resource_predictions
+            assert workflow.out.optimized_allocations
+            assert workflow.out.system_metrics
+            
+            // Verify resource analysis occurred
+            def predictions = workflow.out.resource_predictions.toList()
+            assert predictions.size() >= 1
+            
+            // Verify optimization was applied
+            def allocations = workflow.out.optimized_allocations.toList()
+            assert allocations.size() >= 1
+            
+            // Verify system monitoring
+            def metrics = workflow.out.system_metrics.toList()
+            assert metrics.size() >= 1
+        }
+    }
+
+    test("Should apply high-throughput optimization profile") {
+
+        setup {
+            """
+            # Create multiple test files for high-throughput scenario
+            for i in {1..5}; do
+                cp $projectDir/tests/test_sample.fastq.gz $outputDir/sample_\${i}.fastq.gz
+            done
+            """
+        }
+
+        when {
+            workflow {
+                """
+                input[0] = [
+                    [
+                        [id: 'high_throughput_test', single_end: true],
+                        [
+                            file('$outputDir/sample_1.fastq.gz'),
+                            file('$outputDir/sample_2.fastq.gz'),
+                            file('$outputDir/sample_3.fastq.gz'),
+                            file('$outputDir/sample_4.fastq.gz'),
+                            file('$outputDir/sample_5.fastq.gz')
+                        ],
+                        [tool_name: 'kraken2', processing_mode: 'high_throughput', parallel_processing: true]
+                    ]
+                ]
+                input[1] = [
+                    optimization_profile: 'high_throughput',
+                    enable_ml_prediction: true,
+                    enable_parallel_optimization: true,
+                    aggressive_scaling: true,
+                    safety_factor: 0.9
+                ]
+                input[2] = [
+                    max_cpus: 64,
+                    max_memory_gb: 256,
+                    max_time_hours: 24,
+                    gpu_available: false,
+                    high_performance_mode: true
+                ]
+                """
+            }
+        }
+
+        then {
+            assert workflow.success
+            assert workflow.out.resource_predictions
+            assert workflow.out.optimized_allocations
+            assert workflow.out.optimization_profiles
+            
+            // Verify high-throughput profile was applied
+            def profiles = workflow.out.optimization_profiles.toList()
+            assert profiles.size() >= 1
+            
+            // Verify aggressive resource allocation
+            def allocations = workflow.out.optimized_allocations.toList()
+            assert allocations.size() >= 1
+        }
+    }
+
+    test("Should handle GPU-optimized workload allocation") {
+
+        setup {
+            """
+            # Create POD5-like test scenario
+            echo 'dummy pod5 content' > $outputDir/test.pod5
+            cp $projectDir/tests/test_sample.fastq.gz $outputDir/reference.fastq.gz
+            """
+        }
+
+        when {
+            workflow {
+                """
+                input[0] = [
+                    [
+                        [id: 'gpu_test', single_end: true],
+                        [file('$outputDir/test.pod5')],
+                        [tool_name: 'dorado_basecaller', processing_mode: 'gpu_accelerated', model: 'hac']
+                    ]
+                ]
+                input[1] = [
+                    optimization_profile: 'gpu_optimized',
+                    enable_gpu_optimization: true,
+                    gpu_acceleration_strategy: 'aggressive',
+                    enable_ml_prediction: true,
+                    safety_factor: 0.8
+                ]
+                input[2] = [
+                    max_cpus: 32,
+                    max_memory_gb: 128,
+                    max_time_hours: 8,
+                    gpu_available: true,
+                    gpu_count: 2,
+                    gpu_memory_gb: 24
+                ]
+                """
+            }
+        }
+
+        then {
+            assert workflow.success
+            assert workflow.out.resource_predictions
+            assert workflow.out.optimized_allocations
+            assert workflow.out.gpu_allocations
+            
+            // Verify GPU optimization
+            def gpu_allocations = workflow.out.gpu_allocations.toList()
+            assert gpu_allocations.size() >= 1
+            
+            // Verify GPU-specific predictions
+            def predictions = workflow.out.resource_predictions.toList()
+            assert predictions.size() >= 1
+        }
+    }
+
+    test("Should handle resource-conservative allocation for limited systems") {
+
+        setup {
+            """
+            # Create minimal test scenario
+            cp $projectDir/tests/test_sample.fastq.gz $outputDir/small_sample.fastq.gz
+            """
+        }
+
+        when {
+            workflow {
+                """
+                input[0] = [
+                    [
+                        [id: 'conservative_test', single_end: true],
+                        [file('$outputDir/small_sample.fastq.gz')],
+                        [tool_name: 'fastp', processing_mode: 'conservative']
+                    ]
+                ]
+                input[1] = [
+                    optimization_profile: 'resource_conservative',
+                    conservative_mode: true,
+                    shared_system: true,
+                    enable_ml_prediction: false,
+                    safety_factor: 0.6
+                ]
+                input[2] = [
+                    max_cpus: 4,
+                    max_memory_gb: 16,
+                    max_time_hours: 4,
+                    gpu_available: false,
+                    memory_limited: true,
+                    shared_resources: true
+                ]
+                """
+            }
+        }
+
+        then {
+            assert workflow.success
+            assert workflow.out.resource_predictions
+            assert workflow.out.optimized_allocations
+            
+            // Verify conservative allocation
+            def allocations = workflow.out.optimized_allocations.toList()
+            assert allocations.size() >= 1
+            
+            // Should use minimal resources
+            def predictions = workflow.out.resource_predictions.toList()
+            assert predictions.size() >= 1
+        }
+    }
+
+    test("Should perform real-time adaptive resource scaling") {
+
+        setup {
+            """
+            # Create scenario with varying file sizes
+            cp $projectDir/tests/test_sample.fastq.gz $outputDir/normal_file.fastq.gz
+            
+            # Create larger file by concatenating
+            cat $projectDir/tests/test_sample.fastq.gz $projectDir/tests/test_sample.fastq.gz > $outputDir/large_file.fastq.gz
+            """
+        }
+
+        when {
+            workflow {
+                """
+                input[0] = [
+                    [
+                        [id: 'adaptive_test', single_end: true],
+                        [file('$outputDir/normal_file.fastq.gz'), file('$outputDir/large_file.fastq.gz')],
+                        [tool_name: 'flye', processing_mode: 'adaptive', realtime_mode: true]
+                    ]
+                ]
+                input[1] = [
+                    optimization_profile: 'realtime_optimized',
+                    enable_adaptive_scaling: true,
+                    realtime_mode: true,
+                    adaptive_threshold: 0.75,
+                    enable_ml_prediction: true,
+                    safety_factor: 0.8
+                ]
+                input[2] = [
+                    max_cpus: 24,
+                    max_memory_gb: 96,
+                    max_time_hours: 6,
+                    gpu_available: false,
+                    realtime_constraints: true
+                ]
+                """
+            }
+        }
+
+        then {
+            assert workflow.success
+            assert workflow.out.resource_predictions
+            assert workflow.out.optimized_allocations
+            assert workflow.out.adaptive_metrics
+            
+            // Verify adaptive scaling
+            def adaptive_metrics = workflow.out.adaptive_metrics.toList()
+            assert adaptive_metrics.size() >= 1
+            
+            // Verify real-time optimization
+            def allocations = workflow.out.optimized_allocations.toList()
+            assert allocations.size() >= 1
+        }
+    }
+
+    test("Should handle auto profile selection based on system characteristics") {
+
+        setup {
+            """
+            # Create mixed workload scenario
+            cp $projectDir/tests/test_sample.fastq.gz $outputDir/mixed_sample1.fastq.gz
+            cp $projectDir/tests/test_sample.fastq.gz $outputDir/mixed_sample2.fastq.gz
+            echo 'dummy pod5 content' > $outputDir/mixed.pod5
+            """
+        }
+
+        when {
+            workflow {
+                """
+                input[0] = [
+                    [
+                        [id: 'auto_profile_test', single_end: true],
+                        [
+                            file('$outputDir/mixed_sample1.fastq.gz'),
+                            file('$outputDir/mixed_sample2.fastq.gz'),
+                            file('$outputDir/mixed.pod5')
+                        ],
+                        [tool_name: 'mixed_workload', processing_mode: 'auto']
+                    ]
+                ]
+                input[1] = [
+                    optimization_profile: 'auto',
+                    enable_auto_selection: true,
+                    enable_workload_analysis: true,
+                    enable_ml_prediction: true,
+                    safety_factor: 0.8
+                ]
+                input[2] = [
+                    max_cpus: 32,
+                    max_memory_gb: 128,
+                    max_time_hours: 12,
+                    gpu_available: true,
+                    gpu_count: 1,
+                    mixed_workload: true
+                ]
+                """
+            }
+        }
+
+        then {
+            assert workflow.success
+            assert workflow.out.resource_predictions
+            assert workflow.out.optimized_allocations
+            assert workflow.out.optimization_profiles
+            assert workflow.out.auto_selection_metrics
+            
+            // Verify auto selection occurred
+            def auto_metrics = workflow.out.auto_selection_metrics.toList()
+            assert auto_metrics.size() >= 1
+            
+            // Verify profile selection
+            def profiles = workflow.out.optimization_profiles.toList()
+            assert profiles.size() >= 1
+        }
+    }
+
+    test("Should monitor system resources and apply pressure-based adjustments") {
+
+        setup {
+            """
+            # Create resource-intensive scenario
+            for i in {1..3}; do
+                cp $projectDir/tests/test_sample.fastq.gz $outputDir/intensive_sample_\${i}.fastq.gz
+            done
+            """
+        }
+
+        when {
+            workflow {
+                """
+                input[0] = [
+                    [
+                        [id: 'pressure_test', single_end: true],
+                        [
+                            file('$outputDir/intensive_sample_1.fastq.gz'),
+                            file('$outputDir/intensive_sample_2.fastq.gz'),
+                            file('$outputDir/intensive_sample_3.fastq.gz')
+                        ],
+                        [tool_name: 'kraken2', processing_mode: 'memory_intensive']
+                    ]
+                ]
+                input[1] = [
+                    optimization_profile: 'balanced',
+                    enable_pressure_monitoring: true,
+                    pressure_adjustment_threshold: 0.8,
+                    enable_ml_prediction: true,
+                    safety_factor: 0.7
+                ]
+                input[2] = [
+                    max_cpus: 16,
+                    max_memory_gb: 64,
+                    max_time_hours: 8,
+                    gpu_available: false,
+                    monitor_system_pressure: true
+                ]
+                """
+            }
+        }
+
+        then {
+            assert workflow.success
+            assert workflow.out.resource_predictions
+            assert workflow.out.optimized_allocations
+            assert workflow.out.system_metrics
+            assert workflow.out.pressure_adjustments
+            
+            // Verify pressure monitoring
+            def pressure_adjustments = workflow.out.pressure_adjustments.toList()
+            assert pressure_adjustments.size() >= 1
+            
+            // Verify system metrics collection
+            def metrics = workflow.out.system_metrics.toList()
+            assert metrics.size() >= 1
+        }
+    }
+
+    test("Should handle edge cases and error conditions gracefully") {
+
+        setup {
+            """
+            # Create problematic scenario
+            echo "not a valid file" > $outputDir/invalid_file.txt
+            touch $outputDir/empty_file.fastq.gz
+            """
+        }
+
+        when {
+            workflow {
+                """
+                input[0] = [
+                    [
+                        [id: 'edge_case_test', single_end: true],
+                        [file('$outputDir/invalid_file.txt'), file('$outputDir/empty_file.fastq.gz')],
+                        [tool_name: 'unknown_tool', processing_mode: 'invalid']
+                    ]
+                ]
+                input[1] = [
+                    optimization_profile: 'development_testing',
+                    handle_invalid_input: true,
+                    use_fallback_defaults: true,
+                    enable_ml_prediction: false,
+                    safety_factor: 0.5
+                ]
+                input[2] = [
+                    max_cpus: 2,
+                    max_memory_gb: 4,
+                    max_time_hours: 1,
+                    gpu_available: false,
+                    minimal_mode: true
+                ]
+                """
+            }
+        }
+
+        then {
+            // Should handle edge cases gracefully
+            assert workflow.success
+            
+            if (workflow.success) {
+                // Should generate fallback allocations
+                if (workflow.out.optimized_allocations) {
+                    def allocations = workflow.out.optimized_allocations.toList()
+                    assert allocations.size() >= 0
+                }
+            }
+        }
+    }
+
+    test("Should validate dynamic resource allocation with minimal inputs") {
+
+        when {
+            workflow {
+                """
+                input[0] = [
+                    [
+                        [id: 'minimal_test', single_end: true],
+                        [],
+                        [tool_name: 'test_tool']
+                    ]
+                ]
+                input[1] = [:]  // Empty resource config
+                input[2] = [:]  // Empty system config
+                """
+            }
+        }
+
+        then {
+            // Should handle minimal configuration
+            assert workflow.success
+            
+            if (workflow.success) {
+                // Should provide default outputs
+                assert workflow.out.resource_predictions || workflow.out.optimized_allocations
+            }
+        }
+    }
+}

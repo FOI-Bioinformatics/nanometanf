@@ -11,7 +11,7 @@ nextflow_process {
     tag "blast/makeblastdb"
 
     setup {
-        script "BLAST_MAKEBLASTDB") {
+        run("BLAST_MAKEBLASTDB") {
             script "../../makeblastdb/main.nf"
             process {
                 """

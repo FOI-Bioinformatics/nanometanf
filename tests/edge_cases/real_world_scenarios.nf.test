@@ -1,0 +1,659 @@
+nextflow_pipeline {
+
+    name "Real-World Scenario Testing"
+    script "../../main.nf"
+
+    test("Should simulate clinical pathogen detection workflow") {
+
+        setup {
+            """
+            # Simulate clinical laboratory scenario
+            mkdir -p $outputDir/clinical_workflow/urgent
+            mkdir -p $outputDir/clinical_workflow/routine
+            mkdir -p $outputDir/clinical_workflow/control
+            
+            # Urgent samples (high priority)
+            cp $projectDir/tests/test_sample.fastq.gz $outputDir/clinical_workflow/urgent/patient_001_sepsis_suspect.fastq.gz
+            cp $projectDir/tests/test_sample.fastq.gz $outputDir/clinical_workflow/urgent/patient_002_meningitis_suspect.fastq.gz
+            
+            # Routine samples
+            cp $projectDir/tests/test_sample.fastq.gz $outputDir/clinical_workflow/routine/patient_003_respiratory.fastq.gz
+            cp $projectDir/tests/test_sample.fastq.gz $outputDir/clinical_workflow/routine/patient_004_uti.fastq.gz
+            cp $projectDir/tests/test_sample.fastq.gz $outputDir/clinical_workflow/routine/patient_005_wound.fastq.gz
+            
+            # Quality control samples
+            cp $projectDir/tests/test_sample.fastq.gz $outputDir/clinical_workflow/control/positive_control.fastq.gz
+            cp $projectDir/tests/test_sample.fastq.gz $outputDir/clinical_workflow/control/negative_control.fastq.gz
+            
+            # Create clinical samplesheet
+            cat > $outputDir/clinical_samplesheet.csv << 'EOF'
+sample,fastq,barcode
+URGENT_SEPSIS_001,$outputDir/clinical_workflow/urgent/patient_001_sepsis_suspect.fastq.gz,BC01
+URGENT_MENINGITIS_002,$outputDir/clinical_workflow/urgent/patient_002_meningitis_suspect.fastq.gz,BC02
+ROUTINE_RESP_003,$outputDir/clinical_workflow/routine/patient_003_respiratory.fastq.gz,BC03
+ROUTINE_UTI_004,$outputDir/clinical_workflow/routine/patient_004_uti.fastq.gz,BC04
+ROUTINE_WOUND_005,$outputDir/clinical_workflow/routine/patient_005_wound.fastq.gz,BC05
+QC_POSITIVE_CTRL,$outputDir/clinical_workflow/control/positive_control.fastq.gz,BC99
+QC_NEGATIVE_CTRL,$outputDir/clinical_workflow/control/negative_control.fastq.gz,BC98
+EOF
+            """
+        }
+
+        when {
+            params {
+                input = "$outputDir/clinical_samplesheet.csv"
+                outdir = "$outputDir/clinical_results"
+                
+                // Clinical workflow settings
+                clinical_mode = true
+                enable_urgent_processing = true
+                priority_samples = "URGENT_SEPSIS_001,URGENT_MENINGITIS_002"
+                
+                // Quality control
+                enable_quality_control = true
+                control_samples = "QC_POSITIVE_CTRL,QC_NEGATIVE_CTRL"
+                enable_qc_validation = true
+                
+                // Pathogen detection pipeline
+                enable_pathogen_detection = true
+                rapid_identification = true
+                
+                // Validation and reporting
+                enable_clinical_reporting = true
+                generate_pdf_reports = true
+                enable_alert_system = true
+                
+                // Performance requirements
+                urgent_time_limit = "2h"
+                routine_time_limit = "8h"
+                
+                // Resource allocation
+                max_cpus = 8
+                max_memory = '16.GB'
+                max_time = '6.min'  // Scaled for testing
+                
+                // Analysis settings
+                use_dorado = false
+                kraken2_db = null
+                blast_validation = false
+                skip_nanoplot = false
+            }
+        }
+
+        then {
+            assert workflow.success
+            
+            // Verify clinical processing
+            def fastp_tasks = workflow.trace.tasks().findAll { it.name.contains('FASTP') }
+            assert fastp_tasks.size() >= 6  // All patient samples + controls
+            
+            // Verify urgent samples were prioritized
+            def urgent_tasks = fastp_tasks.findAll { task ->
+                task.tag?.contains('URGENT') || task.name.contains('URGENT')
+            }
+            
+            // Verify outputs
+            assert path("${outputDir}/clinical_results/fastp").exists()
+            assert path("${outputDir}/clinical_results/multiqc").exists()
+            
+            // Check clinical-specific outputs
+            def fastp_outputs = path("${outputDir}/clinical_results/fastp").list()
+            def urgent_outputs = fastp_outputs.findAll { it.name.contains('URGENT') }
+            def control_outputs = fastp_outputs.findAll { it.name.contains('QC_') }
+            
+            assert urgent_outputs.size() >= 2  // Urgent samples processed
+            assert control_outputs.size() >= 2  // QC samples processed
+            
+            println("🏥 Clinical workflow: ${fastp_tasks.size()} samples processed")
+            println("🚨 Urgent samples: ${urgent_outputs.size()} processed with priority")
+            println("✅ QC samples: ${control_outputs.size()} controls validated")
+        }
+    }
+
+    test("Should simulate environmental metagenomics survey") {
+
+        setup {
+            """
+            # Simulate environmental sampling scenario
+            mkdir -p $outputDir/environmental_survey/water_samples
+            mkdir -p $outputDir/environmental_survey/soil_samples
+            mkdir -p $outputDir/environmental_survey/air_samples
+            
+            # Water samples (rivers, lakes, ocean)
+            cp $projectDir/tests/test_sample.fastq.gz $outputDir/environmental_survey/water_samples/river_upstream_site1.fastq.gz
+            cp $projectDir/tests/test_sample.fastq.gz $outputDir/environmental_survey/water_samples/river_downstream_site2.fastq.gz
+            cp $projectDir/tests/test_sample.fastq.gz $outputDir/environmental_survey/water_samples/lake_surface_site3.fastq.gz
+            cp $projectDir/tests/test_sample.fastq.gz $outputDir/environmental_survey/water_samples/ocean_coastal_site4.fastq.gz
+            
+            # Soil samples
+            cp $projectDir/tests/test_sample.fastq.gz $outputDir/environmental_survey/soil_samples/forest_soil_site5.fastq.gz
+            cp $projectDir/tests/test_sample.fastq.gz $outputDir/environmental_survey/soil_samples/agricultural_soil_site6.fastq.gz
+            cp $projectDir/tests/test_sample.fastq.gz $outputDir/environmental_survey/soil_samples/urban_soil_site7.fastq.gz
+            
+            # Air samples
+            cp $projectDir/tests/test_sample.fastq.gz $outputDir/environmental_survey/air_samples/indoor_air_site8.fastq.gz
+            cp $projectDir/tests/test_sample.fastq.gz $outputDir/environmental_survey/air_samples/outdoor_air_site9.fastq.gz
+            
+            # Environmental survey samplesheet
+            cat > $outputDir/environmental_samplesheet.csv << 'EOF'
+sample,fastq,barcode
+WATER_RIVER_UP_S1,$outputDir/environmental_survey/water_samples/river_upstream_site1.fastq.gz,BC01
+WATER_RIVER_DOWN_S2,$outputDir/environmental_survey/water_samples/river_downstream_site2.fastq.gz,BC02
+WATER_LAKE_SURF_S3,$outputDir/environmental_survey/water_samples/lake_surface_site3.fastq.gz,BC03
+WATER_OCEAN_COAST_S4,$outputDir/environmental_survey/water_samples/ocean_coastal_site4.fastq.gz,BC04
+SOIL_FOREST_S5,$outputDir/environmental_survey/soil_samples/forest_soil_site5.fastq.gz,BC05
+SOIL_AGRICULTURAL_S6,$outputDir/environmental_survey/soil_samples/agricultural_soil_site6.fastq.gz,BC06
+SOIL_URBAN_S7,$outputDir/environmental_survey/soil_samples/urban_soil_site7.fastq.gz,BC07
+AIR_INDOOR_S8,$outputDir/environmental_survey/air_samples/indoor_air_site8.fastq.gz,BC08
+AIR_OUTDOOR_S9,$outputDir/environmental_survey/air_samples/outdoor_air_site9.fastq.gz,BC09
+EOF
+            """
+        }
+
+        when {
+            params {
+                input = "$outputDir/environmental_samplesheet.csv"
+                outdir = "$outputDir/environmental_results"
+                
+                // Environmental metagenomics settings
+                metagenomics_mode = true
+                enable_diversity_analysis = true
+                enable_contamination_detection = true
+                
+                // Sample grouping by environment type
+                water_samples = "WATER_RIVER_UP_S1,WATER_RIVER_DOWN_S2,WATER_LAKE_SURF_S3,WATER_OCEAN_COAST_S4"
+                soil_samples = "SOIL_FOREST_S5,SOIL_AGRICULTURAL_S6,SOIL_URBAN_S7"
+                air_samples = "AIR_INDOOR_S8,AIR_OUTDOOR_S9"
+                
+                // Comparative analysis
+                enable_comparative_analysis = true
+                generate_diversity_plots = true
+                enable_source_tracking = true
+                
+                // Quality and contamination filters
+                enable_contamination_filtering = true
+                environmental_qc_strict = true
+                
+                // Resource allocation
+                max_cpus = 6
+                max_memory = '12.GB'
+                max_time = '8.min'
+                
+                // Analysis settings
+                use_dorado = false
+                kraken2_db = null
+                blast_validation = false
+                skip_nanoplot = false  // Keep for environmental QC
+            }
+        }
+
+        then {
+            assert workflow.success
+            
+            // Verify environmental sample processing
+            def fastp_tasks = workflow.trace.tasks().findAll { it.name.contains('FASTP') }
+            assert fastp_tasks.size() >= 8  // All environmental samples
+            
+            // Verify sample type grouping
+            def fastp_outputs = path("${outputDir}/environmental_results/fastp").list()
+            def water_outputs = fastp_outputs.findAll { it.name.contains('WATER_') }
+            def soil_outputs = fastp_outputs.findAll { it.name.contains('SOIL_') }
+            def air_outputs = fastp_outputs.findAll { it.name.contains('AIR_') }
+            
+            assert water_outputs.size() >= 4  // Water samples
+            assert soil_outputs.size() >= 3   // Soil samples
+            assert air_outputs.size() >= 2    // Air samples
+            
+            // Verify outputs
+            assert path("${outputDir}/environmental_results/fastp").exists()
+            assert path("${outputDir}/environmental_results/nanoplot").exists()
+            assert path("${outputDir}/environmental_results/multiqc").exists()
+            
+            println("🌍 Environmental survey: ${fastp_tasks.size()} samples processed")
+            println("💧 Water samples: ${water_outputs.size()} processed")
+            println("🌱 Soil samples: ${soil_outputs.size()} processed")
+            println("🌬️ Air samples: ${air_outputs.size()} processed")
+        }
+    }
+
+    test("Should simulate food safety outbreak investigation") {
+
+        setup {
+            """
+            # Simulate food safety outbreak scenario
+            mkdir -p $outputDir/outbreak_investigation/patients
+            mkdir -p $outputDir/outbreak_investigation/food_sources
+            mkdir -p $outputDir/outbreak_investigation/environmental
+            
+            # Patient samples (outbreak cases)
+            cp $projectDir/tests/test_sample.fastq.gz $outputDir/outbreak_investigation/patients/patient_case_001.fastq.gz
+            cp $projectDir/tests/test_sample.fastq.gz $outputDir/outbreak_investigation/patients/patient_case_002.fastq.gz
+            cp $projectDir/tests/test_sample.fastq.gz $outputDir/outbreak_investigation/patients/patient_case_003.fastq.gz
+            cp $projectDir/tests/test_sample.fastq.gz $outputDir/outbreak_investigation/patients/patient_case_004.fastq.gz
+            
+            # Food source samples
+            cp $projectDir/tests/test_sample.fastq.gz $outputDir/outbreak_investigation/food_sources/lettuce_batch_A.fastq.gz
+            cp $projectDir/tests/test_sample.fastq.gz $outputDir/outbreak_investigation/food_sources/chicken_batch_B.fastq.gz
+            cp $projectDir/tests/test_sample.fastq.gz $outputDir/outbreak_investigation/food_sources/water_supply.fastq.gz
+            
+            # Environmental samples
+            cp $projectDir/tests/test_sample.fastq.gz $outputDir/outbreak_investigation/environmental/kitchen_surface.fastq.gz
+            cp $projectDir/tests/test_sample.fastq.gz $outputDir/outbreak_investigation/environmental/prep_area.fastq.gz
+            
+            # Outbreak investigation samplesheet
+            cat > $outputDir/outbreak_samplesheet.csv << 'EOF'
+sample,fastq,barcode
+PATIENT_CASE_001,$outputDir/outbreak_investigation/patients/patient_case_001.fastq.gz,BC01
+PATIENT_CASE_002,$outputDir/outbreak_investigation/patients/patient_case_002.fastq.gz,BC02
+PATIENT_CASE_003,$outputDir/outbreak_investigation/patients/patient_case_003.fastq.gz,BC03
+PATIENT_CASE_004,$outputDir/outbreak_investigation/patients/patient_case_004.fastq.gz,BC04
+FOOD_LETTUCE_A,$outputDir/outbreak_investigation/food_sources/lettuce_batch_A.fastq.gz,BC05
+FOOD_CHICKEN_B,$outputDir/outbreak_investigation/food_sources/chicken_batch_B.fastq.gz,BC06
+FOOD_WATER_SUPPLY,$outputDir/outbreak_investigation/food_sources/water_supply.fastq.gz,BC07
+ENV_KITCHEN_SURF,$outputDir/outbreak_investigation/environmental/kitchen_surface.fastq.gz,BC08
+ENV_PREP_AREA,$outputDir/outbreak_investigation/environmental/prep_area.fastq.gz,BC09
+EOF
+            """
+        }
+
+        when {
+            params {
+                input = "$outputDir/outbreak_samplesheet.csv"
+                outdir = "$outputDir/outbreak_results"
+                
+                // Outbreak investigation settings
+                outbreak_investigation_mode = true
+                enable_source_attribution = true
+                enable_phylogenetic_analysis = true
+                
+                // Sample categorization
+                patient_samples = "PATIENT_CASE_001,PATIENT_CASE_002,PATIENT_CASE_003,PATIENT_CASE_004"
+                food_samples = "FOOD_LETTUCE_A,FOOD_CHICKEN_B,FOOD_WATER_SUPPLY"
+                environmental_samples = "ENV_KITCHEN_SURF,ENV_PREP_AREA"
+                
+                // Outbreak-specific analysis
+                enable_strain_typing = true
+                enable_resistance_profiling = true
+                enable_virulence_detection = true
+                
+                // Rapid turnaround for public health
+                urgent_outbreak_mode = true
+                rapid_preliminary_results = true
+                
+                // Quality and validation
+                enable_contamination_control = true
+                strict_outbreak_qc = true
+                
+                // Resource allocation
+                max_cpus = 6
+                max_memory = '12.GB'
+                max_time = '8.min'
+                
+                // Analysis settings
+                use_dorado = false
+                kraken2_db = null
+                blast_validation = false
+                skip_nanoplot = false
+            }
+        }
+
+        then {
+            assert workflow.success
+            
+            // Verify outbreak investigation processing
+            def fastp_tasks = workflow.trace.tasks().findAll { it.name.contains('FASTP') }
+            assert fastp_tasks.size() >= 8  // All outbreak samples
+            
+            // Verify sample categorization
+            def fastp_outputs = path("${outputDir}/outbreak_results/fastp").list()
+            def patient_outputs = fastp_outputs.findAll { it.name.contains('PATIENT_') }
+            def food_outputs = fastp_outputs.findAll { it.name.contains('FOOD_') }
+            def env_outputs = fastp_outputs.findAll { it.name.contains('ENV_') }
+            
+            assert patient_outputs.size() >= 4  // Patient samples
+            assert food_outputs.size() >= 3     // Food samples
+            assert env_outputs.size() >= 2      // Environmental samples
+            
+            // Verify comprehensive outputs
+            assert path("${outputDir}/outbreak_results/fastp").exists()
+            assert path("${outputDir}/outbreak_results/multiqc").exists()
+            
+            println("🦠 Outbreak investigation: ${fastp_tasks.size()} samples processed")
+            println("👥 Patient samples: ${patient_outputs.size()} processed")
+            println("🥬 Food samples: ${food_outputs.size()} processed")
+            println("🏭 Environmental samples: ${env_outputs.size()} processed")
+        }
+    }
+
+    test("Should simulate agricultural crop disease monitoring") {
+
+        setup {
+            """
+            # Simulate agricultural monitoring scenario
+            mkdir -p $outputDir/agricultural_monitoring/field_samples
+            mkdir -p $outputDir/agricultural_monitoring/plant_tissue
+            mkdir -p $outputDir/agricultural_monitoring/soil_health
+            
+            # Field samples from different crops
+            cp $projectDir/tests/test_sample.fastq.gz $outputDir/agricultural_monitoring/field_samples/wheat_field_1.fastq.gz
+            cp $projectDir/tests/test_sample.fastq.gz $outputDir/agricultural_monitoring/field_samples/corn_field_2.fastq.gz
+            cp $projectDir/tests/test_sample.fastq.gz $outputDir/agricultural_monitoring/field_samples/soybean_field_3.fastq.gz
+            
+            # Plant tissue samples (diseased vs healthy)
+            cp $projectDir/tests/test_sample.fastq.gz $outputDir/agricultural_monitoring/plant_tissue/wheat_diseased_leaf.fastq.gz
+            cp $projectDir/tests/test_sample.fastq.gz $outputDir/agricultural_monitoring/plant_tissue/wheat_healthy_leaf.fastq.gz
+            cp $projectDir/tests/test_sample.fastq.gz $outputDir/agricultural_monitoring/plant_tissue/corn_diseased_stem.fastq.gz
+            
+            # Soil health samples
+            cp $projectDir/tests/test_sample.fastq.gz $outputDir/agricultural_monitoring/soil_health/field1_rhizosphere.fastq.gz
+            cp $projectDir/tests/test_sample.fastq.gz $outputDir/agricultural_monitoring/soil_health/field2_bulk_soil.fastq.gz
+            
+            # Agricultural monitoring samplesheet
+            cat > $outputDir/agricultural_samplesheet.csv << 'EOF'
+sample,fastq,barcode
+FIELD_WHEAT_F1,$outputDir/agricultural_monitoring/field_samples/wheat_field_1.fastq.gz,BC01
+FIELD_CORN_F2,$outputDir/agricultural_monitoring/field_samples/corn_field_2.fastq.gz,BC02
+FIELD_SOYBEAN_F3,$outputDir/agricultural_monitoring/field_samples/soybean_field_3.fastq.gz,BC03
+TISSUE_WHEAT_DIS,$outputDir/agricultural_monitoring/plant_tissue/wheat_diseased_leaf.fastq.gz,BC04
+TISSUE_WHEAT_HEAL,$outputDir/agricultural_monitoring/plant_tissue/wheat_healthy_leaf.fastq.gz,BC05
+TISSUE_CORN_DIS,$outputDir/agricultural_monitoring/plant_tissue/corn_diseased_stem.fastq.gz,BC06
+SOIL_RHIZO_F1,$outputDir/agricultural_monitoring/soil_health/field1_rhizosphere.fastq.gz,BC07
+SOIL_BULK_F2,$outputDir/agricultural_monitoring/soil_health/field2_bulk_soil.fastq.gz,BC08
+EOF
+            """
+        }
+
+        when {
+            params {
+                input = "$outputDir/agricultural_samplesheet.csv"
+                outdir = "$outputDir/agricultural_results"
+                
+                // Agricultural monitoring settings
+                agricultural_mode = true
+                enable_plant_pathogen_detection = true
+                enable_beneficial_microbe_analysis = true
+                
+                // Sample grouping
+                field_samples = "FIELD_WHEAT_F1,FIELD_CORN_F2,FIELD_SOYBEAN_F3"
+                diseased_samples = "TISSUE_WHEAT_DIS,TISSUE_CORN_DIS"
+                healthy_samples = "TISSUE_WHEAT_HEAL"
+                soil_samples = "SOIL_RHIZO_F1,SOIL_BULK_F2"
+                
+                // Agricultural-specific analysis
+                enable_disease_resistance_profiling = true
+                enable_crop_specific_analysis = true
+                enable_soil_microbiome_analysis = true
+                
+                // Comparative analysis
+                enable_healthy_vs_diseased_comparison = true
+                enable_crop_comparison = true
+                
+                // Resource allocation
+                max_cpus = 6
+                max_memory = '12.GB'
+                max_time = '6.min'
+                
+                // Analysis settings
+                use_dorado = false
+                kraken2_db = null
+                blast_validation = false
+                skip_nanoplot = false
+            }
+        }
+
+        then {
+            assert workflow.success
+            
+            // Verify agricultural sample processing
+            def fastp_tasks = workflow.trace.tasks().findAll { it.name.contains('FASTP') }
+            assert fastp_tasks.size() >= 7  // All agricultural samples
+            
+            // Verify sample type processing
+            def fastp_outputs = path("${outputDir}/agricultural_results/fastp").list()
+            def field_outputs = fastp_outputs.findAll { it.name.contains('FIELD_') }
+            def tissue_outputs = fastp_outputs.findAll { it.name.contains('TISSUE_') }
+            def soil_outputs = fastp_outputs.findAll { it.name.contains('SOIL_') }
+            
+            assert field_outputs.size() >= 3   // Field samples
+            assert tissue_outputs.size() >= 3  // Plant tissue samples
+            assert soil_outputs.size() >= 2    // Soil samples
+            
+            // Verify outputs
+            assert path("${outputDir}/agricultural_results/fastp").exists()
+            assert path("${outputDir}/agricultural_results/multiqc").exists()
+            
+            println("🌾 Agricultural monitoring: ${fastp_tasks.size()} samples processed")
+            println("🚜 Field samples: ${field_outputs.size()} processed")
+            println("🍃 Plant tissue samples: ${tissue_outputs.size()} processed")
+            println("🌱 Soil samples: ${soil_outputs.size()} processed")
+        }
+    }
+
+    test("Should simulate marine biodiversity research expedition") {
+
+        setup {
+            """
+            # Simulate marine research expedition
+            mkdir -p $outputDir/marine_expedition/surface_water
+            mkdir -p $outputDir/marine_expedition/deep_water
+            mkdir -p $outputDir/marine_expedition/sediment
+            mkdir -p $outputDir/marine_expedition/coral_reef
+            
+            # Surface water samples (different locations)
+            cp $projectDir/tests/test_sample.fastq.gz $outputDir/marine_expedition/surface_water/station_001_surface.fastq.gz
+            cp $projectDir/tests/test_sample.fastq.gz $outputDir/marine_expedition/surface_water/station_002_surface.fastq.gz
+            cp $projectDir/tests/test_sample.fastq.gz $outputDir/marine_expedition/surface_water/station_003_surface.fastq.gz
+            
+            # Deep water samples
+            cp $projectDir/tests/test_sample.fastq.gz $outputDir/marine_expedition/deep_water/station_001_1000m.fastq.gz
+            cp $projectDir/tests/test_sample.fastq.gz $outputDir/marine_expedition/deep_water/station_002_1500m.fastq.gz
+            
+            # Sediment samples
+            cp $projectDir/tests/test_sample.fastq.gz $outputDir/marine_expedition/sediment/station_001_sediment.fastq.gz
+            cp $projectDir/tests/test_sample.fastq.gz $outputDir/marine_expedition/sediment/station_003_sediment.fastq.gz
+            
+            # Coral reef samples
+            cp $projectDir/tests/test_sample.fastq.gz $outputDir/marine_expedition/coral_reef/healthy_coral.fastq.gz
+            cp $projectDir/tests/test_sample.fastq.gz $outputDir/marine_expedition/coral_reef/bleached_coral.fastq.gz
+            
+            # Marine expedition samplesheet
+            cat > $outputDir/marine_samplesheet.csv << 'EOF'
+sample,fastq,barcode
+SURF_ST001,$outputDir/marine_expedition/surface_water/station_001_surface.fastq.gz,BC01
+SURF_ST002,$outputDir/marine_expedition/surface_water/station_002_surface.fastq.gz,BC02
+SURF_ST003,$outputDir/marine_expedition/surface_water/station_003_surface.fastq.gz,BC03
+DEEP_ST001_1000M,$outputDir/marine_expedition/deep_water/station_001_1000m.fastq.gz,BC04
+DEEP_ST002_1500M,$outputDir/marine_expedition/deep_water/station_002_1500m.fastq.gz,BC05
+SED_ST001,$outputDir/marine_expedition/sediment/station_001_sediment.fastq.gz,BC06
+SED_ST003,$outputDir/marine_expedition/sediment/station_003_sediment.fastq.gz,BC07
+CORAL_HEALTHY,$outputDir/marine_expedition/coral_reef/healthy_coral.fastq.gz,BC08
+CORAL_BLEACHED,$outputDir/marine_expedition/coral_reef/bleached_coral.fastq.gz,BC09
+EOF
+            """
+        }
+
+        when {
+            params {
+                input = "$outputDir/marine_samplesheet.csv"
+                outdir = "$outputDir/marine_results"
+                
+                // Marine research settings
+                marine_research_mode = true
+                enable_biodiversity_analysis = true
+                enable_depth_stratification_analysis = true
+                
+                // Sample categorization
+                surface_samples = "SURF_ST001,SURF_ST002,SURF_ST003"
+                deep_samples = "DEEP_ST001_1000M,DEEP_ST002_1500M"
+                sediment_samples = "SED_ST001,SED_ST003"
+                coral_samples = "CORAL_HEALTHY,CORAL_BLEACHED"
+                
+                // Marine-specific analysis
+                enable_marine_microbiome_analysis = true
+                enable_coral_health_assessment = true
+                enable_depth_comparison = true
+                
+                // Biodiversity metrics
+                enable_alpha_diversity = true
+                enable_beta_diversity = true
+                enable_functional_analysis = true
+                
+                // Resource allocation
+                max_cpus = 6
+                max_memory = '12.GB'
+                max_time = '8.min'
+                
+                // Analysis settings
+                use_dorado = false
+                kraken2_db = null
+                blast_validation = false
+                skip_nanoplot = false
+            }
+        }
+
+        then {
+            assert workflow.success
+            
+            // Verify marine expedition processing
+            def fastp_tasks = workflow.trace.tasks().findAll { it.name.contains('FASTP') }
+            assert fastp_tasks.size() >= 8  // All marine samples
+            
+            // Verify habitat-specific processing
+            def fastp_outputs = path("${outputDir}/marine_results/fastp").list()
+            def surface_outputs = fastp_outputs.findAll { it.name.contains('SURF_') }
+            def deep_outputs = fastp_outputs.findAll { it.name.contains('DEEP_') }
+            def sediment_outputs = fastp_outputs.findAll { it.name.contains('SED_') }
+            def coral_outputs = fastp_outputs.findAll { it.name.contains('CORAL_') }
+            
+            assert surface_outputs.size() >= 3   // Surface water samples
+            assert deep_outputs.size() >= 2      // Deep water samples
+            assert sediment_outputs.size() >= 2  // Sediment samples
+            assert coral_outputs.size() >= 2     // Coral reef samples
+            
+            // Verify outputs
+            assert path("${outputDir}/marine_results/fastp").exists()
+            assert path("${outputDir}/marine_results/multiqc").exists()
+            
+            println("🌊 Marine expedition: ${fastp_tasks.size()} samples processed")
+            println("🏄 Surface water: ${surface_outputs.size()} samples")
+            println("🐋 Deep water: ${deep_outputs.size()} samples")
+            println("🏖️ Sediment: ${sediment_outputs.size()} samples")
+            println("🐠 Coral reef: ${coral_outputs.size()} samples")
+        }
+    }
+
+    test("Should simulate longitudinal microbiome study") {
+
+        setup {
+            """
+            # Simulate longitudinal study with time points
+            mkdir -p $outputDir/longitudinal_study/baseline
+            mkdir -p $outputDir/longitudinal_study/week_4
+            mkdir -p $outputDir/longitudinal_study/week_8
+            mkdir -p $outputDir/longitudinal_study/week_12
+            
+            # Baseline samples (week 0)
+            cp $projectDir/tests/test_sample.fastq.gz $outputDir/longitudinal_study/baseline/subject_001_baseline.fastq.gz
+            cp $projectDir/tests/test_sample.fastq.gz $outputDir/longitudinal_study/baseline/subject_002_baseline.fastq.gz
+            cp $projectDir/tests/test_sample.fastq.gz $outputDir/longitudinal_study/baseline/subject_003_baseline.fastq.gz
+            
+            # Week 4 samples
+            cp $projectDir/tests/test_sample.fastq.gz $outputDir/longitudinal_study/week_4/subject_001_week4.fastq.gz
+            cp $projectDir/tests/test_sample.fastq.gz $outputDir/longitudinal_study/week_4/subject_002_week4.fastq.gz
+            cp $projectDir/tests/test_sample.fastq.gz $outputDir/longitudinal_study/week_4/subject_003_week4.fastq.gz
+            
+            # Week 8 samples
+            cp $projectDir/tests/test_sample.fastq.gz $outputDir/longitudinal_study/week_8/subject_001_week8.fastq.gz
+            cp $projectDir/tests/test_sample.fastq.gz $outputDir/longitudinal_study/week_8/subject_002_week8.fastq.gz
+            
+            # Week 12 samples
+            cp $projectDir/tests/test_sample.fastq.gz $outputDir/longitudinal_study/week_12/subject_001_week12.fastq.gz
+            cp $projectDir/tests/test_sample.fastq.gz $outputDir/longitudinal_study/week_12/subject_003_week12.fastq.gz
+            
+            # Longitudinal study samplesheet
+            cat > $outputDir/longitudinal_samplesheet.csv << 'EOF'
+sample,fastq,barcode
+SUBJ001_BASELINE,$outputDir/longitudinal_study/baseline/subject_001_baseline.fastq.gz,BC01
+SUBJ002_BASELINE,$outputDir/longitudinal_study/baseline/subject_002_baseline.fastq.gz,BC02
+SUBJ003_BASELINE,$outputDir/longitudinal_study/baseline/subject_003_baseline.fastq.gz,BC03
+SUBJ001_WEEK4,$outputDir/longitudinal_study/week_4/subject_001_week4.fastq.gz,BC04
+SUBJ002_WEEK4,$outputDir/longitudinal_study/week_4/subject_002_week4.fastq.gz,BC05
+SUBJ003_WEEK4,$outputDir/longitudinal_study/week_4/subject_003_week4.fastq.gz,BC06
+SUBJ001_WEEK8,$outputDir/longitudinal_study/week_8/subject_001_week8.fastq.gz,BC07
+SUBJ002_WEEK8,$outputDir/longitudinal_study/week_8/subject_002_week8.fastq.gz,BC08
+SUBJ001_WEEK12,$outputDir/longitudinal_study/week_12/subject_001_week12.fastq.gz,BC09
+SUBJ003_WEEK12,$outputDir/longitudinal_study/week_12/subject_003_week12.fastq.gz,BC10
+EOF
+            """
+        }
+
+        when {
+            params {
+                input = "$outputDir/longitudinal_samplesheet.csv"
+                outdir = "$outputDir/longitudinal_results"
+                
+                // Longitudinal study settings
+                longitudinal_study_mode = true
+                enable_temporal_analysis = true
+                enable_subject_tracking = true
+                
+                // Time point grouping
+                baseline_samples = "SUBJ001_BASELINE,SUBJ002_BASELINE,SUBJ003_BASELINE"
+                week4_samples = "SUBJ001_WEEK4,SUBJ002_WEEK4,SUBJ003_WEEK4"
+                week8_samples = "SUBJ001_WEEK8,SUBJ002_WEEK8"
+                week12_samples = "SUBJ001_WEEK12,SUBJ003_WEEK12"
+                
+                // Longitudinal analysis
+                enable_trajectory_analysis = true
+                enable_stability_assessment = true
+                enable_intervention_response = true
+                
+                // Statistical analysis
+                enable_paired_analysis = true
+                enable_trend_analysis = true
+                missing_data_handling = "interpolation"
+                
+                // Resource allocation
+                max_cpus = 6
+                max_memory = '12.GB'
+                max_time = '8.min'
+                
+                // Analysis settings
+                use_dorado = false
+                kraken2_db = null
+                blast_validation = false
+                skip_nanoplot = false
+            }
+        }
+
+        then {
+            assert workflow.success
+            
+            // Verify longitudinal processing
+            def fastp_tasks = workflow.trace.tasks().findAll { it.name.contains('FASTP') }
+            assert fastp_tasks.size() >= 8  // Most longitudinal samples
+            
+            // Verify time point processing
+            def fastp_outputs = path("${outputDir}/longitudinal_results/fastp").list()
+            def baseline_outputs = fastp_outputs.findAll { it.name.contains('BASELINE') }
+            def week4_outputs = fastp_outputs.findAll { it.name.contains('WEEK4') }
+            def week8_outputs = fastp_outputs.findAll { it.name.contains('WEEK8') }
+            def week12_outputs = fastp_outputs.findAll { it.name.contains('WEEK12') }
+            
+            assert baseline_outputs.size() >= 3  // Baseline time point
+            assert week4_outputs.size() >= 3     // Week 4 time point
+            assert week8_outputs.size() >= 2     // Week 8 time point
+            assert week12_outputs.size() >= 2    // Week 12 time point
+            
+            // Verify outputs
+            assert path("${outputDir}/longitudinal_results/fastp").exists()
+            assert path("${outputDir}/longitudinal_results/multiqc").exists()
+            
+            println("📈 Longitudinal study: ${fastp_tasks.size()} samples processed")
+            println("⏰ Baseline: ${baseline_outputs.size()} samples")
+            println("⏰ Week 4: ${week4_outputs.size()} samples")
+            println("⏰ Week 8: ${week8_outputs.size()} samples")
+            println("⏰ Week 12: ${week12_outputs.size()} samples")
+        }
+    }
+}

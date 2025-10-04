@@ -14,7 +14,8 @@ nextflow_process {
                         id: 'test_sample',
                         single_end: true
                     ],
-                    file('$projectDir/tests/test_sample.fastq.gz')
+                    file('$projectDir/tests/test_sample.fastq.gz'),
+                    [tool_name: 'fastp', tool_version: '0.23.0']
                 ]
                 input[1] = [
                     sampling_rate: 0.1,
@@ -45,8 +46,10 @@ nextflow_process {
     test("Should analyze POD5 file characteristics") {
 
         setup {
-            // Create dummy POD5 file for testing
-            script "echo 'dummy pod5 content for analysis' > $outputDir/test.pod5")
+            """
+            # Create dummy POD5 file for testing
+            echo 'dummy pod5 content for analysis' > $outputDir/test.pod5
+            """
         }
 
         when {
@@ -58,7 +61,8 @@ nextflow_process {
                         single_end: true,
                         file_type: 'pod5'
                     ],
-                    file('$outputDir/test.pod5')
+                    file('$outputDir/test.pod5'),
+                    [tool_name: 'dorado', tool_version: '0.7.0']
                 ]
                 input[1] = [
                     sampling_rate: 0.05,
@@ -86,9 +90,11 @@ nextflow_process {
     test("Should handle multiple input files") {
 
         setup {
-            // Create test files
-            script "cp $projectDir/tests/test_sample.fastq.gz $outputDir/sample1.fastq.gz")
-            script "cp $projectDir/tests/test_sample.fastq.gz $outputDir/sample2.fastq.gz")
+            """
+            # Create test files
+            cp $projectDir/tests/test_sample.fastq.gz $outputDir/sample1.fastq.gz
+            cp $projectDir/tests/test_sample.fastq.gz $outputDir/sample2.fastq.gz
+            """
         }
 
         when {
@@ -102,7 +108,8 @@ nextflow_process {
                     [
                         file('$outputDir/sample1.fastq.gz'),
                         file('$outputDir/sample2.fastq.gz')
-                    ]
+                    ],
+                    [tool_name: 'kraken2', tool_version: '2.1.3']
                 ]
                 input[1] = [
                     sampling_rate: 0.1,
@@ -135,7 +142,8 @@ nextflow_process {
                         id: 'complexity_test',
                         single_end: true
                     ],
-                    file('$projectDir/tests/test_sample.fastq.gz')
+                    file('$projectDir/tests/test_sample.fastq.gz'),
+                    [tool_name: 'nanoplot', tool_version: '1.42.0']
                 ]
                 input[1] = [
                     sampling_rate: 0.2,
@@ -173,7 +181,8 @@ nextflow_process {
                         id: 'edge_case_test',
                         single_end: true
                     ],
-                    file('$projectDir/tests/test_sample.fastq.gz')
+                    file('$projectDir/tests/test_sample.fastq.gz'),
+                    [tool_name: 'fastqc', tool_version: '0.12.1']
                 ]
                 input[1] = [
                     sampling_rate: 1.0,  // Full sampling
@@ -208,7 +217,8 @@ nextflow_process {
                         id: 'stub_test',
                         single_end: true
                     ],
-                    []
+                    [],
+                    [tool_name: 'stub', tool_version: '1.0']
                 ]
                 input[1] = [
                     sampling_rate: 0.1,

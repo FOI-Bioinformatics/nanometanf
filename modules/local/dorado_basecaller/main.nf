@@ -149,13 +149,43 @@ EOF
 
     stub:
     def prefix = task.ext.prefix ?: "${meta.id}"
+    def min_qscore = params.min_qscore ?: 9
     """
-    touch ${prefix}.fastq.gz
-    touch ${prefix}_summary.txt
+    # Create stub FASTQ with realistic structure
+    cat > ${prefix}.fastq << 'EOF'
+@stub_read_001 runid=stub basecall_model_version=${model}
+ACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGT
++
+IIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII
+@stub_read_002 runid=stub basecall_model_version=${model}
+TGCATGCATGCATGCATGCATGCATGCATGCATGCATGCATGCATGCATGCATGCATGCA
++
+JJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJ
+EOF
+    gzip ${prefix}.fastq
+
+    # Create comprehensive summary matching real output structure
+    cat > ${prefix}_summary.txt << EOF
+Sample: ${prefix}
+Model: ${model}
+Min Q-score: ${min_qscore}
+Device: cpu
+GPU Available: false
+Trim Barcodes: ${params.trim_barcodes ?: false}
+Demultiplex: ${params.demultiplex ?: false}
+Barcode Kit: ${params.barcode_kit ?: 'none'}
+Input files: stub_input.pod5
+Input file count: 1
+Basecalling started: \$(date "+%Y-%m-%d %H:%M:%S")
+Basecalling completed: \$(date "+%Y-%m-%d %H:%M:%S")
+Host: \$(hostname)
+CPUs: ${task.cpus}
+Memory: ${task.memory}
+EOF
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
-        dorado: \$(echo "1.1.1")
+        dorado: 1.1.1
     END_VERSIONS
     """
 }

@@ -28,8 +28,8 @@ process PREDICT_RESOURCE_REQUIREMENTS {
     from pathlib import Path
     
     # Load input data
-    meta = ${groovy.json.JsonBuilder(meta).toString()}
-    resource_config = ${groovy.json.JsonBuilder(resource_config).toString()}
+    meta = json.loads('${new groovy.json.JsonBuilder(meta).toString()}')
+    resource_config = json.loads('${new groovy.json.JsonBuilder(resource_config).toString()}')
     
     # Load characteristics and system metrics
     with open('${characteristics}', 'r') as f:
@@ -471,8 +471,78 @@ process PREDICT_RESOURCE_REQUIREMENTS {
 
     stub:
     """
-    echo '{"sample_id": "${meta.id}", "stub": true, "predictions": {"cpu_requirements": {"predicted_cores": 4}}}' > ${meta.id}_resource_predictions.json
-    
+    cat > ${meta.id}_resource_predictions.json <<'STUB_EOF'
+{
+  "sample_id": "${meta.id}",
+  "prediction_timestamp": "2024-01-01T00:00:00",
+  "tool_context": {
+    "tool_name": "stub_tool"
+  },
+  "input_characteristics_summary": {
+    "total_size_gb": 1.0,
+    "total_estimated_reads": 100000,
+    "file_count": 1,
+    "complexity_score": 1.0
+  },
+  "system_context_summary": {
+    "cpu_cores_available": 4,
+    "memory_gb_available": 8.0,
+    "gpu_available": false,
+    "current_load": "low"
+  },
+  "predictions": {
+    "cpu_requirements": {
+      "predicted_cores": 4,
+      "base_cores": 2,
+      "scaling_factor": 0.1,
+      "complexity_adjustment": 1.0,
+      "tool_profile": {}
+    },
+    "memory_requirements": {
+      "predicted_memory_gb": 8.0,
+      "base_memory_gb": 4.0,
+      "scaling_component": 4.0,
+      "complexity_adjustment": 1.0,
+      "tool_profile": {}
+    },
+    "runtime_estimates": {
+      "predicted_runtime_seconds": 3600,
+      "predicted_runtime_minutes": 60.0,
+      "predicted_runtime_hours": 1.0,
+      "base_processing_time": 3000,
+      "startup_time": 30,
+      "parallelization_efficiency": 1.0
+    },
+    "io_requirements": {
+      "temp_space_gb": 0.5,
+      "read_throughput_mb_s": 100,
+      "write_throughput_mb_s": 50,
+      "io_pattern": {},
+      "multiple_files": false,
+      "concurrent_io": false
+    }
+  },
+  "confidence_metrics": {
+    "confidence_score": 0.800,
+    "confidence_level": "medium",
+    "factors": {
+      "data_completeness": 0.800,
+      "system_metrics_quality": 1.000,
+      "file_type_certainty": 0.800,
+      "size_reasonableness": 1.000
+    }
+  },
+  "recommendations": {
+    "optimal_cpu_cores": 4,
+    "optimal_memory_gb": 8.0,
+    "estimated_runtime_hours": 1.0,
+    "temp_space_gb": 0.5,
+    "gpu_acceleration": false,
+    "priority_level": "normal"
+  }
+}
+STUB_EOF
+
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
         python: "3.9"

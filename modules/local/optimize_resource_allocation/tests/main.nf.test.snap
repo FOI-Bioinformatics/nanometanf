@@ -1,0 +1,373 @@
+{
+    "Should handle Apple Silicon GPU optimization": {
+        "content": [
+            {
+                "0": [
+                    [
+                        {
+                            "id": "apple_gpu_test",
+                            "single_end": true
+                        },
+                        "apple_gpu_test_optimal_allocation.json:md5,66c738d6ed43ecacf87ae017338d14d4"
+                    ]
+                ],
+                "1": [
+                    [
+                        {
+                            "id": "apple_gpu_test",
+                            "single_end": true
+                        },
+                        "apple_gpu_test_performance_metrics.json:md5,051991da19c252e0c163b25c05f2190c"
+                    ]
+                ],
+                "2": [
+                    "versions.yml:md5,2a2e97bf7e41c0b1f7feb5bc82564f3f"
+                ],
+                "allocations": [
+                    [
+                        {
+                            "id": "apple_gpu_test",
+                            "single_end": true
+                        },
+                        "apple_gpu_test_optimal_allocation.json:md5,66c738d6ed43ecacf87ae017338d14d4"
+                    ]
+                ],
+                "performance_metrics": [
+                    [
+                        {
+                            "id": "apple_gpu_test",
+                            "single_end": true
+                        },
+                        "apple_gpu_test_performance_metrics.json:md5,051991da19c252e0c163b25c05f2190c"
+                    ]
+                ],
+                "versions": [
+                    "versions.yml:md5,2a2e97bf7e41c0b1f7feb5bc82564f3f"
+                ]
+            }
+        ],
+        "meta": {
+            "nf-test": "0.9.2",
+            "nextflow": "25.04.7"
+        },
+        "timestamp": "2025-10-03T09:26:51.514304"
+    },
+    "Should optimize for low priority workload": {
+        "content": [
+            {
+                "0": [
+                    [
+                        {
+                            "id": "low_priority_test",
+                            "single_end": true
+                        },
+                        "low_priority_test_optimal_allocation.json:md5,3a554c36d71da665f1a69dc182511d5d"
+                    ]
+                ],
+                "1": [
+                    [
+                        {
+                            "id": "low_priority_test",
+                            "single_end": true
+                        },
+                        "low_priority_test_performance_metrics.json:md5,5828426485d773efc17b9218ec204947"
+                    ]
+                ],
+                "2": [
+                    "versions.yml:md5,2a2e97bf7e41c0b1f7feb5bc82564f3f"
+                ],
+                "allocations": [
+                    [
+                        {
+                            "id": "low_priority_test",
+                            "single_end": true
+                        },
+                        "low_priority_test_optimal_allocation.json:md5,3a554c36d71da665f1a69dc182511d5d"
+                    ]
+                ],
+                "performance_metrics": [
+                    [
+                        {
+                            "id": "low_priority_test",
+                            "single_end": true
+                        },
+                        "low_priority_test_performance_metrics.json:md5,5828426485d773efc17b9218ec204947"
+                    ]
+                ],
+                "versions": [
+                    "versions.yml:md5,2a2e97bf7e41c0b1f7feb5bc82564f3f"
+                ]
+            }
+        ],
+        "meta": {
+            "nf-test": "0.9.2",
+            "nextflow": "25.04.7"
+        },
+        "timestamp": "2025-10-03T09:26:47.789046"
+    },
+    "Should optimize GPU-enabled workload": {
+        "content": [
+            {
+                "0": [
+                    [
+                        {
+                            "id": "gpu_optimization_test",
+                            "single_end": true
+                        },
+                        "gpu_optimization_test_optimal_allocation.json:md5,746cbcdd2856d13e3bb0474e282b3496"
+                    ]
+                ],
+                "1": [
+                    [
+                        {
+                            "id": "gpu_optimization_test",
+                            "single_end": true
+                        },
+                        "gpu_optimization_test_performance_metrics.json:md5,26e6fab7b8ca0ca5f3a580da464ff08e"
+                    ]
+                ],
+                "2": [
+                    "versions.yml:md5,2a2e97bf7e41c0b1f7feb5bc82564f3f"
+                ],
+                "allocations": [
+                    [
+                        {
+                            "id": "gpu_optimization_test",
+                            "single_end": true
+                        },
+                        "gpu_optimization_test_optimal_allocation.json:md5,746cbcdd2856d13e3bb0474e282b3496"
+                    ]
+                ],
+                "performance_metrics": [
+                    [
+                        {
+                            "id": "gpu_optimization_test",
+                            "single_end": true
+                        },
+                        "gpu_optimization_test_performance_metrics.json:md5,26e6fab7b8ca0ca5f3a580da464ff08e"
+                    ]
+                ],
+                "versions": [
+                    "versions.yml:md5,2a2e97bf7e41c0b1f7feb5bc82564f3f"
+                ]
+            }
+        ],
+        "meta": {
+            "nf-test": "0.9.2",
+            "nextflow": "25.04.7"
+        },
+        "timestamp": "2025-10-03T09:26:39.543837"
+    },
+    "Should handle high priority workload optimization": {
+        "content": [
+            {
+                "0": [
+                    [
+                        {
+                            "id": "high_priority_test",
+                            "single_end": true
+                        },
+                        "high_priority_test_optimal_allocation.json:md5,3fa38a1fe86bc379dd37026b9439f607"
+                    ]
+                ],
+                "1": [
+                    [
+                        {
+                            "id": "high_priority_test",
+                            "single_end": true
+                        },
+                        "high_priority_test_performance_metrics.json:md5,59019368cefb4120b3507e4f44208c8f"
+                    ]
+                ],
+                "2": [
+                    "versions.yml:md5,2a2e97bf7e41c0b1f7feb5bc82564f3f"
+                ],
+                "allocations": [
+                    [
+                        {
+                            "id": "high_priority_test",
+                            "single_end": true
+                        },
+                        "high_priority_test_optimal_allocation.json:md5,3fa38a1fe86bc379dd37026b9439f607"
+                    ]
+                ],
+                "performance_metrics": [
+                    [
+                        {
+                            "id": "high_priority_test",
+                            "single_end": true
+                        },
+                        "high_priority_test_performance_metrics.json:md5,59019368cefb4120b3507e4f44208c8f"
+                    ]
+                ],
+                "versions": [
+                    "versions.yml:md5,2a2e97bf7e41c0b1f7feb5bc82564f3f"
+                ]
+            }
+        ],
+        "meta": {
+            "nf-test": "0.9.2",
+            "nextflow": "25.04.7"
+        },
+        "timestamp": "2025-10-03T09:26:35.693796"
+    },
+    "Should optimize basic resource allocation": {
+        "content": [
+            {
+                "0": [
+                    [
+                        {
+                            "id": "basic_optimization_test",
+                            "single_end": true
+                        },
+                        "basic_optimization_test_optimal_allocation.json:md5,1f99903033c7ae8b6aaadd296a53fce0"
+                    ]
+                ],
+                "1": [
+                    [
+                        {
+                            "id": "basic_optimization_test",
+                            "single_end": true
+                        },
+                        "basic_optimization_test_performance_metrics.json:md5,26e6fab7b8ca0ca5f3a580da464ff08e"
+                    ]
+                ],
+                "2": [
+                    "versions.yml:md5,2a2e97bf7e41c0b1f7feb5bc82564f3f"
+                ],
+                "allocations": [
+                    [
+                        {
+                            "id": "basic_optimization_test",
+                            "single_end": true
+                        },
+                        "basic_optimization_test_optimal_allocation.json:md5,1f99903033c7ae8b6aaadd296a53fce0"
+                    ]
+                ],
+                "performance_metrics": [
+                    [
+                        {
+                            "id": "basic_optimization_test",
+                            "single_end": true
+                        },
+                        "basic_optimization_test_performance_metrics.json:md5,26e6fab7b8ca0ca5f3a580da464ff08e"
+                    ]
+                ],
+                "versions": [
+                    "versions.yml:md5,2a2e97bf7e41c0b1f7feb5bc82564f3f"
+                ]
+            }
+        ],
+        "meta": {
+            "nf-test": "0.9.2",
+            "nextflow": "25.04.7"
+        },
+        "timestamp": "2025-10-03T09:26:32.118965"
+    },
+    "Should handle system under resource pressure": {
+        "content": [
+            {
+                "0": [
+                    [
+                        {
+                            "id": "pressure_test",
+                            "single_end": true
+                        },
+                        "pressure_test_optimal_allocation.json:md5,d6e6d5a5547a8dfac7783506ad10ab7b"
+                    ]
+                ],
+                "1": [
+                    [
+                        {
+                            "id": "pressure_test",
+                            "single_end": true
+                        },
+                        "pressure_test_performance_metrics.json:md5,33f98cf3e8a95cb876dc3e1867c7e451"
+                    ]
+                ],
+                "2": [
+                    "versions.yml:md5,2a2e97bf7e41c0b1f7feb5bc82564f3f"
+                ],
+                "allocations": [
+                    [
+                        {
+                            "id": "pressure_test",
+                            "single_end": true
+                        },
+                        "pressure_test_optimal_allocation.json:md5,d6e6d5a5547a8dfac7783506ad10ab7b"
+                    ]
+                ],
+                "performance_metrics": [
+                    [
+                        {
+                            "id": "pressure_test",
+                            "single_end": true
+                        },
+                        "pressure_test_performance_metrics.json:md5,33f98cf3e8a95cb876dc3e1867c7e451"
+                    ]
+                ],
+                "versions": [
+                    "versions.yml:md5,2a2e97bf7e41c0b1f7feb5bc82564f3f"
+                ]
+            }
+        ],
+        "meta": {
+            "nf-test": "0.9.2",
+            "nextflow": "25.04.7"
+        },
+        "timestamp": "2025-10-03T09:26:43.954747"
+    },
+    "Should handle invalid predictions gracefully": {
+        "content": [
+            {
+                "0": [
+                    [
+                        {
+                            "id": "invalid_input_test",
+                            "single_end": true
+                        },
+                        "invalid_input_test_optimal_allocation.json:md5,5a75359693d01b3b41685a9a701d5972"
+                    ]
+                ],
+                "1": [
+                    [
+                        {
+                            "id": "invalid_input_test",
+                            "single_end": true
+                        },
+                        "invalid_input_test_performance_metrics.json:md5,ec19ea044a3678158ef30f830e2cf20c"
+                    ]
+                ],
+                "2": [
+                    "versions.yml:md5,2a2e97bf7e41c0b1f7feb5bc82564f3f"
+                ],
+                "allocations": [
+                    [
+                        {
+                            "id": "invalid_input_test",
+                            "single_end": true
+                        },
+                        "invalid_input_test_optimal_allocation.json:md5,5a75359693d01b3b41685a9a701d5972"
+                    ]
+                ],
+                "performance_metrics": [
+                    [
+                        {
+                            "id": "invalid_input_test",
+                            "single_end": true
+                        },
+                        "invalid_input_test_performance_metrics.json:md5,ec19ea044a3678158ef30f830e2cf20c"
+                    ]
+                ],
+                "versions": [
+                    "versions.yml:md5,2a2e97bf7e41c0b1f7feb5bc82564f3f"
+                ]
+            }
+        ],
+        "meta": {
+            "nf-test": "0.9.2",
+            "nextflow": "25.04.7"
+        },
+        "timestamp": "2025-10-03T09:26:55.02653"
+    }
+}

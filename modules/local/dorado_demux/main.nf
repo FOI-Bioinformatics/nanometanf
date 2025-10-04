@@ -56,11 +56,48 @@ process DORADO_DEMUX {
     mkdir -p demux_output/barcode01
     mkdir -p demux_output/barcode02
     mkdir -p demux_output/unclassified
-    touch demux_output/barcode01/reads.fastq
-    touch demux_output/barcode02/reads.fastq
-    touch demux_output/unclassified/reads.fastq
-    touch demux_output/demux_summary.txt
-    
+
+    # Create realistic stub FASTQ files for each barcode
+    cat > demux_output/barcode01/reads.fastq << 'EOF'
+@stub_bc01_read_001
+ACGTACGTACGTACGTACGTACGTACGTACGTACGT
++
+IIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII
+@stub_bc01_read_002
+TGCATGCATGCATGCATGCATGCATGCATGCATGCA
++
+JJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJ
+EOF
+
+    cat > demux_output/barcode02/reads.fastq << 'EOF'
+@stub_bc02_read_001
+GGTTAACCGGTTAACCGGTTAACCGGTTAACCGGTT
++
+KKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKK
+EOF
+
+    cat > demux_output/unclassified/reads.fastq << 'EOF'
+@stub_unclass_read_001
+NNNNACGTACGTNNNNACGTACGTNNNN
++
+###IIIIIIII####IIIIIIII####
+EOF
+
+    # Create comprehensive summary
+    cat > demux_output/demux_summary.txt << EOF
+Demultiplexing Summary for ${meta.id}
+=====================================
+Barcode Kit: ${barcode_kit}
+Trim Barcodes: ${params.trim_barcodes ?: false}
+
+Files Created: 3
+- barcode01: 2 reads
+- barcode02: 1 read
+- unclassified: 1 read
+
+Demultiplexing completed: \$(date "+%Y-%m-%d %H:%M:%S")
+EOF
+
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
         dorado: 1.1.1

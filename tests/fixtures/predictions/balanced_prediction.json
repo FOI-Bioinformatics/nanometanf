@@ -1,0 +1,77 @@
+{
+  "sample_id": "balanced_test",
+  "prediction_timestamp": "2024-10-02T20:00:00",
+  "tool_context": {
+    "tool_name": "fastp"
+  },
+  "input_characteristics_summary": {
+    "total_size_gb": 10.0,
+    "total_estimated_reads": 50000,
+    "file_count": 1,
+    "complexity_score": 1.0
+  },
+  "system_context_summary": {
+    "cpu_cores_available": 8,
+    "memory_gb_available": 16.0,
+    "gpu_available": false,
+    "current_load": "normal"
+  },
+  "predictions": {
+    "cpu_requirements": {
+      "predicted_cores": 4,
+      "base_cores": 2,
+      "scaling_factor": 0.05,
+      "complexity_adjustment": 1.0,
+      "tool_profile": {
+        "base_cores": 2,
+        "scaling_factor": 0.05,
+        "max_cores": 8
+      }
+    },
+    "memory_requirements": {
+      "predicted_memory_gb": 8.0,
+      "base_memory_gb": 4.0,
+      "scaling_component": 4.0,
+      "complexity_adjustment": 1.0,
+      "tool_profile": {
+        "base_memory_gb": 4.0,
+        "scaling_factor": 0.5,
+        "max_memory_gb": 32.0
+      }
+    },
+    "runtime_estimates": {
+      "predicted_runtime_seconds": 3600,
+      "predicted_runtime_minutes": 60.0,
+      "predicted_runtime_hours": 1.0,
+      "base_processing_time": 3000,
+      "startup_time": 300,
+      "parallelization_efficiency": 0.85
+    },
+    "io_requirements": {
+      "temp_space_gb": 15.0,
+      "read_throughput_mb_s": 100,
+      "write_throughput_mb_s": 80,
+      "io_pattern": "sequential",
+      "multiple_files": false,
+      "concurrent_io": false
+    }
+  },
+  "confidence_metrics": {
+    "confidence_score": 0.870,
+    "confidence_level": "high",
+    "factors": {
+      "data_completeness": 0.9,
+      "system_metrics_quality": 0.85,
+      "file_type_certainty": 0.88,
+      "size_reasonableness": 0.85
+    }
+  },
+  "recommendations": {
+    "optimal_cpu_cores": 4,
+    "optimal_memory_gb": 8.0,
+    "estimated_runtime_hours": 1.0,
+    "temp_space_gb": 15.0,
+    "gpu_acceleration": false,
+    "priority_level": "normal"
+  }
+}

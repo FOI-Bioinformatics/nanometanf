@@ -1,0 +1,498 @@
+nextflow_workflow {
+
+    name "Test ENHANCED_REALTIME_MONITORING"
+    script "../../enhanced_realtime_monitoring.nf"
+    workflow "ENHANCED_REALTIME_MONITORING"
+
+    test("Should monitor single directory with basic configuration") {
+
+        setup {
+            """
+            # Create monitoring directory with test files
+            mkdir -p $outputDir/watch_dir1
+            cp $projectDir/tests/test_sample.fastq.gz $outputDir/watch_dir1/sample1.fastq.gz
+            cp $projectDir/tests/test_sample.fastq.gz $outputDir/watch_dir1/sample2.fastq.gz
+            """
+        }
+
+        when {
+            workflow {
+                """
+                input[0] = '$outputDir/watch_dir1'
+                input[1] = '**/*.{fastq,fastq.gz,fq,fq.gz}'
+                input[2] = [
+                    batch_size: 5,
+                    batch_interval: '10s',
+                    max_files: 20,
+                    enable_adaptive_batching: false
+                ]
+                input[3] = [
+                    enable_snapshot_stats: true,
+                    enable_cumulative_stats: true,
+                    stats_interval: '30s'
+                ]
+                """
+            }
+            
+            params {
+                realtime_mode = true
+                max_cpus = 2
+                max_memory = '4.GB'
+                max_time = '2.min'
+            }
+        }
+
+        then {
+            assert workflow.success
+            assert workflow.out.processed_files
+            assert workflow.out.batch_stats
+            
+            // Check that files were detected and processed
+            def processed_files = workflow.out.processed_files.toList()
+            assert processed_files.size() >= 1
+            
+            // Check statistics generation
+            def batch_stats = workflow.out.batch_stats.toList()
+            assert batch_stats.size() >= 1
+        }
+    }
+
+    test("Should monitor multiple directories with priority handling") {
+
+        setup {
+            """
+            # Create multiple monitoring directories
+            mkdir -p $outputDir/high_priority_dir
+            mkdir -p $outputDir/normal_priority_dir
+            mkdir -p $outputDir/low_priority_dir
+            
+            # High priority files
+            cp $projectDir/tests/test_sample.fastq.gz $outputDir/high_priority_dir/urgent_sample1.fastq.gz
+            cp $projectDir/tests/test_sample.fastq.gz $outputDir/high_priority_dir/urgent_sample2.fastq.gz
+            
+            # Normal priority files
+            cp $projectDir/tests/test_sample.fastq.gz $outputDir/normal_priority_dir/normal_sample1.fastq.gz
+            cp $projectDir/tests/test_sample.fastq.gz $outputDir/normal_priority_dir/normal_sample2.fastq.gz
+            
+            # Low priority files
+            cp $projectDir/tests/test_sample.fastq.gz $outputDir/low_priority_dir/batch_sample1.fastq.gz
+            """
+        }
+
+        when {
+            workflow {
+                """
+                input[0] = [
+                    '$outputDir/high_priority_dir',
+                    '$outputDir/normal_priority_dir', 
+                    '$outputDir/low_priority_dir'
+                ]
+                input[1] = '**/*.{fastq,fastq.gz,fq,fq.gz}'
+                input[2] = [
+                    batch_size: 3,
+                    batch_interval: '5s',
+                    max_files: 15,
+                    enable_adaptive_batching: true,
+                    enable_file_prioritization: true,
+                    priority_directories: ['high_priority_dir': 100, 'normal_priority_dir': 50, 'low_priority_dir': 10]
+                ]
+                input[3] = [
+                    enable_snapshot_stats: true,
+                    enable_cumulative_stats: true,
+                    enable_source_analysis: true,
+                    stats_interval: '15s'
+                ]
+                """
+            }
+            
+            params {
+                realtime_mode = true
+                enable_file_prioritization = true
+                max_cpus = 2
+                max_memory = '4.GB'
+                max_time = '3.min'
+            }
+        }
+
+        then {
+            assert workflow.success
+            assert workflow.out.processed_files
+            assert workflow.out.batch_stats
+            assert workflow.out.priority_stats
+            
+            // Verify multi-directory processing
+            def processed_files = workflow.out.processed_files.toList()
+            assert processed_files.size() >= 3
+            
+            // Check priority handling
+            if (workflow.out.priority_stats) {
+                def priority_stats = workflow.out.priority_stats.toList()
+                assert priority_stats.size() >= 1
+            }
+        }
+    }
+
+    test("Should handle adaptive batching with system load monitoring") {
+
+        setup {
+            """
+            # Create directory with varying file sizes
+            mkdir -p $outputDir/adaptive_test
+            
+            # Small files
+            for i in {1..8}; do
+                cp $projectDir/tests/test_sample.fastq.gz $outputDir/adaptive_test/small_sample_\${i}.fastq.gz
+            done
+            
+            # Create a larger file (simulate heavy load)
+            cat $projectDir/tests/test_sample.fastq.gz $projectDir/tests/test_sample.fastq.gz > $outputDir/adaptive_test/large_sample.fastq.gz
+            """
+        }
+
+        when {
+            workflow {
+                """
+                input[0] = '$outputDir/adaptive_test'
+                input[1] = '**/*.{fastq,fastq.gz,fq,fq.gz}'
+                input[2] = [
+                    batch_size: 4,
+                    batch_interval: '8s',
+                    max_files: 20,
+                    enable_adaptive_batching: true,
+                    adaptive_batch_threshold: 0.75,
+                    min_batch_size: 2,
+                    max_batch_size: 8
+                ]
+                input[3] = [
+                    enable_snapshot_stats: true,
+                    enable_cumulative_stats: true,
+                    enable_performance_monitoring: true,
+                    enable_adaptive_stats: true,
+                    stats_interval: '20s'
+                ]
+                """
+            }
+            
+            params {
+                realtime_mode = true
+                enable_adaptive_batching = true
+                enable_performance_monitoring = true
+                max_cpus = 2
+                max_memory = '4.GB'
+                max_time = '3.min'
+            }
+        }
+
+        then {
+            assert workflow.success
+            assert workflow.out.processed_files
+            assert workflow.out.batch_stats
+            
+            // Verify adaptive batching occurred
+            def processed_files = workflow.out.processed_files.toList()
+            assert processed_files.size() >= 5
+            
+            // Check adaptive statistics
+            if (workflow.out.adaptive_stats) {
+                def adaptive_stats = workflow.out.adaptive_stats.toList()
+                assert adaptive_stats.size() >= 1
+            }
+        }
+    }
+
+    test("Should generate comprehensive real-time statistics") {
+
+        setup {
+            """
+            # Create comprehensive test scenario
+            mkdir -p $outputDir/stats_test/barcode01
+            mkdir -p $outputDir/stats_test/barcode02
+            mkdir -p $outputDir/stats_test/unclassified
+            
+            # Generate files with realistic nanopore naming
+            cp $projectDir/tests/test_sample.fastq.gz $outputDir/stats_test/barcode01/PAW12345_pass_barcode01_001.fastq.gz
+            cp $projectDir/tests/test_sample.fastq.gz $outputDir/stats_test/barcode01/PAW12345_pass_barcode01_002.fastq.gz
+            cp $projectDir/tests/test_sample.fastq.gz $outputDir/stats_test/barcode02/PAW12345_pass_barcode02_001.fastq.gz
+            cp $projectDir/tests/test_sample.fastq.gz $outputDir/stats_test/unclassified/PAW12345_pass_unclassified_001.fastq.gz
+            """
+        }
+
+        when {
+            workflow {
+                """
+                input[0] = '$outputDir/stats_test'
+                input[1] = '**/*pass*.{fastq,fastq.gz,fq,fq.gz}'
+                input[2] = [
+                    batch_size: 3,
+                    batch_interval: '6s',
+                    max_files: 12,
+                    enable_adaptive_batching: false
+                ]
+                input[3] = [
+                    enable_snapshot_stats: true,
+                    enable_cumulative_stats: true,
+                    enable_source_analysis: true,
+                    enable_timing_analysis: true,
+                    enable_quality_indicators: true,
+                    enable_performance_monitoring: true,
+                    stats_interval: '10s'
+                ]
+                """
+            }
+            
+            params {
+                realtime_mode = true
+                enable_realtime_stats = true
+                enable_source_analysis = true
+                enable_quality_indicators = true
+                max_cpus = 2
+                max_memory = '4.GB'
+                max_time = '2.min'
+            }
+        }
+
+        then {
+            assert workflow.success
+            assert workflow.out.processed_files
+            assert workflow.out.batch_stats
+            assert workflow.out.cumulative_stats
+            
+            // Verify comprehensive statistics
+            def batch_stats = workflow.out.batch_stats.toList()
+            assert batch_stats.size() >= 1
+            
+            def cumulative_stats = workflow.out.cumulative_stats.toList()
+            assert cumulative_stats.size() >= 1
+            
+            // Check source analysis
+            if (workflow.out.source_stats) {
+                def source_stats = workflow.out.source_stats.toList()
+                assert source_stats.size() >= 1
+            }
+        }
+    }
+
+    test("Should handle file pattern filtering and exclusions") {
+
+        setup {
+            """
+            # Create mixed file types
+            mkdir -p $outputDir/pattern_test
+            
+            # Valid files
+            cp $projectDir/tests/test_sample.fastq.gz $outputDir/pattern_test/valid_sample.fastq.gz
+            cp $projectDir/tests/test_sample.fastq.gz $outputDir/pattern_test/valid_sample.fq.gz
+            
+            # Invalid files (should be filtered out)
+            echo "not a fastq file" > $outputDir/pattern_test/invalid.txt
+            echo "also not fastq" > $outputDir/pattern_test/readme.md
+            
+            # Uncompressed valid file
+            gzip -dc $projectDir/tests/test_sample.fastq.gz > $outputDir/pattern_test/uncompressed.fastq
+            """
+        }
+
+        when {
+            workflow {
+                """
+                input[0] = '$outputDir/pattern_test'
+                input[1] = '**/*.{fastq,fastq.gz,fq,fq.gz}'
+                input[2] = [
+                    batch_size: 5,
+                    batch_interval: '10s',
+                    max_files: 10,
+                    enable_file_filtering: true,
+                    exclude_patterns: ['*.tmp', '*.log', '*.txt', '*.md']
+                ]
+                input[3] = [
+                    enable_snapshot_stats: true,
+                    enable_file_type_analysis: true,
+                    stats_interval: '15s'
+                ]
+                """
+            }
+            
+            params {
+                realtime_mode = true
+                enable_file_filtering = true
+                max_cpus = 2
+                max_memory = '4.GB'
+                max_time = '2.min'
+            }
+        }
+
+        then {
+            assert workflow.success
+            assert workflow.out.processed_files
+            
+            // Should only process valid FASTQ files
+            def processed_files = workflow.out.processed_files.toList()
+            assert processed_files.size() >= 2  // Only valid fastq files
+            assert processed_files.size() <= 3  // Should not include txt/md files
+        }
+    }
+
+    test("Should handle empty directories and no-file scenarios") {
+
+        setup {
+            """
+            # Create empty directories
+            mkdir -p $outputDir/empty_dir1
+            mkdir -p $outputDir/empty_dir2
+            mkdir -p $outputDir/no_match_dir
+            
+            # Add non-matching files
+            echo "not a match" > $outputDir/no_match_dir/file.txt
+            echo "also not a match" > $outputDir/no_match_dir/data.csv
+            """
+        }
+
+        when {
+            workflow {
+                """
+                input[0] = [
+                    '$outputDir/empty_dir1',
+                    '$outputDir/empty_dir2',
+                    '$outputDir/no_match_dir'
+                ]
+                input[1] = '**/*.{fastq,fastq.gz,fq,fq.gz}'
+                input[2] = [
+                    batch_size: 5,
+                    batch_interval: '5s',
+                    max_files: 10,
+                    handle_empty_directories: true,
+                    timeout_on_empty: '30s'
+                ]
+                input[3] = [
+                    enable_snapshot_stats: true,
+                    handle_empty_batches: true,
+                    stats_interval: '10s'
+                ]
+                """
+            }
+            
+            params {
+                realtime_mode = true
+                handle_empty_directories = true
+                max_cpus = 1
+                max_memory = '2.GB'
+                max_time = '1.min'
+            }
+        }
+
+        then {
+            // Should handle empty scenarios gracefully
+            assert workflow.success
+            
+            if (workflow.success) {
+                // May have empty outputs
+                if (workflow.out.processed_files) {
+                    def processed_files = workflow.out.processed_files.toList()
+                    assert processed_files.size() == 0  // No matching files
+                }
+            }
+        }
+    }
+
+    test("Should handle high-frequency file monitoring stress test") {
+
+        setup {
+            """
+            # Create many small files to simulate high-frequency monitoring
+            mkdir -p $outputDir/stress_test
+            
+            # Generate many small files
+            for i in {1..20}; do
+                cp $projectDir/tests/test_sample.fastq.gz $outputDir/stress_test/stress_sample_\${i}.fastq.gz
+            done
+            """
+        }
+
+        when {
+            workflow {
+                """
+                input[0] = '$outputDir/stress_test'
+                input[1] = '**/*.{fastq,fastq.gz,fq,fq.gz}'
+                input[2] = [
+                    batch_size: 5,
+                    batch_interval: '2s',
+                    max_files: 50,
+                    enable_adaptive_batching: true,
+                    high_frequency_mode: true,
+                    stress_test_mode: true
+                ]
+                input[3] = [
+                    enable_snapshot_stats: true,
+                    enable_cumulative_stats: true,
+                    enable_performance_monitoring: true,
+                    high_frequency_stats: true,
+                    stats_interval: '5s'
+                ]
+                """
+            }
+            
+            params {
+                realtime_mode = true
+                enable_performance_monitoring = true
+                high_frequency_mode = true
+                max_cpus = 2
+                max_memory = '4.GB'
+                max_time = '3.min'
+            }
+        }
+
+        then {
+            assert workflow.success
+            assert workflow.out.processed_files
+            assert workflow.out.batch_stats
+            
+            // Should process many files efficiently
+            def processed_files = workflow.out.processed_files.toList()
+            assert processed_files.size() >= 15  // Most files should be processed
+            
+            // Performance monitoring should be active
+            if (workflow.out.performance_stats) {
+                def performance_stats = workflow.out.performance_stats.toList()
+                assert performance_stats.size() >= 1
+            }
+        }
+    }
+
+    test("Should run with minimal configuration") {
+
+        setup {
+            """
+            # Minimal test setup
+            mkdir -p $outputDir/minimal_test
+            cp $projectDir/tests/test_sample.fastq.gz $outputDir/minimal_test/minimal_sample.fastq.gz
+            """
+        }
+
+        when {
+            workflow {
+                """
+                input[0] = '$outputDir/minimal_test'
+                input[1] = '**/*.fastq.gz'
+                input[2] = [:]  // Empty/minimal config
+                input[3] = [:]  // Empty/minimal stats config
+                """
+            }
+            
+            params {
+                realtime_mode = true
+                max_cpus = 1
+                max_memory = '2.GB'
+                max_time = '1.min'
+            }
+        }
+
+        then {
+            assert workflow.success
+            assert workflow.out.processed_files
+            
+            // Should work with minimal configuration
+            def processed_files = workflow.out.processed_files.toList()
+            assert processed_files.size() >= 1
+        }
+    }
+}

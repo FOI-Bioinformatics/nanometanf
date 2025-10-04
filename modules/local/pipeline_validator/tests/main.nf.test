@@ -1,0 +1,357 @@
+nextflow_process {
+
+    name "Test PIPELINE_VALIDATOR"
+    script "../main.nf"
+    process "PIPELINE_VALIDATOR"
+
+    test("Should validate FASTQ files") {
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [
+                        id: 'fastq_validation_test',
+                        single_end: true
+                    ],
+                    file('$projectDir/tests/test_sample.fastq.gz')
+                ]
+                input[1] = '{"expected_format": "fastq", "quality_validation": true, "enable_checksums": true}'
+                """
+            }
+        }
+
+        then {
+            assert process.success
+            assert process.out.report.size() == 1
+            assert process.out.summary.size() == 1
+            
+            def (meta, report_file) = process.out.report[0]
+            assert meta.id == 'fastq_validation_test'
+            assert path(report_file).exists()
+            
+            def (meta_sum, summary_file) = process.out.summary[0]
+            assert path(summary_file).exists()
+            
+            // Check validation report content
+            def report_content = path(report_file).text
+            assert report_content.contains('validation') || report_content.contains('fastq')
+            
+            // Check summary content
+            def summary_content = path(summary_file).text
+            assert summary_content.contains('Pipeline Validation Summary')
+            assert summary_content.contains('fastq_validation_test')
+            
+            assert process.out.versions.size() == 1
+        }
+    }
+
+    test("Should validate multiple input files") {
+
+        setup {
+            """
+            cp $projectDir/tests/test_sample.fastq.gz $outputDir/sample1.fastq.gz
+            cp $projectDir/tests/test_sample.fastq.gz $outputDir/sample2.fastq.gz
+            """
+        }
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [
+                        id: 'multi_file_test',
+                        single_end: true
+                    ],
+                    [
+                        file('$outputDir/sample1.fastq.gz'),
+                        file('$outputDir/sample2.fastq.gz')
+                    ]
+                ]
+                input[1] = '{"expected_format": "fastq", "format_consistency": true, "integrity_checks": true}'
+                """
+            }
+        }
+
+        then {
+            assert process.success
+            assert process.out.report.size() == 1
+            assert process.out.summary.size() == 1
+            
+            def (meta, report_file) = process.out.report[0]
+            assert meta.id == 'multi_file_test'
+            assert path(report_file).exists()
+            
+            def report_content = path(report_file).text
+            assert report_content.contains('file_validations')
+            
+            assert process.out.versions.size() == 1
+        }
+    }
+
+    test("Should handle invalid file formats") {
+
+        setup {
+            """
+            echo "This is not a valid FASTQ file" > $outputDir/invalid.fastq
+            echo "Random text content" > $outputDir/corrupted.fq.gz
+            """
+        }
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [
+                        id: 'invalid_format_test',
+                        single_end: true
+                    ],
+                    [
+                        file('$outputDir/invalid.fastq'),
+                        file('$outputDir/corrupted.fq.gz')
+                    ]
+                ]
+                input[1] = '{"expected_format": "fastq", "strict_validation": true}'
+                """
+            }
+        }
+
+        then {
+            assert process.success
+            assert process.out.report.size() == 1
+            assert process.out.summary.size() == 1
+            
+            def (meta, report_file) = process.out.report[0]
+            def report_content = path(report_file).text
+            assert report_content.contains('error') || report_content.contains('invalid')
+            
+            def (meta_sum, summary_file) = process.out.summary[0]
+            def summary_content = path(summary_file).text
+            assert summary_content.contains('ERRORS') || summary_content.contains('FAILED')
+            
+            assert process.out.versions.size() == 1
+        }
+    }
+
+    test("Should validate JSON configuration files") {
+
+        setup {
+            """
+            cat > $outputDir/valid_config.json << 'EOF'
+{
+  "pipeline_params": {
+    "max_cpus": 16,
+    "max_memory": "64.GB",
+    "enable_validation": true
+  },
+  "quality_thresholds": {
+    "min_reads": 1000,
+    "min_quality": 7.0
+  }
+}
+EOF
+
+            cat > $outputDir/invalid_config.json << 'EOF'
+{
+  "pipeline_params": {
+    "max_cpus": 16,
+    "max_memory": "64.GB"
+    // Missing comma, invalid JSON
+  }
+}
+EOF
+            """
+        }
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [
+                        id: 'json_validation_test',
+                        single_end: true
+                    ],
+                    [
+                        file('$outputDir/valid_config.json'),
+                        file('$outputDir/invalid_config.json')
+                    ]
+                ]
+                input[1] = '{"expected_format": "json", "content_validation": true}'
+                """
+            }
+        }
+
+        then {
+            assert process.success
+            assert process.out.report.size() == 1
+            assert process.out.summary.size() == 1
+            
+            def (meta, report_file) = process.out.report[0]
+            def report_content = path(report_file).text
+            assert report_content.contains('json') || report_content.contains('validation')
+            
+            assert process.out.versions.size() == 1
+        }
+    }
+
+    test("Should estimate performance requirements") {
+
+        setup {
+            """
+            # Create a larger dummy file to test performance estimation
+            dd if=/dev/zero of=$outputDir/large_sample.fastq bs=1M count=100 2>/dev/null || true
+            gzip $outputDir/large_sample.fastq
+            """
+        }
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [
+                        id: 'performance_test',
+                        single_end: true
+                    ],
+                    file('$outputDir/large_sample.fastq.gz')
+                ]
+                input[1] = '{"enable_performance_validation": true, "estimate_resources": true}'
+                """
+            }
+        }
+
+        then {
+            assert process.success
+            assert process.out.report.size() == 1
+            assert process.out.summary.size() == 1
+            
+            def (meta, report_file) = process.out.report[0]
+            def report_content = path(report_file).text
+            assert report_content.contains('performance') || report_content.contains('estimated')
+            
+            def (meta_sum, summary_file) = process.out.summary[0]
+            def summary_content = path(summary_file).text
+            assert summary_content.contains('performance_test')
+            
+            assert process.out.versions.size() == 1
+        }
+    }
+
+    test("Should handle missing files gracefully") {
+
+        setup {
+            """
+            # Create references to non-existent files
+            echo "non_existent_file1.fastq.gz" > $outputDir/file_list.txt
+            echo "non_existent_file2.fastq.gz" >> $outputDir/file_list.txt
+            """
+        }
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [
+                        id: 'missing_files_test',
+                        single_end: true
+                    ],
+                    []  // Empty file list
+                ]
+                input[1] = '{"handle_missing_files": true, "strict_validation": false}'
+                """
+            }
+        }
+
+        then {
+            assert process.success
+            assert process.out.report.size() == 1
+            assert process.out.summary.size() == 1
+            
+            def (meta, report_file) = process.out.report[0]
+            assert path(report_file).exists()
+            
+            def report_content = path(report_file).text
+            assert report_content.contains('missing') || report_content.contains('error') || report_content.contains('validation')
+            
+            assert process.out.versions.size() == 1
+        }
+    }
+
+    test("Should provide comprehensive recommendations") {
+
+        setup {
+            """
+            # Create files that would trigger various recommendations
+            echo "@seq1" > $outputDir/short_reads.fastq
+            echo "ATCG" >> $outputDir/short_reads.fastq
+            echo "+" >> $outputDir/short_reads.fastq
+            echo "!!!!" >> $outputDir/short_reads.fastq
+            gzip $outputDir/short_reads.fastq
+            """
+        }
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [
+                        id: 'recommendations_test',
+                        single_end: true
+                    ],
+                    file('$outputDir/short_reads.fastq.gz')
+                ]
+                input[1] = '{"generate_recommendations": true, "quality_validation": true, "performance_warnings": true}'
+                """
+            }
+        }
+
+        then {
+            assert process.success
+            assert process.out.report.size() == 1
+            assert process.out.summary.size() == 1
+            
+            def (meta, report_file) = process.out.report[0]
+            def report_content = path(report_file).text
+            assert report_content.contains('recommendations') || report_content.contains('warning')
+            
+            def (meta_sum, summary_file) = process.out.summary[0]
+            def summary_content = path(summary_file).text
+            assert summary_content.contains('RECOMMENDATIONS') || summary_content.contains('WARNING')
+            
+            assert process.out.versions.size() == 1
+        }
+    }
+
+    test("Should run in stub mode") {
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [
+                        id: 'stub_test',
+                        single_end: true
+                    ],
+                    []
+                ]
+                input[1] = '{"validation_type": "stub"}'
+                """
+            }
+            
+            stub true
+        }
+
+        then {
+            assert process.success
+            assert process.out.report.size() == 1
+            assert process.out.summary.size() == 1
+            assert process.out.versions.size() == 1
+            
+            def (meta, report_file) = process.out.report[0]
+            assert meta.id == 'stub_test'
+            assert path(report_file).exists()
+            
+            def (meta_sum, summary_file) = process.out.summary[0]
+            assert path(summary_file).exists()
+        }
+    }
+}
