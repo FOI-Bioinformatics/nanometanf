@@ -28,6 +28,13 @@
                     "description": "The output directory where the results will be saved. You have to use absolute paths to storage on Cloud infrastructure.",
                     "fa_icon": "fas fa-folder-open"
                 },
+                "barcode_input_dir": {
+                    "type": "string",
+                    "format": "directory-path",
+                    "description": "Directory containing pre-demultiplexed barcode subdirectories (alternative to samplesheet input)",
+                    "help_text": "Provide a directory path containing barcode subdirectories (e.g., barcode01/, barcode02/, unclassified/). The pipeline will automatically discover and process all barcode directories. Mutually exclusive with --input parameter.",
+                    "fa_icon": "fas fa-folder"
+                },
                 "email": {
                     "type": "string",
                     "description": "Email address for completion summary.",
@@ -467,8 +474,8 @@
         },
         "enable_dynamic_resources": {
             "type": "boolean",
-            "default": true,
-            "description": "Enable intelligent resource allocation system"
+            "default": false,
+            "description": "Enable intelligent resource allocation system (experimental - disabled by default for v1.0)"
         },
         "optimization_profile": {
             "type": "string",
