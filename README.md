@@ -22,8 +22,10 @@ The pipeline workflow includes:
 3. **Taxonomic classification** ([`Kraken2`](https://github.com/DerrickWood/kraken2)) - Metagenomic taxonomic profiling
 4. **Validation** ([`BLAST`](https://blast.ncbi.nlm.nih.gov/Blast.cgi)) - Optional sequence validation against reference databases
 5. **Real-time monitoring** - Continuous processing of incoming POD5 files (with basecalling) or FASTQ files
-6. **Dynamic resource allocation** ⭐ **NEW** - Intelligent resource prediction and optimization for optimal performance
-7. **Report generation** ([`MultiQC`](http://multiqc.info/)) - Comprehensive quality control reporting
+6. **Report generation** ([`MultiQC`](http://multiqc.info/)) - Comprehensive quality control reporting
+
+**Experimental features** (disabled by default in v1.0, enable with `--enable_dynamic_resources`):
+- Dynamic resource allocation - Intelligent resource prediction and optimization
 
 ## Usage
 
@@ -56,7 +58,7 @@ nextflow run foi-bioinformatics/nanometanf \
    --outdir results
 ```
 
-### 2. Pre-demultiplexed Barcode Directory Discovery ⭐ **NEW**
+### 2. Pre-demultiplexed Barcode Directory Discovery
 
 **Scientific rationale:** Accommodates common laboratory workflows where multiplexed samples have been demultiplexed using external tools (e.g., Guppy, Dorado, qcat) and organized into barcode-specific directories. Enables automated sample discovery without manual samplesheet curation.
 
