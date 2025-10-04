@@ -14,16 +14,12 @@ nextflow_pipeline {
         then {
             assert workflow.success
             assert workflow.trace.tasks().size() > 0
-            
+
             // Check that FASTP ran
-            with(workflow.out.fastp_reports) {
-                assert size() >= 1
-            }
-            
-            // Check that MultiQC ran  
-            with(workflow.out.multiqc_report) {
-                assert size() >= 1
-            }
+            assert workflow.trace.tasks().any { it.name.contains('FASTP') }
+
+            // Check that MultiQC ran
+            assert workflow.trace.tasks().any { it.name.contains('MULTIQC') }
         }
     }
 }

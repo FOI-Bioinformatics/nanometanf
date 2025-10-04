@@ -47,7 +47,7 @@ nextflow_pipeline {
                 enable_file_prioritization = true
                 
                 // Barcode-specific prioritization
-                priority_samples = "barcode01,barcode02"
+                priority_samples = ["barcode01", "barcode02"]
                 
                 // Comprehensive statistics for integration
                 enable_quality_indicators = true
@@ -262,7 +262,7 @@ nextflow_pipeline {
                 max_files = 1
                 
                 // Priority-based processing (simulate urgent samples)
-                priority_samples = "barcode01,barcode02"
+                priority_samples = ["barcode01", "barcode02"]
                 enable_file_prioritization = true
                 enable_adaptive_batching = true
                 
