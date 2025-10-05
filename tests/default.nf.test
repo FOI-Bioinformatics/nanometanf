@@ -1,0 +1,17 @@
+nextflow_pipeline {
+    name "Default pipeline test"
+    script "../main.nf"
+
+    test("Should run default pipeline configuration") {
+        when {
+            params {
+                input = "$projectDir/assets/test_data/test_samplesheet_absolute.csv"
+                outdir = "$outputDir"
+            }
+        }
+
+        then {
+            assert workflow.success
+        }
+    }
+}
