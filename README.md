@@ -18,7 +18,7 @@
 The pipeline workflow includes:
 
 1. **Basecalling** ([`Dorado`](https://github.com/nanoporetech/dorado)) - Direct basecalling from POD5 files with optional demultiplexing
-2. **Quality control** ([`FASTP`](https://github.com/OpenGene/fastp), [`NanoPlot`](https://github.com/wdecoster/NanoPlot)) - Read filtering and quality assessment
+2. **Quality control** ([`Chopper`](https://github.com/wdecoster/chopper), [`FASTP`](https://github.com/OpenGene/fastp), [`Filtlong`](https://github.com/rrwick/Filtlong), [`NanoPlot`](https://github.com/wdecoster/NanoPlot)) - Read filtering and quality assessment with nanopore optimization (Chopper default, 7x faster than NanoFilt)
 3. **Taxonomic classification** ([`Kraken2`](https://github.com/DerrickWood/kraken2)) - Metagenomic taxonomic profiling
 4. **Validation** ([`BLAST`](https://blast.ncbi.nlm.nih.gov/Blast.cgi)) - Optional sequence validation against reference databases
 5. **Real-time monitoring** - Continuous processing of incoming POD5 files (with basecalling) or FASTQ files
