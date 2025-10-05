@@ -37,6 +37,7 @@ nextflow_workflow {
 
         then {
             assert workflow.success
+            assert snapshot(workflow.out.versions).match()
             assert workflow.out.qc_reads
             assert workflow.out.qc_reports
             
@@ -85,6 +86,7 @@ nextflow_workflow {
 
         then {
             assert workflow.success
+            assert snapshot(workflow.out.versions).match()
             assert workflow.out.qc_reads
             assert workflow.out.qc_reports
             assert workflow.out.nanoplot_reports
@@ -140,6 +142,7 @@ nextflow_workflow {
 
         then {
             assert workflow.success
+            assert snapshot(workflow.out.versions).match()
             assert workflow.out.qc_reads
             
             // Verify FILTLONG processing
@@ -183,6 +186,7 @@ nextflow_workflow {
 
         then {
             assert workflow.success
+            assert snapshot(workflow.out.versions).match()
             assert workflow.out.qc_reads
             
             // Verify adapter trimming occurred
@@ -225,6 +229,7 @@ nextflow_workflow {
 
         then {
             assert workflow.success
+            assert snapshot(workflow.out.versions).match()
             assert workflow.out.qc_reads
             assert workflow.out.qc_reports
             assert workflow.out.stats_reports
@@ -284,6 +289,7 @@ nextflow_workflow {
 
         then {
             assert workflow.success
+            assert snapshot(workflow.out.versions).match()
             assert workflow.out.qc_reads
             assert workflow.out.qc_reports
             
@@ -333,6 +339,7 @@ nextflow_workflow {
 
         then {
             assert workflow.success
+            assert snapshot(workflow.out.versions).match()
             assert workflow.out.qc_reads
             assert workflow.out.qc_reports
             
@@ -380,6 +387,7 @@ nextflow_workflow {
 
         then {
             assert workflow.success
+            assert snapshot(workflow.out.versions).match()
             assert workflow.out.fastqc_reports
             
             // Verify FastQC analysis
@@ -429,6 +437,7 @@ nextflow_workflow {
         then {
             // Should handle edge cases gracefully
             assert workflow.success
+            assert snapshot(workflow.out.versions).match()
             
             if (workflow.success) {
                 // May have limited outputs due to edge cases
@@ -478,6 +487,7 @@ nextflow_workflow {
 
         then {
             assert workflow.success
+            assert snapshot(workflow.out.versions).match()
             assert workflow.out.qc_reads
             
             // Verify minimal processing
@@ -507,6 +517,7 @@ nextflow_workflow {
         then {
             // Should handle empty input gracefully
             assert workflow.success
+            assert snapshot(workflow.out.versions).match()
             
             if (workflow.success) {
                 // Empty outputs expected

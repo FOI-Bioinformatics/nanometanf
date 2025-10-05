@@ -12,7 +12,9 @@ workflow OUTPUT_ORGANIZATION {
     multiqc_report     // channel: [ path(html) ]
 
     main:
-    
+
+    ch_versions = Channel.empty()
+
     //
     // PROCESS: Organize outputs into standardized folder structure
     //
@@ -72,8 +74,9 @@ workflow OUTPUT_ORGANIZATION {
         }
 
     emit:
-    qc_outputs           = ch_qc_organized.mix(ch_nanoplot_organized)
+    qc_outputs             = ch_qc_organized.mix(ch_nanoplot_organized)
     classification_outputs = ch_kraken2_organized
-    validation_outputs   = ch_blast_organized  
-    report_outputs       = ch_multiqc_organized
+    validation_outputs     = ch_blast_organized
+    report_outputs         = ch_multiqc_organized
+    versions               = ch_versions     // channel: [ versions.yml ]
 }

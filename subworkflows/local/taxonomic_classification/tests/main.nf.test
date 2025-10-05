@@ -43,6 +43,7 @@ nextflow_workflow {
 
         then {
             assert workflow.success
+            assert snapshot(workflow.out.versions).match()
             assert workflow.out.classified_reads
             assert workflow.out.reports
             assert workflow.out.versions
@@ -97,6 +98,7 @@ nextflow_workflow {
 
         then {
             assert workflow.success
+            assert snapshot(workflow.out.versions).match()
             assert workflow.out.classified_reads
             assert workflow.out.unclassified_reads
             assert workflow.out.reports
@@ -163,6 +165,7 @@ nextflow_workflow {
 
         then {
             assert workflow.success
+            assert snapshot(workflow.out.versions).match()
             assert workflow.out.classified_reads
             assert workflow.out.reports
             
@@ -215,6 +218,7 @@ nextflow_workflow {
 
         then {
             assert workflow.success
+            assert snapshot(workflow.out.versions).match()
             assert workflow.out.classified_reads
             assert workflow.out.reports
             
@@ -265,6 +269,7 @@ nextflow_workflow {
 
         then {
             assert workflow.success
+            assert snapshot(workflow.out.versions).match()
             assert workflow.out.reports
             assert workflow.out.standardised_reports
             
@@ -298,6 +303,7 @@ nextflow_workflow {
         then {
             // Should handle empty input gracefully
             assert workflow.success
+            assert snapshot(workflow.out.versions).match()
             
             if (workflow.success) {
                 // Empty outputs expected
@@ -349,6 +355,7 @@ nextflow_workflow {
 
         then {
             assert workflow.success
+            assert snapshot(workflow.out.versions).match()
             assert workflow.out.classified_reads
             assert workflow.out.reports
             

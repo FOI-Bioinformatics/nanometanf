@@ -44,6 +44,7 @@ nextflow_workflow {
 
         then {
             assert workflow.success
+            assert snapshot(workflow.out.versions).match()
             assert workflow.out.processed_files
             assert workflow.out.batch_stats
             
@@ -116,6 +117,7 @@ nextflow_workflow {
 
         then {
             assert workflow.success
+            assert snapshot(workflow.out.versions).match()
             assert workflow.out.processed_files
             assert workflow.out.batch_stats
             assert workflow.out.priority_stats
@@ -185,6 +187,7 @@ nextflow_workflow {
 
         then {
             assert workflow.success
+            assert snapshot(workflow.out.versions).match()
             assert workflow.out.processed_files
             assert workflow.out.batch_stats
             
@@ -253,6 +256,7 @@ nextflow_workflow {
 
         then {
             assert workflow.success
+            assert snapshot(workflow.out.versions).match()
             assert workflow.out.processed_files
             assert workflow.out.batch_stats
             assert workflow.out.cumulative_stats
@@ -323,6 +327,7 @@ nextflow_workflow {
 
         then {
             assert workflow.success
+            assert snapshot(workflow.out.versions).match()
             assert workflow.out.processed_files
             
             // Should only process valid FASTQ files
@@ -383,6 +388,7 @@ nextflow_workflow {
         then {
             // Should handle empty scenarios gracefully
             assert workflow.success
+            assert snapshot(workflow.out.versions).match()
             
             if (workflow.success) {
                 // May have empty outputs
@@ -443,6 +449,7 @@ nextflow_workflow {
 
         then {
             assert workflow.success
+            assert snapshot(workflow.out.versions).match()
             assert workflow.out.processed_files
             assert workflow.out.batch_stats
             
@@ -488,6 +495,7 @@ nextflow_workflow {
 
         then {
             assert workflow.success
+            assert snapshot(workflow.out.versions).match()
             assert workflow.out.processed_files
             
             // Should work with minimal configuration

@@ -28,6 +28,7 @@ nextflow_workflow {
 
         then {
             assert workflow.success
+            assert snapshot(workflow.out.versions).match()
             
             // When realtime_mode or use_dorado is false, should return empty channels
             if (workflow.out.samples) {
@@ -83,6 +84,7 @@ nextflow_workflow {
             // functionality is difficult to test in nf-test environment
             // The workflow should initialize correctly
             assert workflow.success
+            assert snapshot(workflow.out.versions).match()
             
             // Check that the workflow handles the parameter configuration
             assert workflow.duration.toMillis() < 120000 // Should complete quickly
@@ -125,6 +127,7 @@ nextflow_workflow {
 
         then {
             assert workflow.success
+            assert snapshot(workflow.out.versions).match()
             
             // When disabled, should return empty channels
             if (workflow.out.samples) {
@@ -168,6 +171,7 @@ nextflow_workflow {
 
         then {
             assert workflow.success
+            assert snapshot(workflow.out.versions).match()
             
             // Verify batch configuration is handled
             if (workflow.out.samples) {
@@ -212,6 +216,7 @@ nextflow_workflow {
 
         then {
             assert workflow.success
+            assert snapshot(workflow.out.versions).match()
             
             // Verify large batch handling
             if (workflow.out.samples) {
@@ -256,6 +261,7 @@ nextflow_workflow {
 
         then {
             assert workflow.success
+            assert snapshot(workflow.out.versions).match()
             
             // Model parameter validation
             if (workflow.out.samples) {
@@ -300,6 +306,7 @@ nextflow_workflow {
 
         then {
             assert workflow.success
+            assert snapshot(workflow.out.versions).match()
             
             // Interval configuration validation
             if (workflow.out.samples) {
@@ -350,6 +357,7 @@ nextflow_workflow {
 
         then {
             assert workflow.success
+            assert snapshot(workflow.out.versions).match()
             
             // Nested directory handling validation
             if (workflow.out.samples) {
@@ -397,6 +405,7 @@ nextflow_workflow {
 
         then {
             assert workflow.success
+            assert snapshot(workflow.out.versions).match()
             
             // Empty directory handling
             if (workflow.out.samples) {
@@ -443,6 +452,7 @@ nextflow_workflow {
 
         then {
             assert workflow.success
+            assert snapshot(workflow.out.versions).match()
             
             // Resource requirement validation
             if (workflow.out.samples) {

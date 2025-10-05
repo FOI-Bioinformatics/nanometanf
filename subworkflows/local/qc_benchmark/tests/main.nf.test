@@ -47,6 +47,7 @@ EOF
 
         then {
             assert workflow.success
+            assert snapshot(workflow.out.versions).match()
             assert workflow.out.benchmark_results
             assert workflow.out.fastp_results
             assert workflow.out.filtlong_results
@@ -133,6 +134,7 @@ EOF
 
         then {
             assert workflow.success
+            assert snapshot(workflow.out.versions).match()
             assert workflow.out.benchmark_results
             
             // Verify benchmarking for both samples
@@ -187,6 +189,7 @@ EOF
 
         then {
             assert workflow.success
+            assert snapshot(workflow.out.versions).match()
             assert workflow.out.benchmark_results
             assert workflow.out.fastp_results
             assert workflow.out.filtlong_results
@@ -248,6 +251,7 @@ EOF
 
         then {
             assert workflow.success
+            assert snapshot(workflow.out.versions).match()
             assert workflow.out.benchmark_results
             assert workflow.out.nanoplot_reports
             assert workflow.out.versions
@@ -287,6 +291,7 @@ EOF
 
         then {
             assert workflow.success
+            assert snapshot(workflow.out.versions).match()
             
             // Should handle empty input gracefully
             if (workflow.out.benchmark_results) {
@@ -343,6 +348,7 @@ EOF
 
         then {
             assert workflow.success
+            assert snapshot(workflow.out.versions).match()
             assert workflow.out.benchmark_results
             
             // Verify resource-intensive benchmarking
@@ -397,6 +403,7 @@ EOF
 
         then {
             assert workflow.success
+            assert snapshot(workflow.out.versions).match()
             assert workflow.out.benchmark_results
             assert workflow.out.fastp_results
             assert workflow.out.filtlong_results

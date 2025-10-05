@@ -47,6 +47,7 @@ nextflow_workflow {
 
         then {
             assert workflow.success
+            assert snapshot(workflow.out.versions).match()
             assert workflow.out.fastq
             assert workflow.out.summary
             assert workflow.out.versions
@@ -109,6 +110,7 @@ nextflow_workflow {
 
         then {
             assert workflow.success
+            assert snapshot(workflow.out.versions).match()
             assert workflow.out.fastq
             assert workflow.out.summary
             assert workflow.out.versions
@@ -194,6 +196,7 @@ nextflow_workflow {
 
         then {
             assert workflow.success
+            assert snapshot(workflow.out.versions).match()
             assert workflow.out.fastq
             assert workflow.out.summary
             
@@ -253,6 +256,7 @@ nextflow_workflow {
 
         then {
             assert workflow.success
+            assert snapshot(workflow.out.versions).match()
             assert workflow.out.fastq
             assert workflow.out.summary
             
@@ -319,6 +323,7 @@ nextflow_workflow {
 
         then {
             assert workflow.success
+            assert snapshot(workflow.out.versions).match()
             assert workflow.out.fastq
             assert workflow.out.summary
             
@@ -377,6 +382,7 @@ nextflow_workflow {
 
         then {
             assert workflow.success
+            assert snapshot(workflow.out.versions).match()
             assert workflow.out.fastq
             assert workflow.out.summary
             
@@ -433,6 +439,7 @@ nextflow_workflow {
 
         then {
             assert workflow.success
+            assert snapshot(workflow.out.versions).match()
             assert workflow.out.fastq
             assert workflow.out.summary
             
@@ -468,6 +475,7 @@ nextflow_workflow {
 
         then {
             assert workflow.success
+            assert snapshot(workflow.out.versions).match()
             
             // Should handle empty input gracefully
             if (workflow.out.fastq) {
@@ -523,6 +531,7 @@ nextflow_workflow {
 
         then {
             assert workflow.success
+            assert snapshot(workflow.out.versions).match()
             assert workflow.out.fastq
             assert workflow.out.summary
             
@@ -584,6 +593,7 @@ nextflow_workflow {
 
         then {
             assert workflow.success
+            assert snapshot(workflow.out.versions).match()
             assert workflow.out.fastq
             assert workflow.out.summary
             
