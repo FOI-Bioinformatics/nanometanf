@@ -529,7 +529,7 @@
         "resource_monitoring_interval": {
             "type": "integer",
             "default": 30,
-            "minimum": 10,
+            "minimum": 1,
             "description": "System monitoring interval (seconds)"
         },
         "enable_performance_logging": {
