@@ -65,7 +65,7 @@ EOF
             assert workflow.success
             
             // Verify all samples were processed
-            def fastp_tasks = workflow.trace.tasks().findAll { it.name.contains('FASTP') }
+            def fastp_tasks = workflow.trace.tasks().findAll { it.name.contains('CHOPPER') || it.name.contains('FASTP') || it.name.contains('FILTLONG') }
             assert fastp_tasks.size() >= 8  // Should process most samples
             
             // Verify parallel processing efficiency
@@ -137,7 +137,7 @@ EOF
             
             if (workflow.success) {
                 // Should complete despite memory constraints
-                def fastp_tasks = workflow.trace.tasks().findAll { it.name.contains('FASTP') }
+                def fastp_tasks = workflow.trace.tasks().findAll { it.name.contains('CHOPPER') || it.name.contains('FASTP') || it.name.contains('FILTLONG') }
                 assert fastp_tasks.size() >= 3  // Should process most samples
                 
                 // Verify memory-efficient processing
@@ -229,7 +229,7 @@ EOF
             assert workflow.success
             
             // Verify high-frequency processing
-            def fastp_tasks = workflow.trace.tasks().findAll { it.name.contains('FASTP') }
+            def fastp_tasks = workflow.trace.tasks().findAll { it.name.contains('CHOPPER') || it.name.contains('FASTP') || it.name.contains('FILTLONG') }
             assert fastp_tasks.size() >= 30  // Should process many files
             
             // Verify real-time components ran
@@ -309,7 +309,7 @@ EOF
             def cpu_tasks = all_tasks.findAll { it.cpus != null && it.cpus > 0 }
             
             // Check parallel execution
-            def fastp_tasks = all_tasks.findAll { it.name.contains('FASTP') }
+            def fastp_tasks = all_tasks.findAll { it.name.contains('CHOPPER') || it.name.contains('FASTP') || it.name.contains('FILTLONG') }
             def nanoplot_tasks = all_tasks.findAll { it.name.contains('NANOPLOT') }
             
             assert fastp_tasks.size() >= 5
@@ -378,7 +378,7 @@ EOF
             assert workflow.success
             
             // Verify I/O handling
-            def fastp_tasks = workflow.trace.tasks().findAll { it.name.contains('FASTP') }
+            def fastp_tasks = workflow.trace.tasks().findAll { it.name.contains('CHOPPER') || it.name.contains('FASTP') || it.name.contains('FILTLONG') }
             assert fastp_tasks.size() >= 20  // Should process most samples
             
             // Check I/O efficiency
@@ -465,7 +465,7 @@ EOF
             assert workflow.trace.tasks().any { it.name.contains('MONITOR') }
             
             // Verify processing
-            def fastp_tasks = workflow.trace.tasks().findAll { it.name.contains('FASTP') }
+            def fastp_tasks = workflow.trace.tasks().findAll { it.name.contains('CHOPPER') || it.name.contains('FASTP') || it.name.contains('FILTLONG') }
             assert fastp_tasks.size() >= 4
             
             // Check resource allocation variations
@@ -539,7 +539,7 @@ EOF
             
             if (workflow.success) {
                 // Should handle stress gracefully
-                def fastp_tasks = workflow.trace.tasks().findAll { it.name.contains('FASTP') }
+                def fastp_tasks = workflow.trace.tasks().findAll { it.name.contains('CHOPPER') || it.name.contains('FASTP') || it.name.contains('FILTLONG') }
                 assert fastp_tasks.size() >= 4  // Should process at least half
                 
                 println("💪 Stress test: ${fastp_tasks.size()}/8 samples processed with minimal resources")

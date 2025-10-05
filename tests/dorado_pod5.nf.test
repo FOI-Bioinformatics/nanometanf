@@ -40,7 +40,7 @@ nextflow_pipeline {
             assert workflow.trace.tasks().any { it.name.contains('DORADO') }
             
             // Should also run QC on basecalled reads
-            assert workflow.trace.tasks().any { it.name.contains('FASTP') || it.name.contains('NANOPLOT') }
+            assert workflow.trace.tasks().any { it.name.contains('CHOPPER') || it.name.contains('FASTP') || it.name.contains('FILTLONG') || it.name.contains('NANOPLOT') }
         }
     }
 

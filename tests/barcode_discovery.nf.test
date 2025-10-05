@@ -33,7 +33,7 @@ nextflow_pipeline {
             assert workflow.trace.tasks().size() > 0
 
             // Check QC ran for multiple barcode samples (barcode01, barcode02, unclassified)
-            def fastp_tasks = workflow.trace.tasks().findAll { it.name.contains('FASTP') }
+            def fastp_tasks = workflow.trace.tasks().findAll { it.name.contains('CHOPPER') || it.name.contains('FASTP') || it.name.contains('FILTLONG') }
             assert fastp_tasks.size() >= 2  // At least 2 barcodes discovered and processed
 
             // Check output structure

@@ -44,7 +44,7 @@ nextflow_pipeline {
             assert workflow.trace.tasks().any { it.name.contains('ANALYZE_INPUT_CHARACTERISTICS') }
             
             // Standard processing should occur
-            def processing_tasks = workflow.trace.tasks().findAll { it.name.contains('FASTP') }
+            def processing_tasks = workflow.trace.tasks().findAll { it.name.contains('CHOPPER') || it.name.contains('FASTP') || it.name.contains('FILTLONG') }
             assert processing_tasks.size() >= 1
             
             // Analysis outputs should be generated
@@ -115,7 +115,7 @@ nextflow_pipeline {
             assert analysis_tasks.size() >= 1
             
             // Processing should occur with predicted resources
-            def processing_tasks = workflow.trace.tasks().findAll { it.name.contains('FASTP') }
+            def processing_tasks = workflow.trace.tasks().findAll { it.name.contains('CHOPPER') || it.name.contains('FASTP') || it.name.contains('FILTLONG') }
             assert processing_tasks.size() >= 1
             
             // Prediction outputs should exist
@@ -179,7 +179,7 @@ nextflow_pipeline {
             assert workflow.trace.tasks().any { it.name.contains('MONITOR_SYSTEM_RESOURCES') }
             
             // Processing should occur with monitoring
-            def processing_tasks = workflow.trace.tasks().findAll { it.name.contains('FASTP') }
+            def processing_tasks = workflow.trace.tasks().findAll { it.name.contains('CHOPPER') || it.name.contains('FASTP') || it.name.contains('FILTLONG') }
             assert processing_tasks.size() >= 1
             
             // Monitoring outputs should be generated
@@ -254,7 +254,7 @@ nextflow_pipeline {
             assert workflow.trace.tasks().any { it.name.contains('MONITOR_SYSTEM_RESOURCES') }
             
             // Processing should occur with optimized resources
-            def processing_tasks = workflow.trace.tasks().findAll { it.name.contains('FASTP') }
+            def processing_tasks = workflow.trace.tasks().findAll { it.name.contains('CHOPPER') || it.name.contains('FASTP') || it.name.contains('FILTLONG') }
             assert processing_tasks.size() >= 1
             
             // Optimization outputs should be generated
@@ -321,7 +321,7 @@ nextflow_pipeline {
             assert workflow.trace.tasks().any { it.name.contains('OPTIMIZE_RESOURCE_ALLOCATION') }
             
             // Processing should occur with profile-optimized resources
-            def processing_tasks = workflow.trace.tasks().findAll { it.name.contains('FASTP') }
+            def processing_tasks = workflow.trace.tasks().findAll { it.name.contains('CHOPPER') || it.name.contains('FASTP') || it.name.contains('FILTLONG') }
             assert processing_tasks.size() >= 1
             
             // Profile outputs should be generated
@@ -394,7 +394,7 @@ nextflow_pipeline {
             assert workflow.trace.tasks().any { it.name.contains('PREDICT_RESOURCE_REQUIREMENTS') }
             
             // Processing should occur
-            def processing_tasks = workflow.trace.tasks().findAll { it.name.contains('FASTP') }
+            def processing_tasks = workflow.trace.tasks().findAll { it.name.contains('CHOPPER') || it.name.contains('FASTP') || it.name.contains('FILTLONG') }
             assert processing_tasks.size() >= 1
             
             // Learning outputs should be generated

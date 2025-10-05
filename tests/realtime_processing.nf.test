@@ -37,7 +37,7 @@ input = "$projectDir/tests/test_samplesheet.csv"
             assert !workflow.trace.tasks().any { it.name.contains('REALTIME_MONITORING') }
             
             // Should run standard workflow with input samplesheet
-            assert workflow.trace.tasks().any { it.name.contains('FASTP') }
+            assert workflow.trace.tasks().any { it.name.contains('CHOPPER') || it.name.contains('FASTP') || it.name.contains('FILTLONG') }
         }
     }
 

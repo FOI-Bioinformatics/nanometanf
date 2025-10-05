@@ -165,6 +165,17 @@ nf-test test --tag core
 - `--max_files` - **CRITICAL FOR TESTS** - Limit files processed (prevents watchPath hangs)
 - `--batch_size` - Files per batch (default: 10)
 
+### Quality Control
+- `--qc_tool` - QC tool selection: `chopper` (default), `fastp`, `filtlong`
+  - **chopper**: Nanopore-native Rust-based filtering (7x faster than NanoFilt)
+  - **fastp**: General-purpose QC with rich HTML reporting
+  - **filtlong**: Nanopore-optimized length-weighted filtering
+- `--chopper_quality` - Minimum quality score for CHOPPER (default: 10)
+- `--chopper_minlength` - Minimum read length for CHOPPER (default: 1000)
+- `--chopper_maxlength` - Maximum read length for CHOPPER (default: null)
+- `--chopper_headcrop` - Trim bases from read start (default: 0)
+- `--chopper_tailcrop` - Trim bases from read end (default: 0)
+
 ### Experimental Features (Disabled by Default for v1.0)
 - `--enable_dynamic_resources` - Intelligent resource allocation (default: false)
 - `--optimization_profile` - Resource optimization profile (default: auto)

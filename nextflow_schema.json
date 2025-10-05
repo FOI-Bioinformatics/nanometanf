@@ -387,13 +387,13 @@
         },
         "qc_tool": {
             "type": "string",
-            "default": "fastp",
-            "enum": ["fastp", "filtlong"],
-            "description": "Quality control tool to use. fastp: general-purpose with rich reporting, filtlong: nanopore-optimized filtering"
+            "default": "chopper",
+            "enum": ["chopper", "fastp", "filtlong"],
+            "description": "Quality control tool to use. chopper: nanopore-native Rust-based filtering (7x faster), fastp: general-purpose with rich reporting, filtlong: nanopore-optimized filtering"
         },
         "enable_adapter_trimming": {
             "type": "boolean",
-            "description": "Enable nanopore adapter trimming with PORECHOP (recommended for filtlong)"
+            "description": "Enable nanopore adapter trimming with PORECHOP (recommended for filtlong/chopper)"
         },
         "enable_qc_benchmark": {
             "type": "boolean",
@@ -418,6 +418,30 @@
             "type": "number",
             "default": 8.0,
             "description": "Minimum mean quality score for FILTLONG"
+        },
+        "chopper_quality": {
+            "type": "integer",
+            "default": 10,
+            "description": "Minimum quality score for CHOPPER filtering"
+        },
+        "chopper_minlength": {
+            "type": "integer",
+            "default": 1000,
+            "description": "Minimum read length for CHOPPER filtering"
+        },
+        "chopper_maxlength": {
+            "type": "integer",
+            "description": "Maximum read length for CHOPPER filtering (null = no limit)"
+        },
+        "chopper_headcrop": {
+            "type": "integer",
+            "default": 0,
+            "description": "Number of bases to trim from read start (CHOPPER)"
+        },
+        "chopper_tailcrop": {
+            "type": "integer",
+            "default": 0,
+            "description": "Number of bases to trim from read end (CHOPPER)"
         },
         "fastp_qualified_quality": {
             "type": "integer",

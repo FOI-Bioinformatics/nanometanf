@@ -31,9 +31,9 @@ nextflow_pipeline {
         then {
             assert workflow.success
             assert workflow.trace.tasks().size() > 0
-            
-            // Check that main processes ran
-            assert workflow.trace.tasks().any { it.name.contains('FASTP') }
+
+            // Check that main processes ran (CHOPPER is now default QC tool)
+            assert workflow.trace.tasks().any { it.name.contains('CHOPPER') || it.name.contains('FASTP') || it.name.contains('FILTLONG') }
             assert workflow.trace.tasks().any { it.name.contains('NANOPLOT') }
             assert workflow.trace.tasks().any { it.name.contains('MULTIQC') }
         }
@@ -73,8 +73,8 @@ nextflow_pipeline {
             // Should not run Dorado without POD5 input
             assert !workflow.trace.tasks().any { it.name.contains('DORADO') }
             
-            // Should run standard QC workflow
-            assert workflow.trace.tasks().any { it.name.contains('FASTP') }
+            // Should run standard QC workflow (CHOPPER is default)
+            assert workflow.trace.tasks().any { it.name.contains('CHOPPER') || it.name.contains('FASTP') || it.name.contains('FILTLONG') }
         }
     }
 
@@ -105,7 +105,7 @@ nextflow_pipeline {
             
             // Should run both Dorado and FASTQ processing
             assert workflow.trace.tasks().any { it.name.contains('DORADO') }
-            assert workflow.trace.tasks().any { it.name.contains('FASTP') }
+            assert workflow.trace.tasks().any { it.name.contains('CHOPPER') || it.name.contains('FASTP') || it.name.contains('FILTLONG') }
         }
     }
 }
