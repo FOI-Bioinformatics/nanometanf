@@ -19,7 +19,7 @@ include { QC_ANALYSIS                } from '../subworkflows/local/qc_analysis'
 include { ASSEMBLY                   } from '../subworkflows/local/assembly'
 include { TAXONOMIC_CLASSIFICATION   } from '../subworkflows/local/taxonomic_classification'
 include { VALIDATION                 } from '../subworkflows/local/validation'
-// include { DYNAMIC_RESOURCE_ALLOCATION } from '../subworkflows/local/dynamic_resource_allocation'
+include { DYNAMIC_RESOURCE_ALLOCATION } from '../subworkflows/local/dynamic_resource_allocation'
 
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -144,20 +144,16 @@ workflow NANOMETANF {
                 [ meta, files, tool_context ]
             }
         
-        // DYNAMIC_RESOURCE_ALLOCATION (
-        //     ch_resource_inputs,
-        //     resource_config,
-        //     system_config
-        // )
-        // ch_versions = ch_versions.mix(DYNAMIC_RESOURCE_ALLOCATION.out.versions)
-        
+        DYNAMIC_RESOURCE_ALLOCATION (
+            ch_resource_inputs,
+            resource_config,
+            system_config
+        )
+        ch_versions = ch_versions.mix(DYNAMIC_RESOURCE_ALLOCATION.out.versions)
+
         // Extract resource configurations for later use
-        // ch_resource_configs = DYNAMIC_RESOURCE_ALLOCATION.out.resource_configs
-        // ch_optimal_allocations = DYNAMIC_RESOURCE_ALLOCATION.out.optimal_allocations
-        
-        // Placeholder channels for disabled dynamic resource allocation
-        ch_resource_configs = Channel.empty()
-        ch_optimal_allocations = Channel.empty()
+        ch_resource_configs = DYNAMIC_RESOURCE_ALLOCATION.out.resource_configs
+        ch_optimal_allocations = DYNAMIC_RESOURCE_ALLOCATION.out.optimal_allocations
         
         log.info "Dynamic resource allocation configured successfully"
     } else {
