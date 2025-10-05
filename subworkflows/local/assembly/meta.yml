@@ -1,0 +1,8 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/nf-core/modules/master/subworkflows/yaml-schema.json
+name: "assembly"
+description: De novo assembly of Oxford Nanopore reads
+keywords:
+  - nanopore
+  - oxford nanopore
+  - sequencing
+components: []

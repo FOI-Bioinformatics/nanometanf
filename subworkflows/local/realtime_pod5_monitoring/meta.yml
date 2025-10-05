@@ -1,0 +1,8 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/nf-core/modules/master/subworkflows/yaml-schema.json
+name: "realtime_pod5_monitoring"
+description: Real-time POD5 monitoring with basecalling
+keywords:
+  - nanopore
+  - oxford nanopore
+  - sequencing
+components: []
