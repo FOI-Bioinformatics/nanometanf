@@ -53,7 +53,7 @@ nextflow_pipeline {
             // Input characteristic files should exist
             def analysis_dir = path("${outputDir}/results/resource_analysis")
             def characteristic_files = analysis_dir.list().findAll {
-                it.getName().contains('characteristics') || it.getName().contains('analysis') || it.getName().contains('input')
+                it.fileName.toString().contains('characteristics') || it.fileName.toString().contains('analysis') || it.fileName.toString().contains('input')
             }
             assert characteristic_files.size() >= 0  // May vary based on implementation
         }
@@ -124,7 +124,7 @@ nextflow_pipeline {
             // Prediction files should be generated
             def analysis_dir = path("${outputDir}/results/resource_analysis")
             def prediction_files = analysis_dir.list().findAll {
-                it.getName().contains('prediction') || it.getName().contains('requirements') || it.getName().contains('ml')
+                it.fileName.toString().contains('prediction') || it.fileName.toString().contains('requirements') || it.fileName.toString().contains('ml')
             }
             assert prediction_files.size() >= 0
         }
@@ -188,7 +188,7 @@ nextflow_pipeline {
             // System monitoring files should exist
             def analysis_dir = path("${outputDir}/results/resource_analysis")
             def monitoring_files = analysis_dir.list().findAll {
-                it.getName().contains('system') || it.getName().contains('monitoring') || it.getName().contains('resources')
+                it.fileName.toString().contains('system') || it.fileName.toString().contains('monitoring') || it.fileName.toString().contains('resources')
             }
             assert monitoring_files.size() >= 0
         }
@@ -263,7 +263,7 @@ nextflow_pipeline {
             // Optimization files should exist
             def analysis_dir = path("${outputDir}/results/resource_analysis")
             def optimization_files = analysis_dir.list().findAll {
-                it.getName().contains('optimization') || it.getName().contains('allocation') || it.getName().contains('scaling')
+                it.fileName.toString().contains('optimization') || it.fileName.toString().contains('allocation') || it.fileName.toString().contains('scaling')
             }
             assert optimization_files.size() >= 0
         }
@@ -330,7 +330,7 @@ nextflow_pipeline {
             // Profile-specific files should exist
             def analysis_dir = path("${outputDir}/results/resource_analysis")
             def profile_files = analysis_dir.list().findAll {
-                it.getName().contains('profile') || it.getName().contains('high_throughput') || it.getName().contains('optimization')
+                it.fileName.toString().contains('profile') || it.fileName.toString().contains('high_throughput') || it.fileName.toString().contains('optimization')
             }
             assert profile_files.size() >= 0
         }
@@ -403,8 +403,8 @@ nextflow_pipeline {
             // Feedback learning files should exist
             def analysis_dir = path("${outputDir}/results/resource_analysis")
             def learning_files = analysis_dir.list().findAll {
-                it.getName().contains('learning') || it.getName().contains('feedback') ||
-                it.getName().contains('model') || it.getName().contains('performance')
+                it.fileName.toString().contains('learning') || it.fileName.toString().contains('feedback') ||
+                it.fileName.toString().contains('model') || it.fileName.toString().contains('performance')
             }
             assert learning_files.size() >= 0
         }

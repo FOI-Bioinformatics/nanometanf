@@ -68,7 +68,7 @@ nextflow_pipeline {
             // Verify resource prediction files exist
             def resource_outputs = path("${outputDir}/results/resource_analysis").list()
             def resource_files = resource_outputs.findAll {
-                it.getName().contains('resource') || it.getName().contains('prediction') || it.getName().contains('optimization')
+                it.fileName.toString().contains('resource') || it.fileName.toString().contains('prediction') || it.fileName.toString().contains('optimization')
             }
             assert resource_files.size() >= 1
         }
@@ -133,7 +133,7 @@ nextflow_pipeline {
             // Profile-specific outputs should exist
             def resource_dir = path("${outputDir}/results/resource_analysis")
             def profile_files = resource_dir.list().findAll {
-                it.getName().contains('profile') || it.getName().contains('high_throughput')
+                it.fileName.toString().contains('profile') || it.fileName.toString().contains('high_throughput')
             }
             // Profile files may or may not exist depending on implementation
             assert profile_files.size() >= 0
@@ -209,7 +209,7 @@ nextflow_pipeline {
             // System resource files should be generated
             def resource_dir = path("${outputDir}/results/resource_analysis")
             def monitoring_files = resource_dir.list().findAll {
-                it.getName().contains('system') || it.getName().contains('monitoring') || it.getName().contains('resources')
+                it.fileName.toString().contains('system') || it.fileName.toString().contains('monitoring') || it.fileName.toString().contains('resources')
             }
             assert monitoring_files.size() >= 0  // May vary based on implementation
         }
@@ -285,8 +285,8 @@ nextflow_pipeline {
             // Learning-related files should be generated
             def resource_dir = path("${outputDir}/results/resource_analysis")
             def learning_files = resource_dir.list().findAll {
-                it.getName().contains('learning') || it.getName().contains('feedback') ||
-                it.getName().contains('model') || it.getName().contains('prediction')
+                it.fileName.toString().contains('learning') || it.fileName.toString().contains('feedback') ||
+                it.fileName.toString().contains('model') || it.fileName.toString().contains('prediction')
             }
             assert learning_files.size() >= 0  // May vary based on implementation
         }
