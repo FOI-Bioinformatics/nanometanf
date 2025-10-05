@@ -142,7 +142,7 @@ nextflow_pipeline {
                 enable_system_monitoring = true
                 
                 // Monitoring configuration
-                resource_monitoring_interval = "5s"
+                resource_monitoring_interval = 5
                 system_load_monitoring = true
                 memory_usage_monitoring = true
                 cpu_usage_monitoring = true
@@ -438,7 +438,7 @@ nextflow_pipeline {
                 prediction_model = "gradient_boost"
                 
                 // Monitoring parameters
-                resource_monitoring_interval = "10s"
+                resource_monitoring_interval = 10
                 enable_gpu_detection = true
                 system_capacity_analysis = true
                 

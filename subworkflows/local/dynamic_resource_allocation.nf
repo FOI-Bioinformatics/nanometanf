@@ -113,7 +113,7 @@ workflow DYNAMIC_RESOURCE_ALLOCATION {
     system_metrics = MONITOR_SYSTEM_RESOURCES.out.system_metrics                  // channel: path(system_metrics.json)
     resource_predictions = PREDICT_RESOURCE_REQUIREMENTS.out.predictions          // channel: [ val(meta), path(predictions.json) ]
     optimal_allocations = OPTIMIZE_RESOURCE_ALLOCATION.out.allocations            // channel: [ val(meta), path(allocations.json) ]
-    resource_configs = OPTIMIZE_RESOURCE_ALLOCATION.out.process_configs           // channel: [ val(meta), val(process_config) ]
+    resource_configs = OPTIMIZE_RESOURCE_ALLOCATION.out.allocations                // channel: [ val(meta), path(allocations.json) ]
     performance_metrics = OPTIMIZE_RESOURCE_ALLOCATION.out.performance_metrics    // channel: [ val(meta), path(performance.json) ]
     versions = ch_versions                                                         // channel: [ path(versions.yml) ]
 }

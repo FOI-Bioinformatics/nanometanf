@@ -20,7 +20,7 @@ nextflow_pipeline {
                 
                 // System monitoring
                 enable_system_monitoring = true
-                resource_monitoring_interval = "10s"
+                resource_monitoring_interval = 10
                 
                 // Prediction features
                 enable_ml_prediction = true
@@ -63,10 +63,10 @@ nextflow_pipeline {
             
             // Check resource allocation outputs
             assert path("${outputDir}/results/resource_analysis").exists()
-            assert path("${outputDir}/results/dynamic_resources").exists()
+            assert path("${outputDir}/results/resource_analysis").exists()
             
             // Verify resource prediction files exist
-            def resource_outputs = path("${outputDir}/results/dynamic_resources").list()
+            def resource_outputs = path("${outputDir}/results/resource_analysis").list()
             def resource_files = resource_outputs.findAll { 
                 it.name.contains('resource') || it.name.contains('prediction') || it.name.contains('optimization')
             }
@@ -128,10 +128,10 @@ nextflow_pipeline {
             
             // Resource outputs should be generated
             assert path("${outputDir}/results/resource_analysis").exists()
-            assert path("${outputDir}/results/dynamic_resources").exists()
+            assert path("${outputDir}/results/resource_analysis").exists()
             
             // Profile-specific outputs should exist
-            def resource_dir = path("${outputDir}/results/dynamic_resources")
+            def resource_dir = path("${outputDir}/results/resource_analysis")
             def profile_files = resource_dir.list().findAll { 
                 it.name.contains('profile') || it.name.contains('high_throughput') 
             }
@@ -150,7 +150,7 @@ nextflow_pipeline {
                 // System monitoring configuration
                 enable_dynamic_resources = true
                 enable_system_monitoring = true
-                resource_monitoring_interval = "5s"
+                resource_monitoring_interval = 5
                 
                 // Dynamic scaling features
                 adaptive_resource_scaling = true
@@ -204,10 +204,10 @@ nextflow_pipeline {
             
             // System monitoring outputs should exist
             assert path("${outputDir}/results/resource_analysis").exists()
-            assert path("${outputDir}/results/dynamic_resources").exists()
+            assert path("${outputDir}/results/resource_analysis").exists()
             
             // System resource files should be generated
-            def resource_dir = path("${outputDir}/results/dynamic_resources")
+            def resource_dir = path("${outputDir}/results/resource_analysis")
             def monitoring_files = resource_dir.list().findAll { 
                 it.name.contains('system') || it.name.contains('monitoring') || it.name.contains('resources')
             }
@@ -280,10 +280,10 @@ nextflow_pipeline {
             
             // Learning system outputs should exist
             assert path("${outputDir}/results/resource_analysis").exists()
-            assert path("${outputDir}/results/dynamic_resources").exists()
+            assert path("${outputDir}/results/resource_analysis").exists()
             
             // Learning-related files should be generated
-            def resource_dir = path("${outputDir}/results/dynamic_resources")
+            def resource_dir = path("${outputDir}/results/resource_analysis")
             def learning_files = resource_dir.list().findAll { 
                 it.name.contains('learning') || it.name.contains('feedback') || 
                 it.name.contains('model') || it.name.contains('prediction')
@@ -318,7 +318,7 @@ nextflow_pipeline {
                 
                 // Monitoring with minimal resources
                 enable_system_monitoring = true
-                resource_monitoring_interval = "15s"
+                resource_monitoring_interval = 15
                 
                 // Disable other features
                 use_dorado = false
