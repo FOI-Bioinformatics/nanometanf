@@ -1,17 +1,40 @@
 nextflow_pipeline {
-    name "Default pipeline test"
+
+    name "Test default pipeline run"
     script "../main.nf"
 
-    test("Should run default pipeline configuration") {
+    test("Should run with standard test profile") {
+
         when {
             params {
-                input = "$projectDir/assets/test_data/test_samplesheet_absolute.csv"
-                outdir = "$outputDir"
+                input = "$projectDir/tests/test_samplesheet.csv"
+                outdir = "$outputDir/results"
+
+                // Use test profile parameters
+                max_cpus = 2
+                max_memory = '4.GB'
+                max_time = '2.min'
+
+                // Disable heavy features for quick testing
+                use_dorado = false
+                kraken2_db = null
+                blast_validation = false
+                realtime_mode = false
+                enable_dynamic_resources = false
             }
         }
 
         then {
             assert workflow.success
+
+            // Standard QC processing should occur
+            assert workflow.trace.tasks().any { it.name.contains('CHOPPER') || it.name.contains('FASTP') || it.name.contains('FILTLONG') }
+            assert workflow.trace.tasks().any { it.name.contains('NANOPLOT') }
+            assert workflow.trace.tasks().any { it.name.contains('MULTIQC') }
+
+            // Output directory should be created
+            assert path("${outputDir}/results").exists()
+            assert path("${outputDir}/results/multiqc").exists()
         }
     }
 }
