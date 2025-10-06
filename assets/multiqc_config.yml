@@ -8,12 +8,39 @@ report_section_order:
     order: -1001
   "foi-bioinformatics-nanometanf-summary":
     order: -1002
+  nanopore_sequencing:
+    order: -950
+  dorado_basecalling:
+    order: -925
+  kraken2_taxonomy:
+    order: -920
   nanoplot:
     order: -900
 
 export_plots: true
 
 disable_version_detection: true
+
+# Custom content for nanopore-specific modules (Section 4.2)
+custom_data:
+  nanopore_stats:
+    file_format: 'json'
+    section_name: 'Nanopore Sequencing Statistics'
+    description: 'Oxford Nanopore sequencing run metrics including read length, quality, and yield'
+    plot_type: 'table'
+    pconfig:
+      namespace: 'Nanopore'
+
+  dorado_basecalling:
+    file_format: 'json'
+    section_name: 'Dorado Basecalling Statistics'
+    description: 'Dorado basecaller performance metrics and quality scores'
+    plot_type: 'generalstats'
+
+  kraken2_krona:
+    file_format: 'html'
+    section_name: 'Taxonomic Classification (Krona)'
+    description: 'Interactive hierarchical visualization of Kraken2 taxonomic classification results'
 
 # Enable NanoPlot module for nanopore-specific QC visualization
 # NanoPlot generates comprehensive quality metrics including:
@@ -24,3 +51,39 @@ disable_version_detection: true
 sp:
   nanoplot:
     fn: "NanoStats.txt"
+
+  # Custom nanopore stats files
+  nanopore_stats:
+    fn: "*_nanopore_stats_mqc.json"
+
+  # Read length distribution plots
+  read_length_dist:
+    fn: "*_read_length_mqc.json"
+
+  # Quality distribution plots
+  quality_dist:
+    fn: "*_quality_mqc.json"
+
+  # Dorado statistics
+  dorado_stats:
+    fn: "*_dorado_mqc.json"
+
+  # Kraken2 Krona plots
+  krona:
+    fn: "*.krona.html"
+
+# Module-specific configurations
+module_order:
+  - nanopore_stats:
+      name: 'Nanopore Sequencing'
+      anchor: 'nanopore_sequencing'
+      info: 'Comprehensive nanopore sequencing statistics'
+  - dorado:
+      name: 'Dorado Basecalling'
+      anchor: 'dorado_basecalling'
+      info: 'Basecalling performance and quality metrics'
+  - kraken2:
+      name: 'Kraken2 Classification'
+      anchor: 'kraken2_taxonomy'
+  - nanoplot:
+      name: 'NanoPlot QC'
