@@ -7,4 +7,24 @@ keywords:
   - sequencing
 authors:
   - "@foi-bioinformatics"
+output:
+  - assembly:
+      type: file
+      description: Main assembly FASTA file
+      pattern: "*.{fasta.gz,fa.gz}"
+  - assembly_graph:
+      type: file
+      description: Assembly graph in GFA format
+      pattern: "*.gfa.gz"
+  - assembly_info:
+      type: file
+      description: Assembly statistics text file
+      pattern: "*.txt"
+  - assembler_used:
+      type: string
+      description: Name of the assembler used
+  - versions:
+      type: file
+      description: Software versions
+      pattern: "versions.yml"
 components: []

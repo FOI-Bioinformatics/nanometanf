@@ -7,4 +7,17 @@ keywords:
   - sequencing
 authors:
   - "@foi-bioinformatics"
+output:
+  - fastq:
+      type: file
+      description: Basecalled FASTQ files
+      pattern: "*.{fastq,fastq.gz}"
+  - summary:
+      type: file
+      description: Basecalling summary files
+      pattern: "*.txt"
+  - versions:
+      type: file
+      description: Software versions
+      pattern: "versions.yml"
 components: []

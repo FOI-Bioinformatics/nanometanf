@@ -7,4 +7,17 @@ keywords:
   - sequencing
 authors:
   - "@foi-bioinformatics"
+output:
+  - benchmark_results:
+      type: file
+      description: All benchmark results combined
+      pattern: "*.{fastq,fastq.gz,json,txt}"
+  - nanoplot_reports:
+      type: file
+      description: NanoPlot HTML reports
+      pattern: "*.html"
+  - versions:
+      type: file
+      description: Software versions
+      pattern: "versions.yml"
 components: []

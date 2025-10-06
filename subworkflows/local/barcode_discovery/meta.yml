@@ -7,4 +7,13 @@ keywords:
   - sequencing
 authors:
   - "@foi-bioinformatics"
+output:
+  - samples:
+      type: file
+      description: Discovered barcode samples with metadata
+      pattern: "*.{fastq,fastq.gz,fq,fq.gz}"
+  - versions:
+      type: file
+      description: Software versions
+      pattern: "versions.yml"
 components: []

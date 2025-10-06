@@ -7,4 +7,32 @@ keywords:
   - sequencing
 authors:
   - "@foi-bioinformatics"
+output:
+  - classified_reads:
+      type: file
+      description: Classified reads FASTQ
+      pattern: "*.{fastq,fastq.gz}"
+  - unclassified_reads:
+      type: file
+      description: Unclassified reads FASTQ
+      pattern: "*.{fastq,fastq.gz}"
+  - reads_assignment:
+      type: file
+      description: Read-level taxonomic assignments
+      pattern: "*.txt"
+  - report:
+      type: file
+      description: Original format classification report
+      pattern: "*.txt"
+  - standardized_report:
+      type: file
+      description: Taxpasta standardized report
+      pattern: "*.{tsv,csv}"
+  - classifier_used:
+      type: string
+      description: Classifier identification
+  - versions:
+      type: file
+      description: Software versions
+      pattern: "versions.yml"
 components: []

@@ -7,4 +7,21 @@ keywords:
   - sequencing
 authors:
   - "@foi-bioinformatics"
+output:
+  - samples:
+      type: file
+      description: Detected samples with metadata
+      pattern: "*.{fastq,fastq.gz}"
+  - snapshot_stats:
+      type: file
+      description: Snapshot statistics
+      pattern: "snapshot.json"
+  - cumulative_stats:
+      type: file
+      description: Cumulative statistics
+      pattern: "cumulative.json"
+  - versions:
+      type: file
+      description: Software versions
+      pattern: "versions.yml"
 components: []
