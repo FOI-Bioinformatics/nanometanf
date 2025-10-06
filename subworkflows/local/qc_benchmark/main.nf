@@ -13,9 +13,10 @@
     Usage: Enable benchmarking by setting params.enable_qc_benchmark = true
     
     Supported comparisons:
-    - FASTP vs FILTLONG 
+    - FASTP vs FILTLONG vs CHOPPER
     - Different FILTLONG parameter sets
     - Custom QC tool configurations
+    - Performance benchmarking: Speed, memory, quality metrics
 ----------------------------------------------------------------------------------------
 */
 
@@ -23,6 +24,7 @@ import groovy.json.JsonSlurper
 
 include { FASTP                   } from '../../modules/nf-core/fastp/main'
 include { FILTLONG                } from '../../modules/nf-core/filtlong/main'
+include { CHOPPER                 } from '../../modules/nf-core/chopper/main'
 include { PORECHOP_PORECHOP       } from '../../modules/nf-core/porechop/porechop/main'
 include { FASTQC                  } from '../../modules/nf-core/fastqc/main'
 include { SEQKIT_STATS            } from '../../modules/nf-core/seqkit/stats/main'
@@ -145,7 +147,41 @@ workflow QC_BENCHMARK {
             ]
             return [new_meta, reads, null, null]  // Empty log and stats for now
         }
-    
+
+    //
+    // BENCHMARK 4: CHOPPER (Nanopore-native Rust-based QC)
+    //
+
+    // Run CHOPPER for nanopore-optimized quality filtering
+    CHOPPER (
+        ch_reads,
+        []  // No contamination filtering fasta
+    )
+    ch_versions = ch_versions.mix(CHOPPER.out.versions.first())
+
+    // Run FastQC on CHOPPER output for comprehensive reporting
+    FASTQC (
+        CHOPPER.out.fastq
+    )
+    ch_versions = ch_versions.mix(FASTQC.out.versions.first())
+
+    // Run SeqKit stats on CHOPPER output for detailed statistics
+    SEQKIT_STATS (
+        CHOPPER.out.fastq
+    )
+    ch_versions = ch_versions.mix(SEQKIT_STATS.out.versions.first())
+
+    // Create CHOPPER benchmark record
+    ch_chopper_benchmark = CHOPPER.out.fastq
+        .join(SEQKIT_STATS.out.stats)
+        .map { meta, reads, stats ->
+            def new_meta = meta + [
+                qc_tool: 'chopper',
+                benchmark_category: 'nanopore_native_rust'
+            ]
+            return [new_meta, reads, null, stats]  // No log output for Chopper
+        }
+
     //
     // Run NanoPlot on all QC outputs for visualization comparison
     //
@@ -155,7 +191,8 @@ workflow QC_BENCHMARK {
         .map { meta, reads, json, stats -> [meta, reads] }
         .mix(
             ch_filtlong_benchmark.map { meta, reads, log, stats -> [meta, reads] },
-            ch_porechop_filtlong_benchmark.map { meta, reads, log, stats -> [meta, reads] }
+            ch_porechop_filtlong_benchmark.map { meta, reads, log, stats -> [meta, reads] },
+            ch_chopper_benchmark.map { meta, reads, log, stats -> [meta, reads] }
         )
     
     NANOPLOT (
@@ -167,12 +204,13 @@ workflow QC_BENCHMARK {
     // Combine all benchmark results
     //
     ch_benchmark_results = ch_fastp_benchmark
-        .mix(ch_filtlong_benchmark, ch_porechop_filtlong_benchmark)
+        .mix(ch_filtlong_benchmark, ch_porechop_filtlong_benchmark, ch_chopper_benchmark)
 
     emit:
     benchmark_results = ch_benchmark_results          // channel: [ val(meta), path(reads), path(qc_output), path(stats) ]
     fastp_results     = ch_fastp_benchmark           // channel: [ val(meta), path(reads), path(json), path(stats) ]
     filtlong_results  = ch_filtlong_benchmark        // channel: [ val(meta), path(reads), path(log), path(stats) ]
+    chopper_results   = ch_chopper_benchmark         // channel: [ val(meta), path(reads), null, path(stats) ]
     enhanced_results  = ch_porechop_filtlong_benchmark // channel: [ val(meta), path(reads), path(log), path(stats) ]
     nanoplot_reports  = NANOPLOT.out.html            // channel: [ val(meta), path(html) ]
     versions          = ch_versions                   // channel: [ path(versions.yml) ]
@@ -213,6 +251,26 @@ def extractPerformanceMetrics(qc_tool, meta, stats_file) {
             bases_kept: lines.find { it.contains('bases kept') }?.split()?.last()?.toLong() ?: 0,
             mean_length: lines.find { it.contains('mean length') }?.split()?.last()?.toFloat() ?: 0
         ]
+    } else if (qc_tool == 'chopper') {
+        // Parse SeqKit stats output for Chopper (TSV format)
+        def lines = new File(stats_file).readLines()
+        if (lines.size() > 1) {
+            def header = lines[0].split('\t')
+            def data = lines[1].split('\t')
+            def statsMap = [header, data].transpose().collectEntries()
+            metrics = [
+                num_seqs: statsMap['num_seqs']?.toLong() ?: 0,
+                sum_len: statsMap['sum_len']?.toLong() ?: 0,
+                min_len: statsMap['min_len']?.toInteger() ?: 0,
+                avg_len: statsMap['avg_len']?.toFloat() ?: 0,
+                max_len: statsMap['max_len']?.toInteger() ?: 0,
+                avg_qual: statsMap['avg_qual']?.toFloat() ?: 0,
+                q20_bases: statsMap['Q20(%)']?.toFloat() ?: 0,
+                q30_bases: statsMap['Q30(%)']?.toFloat() ?: 0
+            ]
+        } else {
+            metrics = [num_seqs: 0, sum_len: 0, avg_len: 0, avg_qual: 0]
+        }
     }
     
     return [
@@ -224,20 +282,20 @@ def extractPerformanceMetrics(qc_tool, meta, stats_file) {
 }
 
 // Compare QC tool performance
-def compareQCPerformance(fastp_metrics, filtlong_metrics, enhanced_metrics) {
+def compareQCPerformance(fastp_metrics, filtlong_metrics, chopper_metrics, enhanced_metrics) {
     // Generate comparative analysis of QC tools
     def comparison = [
         timestamp: new Date(),
-        sample: fastp_metrics?.sample ?: filtlong_metrics?.sample,
+        sample: fastp_metrics?.sample ?: filtlong_metrics?.sample ?: chopper_metrics?.sample,
         tools_compared: [],
         performance_summary: [:]
     ]
-    
+
     // Analyze FastP performance
     if (fastp_metrics?.metrics) {
         def fastp_retention = fastp_metrics.metrics.reads_after / (fastp_metrics.metrics.reads_before ?: 1)
         def fastp_quality_improvement = fastp_metrics.metrics.q30_rate_after - fastp_metrics.metrics.q30_rate_before
-        
+
         comparison.tools_compared << 'fastp'
         comparison.performance_summary.fastp = [
             read_retention_rate: fastp_retention,
@@ -245,8 +303,8 @@ def compareQCPerformance(fastp_metrics, filtlong_metrics, enhanced_metrics) {
             filtering_efficiency: fastp_quality_improvement / (1 - fastp_retention + 0.001) // Avoid division by zero
         ]
     }
-    
-    // Analyze Filtlong performance  
+
+    // Analyze Filtlong performance
     if (filtlong_metrics?.metrics) {
         comparison.tools_compared << 'filtlong'
         comparison.performance_summary.filtlong = [
@@ -255,23 +313,36 @@ def compareQCPerformance(fastp_metrics, filtlong_metrics, enhanced_metrics) {
             mean_length_after: filtlong_metrics.metrics.mean_length
         ]
     }
-    
+
+    // Analyze Chopper performance (nanopore-native Rust-based)
+    if (chopper_metrics?.metrics) {
+        comparison.tools_compared << 'chopper'
+        comparison.performance_summary.chopper = [
+            num_seqs: chopper_metrics.metrics.num_seqs,
+            sum_len: chopper_metrics.metrics.sum_len,
+            avg_len: chopper_metrics.metrics.avg_len,
+            avg_qual: chopper_metrics.metrics.avg_qual,
+            q20_bases: chopper_metrics.metrics.q20_bases,
+            q30_bases: chopper_metrics.metrics.q30_bases
+        ]
+    }
+
     // Analyze enhanced metrics if available
     if (enhanced_metrics?.metrics) {
         comparison.tools_compared << 'enhanced'
         comparison.performance_summary.enhanced = enhanced_metrics.metrics
     }
-    
+
     // Generate recommendations
     comparison.recommendations = generateQCRecommendations(comparison.performance_summary)
-    
+
     return comparison
 }
 
 // Generate QC recommendations based on performance analysis
 def generateQCRecommendations(performance_summary) {
     def recommendations = []
-    
+
     // Analyze FastP performance and recommend optimizations
     if (performance_summary.fastp) {
         def fastp = performance_summary.fastp
@@ -282,10 +353,27 @@ def generateQCRecommendations(performance_summary) {
             recommendations << "Minimal quality improvement with FastP - consider alternative filtering"
         }
     }
-    
+
+    // Analyze Chopper performance for nanopore data
+    if (performance_summary.chopper) {
+        def chopper = performance_summary.chopper
+        if (chopper.avg_qual && chopper.avg_qual > 12) {
+            recommendations << "Chopper performed well for nanopore data - consider using as default"
+        }
+        if (chopper.q30_bases && chopper.q30_bases < 50) {
+            recommendations << "Low Q30 bases with Chopper - consider adjusting quality threshold or using Filtlong"
+        }
+    }
+
+    // Compare Chopper vs FASTP for nanopore workflows
+    if (performance_summary.chopper && performance_summary.fastp) {
+        recommendations << "Chopper is optimized for nanopore data and typically 7x faster than general-purpose tools"
+        recommendations << "For nanopore workflows, prefer Chopper (nanopore-native) > Filtlong (length-based) > FASTP (Illumina-focused)"
+    }
+
     // Add general recommendations
     recommendations << "Monitor resource usage and adjust parameters based on data characteristics"
-    recommendations << "Consider using FastP for short-read contamination and Filtlong for length-based filtering"
-    
+    recommendations << "Consider using Chopper for fast nanopore filtering, Filtlong for length-based quality filtering"
+
     return recommendations
 }

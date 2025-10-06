@@ -4,7 +4,7 @@ nextflow_workflow {
     script "../../qc_benchmark.nf"
     workflow "QC_BENCHMARK"
 
-    test("Should perform basic QC benchmarking with FASTP and FILTLONG") {
+    test("Should perform basic QC benchmarking with FASTP, FILTLONG, and CHOPPER") {
 
         setup {
             """
@@ -51,25 +51,29 @@ EOF
             assert workflow.out.benchmark_results
             assert workflow.out.fastp_results
             assert workflow.out.filtlong_results
+            assert workflow.out.chopper_results
             assert workflow.out.enhanced_results
             assert workflow.out.nanoplot_reports
             assert workflow.out.versions
-            
+
             // Verify all QC tools were tested
             def benchmark_results = workflow.out.benchmark_results.toList()
-            assert benchmark_results.size() >= 3  // fastp, filtlong, porechop+filtlong
-            
+            assert benchmark_results.size() >= 4  // fastp, filtlong, chopper, porechop+filtlong
+
             // Verify NanoPlot reports for visualization
             def nanoplot_reports = workflow.out.nanoplot_reports.toList()
-            assert nanoplot_reports.size() >= 3
-            
+            assert nanoplot_reports.size() >= 4
+
             // Check that different QC strategies were benchmarked
             def fastp_results = workflow.out.fastp_results.toList()
             assert fastp_results.size() >= 1
-            
+
             def filtlong_results = workflow.out.filtlong_results.toList()
             assert filtlong_results.size() >= 1
-            
+
+            def chopper_results = workflow.out.chopper_results.toList()
+            assert chopper_results.size() >= 1
+
             def enhanced_results = workflow.out.enhanced_results.toList()
             assert enhanced_results.size() >= 1
         }
@@ -139,12 +143,13 @@ EOF
             
             // Verify benchmarking for both samples
             def benchmark_results = workflow.out.benchmark_results.toList()
-            assert benchmark_results.size() >= 6  // 3 tools × 2 samples
-            
+            assert benchmark_results.size() >= 8  // 4 tools × 2 samples
+
             // Check that all benchmark categories are represented
             def tool_categories = benchmark_results.collect { it[0].benchmark_category }.unique()
             assert tool_categories.contains('general_purpose')
             assert tool_categories.contains('nanopore_optimized')
+            assert tool_categories.contains('nanopore_native_rust')
             assert tool_categories.contains('enhanced_nanopore')
         }
     }
