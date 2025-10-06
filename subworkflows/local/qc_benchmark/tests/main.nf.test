@@ -1,7 +1,7 @@
 nextflow_workflow {
 
     name "Test QC_BENCHMARK"
-    script "../../qc_benchmark.nf"
+    script "../main.nf"
     workflow "QC_BENCHMARK"
 
     test("Should perform basic QC benchmarking with FASTP, FILTLONG, and CHOPPER") {
