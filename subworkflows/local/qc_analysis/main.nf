@@ -181,13 +181,15 @@ workflow QC_ANALYSIS {
     qc_logs      = ch_qc_logs             // channel: [ val(meta), path(log) ] - QC log files
     qc_json      = ch_qc_json             // channel: [ val(meta), path(json) ] - QC JSON reports (if available)
     nanoplot     = NANOPLOT.out.html      // channel: [ val(meta), path(html) ] - NanoPlot visualization
+    nanoplot_txt = NANOPLOT.out.txt       // channel: [ val(meta), path(txt) ] - NanoPlot summary stats (for MultiQC)
+    nanoplot_png = NANOPLOT.out.png       // channel: [ val(meta), path(png) ] - NanoPlot plots (optional)
     qc_tool_used = Channel.value(qc_tool) // channel: val(qc_tool_name) - Tool identification
     versions     = ch_versions            // channel: [ path(versions.yml) ]
-    
+
     // Enhanced reporting outputs
     fastqc_html  = ch_fastqc_html         // channel: [ val(meta), path(html) ] - FastQC HTML reports (FILTLONG enhancement)
     seqkit_stats = ch_seqkit_stats        // channel: [ val(meta), path(txt) ] - SeqKit detailed statistics
-    
+
     // Legacy outputs for backward compatibility
     fastp_json   = qc_tool == 'fastp' ? ch_qc_json : Channel.empty()     // channel: [ val(meta), path(json) ]
     fastp_html   = qc_tool == 'fastp' ? ch_qc_reports : Channel.empty()  // channel: [ val(meta), path(html) ]

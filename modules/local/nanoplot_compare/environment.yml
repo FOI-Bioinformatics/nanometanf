@@ -1,0 +1,7 @@
+name: nanoplot_compare
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
+dependencies:
+  - bioconda::nanoplot=1.46.1

@@ -8,7 +8,19 @@ report_section_order:
     order: -1001
   "foi-bioinformatics-nanometanf-summary":
     order: -1002
+  nanoplot:
+    order: -900
 
 export_plots: true
 
 disable_version_detection: true
+
+# Enable NanoPlot module for nanopore-specific QC visualization
+# NanoPlot generates comprehensive quality metrics including:
+# - Read length distributions (weighted and non-weighted)
+# - Quality score distributions
+# - Length vs Quality scatter plots
+# - Yield over time analysis
+sp:
+  nanoplot:
+    fn: "NanoStats.txt"

@@ -20,6 +20,7 @@ include { ASSEMBLY                   } from '../subworkflows/local/assembly'
 include { TAXONOMIC_CLASSIFICATION   } from '../subworkflows/local/taxonomic_classification'
 include { VALIDATION                 } from '../subworkflows/local/validation'
 include { DYNAMIC_RESOURCE_ALLOCATION } from '../subworkflows/local/dynamic_resource_allocation'
+include { NANOPLOT_COMPARE           } from '../modules/local/nanoplot_compare/main'
 
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -177,10 +178,39 @@ workflow NANOMETANF {
             DEMULTIPLEXING.out.samples
         )
         ch_versions = ch_versions.mix(QC_ANALYSIS.out.versions)
+
+        // Collect QC outputs for MultiQC
         ch_multiqc_files = ch_multiqc_files.mix(QC_ANALYSIS.out.fastp_json.collect{it[1]})
+
+        // Add NanoPlot summary statistics to MultiQC (NanoStats.txt)
+        if (!params.skip_nanoplot) {
+            ch_multiqc_files = ch_multiqc_files.mix(QC_ANALYSIS.out.nanoplot_txt.collect{it[1]})
+        }
+
         ch_qc_reads = QC_ANALYSIS.out.reads
         ch_qc_reports = QC_ANALYSIS.out.fastp_html
         ch_nanoplot_reports = QC_ANALYSIS.out.nanoplot
+
+        //
+        // MODULE: Multi-sample NanoPlot comparison (optional)
+        //
+        if (params.enable_nanoplot_comparison && !params.skip_nanoplot) {
+            // Collect all QC'd reads for comparative analysis
+            ch_comparison_reads = ch_qc_reads.map { meta, reads -> reads }.collect()
+
+            NANOPLOT_COMPARE (
+                ch_comparison_reads,
+                "multisample_comparison"
+            )
+            ch_versions = ch_versions.mix(NANOPLOT_COMPARE.out.versions)
+
+            // Add comparison stats to MultiQC
+            ch_multiqc_files = ch_multiqc_files.mix(NANOPLOT_COMPARE.out.txt.collect())
+
+            ch_nanoplot_comparison = NANOPLOT_COMPARE.out.comparison_dir
+        } else {
+            ch_nanoplot_comparison = Channel.empty()
+        }
     } else {
         // If QC is skipped, pass through original reads
         log.info "Skipping QC analysis - using original reads"
@@ -294,6 +324,7 @@ workflow NANOMETANF {
     multiqc_report         = ch_multiqc_report                              // channel: /path/to/multiqc_report.html
     qc_reports             = ch_qc_reports                                  // channel: [ val(meta), path(html) ]
     nanoplot_reports       = ch_nanoplot_reports                            // channel: [ val(meta), path(html) ]
+    nanoplot_comparison    = params.enable_nanoplot_comparison && !params.skip_nanoplot ? ch_nanoplot_comparison : Channel.empty()  // channel: path(dir) - Multi-sample comparison
     assemblies             = params.enable_assembly ? ASSEMBLY.out.assembly : Channel.empty()          // channel: [ val(meta), path(fasta.gz) ] - Genome assemblies
     assembly_graphs        = params.enable_assembly ? ASSEMBLY.out.assembly_graph : Channel.empty()    // channel: [ val(meta), path(gfa.gz) ] - Assembly graphs
     assembly_info          = params.enable_assembly ? ASSEMBLY.out.assembly_info : Channel.empty()     // channel: [ val(meta), path(txt) ] - Assembly statistics
