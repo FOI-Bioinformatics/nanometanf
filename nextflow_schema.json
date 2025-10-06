@@ -493,6 +493,11 @@
             "type": "integer",
             "default": 9
         },
+        "trim_adapters": {
+            "type": "boolean",
+            "default": true,
+            "description": "Trim adapters during basecalling using Dorado's built-in adapter trimming (recommended by ONT)"
+        },
         "trim_barcodes": {
             "type": "boolean",
             "default": true
