@@ -16,7 +16,7 @@ input = "$projectDir/tests/test_samplesheet.csv"
                 file_pattern = "**/*.fastq{,.gz}"
                 batch_size = 10
                 batch_interval = "5min"
-                max_files = 10
+                max_files = "10"
                 
                 // Disable other features
                 use_dorado = false

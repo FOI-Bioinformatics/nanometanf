@@ -1,0 +1,75 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/nf-core/modules/master/subworkflows/yaml-schema.json
+name: "error_handler"
+description: Comprehensive error handling with classification, retry logic, circuit breaker, and dead letter queue for failed samples
+keywords:
+  - error handling
+  - retry logic
+  - circuit breaker
+  - resilience
+  - fault tolerance
+authors:
+  - "@foi-bioinformatics"
+input:
+  - ch_failed_samples:
+      type: channel
+      description: Channel of failed samples with error information
+      pattern: "[ val(meta), val(error_message), val(error_type) ]"
+  - base_delay:
+      type: val
+      description: Base delay for exponential backoff (default 2s)
+  - max_delay:
+      type: val
+      description: Maximum backoff delay (default 300s)
+  - backoff_factor:
+      type: val
+      description: Exponential backoff factor (default 2.0)
+  - failure_threshold:
+      type: val
+      description: Circuit breaker failure threshold (default 5)
+  - time_window:
+      type: val
+      description: Circuit breaker time window (default 300s)
+  - max_retries:
+      type: val
+      description: Maximum retry attempts (default 10)
+output:
+  - retryable_samples:
+      type: channel
+      description: Samples eligible for retry with error details
+      pattern: "[ val(meta), val(error_msg), val(category) ]"
+  - fatal_samples:
+      type: channel
+      description: Samples with fatal errors that cannot be retried
+      pattern: "[ val(meta), val(error_msg), val(category) ]"
+  - max_retries_exceeded:
+      type: channel
+      description: Samples that exceeded maximum retry attempts
+      pattern: "[ val(meta), val(error_msg), val(category) ]"
+  - circuit_breaker_state:
+      type: channel
+      description: Current state of the circuit breaker (OPEN/CLOSED/HALF_OPEN)
+  - circuit_breaker_report:
+      type: file
+      description: Detailed circuit breaker report
+      pattern: "circuit_breaker_report.json"
+  - dead_letter_manifest:
+      type: file
+      description: Manifest of permanently failed samples
+      pattern: "dead_letter_manifest.json"
+  - dead_letter_summary:
+      type: file
+      description: Summary statistics of failed samples
+      pattern: "dead_letter_summary.txt"
+  - error_reports:
+      type: file
+      description: Detailed error classification reports
+      pattern: "*_error_report.json"
+  - backoff_reports:
+      type: file
+      description: Exponential backoff calculation reports
+      pattern: "*_backoff_report.json"
+  - versions:
+      type: file
+      description: Software versions
+      pattern: "versions.yml"
+components: []

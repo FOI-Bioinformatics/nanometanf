@@ -230,6 +230,22 @@
                     "fa_icon": "far calendar",
                     "description": "Suffix to add to the trace report filename. Dynamically generated as date and time in the format yyyy-MM-dd_HH-mm-ss. Set in nextflow.config.",
                     "hidden": true
+                },
+                "enable_performance_logging": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Enable detailed performance logging",
+                    "fa_icon": "fas fa-chart-line",
+                    "hidden": true
+                },
+                "resource_prediction_confidence": {
+                    "type": "number",
+                    "default": 0.7,
+                    "minimum": 0.1,
+                    "maximum": 1.0,
+                    "description": "Minimum confidence for resource predictions",
+                    "fa_icon": "fas fa-brain",
+                    "hidden": true
                 }
             }
         }
@@ -254,7 +270,7 @@
             "default": "5min"
         },
         "max_files": {
-            "type": "integer",
+            "type": "string",
             "description": "Maximum number of files to process in real-time mode (limits watchPath file detection)"
         },
         "watch_directories": {
@@ -536,18 +552,6 @@
             "default": 30,
             "minimum": 1,
             "description": "System monitoring interval (seconds)"
-        },
-        "enable_performance_logging": {
-            "type": "boolean",
-            "default": true,
-            "description": "Enable detailed performance logging"
-        },
-        "resource_prediction_confidence": {
-            "type": "number",
-            "default": 0.7,
-            "minimum": 0.1,
-            "maximum": 1.0,
-            "description": "Minimum confidence for resource predictions"
         }
     },
     "allOf": [

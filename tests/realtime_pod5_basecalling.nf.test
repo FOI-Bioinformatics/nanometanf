@@ -21,7 +21,7 @@ nextflow_pipeline {
                 // Batch settings for testing
                 batch_size = 1
                 batch_interval = "2s"  // Faster for testing
-                max_files = 1  // Limit for testing
+                max_files = "1"  // Limit for testing (string type)
                 
                 // Disable other features
                 demultiplex = false

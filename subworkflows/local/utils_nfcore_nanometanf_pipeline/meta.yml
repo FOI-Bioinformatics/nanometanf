@@ -1,0 +1,43 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/nf-core/modules/master/subworkflows/yaml-schema.json
+name: "utils_nfcore_nanometanf_pipeline"
+description: Pipeline-specific utility functions for initialization, validation, and completion workflows
+keywords:
+  - utility
+  - validation
+  - initialization
+  - nf-core
+  - pipeline
+authors:
+  - "@foi-bioinformatics"
+input:
+  - version:
+      type: boolean
+      description: Display version and exit
+  - validate_params:
+      type: boolean
+      description: Validate parameters against schema at runtime
+  - monochrome_logs:
+      type: boolean
+      description: Do not use colored log outputs
+  - nextflow_cli_args:
+      type: array
+      description: List of positional Nextflow CLI arguments
+  - outdir:
+      type: string
+      description: Output directory where results will be saved
+  - input:
+      type: string
+      description: Path to input samplesheet
+output:
+  - samplesheet:
+      type: channel
+      description: Validated samplesheet channel with meta and fastq files
+      pattern: "[ val(meta), path(fastq) ]"
+  - versions:
+      type: file
+      description: Software versions
+      pattern: "versions.yml"
+components:
+  - utils_nfschema_plugin
+  - utils_nfcore_pipeline
+  - utils_nextflow_pipeline
