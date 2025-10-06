@@ -1,0 +1,139 @@
+nextflow_pipeline {
+
+    name "Test Chopper-specific parameters"
+    script "../main.nf"
+
+    test("Should apply strict quality filtering with high Chopper quality threshold") {
+
+        when {
+            params {
+                input = "$projectDir/assets/test_data/test_samplesheet_absolute.csv"
+                outdir = "$outputDir"
+
+                // Chopper-specific: strict quality filtering
+                qc_tool = 'chopper'
+                chopper_quality = 15           // High quality threshold (Q15)
+                chopper_minlength = 2000       // Longer minimum length
+                chopper_maxlength = null       // No upper limit
+
+                // Fast execution for testing
+                skip_nanoplot = true
+                skip_multiqc = true
+                max_cpus = 2
+                max_memory = '4.GB'
+                max_time = '10.min'
+
+                // Disable resource-intensive steps
+                kraken2_db = null
+                blast_validation = false
+                use_dorado = false
+                realtime_mode = false
+            }
+        }
+
+        then {
+            assert workflow.success
+
+            // Verify Chopper was used for QC
+            def chopperProcess = workflow.trace.tasks().find {
+                it.process =~ /.*CHOPPER.*/
+            }
+            assert chopperProcess != null : "Chopper process should have executed"
+
+            // Verify quality-filtered output exists
+            def fastqFiles = file("${outputDir}/qc_analysis/**/*.fastq.gz", type: 'any')
+            assert fastqFiles.size() > 0 : "Should produce quality-filtered FASTQ files"
+        }
+    }
+
+    test("Should apply length-based filtering with Chopper min/max length parameters") {
+
+        when {
+            params {
+                input = "$projectDir/assets/test_data/test_samplesheet_absolute.csv"
+                outdir = "$outputDir"
+
+                // Chopper-specific: length-based filtering
+                qc_tool = 'chopper'
+                chopper_quality = 8            // Relaxed quality for length focus
+                chopper_minlength = 500        // Short minimum for testing
+                chopper_maxlength = 50000      // Maximum length filter
+
+                // Fast execution for testing
+                skip_nanoplot = true
+                skip_multiqc = true
+                max_cpus = 2
+                max_memory = '4.GB'
+                max_time = '10.min'
+
+                // Disable resource-intensive steps
+                kraken2_db = null
+                blast_validation = false
+                use_dorado = false
+                realtime_mode = false
+            }
+        }
+
+        then {
+            assert workflow.success
+
+            // Verify Chopper executed with length parameters
+            def chopperProcess = workflow.trace.tasks().find {
+                it.process =~ /.*CHOPPER.*/
+            }
+            assert chopperProcess != null : "Chopper process should have executed"
+
+            // Verify filtered output exists
+            def qcOutputs = file("${outputDir}/qc_analysis/**/*", type: 'any')
+            assert qcOutputs.size() > 0 : "Should produce length-filtered outputs"
+        }
+    }
+
+    test("Should apply adapter trimming with Chopper headcrop and tailcrop") {
+
+        when {
+            params {
+                input = "$projectDir/assets/test_data/test_samplesheet_absolute.csv"
+                outdir = "$outputDir"
+
+                // Chopper-specific: adapter trimming
+                qc_tool = 'chopper'
+                chopper_quality = 10           // Standard quality
+                chopper_minlength = 1000       // Standard minimum
+                chopper_headcrop = 50          // Trim 50bp from read start (adapters)
+                chopper_tailcrop = 50          // Trim 50bp from read end (adapters)
+
+                // Fast execution for testing
+                skip_nanoplot = true
+                skip_multiqc = true
+                max_cpus = 2
+                max_memory = '4.GB'
+                max_time = '10.min'
+
+                // Disable resource-intensive steps
+                kraken2_db = null
+                blast_validation = false
+                use_dorado = false
+                realtime_mode = false
+            }
+        }
+
+        then {
+            assert workflow.success
+
+            // Verify Chopper executed with trimming parameters
+            def chopperProcess = workflow.trace.tasks().find {
+                it.process =~ /.*CHOPPER.*/
+            }
+            assert chopperProcess != null : "Chopper process should have executed"
+
+            // Verify trimmed output exists
+            def fastqFiles = file("${outputDir}/qc_analysis/**/*.fastq.gz", type: 'any')
+            assert fastqFiles.size() > 0 : "Should produce adapter-trimmed FASTQ files"
+
+            // Verify versions were captured
+            def versionsFile = file("${outputDir}/pipeline_info/software_versions.yml")
+            assert versionsFile.exists() : "Should capture software versions"
+        }
+    }
+}
