@@ -1,0 +1,202 @@
+nextflow_process {
+
+    name "Test Process MULTIQC_NANOPORE_STATS"
+    script "../main.nf"
+    process "MULTIQC_NANOPORE_STATS"
+
+    tag "modules"
+    tag "modules_local"
+    tag "multiqc_nanopore_stats"
+
+    test("multiqc_nanopore_stats - basic functionality") {
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [
+                        sample_id: 'sample1',
+                        total_reads: 10000,
+                        total_bases: 50000000,
+                        mean_length: 5000,
+                        median_length: 4800,
+                        n50: 6500,
+                        mean_quality: 12.5
+                    ],
+                    [
+                        sample_id: 'sample2',
+                        total_reads: 15000,
+                        total_bases: 75000000,
+                        mean_length: 5000,
+                        median_length: 4900,
+                        n50: 7000,
+                        mean_quality: 13.2
+                    ]
+                ]
+                input[1] = 'test_nanopore'
+                """
+            }
+        }
+
+        then {
+            assertAll(
+                { assert process.success },
+                { assert snapshot(process.out).match() }
+            )
+        }
+
+    }
+
+    test("multiqc_nanopore_stats - single sample") {
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [
+                        sample_id: 'single_sample',
+                        total_reads: 5000,
+                        total_bases: 25000000,
+                        mean_length: 5000,
+                        median_length: 4700,
+                        n50: 6000,
+                        mean_quality: 11.8
+                    ]
+                ]
+                input[1] = 'single_test'
+                """
+            }
+        }
+
+        then {
+            assertAll(
+                { assert process.success },
+                { assert snapshot(process.out).match() }
+            )
+        }
+
+    }
+
+    test("multiqc_nanopore_stats - with histogram data") {
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [
+                        sample_id: 'histogram_sample',
+                        total_reads: 8000,
+                        total_bases: 40000000,
+                        mean_length: 5000,
+                        median_length: 4850,
+                        n50: 6200,
+                        mean_quality: 12.1,
+                        read_length_histogram: [
+                            1000: 100,
+                            2000: 250,
+                            3000: 400,
+                            4000: 500,
+                            5000: 600,
+                            6000: 450,
+                            7000: 300,
+                            8000: 150
+                        ]
+                    ]
+                ]
+                input[1] = 'histogram_test'
+                """
+            }
+        }
+
+        then {
+            assertAll(
+                { assert process.success },
+                { assert snapshot(process.out).match() }
+            )
+        }
+
+    }
+
+    test("multiqc_nanopore_stats - stub run") {
+
+        options "-stub"
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [
+                        sample_id: 'stub_sample',
+                        total_reads: 1000,
+                        total_bases: 5000000,
+                        mean_length: 5000,
+                        median_length: 4800,
+                        n50: 6000,
+                        mean_quality: 12.0
+                    ]
+                ]
+                input[1] = 'stub_test'
+                """
+            }
+        }
+
+        then {
+            assertAll(
+                { assert process.success },
+                { assert snapshot(process.out).match() }
+            )
+        }
+
+    }
+
+    test("multiqc_nanopore_stats - empty stats list") {
+
+        when {
+            process {
+                """
+                input[0] = []
+                input[1] = 'empty_test'
+                """
+            }
+        }
+
+        then {
+            assertAll(
+                { assert process.success },
+                { assert snapshot(process.out).match() }
+            )
+        }
+
+    }
+
+    test("multiqc_nanopore_stats - high quality reads") {
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [
+                        sample_id: 'high_quality',
+                        total_reads: 12000,
+                        total_bases: 60000000,
+                        mean_length: 5000,
+                        median_length: 4900,
+                        n50: 7500,
+                        mean_quality: 15.5
+                    ]
+                ]
+                input[1] = 'high_quality_test'
+                """
+            }
+        }
+
+        then {
+            assertAll(
+                { assert process.success },
+                { assert snapshot(process.out).match() }
+            )
+        }
+
+    }
+
+}
