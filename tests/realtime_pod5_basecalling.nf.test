@@ -39,8 +39,9 @@ nextflow_pipeline {
         then {
             // Real-time POD5 processing should work or fail gracefully
             assert workflow.exitStatus != null
-            
+
             if (workflow.success) {
+                assert snapshot(file("${outputDir}/pipeline_info/software_versions.yml")).match("software_versions")
                 // If successful, should have run Dorado basecalling
                 assert workflow.trace.tasks().any { it.name.contains('DORADO') }
             }
