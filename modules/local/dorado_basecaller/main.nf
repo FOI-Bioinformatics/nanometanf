@@ -21,9 +21,10 @@ process DORADO_BASECALLER {
     def args = task.ext.args ?: ''
     def prefix = task.ext.prefix ?: "${meta.id}"
     def min_qscore = params.min_qscore ?: 9
+    def trim_adapters = params.trim_adapters ? '--trim adapters' : ''
     def trim_barcodes = params.trim_barcodes ? '--trim' : ''
     def demultiplex = params.demultiplex && params.barcode_kit ? "--kit-name ${params.barcode_kit}" : ''
-    
+
     // Handle both single POD5 file and directory of POD5 files
     def input_path = pod5_files.size() == 1 && pod5_files[0].isFile() ? pod5_files[0] : '.'
     
@@ -101,6 +102,7 @@ process DORADO_BASECALLER {
         --emit-fastq \\
         --min-qscore ${min_qscore} \\
         --verbose \\
+        ${trim_adapters} \\
         ${trim_barcodes} \\
         ${demultiplex} \\
         ${args} \\
@@ -118,6 +120,7 @@ Model: ${model}
 Min Q-score: ${min_qscore}
 Device: \$GPU_DEVICES
 GPU Available: \$GPU_AVAILABLE
+Trim Adapters: ${params.trim_adapters ?: false}
 Trim Barcodes: ${params.trim_barcodes ?: false}
 Demultiplex: ${params.demultiplex ?: false}
 Barcode Kit: ${params.barcode_kit ?: 'none'}
@@ -171,6 +174,7 @@ Model: ${model}
 Min Q-score: ${min_qscore}
 Device: cpu
 GPU Available: false
+Trim Adapters: ${params.trim_adapters ?: false}
 Trim Barcodes: ${params.trim_barcodes ?: false}
 Demultiplex: ${params.demultiplex ?: false}
 Barcode Kit: ${params.barcode_kit ?: 'none'}

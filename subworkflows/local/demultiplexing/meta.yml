@@ -1,0 +1,19 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/nf-core/modules/master/subworkflows/yaml-schema.json
+name: "demultiplexing"
+description: Dorado-based demultiplexing of barcoded samples
+keywords:
+  - nanopore
+  - oxford nanopore
+  - sequencing
+authors:
+  - "@foi-bioinformatics"
+output:
+  - samples:
+      type: file
+      description: Demultiplexed samples
+      pattern: "*.{fastq,fastq.gz}"
+  - versions:
+      type: file
+      description: Software versions
+      pattern: "versions.yml"
+components: []

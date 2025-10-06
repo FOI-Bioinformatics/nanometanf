@@ -1,0 +1,6 @@
+name: kraken2_db_chunker
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.11

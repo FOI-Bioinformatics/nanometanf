@@ -24,6 +24,7 @@ nextflow_pipeline {
 
         then {
             assert workflow.success
+            assert snapshot(workflow.out.versions).match()
             assert workflow.trace.tasks().size() > 0
             
             // Check that barcode discovery ran
@@ -52,6 +53,7 @@ nextflow_pipeline {
 
         then {
             assert workflow.success
+            assert snapshot(workflow.out.versions).match()
             // Should complete even with empty directories
         }
     }

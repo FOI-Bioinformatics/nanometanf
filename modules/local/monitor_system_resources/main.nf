@@ -32,7 +32,7 @@ process MONITOR_SYSTEM_RESOURCES {
     system_config = json.loads('${new groovy.json.JsonBuilder(system_config).toString()}')
     
     def get_cpu_info():
-        """Get detailed CPU information"""
+        'Get detailed CPU information'
         cpu_info = {
             'physical_cores': psutil.cpu_count(logical=False),
             'logical_cores': psutil.cpu_count(logical=True),
@@ -74,7 +74,7 @@ process MONITOR_SYSTEM_RESOURCES {
         return cpu_info
     
     def get_memory_info():
-        """Get detailed memory information"""
+        'Get detailed memory information'
         memory = psutil.virtual_memory()
         swap = psutil.swap_memory()
         
@@ -92,7 +92,7 @@ process MONITOR_SYSTEM_RESOURCES {
         return memory_info
     
     def get_gpu_info():
-        """Get GPU information"""
+        'Get GPU information'
         gpu_info = {
             'nvidia_gpus': [],
             'apple_gpus': [],
@@ -150,7 +150,7 @@ process MONITOR_SYSTEM_RESOURCES {
         return gpu_info
     
     def get_disk_info():
-        """Get disk usage information"""
+        'Get disk usage information'
         disk_info = {
             'total_gb': 0,
             'used_gb': 0,
@@ -184,7 +184,7 @@ process MONITOR_SYSTEM_RESOURCES {
         return disk_info
     
     def get_network_info():
-        """Get network information"""
+        'Get network information'
         network_info = {
             'interfaces': [],
             'total_bytes_sent': 0,
@@ -211,7 +211,7 @@ process MONITOR_SYSTEM_RESOURCES {
         return network_info
     
     def get_current_load():
-        """Get current system load metrics"""
+        'Get current system load metrics'
         load_info = {
             'cpu_utilization_percent': 0,
             'memory_utilization_percent': 0,
@@ -257,7 +257,7 @@ process MONITOR_SYSTEM_RESOURCES {
         return load_info
     
     def calculate_resource_limits():
-        """Calculate recommended resource limits based on system capacity"""
+        'Calculate recommended resource limits based on system capacity'
         cpu_info = get_cpu_info()
         memory_info = get_memory_info()
         gpu_info = get_gpu_info()

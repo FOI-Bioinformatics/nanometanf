@@ -15,7 +15,7 @@ nextflow_pipeline {
                 use_dorado = true
                 dorado_path = '/Users/andreassjodin/Downloads/dorado-1.1.1-osx-arm64/bin/dorado'
                 pod5_input_dir = "$projectDir/assets/test_data/minimal_nanoseq/pod5"
-                dorado_model = 'dna_r10.4.1_e4.3_400bps_fast@v4.1.0'
+                dorado_model = 'dna_r10.4.1_e4.3_400bps_fast'
                 
                 // Multiplex demultiplexing
                 barcode_kit = 'SQK-NBD114-24'
@@ -38,7 +38,8 @@ nextflow_pipeline {
         }
 
         then {
-            assert workflow.success  // May fail without actual POD5 files
+            assert workflow.success
+            assert snapshot(file("${outputDir}/pipeline_info/software_versions.yml")).match("software_versions")  // May fail without actual POD5 files
             
             if (workflow.success) {
                 // Check that Dorado basecalling ran
@@ -48,7 +49,7 @@ nextflow_pipeline {
                 assert workflow.trace.tasks().any { it.name.contains('DORADO_DEMUX') }
                 
                 // Check multiple barcode samples were processed
-                def fastp_tasks = workflow.trace.tasks().findAll { it.name.contains('FASTP') }
+                def fastp_tasks = workflow.trace.tasks().findAll { it.name.contains('CHOPPER') || it.name.contains('FASTP') || it.name.contains('FILTLONG') }
                 // Should have multiple samples from demux (or fail gracefully)
                 
                 // Check output structure
@@ -69,7 +70,7 @@ nextflow_pipeline {
                 use_dorado = true
                 dorado_path = '/Users/andreassjodin/Downloads/dorado-1.1.1-osx-arm64/bin/dorado'
                 pod5_input_dir = "$projectDir/assets/test_data/minimal_nanoseq/pod5"
-                dorado_model = 'dna_r10.4.1_e4.3_400bps_fast@v4.1.0'
+                dorado_model = 'dna_r10.4.1_e4.3_400bps_fast'
                 
                 // No barcode kit = no demux
                 barcode_kit = null
@@ -90,6 +91,7 @@ nextflow_pipeline {
 
         then {
             assert workflow.success
+            assert snapshot(file("${outputDir}/pipeline_info/software_versions.yml")).match("software_versions")
             
             if (workflow.success) {
                 // Should have basecalling but no demux
@@ -97,7 +99,7 @@ nextflow_pipeline {
                 assert !workflow.trace.tasks().any { it.name.contains('DORADO_DEMUX') }
                 
                 // Should process single sample
-                def fastp_tasks = workflow.trace.tasks().findAll { it.name.contains('FASTP') }
+                def fastp_tasks = workflow.trace.tasks().findAll { it.name.contains('CHOPPER') || it.name.contains('FASTP') || it.name.contains('FILTLONG') }
                 assert fastp_tasks.size() == 1
             }
         }

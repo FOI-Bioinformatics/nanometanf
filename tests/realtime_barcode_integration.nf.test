@@ -27,7 +27,7 @@ nextflow_pipeline {
         when {
             params {
                 input = "$projectDir/tests/empty_samplesheet.csv"
-                outdir = "$outputDir/results"
+                outdir = "$outputDir"
                 
                 // Enable both barcode discovery and real-time monitoring
                 realtime_mode = true
@@ -40,7 +40,7 @@ nextflow_pipeline {
                 // Integration-optimized batching
                 batch_size = 4
                 batch_interval = "5s"
-                max_files = 12
+                max_files = "12"
                 
                 // Enhanced real-time features
                 enable_adaptive_batching = true
@@ -82,6 +82,7 @@ nextflow_pipeline {
 
         then {
             assert workflow.success
+            assert snapshot(file("${outputDir}/pipeline_info/software_versions.yml")).match("software_versions")
             
             // Both barcode discovery and real-time monitoring should run
             assert workflow.trace.tasks().any { it.name.contains('BARCODE_DISCOVERY') }
@@ -93,7 +94,7 @@ nextflow_pipeline {
             assert workflow.trace.tasks().any { it.name.contains('GENERATE_REALTIME_REPORT') }
             
             // Multiple barcodes should be processed
-            def fastp_tasks = workflow.trace.tasks().findAll { it.name.contains('FASTP') }
+            def fastp_tasks = workflow.trace.tasks().findAll { it.name.contains('CHOPPER') || it.name.contains('FASTP') || it.name.contains('FILTLONG') }
             assert fastp_tasks.size() >= 4  // At least 4 samples processed
             
             // Integration outputs should exist
@@ -151,7 +152,7 @@ nextflow_pipeline {
         when {
             params {
                 input = "$projectDir/tests/empty_samplesheet.csv"
-                outdir = "$outputDir/results"
+                outdir = "$outputDir"
                 
                 // Real-time monitoring with mixed barcode structure
                 realtime_mode = true
@@ -163,7 +164,7 @@ nextflow_pipeline {
                 
                 // Stream processing configuration
                 batch_size = 3
-                max_files = 8
+                max_files = "8"
                 
                 // Handle mixed file types and structures
                 enable_file_prioritization = true
@@ -190,12 +191,13 @@ nextflow_pipeline {
 
         then {
             assert workflow.success
+            assert snapshot(file("${outputDir}/pipeline_info/software_versions.yml")).match("software_versions")
             
             // Should handle mixed structure gracefully
             assert workflow.trace.tasks().any { it.name.contains('ENHANCED_REALTIME_MONITORING') }
             
             // Should process only active barcodes (with files)
-            def processing_tasks = workflow.trace.tasks().findAll { it.name.contains('FASTP') }
+            def processing_tasks = workflow.trace.tasks().findAll { it.name.contains('CHOPPER') || it.name.contains('FASTP') || it.name.contains('FILTLONG') }
             assert processing_tasks.size() >= 3  // Only active barcodes processed
             
             // Should generate statistics for active samples only
@@ -249,7 +251,7 @@ nextflow_pipeline {
         when {
             params {
                 input = "$projectDir/tests/empty_samplesheet.csv"
-                outdir = "$outputDir/results"
+                outdir = "$outputDir"
                 
                 // Real-time stream processing demonstration
                 realtime_mode = true
@@ -259,7 +261,7 @@ nextflow_pipeline {
                 // Stream-optimized configuration
                 batch_size = 3
                 batch_interval = "4s"
-                max_files = 1
+                max_files = "1"
                 
                 // Priority-based processing (simulate urgent samples)
                 priority_samples = ["barcode01", "barcode02"]
@@ -297,13 +299,14 @@ nextflow_pipeline {
 
         then {
             assert workflow.success
+            assert snapshot(file("${outputDir}/pipeline_info/software_versions.yml")).match("software_versions")
             
             // Real-time stream processing should be active
             assert workflow.trace.tasks().any { it.name.contains('ENHANCED_REALTIME_MONITORING') }
             assert workflow.trace.tasks().any { it.name.contains('REALTIME_STATISTICS') }
             
             // Multiple batches should be processed
-            def fastp_tasks = workflow.trace.tasks().findAll { it.name.contains('FASTP') }
+            def fastp_tasks = workflow.trace.tasks().findAll { it.name.contains('CHOPPER') || it.name.contains('FASTP') || it.name.contains('FILTLONG') }
             assert fastp_tasks.size() >= 4  // Multiple samples across batches
             
             // Stream processing outputs should demonstrate capabilities

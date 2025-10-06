@@ -11,7 +11,9 @@ workflow REALTIME_MONITORING {
     batch_interval // val: time interval for batching
 
     main:
-    
+
+    ch_versions = Channel.empty()
+
     //
     // CHANNEL: Watch for new FASTQ files using watchPath
     //
@@ -55,5 +57,6 @@ workflow REALTIME_MONITORING {
     }
 
     emit:
-    samples = ch_samples    // channel: [ val(meta), path(reads) ]
+    samples  = ch_samples    // channel: [ val(meta), path(reads) ]
+    versions = ch_versions   // channel: [ versions.yml ]
 }

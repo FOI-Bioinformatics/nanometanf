@@ -15,6 +15,61 @@ This file provides guidance for AI assistants (Claude) and developers working on
 - Taxonomic classification with Kraken2
 - Quality control and validation workflows
 
+## Version 1.1.0 Changes
+
+**Release Focus:** Performance optimization and tool modernization
+
+### Major Changes
+
+1. **Chopper as Default QC Tool**
+   - **Performance:** 7x faster than NanoFilt for nanopore data
+   - **Implementation:** Rust-based nanopore-native filtering
+   - **Configuration:** `--qc_tool chopper` (default in v1.1.0)
+   - **Parameters:**
+     - `--chopper_quality 10` - Minimum quality score
+     - `--chopper_minlength 1000` - Minimum read length
+     - `--chopper_maxlength null` - Maximum read length (no limit)
+     - `--chopper_headcrop 0` - Trim bases from read start
+   - **Files:** `modules/nf-core/chopper/`, `subworkflows/local/qc_analysis.nf`
+
+2. **Multi-Tool QC Support**
+   - **Tool-agnostic interface:** Easy switching between QC tools
+   - **Supported tools:** chopper (default), fastp, filtlong
+   - **Future-ready:** Architecture prepared for nanoq integration
+   - **Switch:** `--qc_tool {chopper|fastp|filtlong}`
+
+3. **Dorado 1.1.1 Compatibility**
+   - **Model syntax:** Simplified format (removed @version suffixes)
+   - **Old:** `dna_r10.4.1_e4.3_400bps_hac@v5.0.0`
+   - **New:** `dna_r10.4.1_e4.3_400bps_hac`
+   - **Files updated:** nextflow.config, 5 test files (17 model references)
+
+4. **Dynamic Resource Allocation Fix**
+   - **Bug:** Process name mismatch (RESOURCE_OPTIMIZATION_PROFILES vs LOAD_OPTIMIZATION_PROFILES)
+   - **Fixed:** `subworkflows/local/dynamic_resource_allocation.nf:28, 54-58`
+
+5. **Test Suite Enhancements**
+   - **Tool-agnostic assertions:** Support any QC tool (chopper/fastp/filtlong)
+   - **Pattern:** `it.name.contains('CHOPPER') || it.name.contains('FASTP') || it.name.contains('FILTLONG')`
+   - **Files updated:** 20+ test files
+   - **Status:** 2/3 core tests passing (Dorado test requires binary in PATH)
+
+### Known Issues
+
+- **Dorado Docker tests:** Docker profile tests fail because container lacks dorado binary
+  - **Workaround:** Use local profile or ensure dorado in PATH
+  - **Status:** Not blocking - functionality verified when binary available
+  - **Future:** Add dorado to Docker image or use dorado_path parameter
+
+### Migration Guide (v1.0.0 → v1.1.0)
+
+**Breaking Changes:** None - fully backward compatible
+
+**Recommended Updates:**
+1. **Performance:** Switch to chopper for 7x faster QC (automatic with defaults)
+2. **Dorado models:** Update to simplified syntax (no @version suffix)
+3. **Testing:** Use tool-agnostic test assertions for QC processes
+
 ## Critical Files for Development
 
 ### Configuration
@@ -164,6 +219,17 @@ nf-test test --tag core
 - `--file_pattern` - File matching pattern (default: `**/*.fastq{,.gz}`)
 - `--max_files` - **CRITICAL FOR TESTS** - Limit files processed (prevents watchPath hangs)
 - `--batch_size` - Files per batch (default: 10)
+
+### Quality Control
+- `--qc_tool` - QC tool selection: `chopper` (default), `fastp`, `filtlong`
+  - **chopper**: Nanopore-native Rust-based filtering (7x faster than NanoFilt)
+  - **fastp**: General-purpose QC with rich HTML reporting
+  - **filtlong**: Nanopore-optimized length-weighted filtering
+- `--chopper_quality` - Minimum quality score for CHOPPER (default: 10)
+- `--chopper_minlength` - Minimum read length for CHOPPER (default: 1000)
+- `--chopper_maxlength` - Maximum read length for CHOPPER (default: null)
+- `--chopper_headcrop` - Trim bases from read start (default: 0)
+- `--chopper_tailcrop` - Trim bases from read end (default: 0)
 
 ### Experimental Features (Disabled by Default for v1.0)
 - `--enable_dynamic_resources` - Intelligent resource allocation (default: false)

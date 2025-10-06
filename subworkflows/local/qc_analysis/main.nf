@@ -1,19 +1,19 @@
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    SUBWORKFLOW: QC_ANALYSIS  
+    SUBWORKFLOW: QC_ANALYSIS
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     Multi-tool quality control analysis with nanopore optimization
-    
+
     Supported QC tools:
-    - fastp: General-purpose QC with rich reporting (default)
+    - chopper: Nanopore-native Rust-based filtering (7x faster than NanoFilt)
+    - fastp: General-purpose QC with rich reporting
     - filtlong: Nanopore-optimized length-weighted quality filtering
-    
+
     Future QC tools (ready to implement):
-    - chopper: Simple nanopore filtering
     - nanoq: Nanopore quality assessment
-    
+
     Features:
-    - Tool-agnostic interface  
+    - Tool-agnostic interface
     - Nanopore-specific optimizations
     - Consistent output standardization
     - Easy addition of new QC tools
@@ -22,6 +22,7 @@
 
 include { FASTP                   } from '../../modules/nf-core/fastp/main'
 include { FILTLONG                } from '../../modules/nf-core/filtlong/main'
+include { CHOPPER                 } from '../../modules/nf-core/chopper/main'
 include { PORECHOP_PORECHOP       } from '../../modules/nf-core/porechop/porechop/main'
 include { NANOPLOT                } from '../../modules/nf-core/nanoplot/main'
 include { FASTQC                  } from '../../modules/nf-core/fastqc/main'
@@ -120,17 +121,50 @@ workflow QC_ANALYSIS {
             ch_qc_logs = FILTLONG.out.log
             ch_qc_json = ch_seqkit_stats                // Use SeqKit stats as JSON-like structured output
             break
-            
+
+        case 'chopper':
+            //
+            // MODULE: Run CHOPPER for nanopore-native quality filtering
+            //
+            // CHOPPER is Rust-based, 7x faster than NanoFilt, optimized for nanopore data
+            CHOPPER (
+                ch_adapter_trimmed,
+                []  // No contamination filtering fasta
+            )
+            ch_versions = ch_versions.mix(CHOPPER.out.versions)
+
+            //
+            // Enhanced reporting for CHOPPER: Add FastQC and SeqKit stats
+            //
+
+            // MODULE: Run FastQC on filtered reads for comprehensive HTML reporting
+            FASTQC (
+                CHOPPER.out.fastq
+            )
+            ch_versions = ch_versions.mix(FASTQC.out.versions)
+            ch_fastqc_html = FASTQC.out.html
+
+            // MODULE: Run SeqKit stats for detailed sequence statistics
+            SEQKIT_STATS (
+                CHOPPER.out.fastq
+            )
+            ch_versions = ch_versions.mix(SEQKIT_STATS.out.versions)
+            ch_seqkit_stats = SEQKIT_STATS.out.stats
+
+            // Collect standardized outputs
+            ch_qc_reads = CHOPPER.out.fastq
+            ch_qc_reports = ch_fastqc_html              // Use FastQC HTML reports for CHOPPER
+            ch_qc_logs = Channel.empty()                // CHOPPER has no log output
+            ch_qc_json = ch_seqkit_stats                // Use SeqKit stats as JSON-like structured output
+            break
+
         // Future QC tools to be added here:
-        // case 'chopper':
-        //     CHOPPER(ch_adapter_trimmed)
-        //     break
         // case 'nanoq':
         //     NANOQ(ch_adapter_trimmed)
         //     break
-        
+
         default:
-            error "Unsupported QC tool: ${qc_tool}. Currently supported: fastp, filtlong"
+            error "Unsupported QC tool: ${qc_tool}. Currently supported: fastp, filtlong, chopper"
     }
     
     //
@@ -147,13 +181,15 @@ workflow QC_ANALYSIS {
     qc_logs      = ch_qc_logs             // channel: [ val(meta), path(log) ] - QC log files
     qc_json      = ch_qc_json             // channel: [ val(meta), path(json) ] - QC JSON reports (if available)
     nanoplot     = NANOPLOT.out.html      // channel: [ val(meta), path(html) ] - NanoPlot visualization
+    nanoplot_txt = NANOPLOT.out.txt       // channel: [ val(meta), path(txt) ] - NanoPlot summary stats (for MultiQC)
+    nanoplot_png = NANOPLOT.out.png       // channel: [ val(meta), path(png) ] - NanoPlot plots (optional)
     qc_tool_used = Channel.value(qc_tool) // channel: val(qc_tool_name) - Tool identification
     versions     = ch_versions            // channel: [ path(versions.yml) ]
-    
+
     // Enhanced reporting outputs
     fastqc_html  = ch_fastqc_html         // channel: [ val(meta), path(html) ] - FastQC HTML reports (FILTLONG enhancement)
     seqkit_stats = ch_seqkit_stats        // channel: [ val(meta), path(txt) ] - SeqKit detailed statistics
-    
+
     // Legacy outputs for backward compatibility
     fastp_json   = qc_tool == 'fastp' ? ch_qc_json : Channel.empty()     // channel: [ val(meta), path(json) ]
     fastp_html   = qc_tool == 'fastp' ? ch_qc_reports : Channel.empty()  // channel: [ val(meta), path(html) ]

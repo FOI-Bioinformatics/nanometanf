@@ -1,0 +1,31 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/nf-core/modules/master/subworkflows/yaml-schema.json
+name: "realtime_statistics"
+description: Real-time statistics generation and aggregation
+keywords:
+  - nanopore
+  - oxford nanopore
+  - sequencing
+authors:
+  - "@foi-bioinformatics"
+output:
+  - snapshot_stats:
+      type: file
+      description: Snapshot statistics for current batch
+      pattern: "snapshot.json"
+  - cumulative_stats:
+      type: file
+      description: Cumulative statistics across all batches
+      pattern: "cumulative.json"
+  - realtime_reports:
+      type: file
+      description: Real-time HTML reports
+      pattern: "report.html"
+  - alert_notifications:
+      type: file
+      description: Alert notifications JSON
+      pattern: "alerts.json"
+  - versions:
+      type: file
+      description: Software versions
+      pattern: "versions.yml"
+components: []

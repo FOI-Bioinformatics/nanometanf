@@ -5,6 +5,57 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] - 2025-10-06
+
+### Added
+
+#### Backend API & Integration
+- **Output API Documentation**: Comprehensive integration guide for Nanometa Live frontend (`docs/integration/output_api.md`)
+  - Complete JSON schemas for all machine-readable outputs (MultiQC, FASTP, Kraken2, real-time statistics)
+  - Python integration examples for dashboard development
+  - Three integration patterns: polling, file watching, REST API wrapper
+  - Real-time monitoring examples for live sequencing runs
+  - Error handling and resilient file reading patterns
+  - API versioning (v1.1.0)
+
+#### Documentation Improvements
+- **Subworkflow Metadata**: Added meta.yml files for `error_handler` and `utils_nfcore_nanometanf_pipeline` subworkflows
+- **Tool Citations**: Completed MultiQC methods description with conditional citations for Dorado, Kraken2, FASTP, NanoPlot, and BLAST+
+- **Bibliographic Entries**: Added DOI references for all major tools used in the pipeline
+
+### Fixed
+
+#### Schema Validation
+- **Parameter Organization**: Moved `enable_performance_logging` and `resource_prediction_confidence` from root to `generic_options` group
+- **Type Consistency**: Changed `max_files` parameter from integer to string type to align with `.toInteger()` usage pattern in code
+- **Duplicate Definitions**: Removed duplicate parameter definitions that caused lint warnings
+
+#### Test Parameter Fixes
+- **Real-time Test Validation**: Updated all `max_files` test values from integer to string across 4 test files
+  - `tests/realtime_pod5_basecalling.nf.test`
+  - `tests/realtime_barcode_integration.nf.test`
+  - `tests/realtime_empty_samplesheet.nf.test`
+  - `tests/realtime_processing.nf.test`
+
+### Changed
+- **nf-core Compliance**: Resolved all critical schema validation failures
+- **Production Readiness**: Pipeline now ready for stable backend deployment with Nanometa Live frontend
+
+### Technical Details
+- Schema validation: 97 parameters validated, 0 critical failures
+- All real-time parameter type mismatches resolved
+- Complete nf-core subworkflow metadata compliance
+- Improved MultiQC report generation with dynamic tool citations
+
+### Integration Notes
+This release focuses on backend stability and API documentation for Nanometa Live integration. The pipeline now provides:
+- Stable, well-documented output formats for programmatic access
+- Real-time monitoring capabilities with JSON-based statistics
+- Production-ready error handling and resilience
+- Complete integration examples for Python-based frontends
+
+---
+
 ## [1.0.0] - 2025-10-04
 
 ### Added

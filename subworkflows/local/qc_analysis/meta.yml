@@ -1,0 +1,38 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/nf-core/modules/master/subworkflows/yaml-schema.json
+name: "qc_analysis"
+description: Comprehensive quality control with FASTP and NanoPlot
+keywords:
+  - nanopore
+  - oxford nanopore
+  - sequencing
+authors:
+  - "@foi-bioinformatics"
+output:
+  - reads:
+      type: file
+      description: QC-filtered reads
+      pattern: "*.{fastq,fastq.gz}"
+  - qc_reports:
+      type: file
+      description: QC HTML reports
+      pattern: "*.html"
+  - qc_logs:
+      type: file
+      description: QC log files
+      pattern: "*.log"
+  - qc_json:
+      type: file
+      description: QC JSON reports
+      pattern: "*.json"
+  - nanoplot:
+      type: file
+      description: NanoPlot visualization
+      pattern: "*.html"
+  - qc_tool_used:
+      type: string
+      description: QC tool identification
+  - versions:
+      type: file
+      description: Software versions
+      pattern: "versions.yml"
+components: []

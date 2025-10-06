@@ -26,7 +26,7 @@ EOF
         when {
             params {
                 input = "$outputDir/corrupted_samplesheet.csv"
-                outdir = "$outputDir/results"
+                outdir = "$outputDir"
                 
                 // Enable error handling
                 enable_error_recovery = true
@@ -84,7 +84,7 @@ EOF
         when {
             params {
                 input = "$outputDir/missing_files_samplesheet.csv"
-                outdir = "$outputDir/results"
+                outdir = "$outputDir"
                 
                 // Error handling configuration
                 enable_error_recovery = true
@@ -150,7 +150,7 @@ EOF
         when {
             params {
                 input = "$outputDir/malformed1.csv"
-                outdir = "$outputDir/results"
+                outdir = "$outputDir"
                 
                 // Schema validation
                 validate_params = true
@@ -197,7 +197,7 @@ EOF
         when {
             params {
                 input = "$outputDir/resource_exhaustion_samplesheet.csv"
-                outdir = "$outputDir/results"
+                outdir = "$outputDir"
                 
                 // Extremely limited resources to force failure
                 max_cpus = 1
@@ -250,7 +250,7 @@ EOF
         when {
             params {
                 input = "$outputDir/invalid_params_samplesheet.csv"
-                outdir = "$outputDir/results"
+                outdir = "$outputDir"
                 
                 // Conflicting parameters
                 use_dorado = true
@@ -351,7 +351,7 @@ EOF
         when {
             params {
                 input = "$outputDir/network_test_samplesheet.csv"
-                outdir = "$outputDir/results"
+                outdir = "$outputDir"
                 
                 // Enable features that might require network access
                 kraken2_db = "https://invalid.url/nonexistent_database.tar.gz"
@@ -407,7 +407,7 @@ EOF
         when {
             params {
                 input = "$outputDir/concurrent1_samplesheet.csv"
-                outdir = "$outputDir/results"
+                outdir = "$outputDir"
                 
                 // Settings that might cause file contention
                 publish_dir_mode = 'copy'
@@ -470,7 +470,7 @@ EOF
         when {
             params {
                 input = "$outputDir/size_edge_cases_samplesheet.csv"
-                outdir = "$outputDir/results"
+                outdir = "$outputDir"
                 
                 // Error handling for edge cases
                 enable_error_recovery = true

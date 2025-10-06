@@ -63,6 +63,7 @@ EOF
 
         then {
             assert workflow.success
+            assert snapshot(workflow.out.versions).match()
             assert workflow.out.snapshot_stats
             assert workflow.out.cumulative_stats
             assert workflow.out.realtime_reports
@@ -180,6 +181,7 @@ EOF
 
         then {
             assert workflow.success
+            assert snapshot(workflow.out.versions).match()
             assert workflow.out.snapshot_stats
             assert workflow.out.cumulative_stats
             assert workflow.out.realtime_reports
@@ -279,6 +281,7 @@ EOF
 
         then {
             assert workflow.success
+            assert snapshot(workflow.out.versions).match()
             assert workflow.out.snapshot_stats
             assert workflow.out.cumulative_stats
             assert workflow.out.realtime_reports
@@ -376,6 +379,7 @@ EOF
 
         then {
             assert workflow.success
+            assert snapshot(workflow.out.versions).match()
             assert workflow.out.snapshot_stats
             assert workflow.out.cumulative_stats
             assert workflow.out.realtime_reports
@@ -451,6 +455,7 @@ EOF
 
         then {
             assert workflow.success
+            assert snapshot(workflow.out.versions).match()
             assert workflow.out.snapshot_stats
             assert workflow.out.cumulative_stats
             assert workflow.out.realtime_reports
@@ -493,6 +498,7 @@ EOF
 
         then {
             assert workflow.success
+            assert snapshot(workflow.out.versions).match()
             
             // Should handle empty input gracefully
             if (workflow.out.snapshot_stats) {
@@ -572,6 +578,7 @@ EOF
 
         then {
             assert workflow.success
+            assert snapshot(workflow.out.versions).match()
             assert workflow.out.snapshot_stats
             assert workflow.out.cumulative_stats
             assert workflow.out.realtime_reports

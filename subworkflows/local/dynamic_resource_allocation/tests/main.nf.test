@@ -42,6 +42,7 @@ nextflow_workflow {
 
         then {
             assert workflow.success
+            assert snapshot(workflow.out.versions).match()
             assert workflow.out.resource_predictions
             assert workflow.out.optimized_allocations
             assert workflow.out.system_metrics
@@ -107,6 +108,7 @@ nextflow_workflow {
 
         then {
             assert workflow.success
+            assert snapshot(workflow.out.versions).match()
             assert workflow.out.resource_predictions
             assert workflow.out.optimized_allocations
             assert workflow.out.optimization_profiles
@@ -162,6 +164,7 @@ nextflow_workflow {
 
         then {
             assert workflow.success
+            assert snapshot(workflow.out.versions).match()
             assert workflow.out.resource_predictions
             assert workflow.out.optimized_allocations
             assert workflow.out.gpu_allocations
@@ -216,6 +219,7 @@ nextflow_workflow {
 
         then {
             assert workflow.success
+            assert snapshot(workflow.out.versions).match()
             assert workflow.out.resource_predictions
             assert workflow.out.optimized_allocations
             
@@ -272,6 +276,7 @@ nextflow_workflow {
 
         then {
             assert workflow.success
+            assert snapshot(workflow.out.versions).match()
             assert workflow.out.resource_predictions
             assert workflow.out.optimized_allocations
             assert workflow.out.adaptive_metrics
@@ -332,6 +337,7 @@ nextflow_workflow {
 
         then {
             assert workflow.success
+            assert snapshot(workflow.out.versions).match()
             assert workflow.out.resource_predictions
             assert workflow.out.optimized_allocations
             assert workflow.out.optimization_profiles
@@ -392,6 +398,7 @@ nextflow_workflow {
 
         then {
             assert workflow.success
+            assert snapshot(workflow.out.versions).match()
             assert workflow.out.resource_predictions
             assert workflow.out.optimized_allocations
             assert workflow.out.system_metrics
@@ -448,6 +455,7 @@ nextflow_workflow {
         then {
             // Should handle edge cases gracefully
             assert workflow.success
+            assert snapshot(workflow.out.versions).match()
             
             if (workflow.success) {
                 // Should generate fallback allocations
@@ -480,6 +488,7 @@ nextflow_workflow {
         then {
             // Should handle minimal configuration
             assert workflow.success
+            assert snapshot(workflow.out.versions).match()
             
             if (workflow.success) {
                 // Should provide default outputs

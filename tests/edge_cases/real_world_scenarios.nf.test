@@ -84,7 +84,7 @@ EOF
             assert workflow.success
             
             // Verify clinical processing
-            def fastp_tasks = workflow.trace.tasks().findAll { it.name.contains('FASTP') }
+            def fastp_tasks = workflow.trace.tasks().findAll { it.name.contains('CHOPPER') || it.name.contains('FASTP') || it.name.contains('FILTLONG') }
             assert fastp_tasks.size() >= 6  // All patient samples + controls
             
             // Verify urgent samples were prioritized
@@ -191,7 +191,7 @@ EOF
             assert workflow.success
             
             // Verify environmental sample processing
-            def fastp_tasks = workflow.trace.tasks().findAll { it.name.contains('FASTP') }
+            def fastp_tasks = workflow.trace.tasks().findAll { it.name.contains('CHOPPER') || it.name.contains('FASTP') || it.name.contains('FILTLONG') }
             assert fastp_tasks.size() >= 8  // All environmental samples
             
             // Verify sample type grouping
@@ -301,7 +301,7 @@ EOF
             assert workflow.success
             
             // Verify outbreak investigation processing
-            def fastp_tasks = workflow.trace.tasks().findAll { it.name.contains('FASTP') }
+            def fastp_tasks = workflow.trace.tasks().findAll { it.name.contains('CHOPPER') || it.name.contains('FASTP') || it.name.contains('FILTLONG') }
             assert fastp_tasks.size() >= 8  // All outbreak samples
             
             // Verify sample categorization
@@ -405,7 +405,7 @@ EOF
             assert workflow.success
             
             // Verify agricultural sample processing
-            def fastp_tasks = workflow.trace.tasks().findAll { it.name.contains('FASTP') }
+            def fastp_tasks = workflow.trace.tasks().findAll { it.name.contains('CHOPPER') || it.name.contains('FASTP') || it.name.contains('FILTLONG') }
             assert fastp_tasks.size() >= 7  // All agricultural samples
             
             // Verify sample type processing
@@ -515,7 +515,7 @@ EOF
             assert workflow.success
             
             // Verify marine expedition processing
-            def fastp_tasks = workflow.trace.tasks().findAll { it.name.contains('FASTP') }
+            def fastp_tasks = workflow.trace.tasks().findAll { it.name.contains('CHOPPER') || it.name.contains('FASTP') || it.name.contains('FILTLONG') }
             assert fastp_tasks.size() >= 8  // All marine samples
             
             // Verify habitat-specific processing
@@ -630,7 +630,7 @@ EOF
             assert workflow.success
             
             // Verify longitudinal processing
-            def fastp_tasks = workflow.trace.tasks().findAll { it.name.contains('FASTP') }
+            def fastp_tasks = workflow.trace.tasks().findAll { it.name.contains('CHOPPER') || it.name.contains('FASTP') || it.name.contains('FILTLONG') }
             assert fastp_tasks.size() >= 8  // Most longitudinal samples
             
             // Verify time point processing

@@ -29,10 +29,11 @@ input = "$projectDir/tests/test_samplesheet.csv"
 
         then {
             assert workflow.success
+            assert snapshot(file("${outputDir}/pipeline_info/software_versions.yml")).match("software_versions")
             assert workflow.trace.tasks().size() > 0
 
             // Check that main processes ran (use contains() for process names with sample suffix)
-            assert workflow.trace.tasks().any { it.name.contains('FASTP') }
+            assert workflow.trace.tasks().any { it.name.contains('CHOPPER') || it.name.contains('FASTP') || it.name.contains('FILTLONG') }
             assert workflow.trace.tasks().any { it.name.contains('NANOPLOT') }
             assert workflow.trace.tasks().any { it.name.contains('MULTIQC') }
 

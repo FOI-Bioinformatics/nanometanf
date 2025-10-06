@@ -15,7 +15,7 @@ nextflow_pipeline {
                 use_dorado = true
                 dorado_path = '/Users/andreassjodin/Downloads/dorado-1.1.1-osx-arm64/bin/dorado'
                 pod5_input_dir = "$projectDir/assets/test_data/minimal_nanoseq/pod5"
-                dorado_model = 'dna_r10.4.1_e4.3_400bps_fast@v4.1.0'
+                dorado_model = 'dna_r10.4.1_e4.3_400bps_fast'
                 
                 // Single sample (no demultiplexing)
                 demultiplex = false
@@ -35,12 +35,13 @@ nextflow_pipeline {
 
         then {
             assert workflow.success
+            assert snapshot(file("${outputDir}/pipeline_info/software_versions.yml")).match("software_versions")
             
             // Check that Dorado processes ran
             assert workflow.trace.tasks().any { it.name.contains('DORADO') }
             
             // Should also run QC on basecalled reads
-            assert workflow.trace.tasks().any { it.name.contains('FASTP') || it.name.contains('NANOPLOT') }
+            assert workflow.trace.tasks().any { it.name.contains('CHOPPER') || it.name.contains('FASTP') || it.name.contains('FILTLONG') || it.name.contains('NANOPLOT') }
         }
     }
 
@@ -55,7 +56,7 @@ nextflow_pipeline {
                 use_dorado = true
                 dorado_path = '/Users/andreassjodin/Downloads/dorado-1.1.1-osx-arm64/bin/dorado'
                 pod5_input_dir = "$projectDir/assets/test_data/minimal_nanoseq/pod5"
-                dorado_model = 'dna_r10.4.1_e4.3_400bps_fast@v4.1.0'
+                dorado_model = 'dna_r10.4.1_e4.3_400bps_fast'
                 
                 // Enable demultiplexing
                 demultiplex = true
@@ -77,6 +78,7 @@ nextflow_pipeline {
 
         then {
             assert workflow.success
+            assert snapshot(file("${outputDir}/pipeline_info/software_versions.yml")).match("software_versions")
             
             // Check that Dorado basecalling and demux processes ran
             assert workflow.trace.tasks().any { it.name.contains('DORADO_BASECALLER') }

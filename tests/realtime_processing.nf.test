@@ -16,7 +16,7 @@ input = "$projectDir/tests/test_samplesheet.csv"
                 file_pattern = "**/*.fastq{,.gz}"
                 batch_size = 10
                 batch_interval = "5min"
-                max_files = 10
+                max_files = "10"
                 
                 // Disable other features
                 use_dorado = false
@@ -32,12 +32,13 @@ input = "$projectDir/tests/test_samplesheet.csv"
 
         then {
             assert workflow.success
+            assert snapshot(file("${outputDir}/pipeline_info/software_versions.yml")).match("software_versions")
             
             // Should not run real-time monitoring when disabled
             assert !workflow.trace.tasks().any { it.name.contains('REALTIME_MONITORING') }
             
             // Should run standard workflow with input samplesheet
-            assert workflow.trace.tasks().any { it.name.contains('FASTP') }
+            assert workflow.trace.tasks().any { it.name.contains('CHOPPER') || it.name.contains('FASTP') || it.name.contains('FILTLONG') }
         }
     }
 

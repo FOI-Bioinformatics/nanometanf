@@ -1,0 +1,35 @@
+nextflow_process {
+
+    name "Test Process KRONA_KRAKEN2"
+    script "../main.nf"
+    process "KRONA_KRAKEN2"
+
+    tag "modules"
+    tag "modules_local"
+    tag "krona_kraken2"
+
+    test("krona_kraken2 - stub run") {
+
+        options "-stub"
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [id: 'test_sample'],
+                    file(params.test_data['generic']['txt']['kraken2_report'], checkIfExists: true)
+                ]
+                """
+            }
+        }
+
+        then {
+            assertAll(
+                { assert process.success },
+                { assert snapshot(process.out).match() }
+            )
+        }
+
+    }
+
+}

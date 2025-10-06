@@ -69,6 +69,7 @@ nextflow_workflow {
 
         then {
             assert workflow.success
+            assert snapshot(workflow.out.versions).match()
             assert workflow.out.qc_outputs
             assert workflow.out.classification_outputs
             assert workflow.out.validation_outputs
@@ -194,6 +195,7 @@ nextflow_workflow {
 
         then {
             assert workflow.success
+            assert snapshot(workflow.out.versions).match()
             assert workflow.out.qc_outputs
             assert workflow.out.classification_outputs
             assert workflow.out.validation_outputs
@@ -276,6 +278,7 @@ nextflow_workflow {
 
         then {
             assert workflow.success
+            assert snapshot(workflow.out.versions).match()
             assert workflow.out.qc_outputs
             assert workflow.out.classification_outputs
             assert workflow.out.validation_outputs
@@ -347,6 +350,7 @@ nextflow_workflow {
 
         then {
             assert workflow.success
+            assert snapshot(workflow.out.versions).match()
             assert workflow.out.qc_outputs
             assert workflow.out.classification_outputs
             assert workflow.out.validation_outputs
@@ -384,6 +388,7 @@ nextflow_workflow {
 
         then {
             assert workflow.success
+            assert snapshot(workflow.out.versions).match()
             
             // Verify empty channels are handled
             if (workflow.out.qc_outputs) {
@@ -462,6 +467,7 @@ nextflow_workflow {
 
         then {
             assert workflow.success
+            assert snapshot(workflow.out.versions).match()
             assert workflow.out.qc_outputs
             assert workflow.out.classification_outputs
             assert workflow.out.validation_outputs
@@ -527,6 +533,7 @@ nextflow_workflow {
 
         then {
             assert workflow.success
+            assert snapshot(workflow.out.versions).match()
             assert workflow.out.qc_outputs
             assert workflow.out.classification_outputs
             assert workflow.out.validation_outputs

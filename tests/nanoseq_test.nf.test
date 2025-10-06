@@ -30,10 +30,11 @@ nextflow_pipeline {
 
         then {
             assert workflow.success
+            assert snapshot(file("${outputDir}/pipeline_info/software_versions.yml")).match("software_versions")
             assert workflow.trace.tasks().size() > 0
-            
-            // Check that main processes ran
-            assert workflow.trace.tasks().any { it.name.contains('FASTP') }
+
+            // Check that main processes ran (CHOPPER is now default QC tool)
+            assert workflow.trace.tasks().any { it.name.contains('CHOPPER') || it.name.contains('FASTP') || it.name.contains('FILTLONG') }
             assert workflow.trace.tasks().any { it.name.contains('NANOPLOT') }
             assert workflow.trace.tasks().any { it.name.contains('MULTIQC') }
         }
@@ -69,12 +70,13 @@ nextflow_pipeline {
 
         then {
             assert workflow.success
+            assert snapshot(file("${outputDir}/pipeline_info/software_versions.yml")).match("software_versions")
             
             // Should not run Dorado without POD5 input
             assert !workflow.trace.tasks().any { it.name.contains('DORADO') }
             
-            // Should run standard QC workflow
-            assert workflow.trace.tasks().any { it.name.contains('FASTP') }
+            // Should run standard QC workflow (CHOPPER is default)
+            assert workflow.trace.tasks().any { it.name.contains('CHOPPER') || it.name.contains('FASTP') || it.name.contains('FILTLONG') }
         }
     }
 
@@ -89,7 +91,7 @@ nextflow_pipeline {
                 use_dorado = true
                 dorado_path = '/Users/andreassjodin/Downloads/dorado-1.1.1-osx-arm64/bin/dorado'
                 pod5_input_dir = "$projectDir/assets/test_data/minimal_nanoseq/pod5"
-                dorado_model = 'dna_r10.4.1_e4.3_400bps_fast@v4.1.0'
+                dorado_model = 'dna_r10.4.1_e4.3_400bps_fast'
                 demultiplex = false
                 min_qscore = 7
                 
@@ -102,10 +104,11 @@ nextflow_pipeline {
 
         then {
             assert workflow.success
+            assert snapshot(file("${outputDir}/pipeline_info/software_versions.yml")).match("software_versions")
             
             // Should run both Dorado and FASTQ processing
             assert workflow.trace.tasks().any { it.name.contains('DORADO') }
-            assert workflow.trace.tasks().any { it.name.contains('FASTP') }
+            assert workflow.trace.tasks().any { it.name.contains('CHOPPER') || it.name.contains('FASTP') || it.name.contains('FILTLONG') }
         }
     }
 }

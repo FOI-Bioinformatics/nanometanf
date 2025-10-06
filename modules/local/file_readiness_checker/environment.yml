@@ -1,0 +1,6 @@
+name: file_readiness_checker
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.11

@@ -1,0 +1,132 @@
+nextflow_pipeline {
+
+    name "Integration Tests - Complete Workflow Execution"
+    script "../../main.nf"
+
+    tag "integration"
+    tag "workflow"
+    tag "complete"
+
+    test("Integration: FASTQ processing with full QC and classification") {
+
+        when {
+            params {
+                input = "assets/test_data/samplesheet_test.csv"
+                outdir = "results/integration_test_fastq"
+                skip_nanoplot = false
+                skip_fastp = false
+                kraken2_db = null  // Skip classification in test
+                blast_validation = false
+                multiqc_title = "Integration Test - FASTQ Processing"
+            }
+        }
+
+        then {
+            assertAll(
+                { assert workflow.success },
+                { assert snapshot(
+                    path("${params.outdir}/multiqc").list(),
+                    path("${params.outdir}/pipeline_info").list()
+                ).match() }
+            )
+        }
+
+    }
+
+    test("Integration: Dorado basecalling with POD5 inputs") {
+
+        when {
+            params {
+                use_dorado = true
+                pod5_input_dir = "assets/test_data/pod5"
+                dorado_model = "dna_r10.4.1_e4.3_400bps_hac"
+                outdir = "results/integration_test_dorado"
+                min_qscore = 9
+                trim_adapters = true
+                skip_nanoplot = false
+            }
+        }
+
+        then {
+            assertAll(
+                { assert workflow.success },
+                { assert snapshot(
+                    path("${params.outdir}/dorado").list(),
+                    path("${params.outdir}/qc").list()
+                ).match() }
+            )
+        }
+
+    }
+
+    test("Integration: Complete pipeline with demultiplexing") {
+
+        when {
+            params {
+                use_dorado = true
+                pod5_input_dir = "assets/test_data/pod5"
+                barcode_kit = "SQK-NBD114-24"
+                trim_barcodes = true
+                demultiplex = true
+                outdir = "results/integration_test_demux"
+            }
+        }
+
+        then {
+            assertAll(
+                { assert workflow.success },
+                { assert snapshot(
+                    path("${params.outdir}/demultiplexing").list()
+                ).match() }
+            )
+        }
+
+    }
+
+    test("Integration: Real-time monitoring mode") {
+
+        when {
+            params {
+                realtime_mode = true
+                nanopore_output_dir = "assets/test_data/realtime"
+                file_pattern = "**/*.fastq{,.gz}"
+                batch_size = 10
+                batch_interval = "5min"
+                outdir = "results/integration_test_realtime"
+            }
+        }
+
+        then {
+            assertAll(
+                { assert workflow.success },
+                { assert snapshot(
+                    path("${params.outdir}/realtime_reports").list()
+                ).match() }
+            )
+        }
+
+    }
+
+    test("Integration: Dynamic resource allocation") {
+
+        when {
+            params {
+                input = "assets/test_data/samplesheet_test.csv"
+                enable_dynamic_resources = true
+                optimization_profile = "balanced"
+                outdir = "results/integration_test_resources"
+            }
+        }
+
+        then {
+            assertAll(
+                { assert workflow.success },
+                { assert snapshot(
+                    path("${params.outdir}/resource_profiles").list()
+                ).match() }
+            )
+        }
+
+    }
+
+}

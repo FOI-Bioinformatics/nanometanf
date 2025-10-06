@@ -25,7 +25,7 @@ include { ANALYZE_INPUT_CHARACTERISTICS } from '../../modules/local/analyze_inpu
 include { MONITOR_SYSTEM_RESOURCES      } from '../../modules/local/monitor_system_resources/main'
 include { PREDICT_RESOURCE_REQUIREMENTS } from '../../modules/local/predict_resource_requirements/main'
 include { OPTIMIZE_RESOURCE_ALLOCATION  } from '../../modules/local/optimize_resource_allocation/main'
-include { RESOURCE_OPTIMIZATION_PROFILES } from '../../modules/local/resource_optimization_profiles/main'
+include { LOAD_OPTIMIZATION_PROFILES    } from '../../modules/local/resource_optimization_profiles/main'
 
 workflow DYNAMIC_RESOURCE_ALLOCATION {
 
@@ -51,11 +51,11 @@ workflow DYNAMIC_RESOURCE_ALLOCATION {
         'gpu_available': system_config.get('gpu_available', false)
     ]
     
-    RESOURCE_OPTIMIZATION_PROFILES (
+    LOAD_OPTIMIZATION_PROFILES (
         profile_name,
         system_context_for_profiles
     )
-    ch_versions = ch_versions.mix(RESOURCE_OPTIMIZATION_PROFILES.out.versions)
+    ch_versions = ch_versions.mix(LOAD_OPTIMIZATION_PROFILES.out.versions)
     
     //
     // STEP 1: Analyze input characteristics for resource prediction
@@ -113,7 +113,7 @@ workflow DYNAMIC_RESOURCE_ALLOCATION {
     system_metrics = MONITOR_SYSTEM_RESOURCES.out.system_metrics                  // channel: path(system_metrics.json)
     resource_predictions = PREDICT_RESOURCE_REQUIREMENTS.out.predictions          // channel: [ val(meta), path(predictions.json) ]
     optimal_allocations = OPTIMIZE_RESOURCE_ALLOCATION.out.allocations            // channel: [ val(meta), path(allocations.json) ]
-    resource_configs = OPTIMIZE_RESOURCE_ALLOCATION.out.process_configs           // channel: [ val(meta), val(process_config) ]
+    resource_configs = OPTIMIZE_RESOURCE_ALLOCATION.out.allocations                // channel: [ val(meta), path(allocations.json) ]
     performance_metrics = OPTIMIZE_RESOURCE_ALLOCATION.out.performance_metrics    // channel: [ val(meta), path(performance.json) ]
     versions = ch_versions                                                         // channel: [ path(versions.yml) ]
 }

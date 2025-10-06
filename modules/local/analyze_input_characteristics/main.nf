@@ -36,7 +36,7 @@ process ANALYZE_INPUT_CHARACTERISTICS {
     files = [${files.collect { "'${it}'" }.join(', ')}]
     
     def analyze_file_characteristics(file_path):
-        """Analyze individual file characteristics for resource prediction"""
+        'Analyze individual file characteristics for resource prediction'
         file_stats = {
             'file_path': str(file_path),
             'file_name': os.path.basename(file_path),
@@ -87,7 +87,7 @@ process ANALYZE_INPUT_CHARACTERISTICS {
         return file_stats
     
     def estimate_fastq_characteristics(file_path, is_compressed):
-        """Estimate FASTQ file characteristics by sampling"""
+        'Estimate FASTQ file characteristics by sampling'
         characteristics = {
             'estimated_reads': 0,
             'estimated_bases': 0,
@@ -154,7 +154,7 @@ process ANALYZE_INPUT_CHARACTERISTICS {
         return characteristics
     
     def estimate_pod5_characteristics(file_path):
-        """Estimate POD5 file characteristics"""
+        'Estimate POD5 file characteristics'
         characteristics = {
             'estimated_reads': 0,
             'estimated_bases': 0,
@@ -178,7 +178,7 @@ process ANALYZE_INPUT_CHARACTERISTICS {
         return characteristics
     
     def calculate_complexity_score(file_stats):
-        """Calculate complexity score for resource prediction"""
+        'Calculate complexity score for resource prediction'
         score = 1.0
         
         # File size factor
@@ -206,7 +206,7 @@ process ANALYZE_INPUT_CHARACTERISTICS {
         return round(score, 2)
     
     def determine_processing_priority(file_stats, meta):
-        """Determine processing priority based on file and metadata"""
+        'Determine processing priority based on file and metadata'
         priority = 'normal'
         
         # Check if sample is in priority list

@@ -230,6 +230,22 @@
                     "fa_icon": "far calendar",
                     "description": "Suffix to add to the trace report filename. Dynamically generated as date and time in the format yyyy-MM-dd_HH-mm-ss. Set in nextflow.config.",
                     "hidden": true
+                },
+                "enable_performance_logging": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Enable detailed performance logging",
+                    "fa_icon": "fas fa-chart-line",
+                    "hidden": true
+                },
+                "resource_prediction_confidence": {
+                    "type": "number",
+                    "default": 0.7,
+                    "minimum": 0.1,
+                    "maximum": 1.0,
+                    "description": "Minimum confidence for resource predictions",
+                    "fa_icon": "fas fa-brain",
+                    "hidden": true
                 }
             }
         }
@@ -254,7 +270,7 @@
             "default": "5min"
         },
         "max_files": {
-            "type": "integer",
+            "type": "string",
             "description": "Maximum number of files to process in real-time mode (limits watchPath file detection)"
         },
         "watch_directories": {
@@ -387,13 +403,13 @@
         },
         "qc_tool": {
             "type": "string",
-            "default": "fastp",
-            "enum": ["fastp", "filtlong"],
-            "description": "Quality control tool to use. fastp: general-purpose with rich reporting, filtlong: nanopore-optimized filtering"
+            "default": "chopper",
+            "enum": ["chopper", "fastp", "filtlong"],
+            "description": "Quality control tool to use. chopper: nanopore-native Rust-based filtering (7x faster), fastp: general-purpose with rich reporting, filtlong: nanopore-optimized filtering"
         },
         "enable_adapter_trimming": {
             "type": "boolean",
-            "description": "Enable nanopore adapter trimming with PORECHOP (recommended for filtlong)"
+            "description": "Enable nanopore adapter trimming with PORECHOP (recommended for filtlong/chopper)"
         },
         "enable_qc_benchmark": {
             "type": "boolean",
@@ -418,6 +434,30 @@
             "type": "number",
             "default": 8.0,
             "description": "Minimum mean quality score for FILTLONG"
+        },
+        "chopper_quality": {
+            "type": "integer",
+            "default": 10,
+            "description": "Minimum quality score for CHOPPER filtering"
+        },
+        "chopper_minlength": {
+            "type": "integer",
+            "default": 1000,
+            "description": "Minimum read length for CHOPPER filtering"
+        },
+        "chopper_maxlength": {
+            "type": "integer",
+            "description": "Maximum read length for CHOPPER filtering (null = no limit)"
+        },
+        "chopper_headcrop": {
+            "type": "integer",
+            "default": 0,
+            "description": "Number of bases to trim from read start (CHOPPER)"
+        },
+        "chopper_tailcrop": {
+            "type": "integer",
+            "default": 0,
+            "description": "Number of bases to trim from read end (CHOPPER)"
         },
         "fastp_qualified_quality": {
             "type": "integer",
@@ -457,7 +497,7 @@
         },
         "dorado_model": {
             "type": "string",
-            "default": "dna_r10.4.1_e4.3_400bps_hac@v5.0.0"
+            "default": "dna_r10.4.1_e4.3_400bps_hac"
         },
         "pod5_input_dir": {
             "type": "string"
@@ -468,6 +508,11 @@
         "min_qscore": {
             "type": "integer",
             "default": 9
+        },
+        "trim_adapters": {
+            "type": "boolean",
+            "default": true,
+            "description": "Trim adapters during basecalling using Dorado's built-in adapter trimming (recommended by ONT)"
         },
         "trim_barcodes": {
             "type": "boolean",
@@ -505,20 +550,8 @@
         "resource_monitoring_interval": {
             "type": "integer",
             "default": 30,
-            "minimum": 10,
+            "minimum": 1,
             "description": "System monitoring interval (seconds)"
-        },
-        "enable_performance_logging": {
-            "type": "boolean",
-            "default": true,
-            "description": "Enable detailed performance logging"
-        },
-        "resource_prediction_confidence": {
-            "type": "number",
-            "default": 0.7,
-            "minimum": 0.1,
-            "maximum": 1.0,
-            "description": "Minimum confidence for resource predictions"
         }
     },
     "allOf": [

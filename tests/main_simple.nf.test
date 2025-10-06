@@ -13,10 +13,11 @@ nextflow_pipeline {
 
         then {
             assert workflow.success
+            assert snapshot(file("${outputDir}/pipeline_info/software_versions.yml")).match("software_versions")
             assert workflow.trace.tasks().size() > 0
 
             // Check that FASTP ran
-            assert workflow.trace.tasks().any { it.name.contains('FASTP') }
+            assert workflow.trace.tasks().any { it.name.contains('CHOPPER') || it.name.contains('FASTP') || it.name.contains('FILTLONG') }
 
             // Check that MultiQC ran
             assert workflow.trace.tasks().any { it.name.contains('MULTIQC') }

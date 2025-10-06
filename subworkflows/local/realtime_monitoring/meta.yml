@@ -1,0 +1,19 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/nf-core/modules/master/subworkflows/yaml-schema.json
+name: "realtime_monitoring"
+description: Real-time FASTQ file monitoring for live sequencing
+keywords:
+  - nanopore
+  - oxford nanopore
+  - sequencing
+authors:
+  - "@foi-bioinformatics"
+output:
+  - samples:
+      type: file
+      description: Monitored samples
+      pattern: "*.{fastq,fastq.gz}"
+  - versions:
+      type: file
+      description: Software versions
+      pattern: "versions.yml"
+components: []

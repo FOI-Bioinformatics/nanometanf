@@ -1,0 +1,31 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/nf-core/modules/master/subworkflows/yaml-schema.json
+name: "output_organization"
+description: Structured output directory organization
+keywords:
+  - nanopore
+  - oxford nanopore
+  - sequencing
+authors:
+  - "@foi-bioinformatics"
+output:
+  - qc_outputs:
+      type: file
+      description: Organized QC outputs
+      pattern: "*.{html,json,log}"
+  - classification_outputs:
+      type: file
+      description: Organized classification outputs
+      pattern: "*.{txt,tsv}"
+  - validation_outputs:
+      type: file
+      description: Organized validation outputs
+      pattern: "*.txt"
+  - report_outputs:
+      type: file
+      description: Organized MultiQC reports
+      pattern: "*.html"
+  - versions:
+      type: file
+      description: Software versions
+      pattern: "versions.yml"
+components: []

@@ -17,7 +17,7 @@ nextflow_pipeline {
                 file_pattern = "*.fastq.gz"
                 batch_size = 2
                 batch_interval = "2s"  // Faster for testing
-                max_files = 2  // Limit for testing
+                max_files = "2"  // Limit for testing
                 
                 // Disable other features for focused test
                 use_dorado = false
@@ -97,7 +97,7 @@ nextflow_pipeline {
                 file_pattern = "*.fastq.gz"
                 batch_size = 5
                 batch_interval = "5s"
-                max_files = 2
+                max_files = "2"
                 
                 // Quick processing
                 use_dorado = false
@@ -112,7 +112,8 @@ nextflow_pipeline {
 
         then {
             // Should detect and process existing files
-            assert workflow.success  // Either outcome is acceptable for testing
+            assert workflow.success
+            assert snapshot(file("${outputDir}/pipeline_info/software_versions.yml")).match("software_versions")  // Either outcome is acceptable for testing
         }
 
         cleanup {

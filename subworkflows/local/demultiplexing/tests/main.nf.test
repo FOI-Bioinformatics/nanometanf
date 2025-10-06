@@ -47,6 +47,7 @@ nextflow_workflow {
 
         then {
             assert workflow.success
+            assert snapshot(workflow.out.versions).match()
             assert workflow.out.samples
             
             // Should pass through pre-demultiplexed samples unchanged
@@ -104,6 +105,7 @@ nextflow_workflow {
 
         then {
             assert workflow.success
+            assert snapshot(workflow.out.versions).match()
             assert workflow.out.samples
             
             // When use_dorado is false, samples requiring demux should still pass through
@@ -159,6 +161,7 @@ nextflow_workflow {
 
         then {
             assert workflow.success
+            assert snapshot(workflow.out.versions).match()
             assert workflow.out.samples
             
             // Should handle mixed sample types
@@ -209,6 +212,7 @@ nextflow_workflow {
 
         then {
             assert workflow.success
+            assert snapshot(workflow.out.versions).match()
             assert workflow.out.samples
             
             // Should handle different barcode kits
@@ -260,6 +264,7 @@ nextflow_workflow {
 
         then {
             assert workflow.success
+            assert snapshot(workflow.out.versions).match()
             assert workflow.out.samples
             
             // Should handle various metadata configurations
@@ -288,6 +293,7 @@ nextflow_workflow {
 
         then {
             assert workflow.success
+            assert snapshot(workflow.out.versions).match()
             
             // Should handle empty input
             if (workflow.out.samples) {
@@ -357,6 +363,7 @@ nextflow_workflow {
 
         then {
             assert workflow.success
+            assert snapshot(workflow.out.versions).match()
             assert workflow.out.samples
             
             // Should preserve complex metadata
@@ -414,6 +421,7 @@ nextflow_workflow {
 
         then {
             assert workflow.success
+            assert snapshot(workflow.out.versions).match()
             assert workflow.out.samples
             
             // Should handle large batch of samples
@@ -464,6 +472,7 @@ nextflow_workflow {
 
         then {
             assert workflow.success
+            assert snapshot(workflow.out.versions).match()
             assert workflow.out.samples
             
             // Should validate different barcode kits

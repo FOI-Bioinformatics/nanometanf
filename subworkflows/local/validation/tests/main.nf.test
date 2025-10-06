@@ -46,6 +46,7 @@ EOF
 
         then {
             assert workflow.success
+            assert snapshot(workflow.out.versions).match()
             assert workflow.out.txt
             assert workflow.out.versions
             
@@ -105,6 +106,7 @@ EOF
 
         then {
             assert workflow.success
+            assert snapshot(workflow.out.versions).match()
             assert workflow.out.txt
             
             // Verify processing of multiple sequences
@@ -175,6 +177,7 @@ EOF
 
         then {
             assert workflow.success
+            assert snapshot(workflow.out.versions).match()
             assert workflow.out.txt
             
             // Verify batch processing
@@ -226,6 +229,7 @@ EOF
 
         then {
             assert workflow.success
+            assert snapshot(workflow.out.versions).match()
             assert workflow.out.txt
             
             // Verify format-specific output
@@ -279,6 +283,7 @@ EOF
 
         then {
             assert workflow.success
+            assert snapshot(workflow.out.versions).match()
             assert workflow.out.txt
             
             // Verify stringent validation
@@ -307,6 +312,7 @@ EOF
         then {
             // Should handle empty input gracefully
             assert workflow.success
+            assert snapshot(workflow.out.versions).match()
             
             if (workflow.success) {
                 // Empty outputs expected
@@ -365,6 +371,7 @@ EOF
 
         then {
             assert workflow.success
+            assert snapshot(workflow.out.versions).match()
             assert workflow.out.txt
             
             // Verify custom parameter processing

@@ -1,0 +1,39 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/nf-core/modules/master/subworkflows/yaml-schema.json
+name: "dynamic_resource_allocation"
+description: ML-based dynamic resource prediction and optimization
+keywords:
+  - nanopore
+  - oxford nanopore
+  - sequencing
+authors:
+  - "@foi-bioinformatics"
+output:
+  - optimization_profiles:
+      type: file
+      description: Optimization profiles JSON
+      pattern: "optimization_profiles.json"
+  - active_profile:
+      type: file
+      description: Currently active profile JSON
+      pattern: "active_profile.json"
+  - input_characteristics:
+      type: file
+      description: Input file characteristics
+      pattern: "characteristics.json"
+  - system_metrics:
+      type: file
+      description: System resource metrics
+      pattern: "system_metrics.json"
+  - resource_predictions:
+      type: file
+      description: Predicted resource requirements
+      pattern: "predictions.json"
+  - optimal_allocations:
+      type: file
+      description: Optimal resource allocations
+      pattern: "allocations.json"
+  - versions:
+      type: file
+      description: Software versions
+      pattern: "versions.yml"
+components: []
