@@ -1,0 +1,6 @@
+name: exponential_backoff_handler
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.11
