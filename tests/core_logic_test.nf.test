@@ -40,6 +40,7 @@ nextflow_pipeline {
         then {
             // Test should complete successfully or fail gracefully
             assert workflow.success
+            assert snapshot(file("${outputDir}/pipeline_info/software_versions.yml")).match("software_versions")
             
             if (workflow.success) {
                 // Should have some workflow structure
@@ -89,6 +90,7 @@ nextflow_pipeline {
         then {
             // Should handle parameter validation
             assert workflow.success
+            assert snapshot(file("${outputDir}/pipeline_info/software_versions.yml")).match("software_versions")
             
             // Should complete quickly
             // REMOVED: workflow.duration property not available in nf-test

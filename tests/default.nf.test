@@ -8,7 +8,7 @@ nextflow_pipeline {
         when {
             params {
                 input = "$projectDir/tests/test_samplesheet.csv"
-                outdir = "$outputDir/results"
+                outdir = "$outputDir"
 
                 // Use test profile parameters
                 max_cpus = 2
@@ -26,6 +26,7 @@ nextflow_pipeline {
 
         then {
             assert workflow.success
+            assert snapshot(file("${outputDir}/pipeline_info/software_versions.yml")).match("software_versions")
 
             // Standard QC processing should occur
             assert workflow.trace.tasks().any { it.name.contains('CHOPPER') || it.name.contains('FASTP') || it.name.contains('FILTLONG') }
@@ -33,7 +34,7 @@ nextflow_pipeline {
             assert workflow.trace.tasks().any { it.name.contains('MULTIQC') }
 
             // Output directory should be created
-            assert path("${outputDir}/results").exists()
+            assert path("${outputDir}").exists()
             assert path("${outputDir}/results/multiqc").exists()
         }
     }

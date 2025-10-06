@@ -13,6 +13,7 @@ nextflow_pipeline {
 
         then {
             assert workflow.success
+            assert snapshot(file("${outputDir}/pipeline_info/software_versions.yml")).match("software_versions")
             assert workflow.trace.tasks().size() > 0
 
             // Check that FASTP ran

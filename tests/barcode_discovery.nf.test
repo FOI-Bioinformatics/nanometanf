@@ -9,7 +9,7 @@ nextflow_pipeline {
             params {
                 // Use barcode directory input
                 barcode_input_dir = "$projectDir/tests/test_data/barcode_structure"
-                outdir = "$outputDir/results"
+                outdir = "$outputDir"
                 
                 // Provide required input parameter (empty samplesheet for barcode mode)
                 input = "$projectDir/tests/empty_samplesheet.csv"
@@ -30,6 +30,7 @@ nextflow_pipeline {
 
         then {
             assert workflow.success
+            assert snapshot(file("${outputDir}/pipeline_info/software_versions.yml")).match("software_versions")
             assert workflow.trace.tasks().size() > 0
 
             // Check QC ran for multiple barcode samples (barcode01, barcode02, unclassified)
@@ -47,7 +48,7 @@ nextflow_pipeline {
         when {
             params {
                 barcode_input_dir = "$outputDir/empty_barcodes"
-                outdir = "$outputDir/results"
+                outdir = "$outputDir"
                 
                 // Resource limits
                 max_cpus = 2

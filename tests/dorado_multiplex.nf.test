@@ -38,7 +38,8 @@ nextflow_pipeline {
         }
 
         then {
-            assert workflow.success  // May fail without actual POD5 files
+            assert workflow.success
+            assert snapshot(file("${outputDir}/pipeline_info/software_versions.yml")).match("software_versions")  // May fail without actual POD5 files
             
             if (workflow.success) {
                 // Check that Dorado basecalling ran
@@ -90,6 +91,7 @@ nextflow_pipeline {
 
         then {
             assert workflow.success
+            assert snapshot(file("${outputDir}/pipeline_info/software_versions.yml")).match("software_versions")
             
             if (workflow.success) {
                 // Should have basecalling but no demux

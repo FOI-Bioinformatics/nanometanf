@@ -35,7 +35,7 @@ EOF
         when {
             params {
                 input = "$outputDir/scalability_samplesheet.csv"
-                outdir = "$outputDir/results"
+                outdir = "$outputDir"
                 
                 // Performance optimization settings
                 enable_dynamic_resources = true
@@ -111,7 +111,7 @@ EOF
         when {
             params {
                 input = "$outputDir/memory_pressure_samplesheet.csv"
-                outdir = "$outputDir/results"
+                outdir = "$outputDir"
                 
                 // Memory-constrained settings
                 max_cpus = 4
@@ -190,7 +190,7 @@ EOF
         when {
             params {
                 input = "$projectDir/tests/empty_samplesheet.csv"
-                outdir = "$outputDir/results"
+                outdir = "$outputDir"
                 
                 // High-frequency real-time processing
                 realtime_mode = true
@@ -276,7 +276,7 @@ EOF
         when {
             params {
                 input = "$outputDir/cpu_utilization_samplesheet.csv"
-                outdir = "$outputDir/results"
+                outdir = "$outputDir"
                 
                 // CPU optimization settings
                 max_cpus = 12
@@ -350,7 +350,7 @@ EOF
         when {
             params {
                 input = "$outputDir/io_intensive_samplesheet.csv"
-                outdir = "$outputDir/results"
+                outdir = "$outputDir"
                 
                 // I/O optimization settings
                 max_cpus = 8
@@ -428,7 +428,7 @@ EOF
         when {
             params {
                 input = "$outputDir/mixed_load_samplesheet.csv"
-                outdir = "$outputDir/results"
+                outdir = "$outputDir"
                 
                 // Dynamic resource allocation
                 enable_dynamic_resources = true
@@ -510,7 +510,7 @@ EOF
         when {
             params {
                 input = "$outputDir/stress_samplesheet.csv"
-                outdir = "$outputDir/results"
+                outdir = "$outputDir"
                 
                 // Minimal resource stress test
                 max_cpus = 2

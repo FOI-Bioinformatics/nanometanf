@@ -8,7 +8,7 @@ nextflow_pipeline {
         when {
             params {
                 input = "$projectDir/tests/test_samplesheet.csv"
-                outdir = "$outputDir/results"
+                outdir = "$outputDir"
                 
                 // Enable input characteristic analysis
                 enable_dynamic_resources = true
@@ -39,6 +39,7 @@ nextflow_pipeline {
 
         then {
             assert workflow.success
+            assert snapshot(file("${outputDir}/pipeline_info/software_versions.yml")).match("software_versions")
             
             // Input analysis should run
             assert workflow.trace.tasks().any { it.name.contains('ANALYZE_INPUT_CHARACTERISTICS') }
@@ -64,7 +65,7 @@ nextflow_pipeline {
         when {
             params {
                 input = "$projectDir/tests/test_samplesheet.csv"
-                outdir = "$outputDir/results"
+                outdir = "$outputDir"
                 
                 // Enable resource prediction
                 enable_dynamic_resources = true
@@ -104,6 +105,7 @@ nextflow_pipeline {
 
         then {
             assert workflow.success
+            assert snapshot(file("${outputDir}/pipeline_info/software_versions.yml")).match("software_versions")
             
             // Resource prediction should run
             assert workflow.trace.tasks().any { it.name.contains('PREDICT_RESOURCE_REQUIREMENTS') }
@@ -135,7 +137,7 @@ nextflow_pipeline {
         when {
             params {
                 input = "$projectDir/tests/test_samplesheet.csv"
-                outdir = "$outputDir/results"
+                outdir = "$outputDir"
                 
                 // Enable system monitoring
                 enable_dynamic_resources = true
@@ -174,6 +176,7 @@ nextflow_pipeline {
 
         then {
             assert workflow.success
+            assert snapshot(file("${outputDir}/pipeline_info/software_versions.yml")).match("software_versions")
             
             // System monitoring should run
             assert workflow.trace.tasks().any { it.name.contains('MONITOR_SYSTEM_RESOURCES') }
@@ -199,7 +202,7 @@ nextflow_pipeline {
         when {
             params {
                 input = "$projectDir/tests/test_samplesheet.csv"
-                outdir = "$outputDir/results"
+                outdir = "$outputDir"
                 
                 // Enable resource optimization
                 enable_dynamic_resources = true
@@ -246,6 +249,7 @@ nextflow_pipeline {
 
         then {
             assert workflow.success
+            assert snapshot(file("${outputDir}/pipeline_info/software_versions.yml")).match("software_versions")
             
             // Resource optimization should run
             assert workflow.trace.tasks().any { it.name.contains('OPTIMIZE_RESOURCE_ALLOCATION') }
@@ -274,7 +278,7 @@ nextflow_pipeline {
         when {
             params {
                 input = "$projectDir/tests/test_samplesheet.csv"
-                outdir = "$outputDir/results"
+                outdir = "$outputDir"
                 
                 // Enable resource optimization profiles
                 enable_dynamic_resources = true
@@ -313,6 +317,7 @@ nextflow_pipeline {
 
         then {
             assert workflow.success
+            assert snapshot(file("${outputDir}/pipeline_info/software_versions.yml")).match("software_versions")
             
             // Resource optimization profiles should run
             assert workflow.trace.tasks().any { it.name.contains('LOAD_OPTIMIZATION_PROFILES') }
@@ -341,7 +346,7 @@ nextflow_pipeline {
         when {
             params {
                 input = "$projectDir/tests/test_samplesheet.csv"
-                outdir = "$outputDir/results"
+                outdir = "$outputDir"
                 
                 // Enable resource feedback learning
                 enable_dynamic_resources = true
@@ -386,6 +391,7 @@ nextflow_pipeline {
 
         then {
             assert workflow.success
+            assert snapshot(file("${outputDir}/pipeline_info/software_versions.yml")).match("software_versions")
             
             // Resource feedback learning should run
             // assert workflow.trace.tasks().any { it.name.contains('COLLECT_PERFORMANCE_FEEDBACK') }  // TODO: Not yet integrated
@@ -415,7 +421,7 @@ nextflow_pipeline {
         when {
             params {
                 input = "$projectDir/tests/test_samplesheet.csv"
-                outdir = "$outputDir/results"
+                outdir = "$outputDir"
                 
                 // Parameter validation without execution
                 enable_dynamic_resources = false  // Validate but don't execute
@@ -466,6 +472,7 @@ nextflow_pipeline {
 
         then {
             assert workflow.success
+            assert snapshot(file("${outputDir}/pipeline_info/software_versions.yml")).match("software_versions")
             
             // Should not run resource modules when disabled
             assert !workflow.trace.tasks().any { it.name.contains('ANALYZE_INPUT_CHARACTERISTICS') }

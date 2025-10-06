@@ -37,6 +37,7 @@ nextflow_pipeline {
         then {
             // Should complete but with warnings about resource constraints
             assert workflow.success
+            assert snapshot(file("${outputDir}/pipeline_info/software_versions.yml")).match("software_versions")
             
             if (workflow.success) {
                 // Validate that error handling mechanisms were triggered
@@ -112,6 +113,7 @@ nextflow_pipeline {
         then {
             // Should handle resource constraints without crashing
             assert workflow.success
+            assert snapshot(file("${outputDir}/pipeline_info/software_versions.yml")).match("software_versions")
             
             if (workflow.failed) {
                 // Should fail quickly due to resource constraints
@@ -194,6 +196,7 @@ nextflow_pipeline {
         then {
             // Should succeed with proper error handling
             assert workflow.success
+            assert snapshot(file("${outputDir}/pipeline_info/software_versions.yml")).match("software_versions")
             
             // Should complete within reasonable time
             // REMOVED: workflow.duration property not available in nf-test
@@ -234,6 +237,7 @@ nextflow_pipeline {
         then {
             // Should handle concurrent access gracefully
             assert workflow.success
+            assert snapshot(file("${outputDir}/pipeline_info/software_versions.yml")).match("software_versions")
             
             if (workflow.success) {
                 // Should complete successfully
@@ -278,6 +282,7 @@ nextflow_pipeline {
         then {
             // Should complete with edge case handling
             assert workflow.success
+            assert snapshot(file("${outputDir}/pipeline_info/software_versions.yml")).match("software_versions")
             
             // Should generate appropriate warnings/recommendations
             // (This would be verified by checking log output in real implementation)

@@ -29,6 +29,7 @@ input = "$projectDir/tests/test_samplesheet.csv"
 
         then {
             assert workflow.success
+            assert snapshot(file("${outputDir}/pipeline_info/software_versions.yml")).match("software_versions")
             assert workflow.trace.tasks().size() > 0
 
             // Check that main processes ran (use contains() for process names with sample suffix)

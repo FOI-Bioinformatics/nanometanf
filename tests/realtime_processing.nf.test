@@ -32,6 +32,7 @@ input = "$projectDir/tests/test_samplesheet.csv"
 
         then {
             assert workflow.success
+            assert snapshot(file("${outputDir}/pipeline_info/software_versions.yml")).match("software_versions")
             
             // Should not run real-time monitoring when disabled
             assert !workflow.trace.tasks().any { it.name.contains('REALTIME_MONITORING') }

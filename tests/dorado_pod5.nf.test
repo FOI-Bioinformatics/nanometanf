@@ -35,6 +35,7 @@ nextflow_pipeline {
 
         then {
             assert workflow.success
+            assert snapshot(file("${outputDir}/pipeline_info/software_versions.yml")).match("software_versions")
             
             // Check that Dorado processes ran
             assert workflow.trace.tasks().any { it.name.contains('DORADO') }
@@ -77,6 +78,7 @@ nextflow_pipeline {
 
         then {
             assert workflow.success
+            assert snapshot(file("${outputDir}/pipeline_info/software_versions.yml")).match("software_versions")
             
             // Check that Dorado basecalling and demux processes ran
             assert workflow.trace.tasks().any { it.name.contains('DORADO_BASECALLER') }

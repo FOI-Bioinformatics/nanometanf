@@ -30,6 +30,7 @@ nextflow_pipeline {
 
         then {
             assert workflow.success
+            assert snapshot(file("${outputDir}/pipeline_info/software_versions.yml")).match("software_versions")
             assert workflow.trace.tasks().size() > 0
 
             // Check that main processes ran (CHOPPER is now default QC tool)
@@ -69,6 +70,7 @@ nextflow_pipeline {
 
         then {
             assert workflow.success
+            assert snapshot(file("${outputDir}/pipeline_info/software_versions.yml")).match("software_versions")
             
             // Should not run Dorado without POD5 input
             assert !workflow.trace.tasks().any { it.name.contains('DORADO') }
@@ -102,6 +104,7 @@ nextflow_pipeline {
 
         then {
             assert workflow.success
+            assert snapshot(file("${outputDir}/pipeline_info/software_versions.yml")).match("software_versions")
             
             // Should run both Dorado and FASTQ processing
             assert workflow.trace.tasks().any { it.name.contains('DORADO') }

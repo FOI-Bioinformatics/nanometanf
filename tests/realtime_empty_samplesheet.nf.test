@@ -112,7 +112,8 @@ nextflow_pipeline {
 
         then {
             // Should detect and process existing files
-            assert workflow.success  // Either outcome is acceptable for testing
+            assert workflow.success
+            assert snapshot(file("${outputDir}/pipeline_info/software_versions.yml")).match("software_versions")  // Either outcome is acceptable for testing
         }
 
         cleanup {
