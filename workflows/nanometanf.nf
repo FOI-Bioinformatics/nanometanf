@@ -179,8 +179,8 @@ workflow NANOMETANF {
         )
         ch_versions = ch_versions.mix(QC_ANALYSIS.out.versions)
 
-        // Collect QC outputs for MultiQC
-        ch_multiqc_files = ch_multiqc_files.mix(QC_ANALYSIS.out.fastp_json.collect{it[1]})
+        // Collect QC outputs for MultiQC (tool-agnostic)
+        ch_multiqc_files = ch_multiqc_files.mix(QC_ANALYSIS.out.qc_json.collect{it[1]})
 
         // Add NanoPlot summary statistics to MultiQC (NanoStats.txt)
         if (!params.skip_nanoplot) {
@@ -188,7 +188,7 @@ workflow NANOMETANF {
         }
 
         ch_qc_reads = QC_ANALYSIS.out.reads
-        ch_qc_reports = QC_ANALYSIS.out.fastp_html
+        ch_qc_reports = QC_ANALYSIS.out.qc_reports  // Tool-agnostic QC reports (FASTP HTML, FastQC HTML, or tool-specific)
         ch_nanoplot_reports = QC_ANALYSIS.out.nanoplot
 
         //

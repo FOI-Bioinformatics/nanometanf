@@ -48,17 +48,17 @@ input = "$projectDir/tests/test_samplesheet.csv"
 
         when {
             params {
-input = "$projectDir/tests/test_samplesheet.csv"
+                input = "$projectDir/tests/test_samplesheet.csv"
                 outdir = "$outputDir"
-                
+
                 // Enable Kraken2 with test database
                 kraken2_db = "$projectDir/tests/test_kraken2_db"
-                
+
                 // Disable other features
                 use_dorado = false
                 realtime_mode = false
                 blast_validation = false
-                
+
                 // Resource limits
                 max_cpus = 2
                 max_memory = '4.GB'
@@ -76,6 +76,97 @@ input = "$projectDir/tests/test_samplesheet.csv"
                 assert workflow.trace.tasks().any { it.name.contains('KRAKEN2') }
                 assert path("${outputDir}/kraken2").exists()
             }
+        }
+    }
+
+    test("Should run workflow with CHOPPER QC tool (default v1.1.0)") {
+
+        when {
+            params {
+                input = "$projectDir/tests/test_samplesheet.csv"
+                outdir = "$outputDir"
+
+                // Explicitly test CHOPPER (default in v1.1.0)
+                qc_tool = 'chopper'
+                chopper_quality = 10
+                chopper_minlength = 1000
+
+                // Disable advanced features
+                use_dorado = false
+                realtime_mode = false
+                kraken2_db = null
+                blast_validation = false
+
+                // Enable QC steps
+                skip_fastp = false
+                skip_nanoplot = false
+
+                // Resource limits
+                max_cpus = 2
+                max_memory = '4.GB'
+                max_time = '1.h'
+            }
+        }
+
+        then {
+            assert workflow.success
+
+            // Verify CHOPPER executed
+            assert workflow.trace.tasks().any { it.name.contains('CHOPPER') }
+
+            // Verify standardized outputs exist
+            assert workflow.trace.tasks().any { it.name.contains('FASTQC') } : "FastQC should run for enhanced reporting with CHOPPER"
+            assert workflow.trace.tasks().any { it.name.contains('SEQKIT') } : "SeqKit should run for enhanced reporting with CHOPPER"
+            assert workflow.trace.tasks().any { it.name.contains('MULTIQC') }
+
+            // Verify MultiQC can integrate CHOPPER data
+            assert path("${outputDir}/multiqc/multiqc_report.html").exists()
+        }
+    }
+
+    test("Should run workflow with FILTLONG QC tool") {
+
+        when {
+            params {
+                input = "$projectDir/tests/test_samplesheet.csv"
+                outdir = "$outputDir"
+
+                // Test FILTLONG
+                qc_tool = 'filtlong'
+                filtlong_min_length = 1000
+                filtlong_keep_percent = 90
+                filtlong_min_mean_q = 8.0
+
+                // Disable advanced features
+                use_dorado = false
+                realtime_mode = false
+                kraken2_db = null
+                blast_validation = false
+
+                // Enable QC steps
+                skip_fastp = false
+                skip_nanoplot = false
+
+                // Resource limits
+                max_cpus = 2
+                max_memory = '4.GB'
+                max_time = '1.h'
+            }
+        }
+
+        then {
+            assert workflow.success
+
+            // Verify FILTLONG executed
+            assert workflow.trace.tasks().any { it.name.contains('FILTLONG') }
+
+            // Verify standardized outputs exist
+            assert workflow.trace.tasks().any { it.name.contains('FASTQC') } : "FastQC should run for enhanced reporting with FILTLONG"
+            assert workflow.trace.tasks().any { it.name.contains('SEQKIT') } : "SeqKit should run for enhanced reporting with FILTLONG"
+            assert workflow.trace.tasks().any { it.name.contains('MULTIQC') }
+
+            // Verify MultiQC can integrate FILTLONG data
+            assert path("${outputDir}/multiqc/multiqc_report.html").exists()
         }
     }
 }

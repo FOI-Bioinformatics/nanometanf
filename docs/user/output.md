@@ -90,6 +90,41 @@ results/
 
 ## Core Analysis Outputs
 
+### Multi-Tool QC Support (v1.1.0+)
+
+**Overview**: nanometanf supports multiple quality control tools with standardized outputs:
+
+- **CHOPPER** (default) - Nanopore-native Rust-based filtering, 7x faster than NanoFilt
+- **FASTP** - General-purpose QC with rich reporting and JSON output
+- **FILTLONG** - Nanopore-optimized length-weighted quality filtering
+
+**Output Standardization**: Regardless of which QC tool you choose, the pipeline produces consistent, standardized outputs:
+
+| Output Type | Location | Format | Available For |
+|-------------|----------|--------|---------------|
+| Filtered Reads | `qc_analysis/` or tool-specific directory | FASTQ.gz | All tools |
+| QC Reports | Tool-specific (FASTP HTML, FastQC HTML) | HTML | All tools |
+| QC Metrics | Tool-specific JSON or SeqKit stats | JSON/TSV | All tools |
+| MultiQC Integration | `multiqc/multiqc_data.json` | JSON | All tools |
+| NanoPlot Visualization | `nanoplot/` | HTML/PNG/TXT | All tools (if enabled) |
+
+**Tool Selection**:
+```bash
+# Use CHOPPER (default, fastest)
+--qc_tool chopper
+
+# Use FASTP (rich reporting)
+--qc_tool fastp
+
+# Use FILTLONG (nanopore-optimized)
+--qc_tool filtlong
+```
+
+**Enhanced Reporting**: CHOPPER and FILTLONG automatically include:
+- FastQC HTML reports for comprehensive quality visualization
+- SeqKit statistics for detailed sequence metrics
+- All data integrated into MultiQC for unified reporting
+
 ### FASTP (Quality Filtering)
 
 **Purpose**: Quality control and filtering of nanopore reads

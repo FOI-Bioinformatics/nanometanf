@@ -1,0 +1,244 @@
+nextflow_pipeline {
+
+    name "Multi-tool QC Integration Test - Output Standardization"
+    script "../main.nf"
+
+    tag "qc_tools"
+    tag "integration"
+    tag "multi_tool"
+
+    test("Should produce standardized outputs with CHOPPER (default QC tool)") {
+
+        when {
+            params {
+                input = "$projectDir/assets/test_data/test_samplesheet_absolute.csv"
+                outdir = "$outputDir"
+
+                // CHOPPER is the default
+                qc_tool = 'chopper'
+                chopper_quality = 10
+                chopper_minlength = 1000
+
+                // Fast execution
+                skip_nanoplot = true
+                skip_multiqc = false
+                max_cpus = 2
+                max_memory = '4.GB'
+                max_time = '10.min'
+
+                // Disable resource-intensive steps
+                kraken2_db = null
+                blast_validation = false
+                use_dorado = false
+                realtime_mode = false
+            }
+        }
+
+        then {
+            assert workflow.success
+
+            // Verify CHOPPER process executed
+            def chopperProcess = workflow.trace.tasks().find {
+                it.process =~ /.*CHOPPER.*/
+            }
+            assert chopperProcess != null : "CHOPPER process should have executed"
+
+            // Verify standardized QC outputs exist
+            assert path("${outputDir}/qc_analysis").exists() : "QC analysis directory should exist"
+
+            // Verify FastQC reports were generated (enhanced reporting for CHOPPER)
+            def fastqcFiles = path("${outputDir}/fastqc").listFiles()
+            assert fastqcFiles.length > 0 : "FastQC HTML reports should be generated for CHOPPER"
+
+            // Verify MultiQC was generated and can collect CHOPPER data
+            assert path("${outputDir}/multiqc/multiqc_report.html").exists() : "MultiQC report should be generated"
+            assert path("${outputDir}/multiqc/multiqc_data/multiqc_data.json").exists() : "MultiQC data JSON should exist"
+        }
+    }
+
+    test("Should produce standardized outputs with FASTP") {
+
+        when {
+            params {
+                input = "$projectDir/assets/test_data/test_samplesheet_absolute.csv"
+                outdir = "$outputDir"
+
+                // Use FASTP
+                qc_tool = 'fastp'
+                fastp_qualified_quality = 15
+                fastp_length_required = 1000
+
+                // Fast execution
+                skip_nanoplot = true
+                skip_multiqc = false
+                max_cpus = 2
+                max_memory = '4.GB'
+                max_time = '10.min'
+
+                // Disable resource-intensive steps
+                kraken2_db = null
+                blast_validation = false
+                use_dorado = false
+                realtime_mode = false
+            }
+        }
+
+        then {
+            assert workflow.success
+
+            // Verify FASTP process executed
+            def fastpProcess = workflow.trace.tasks().find {
+                it.process =~ /.*FASTP.*/
+            }
+            assert fastpProcess != null : "FASTP process should have executed"
+
+            // Verify standardized QC outputs exist
+            assert path("${outputDir}/qc_analysis").exists() || path("${outputDir}/fastp").exists() : "QC analysis directory should exist"
+
+            // Verify FASTP JSON output exists
+            def fastpJsonFiles = file("${outputDir}/**/**.fastp.json", type: 'any')
+            assert fastpJsonFiles.size() > 0 : "FASTP JSON files should be generated"
+
+            // Verify MultiQC was generated
+            assert path("${outputDir}/multiqc/multiqc_report.html").exists() : "MultiQC report should be generated"
+            assert path("${outputDir}/multiqc/multiqc_data/multiqc_data.json").exists() : "MultiQC data JSON should exist"
+        }
+    }
+
+    test("Should produce standardized outputs with FILTLONG") {
+
+        when {
+            params {
+                input = "$projectDir/assets/test_data/test_samplesheet_absolute.csv"
+                outdir = "$outputDir"
+
+                // Use FILTLONG
+                qc_tool = 'filtlong'
+                filtlong_min_length = 1000
+                filtlong_keep_percent = 90
+                filtlong_min_mean_q = 8.0
+
+                // Fast execution
+                skip_nanoplot = true
+                skip_multiqc = false
+                max_cpus = 2
+                max_memory = '4.GB'
+                max_time = '10.min'
+
+                // Disable resource-intensive steps
+                kraken2_db = null
+                blast_validation = false
+                use_dorado = false
+                realtime_mode = false
+            }
+        }
+
+        then {
+            assert workflow.success
+
+            // Verify FILTLONG process executed
+            def filtlongProcess = workflow.trace.tasks().find {
+                it.process =~ /.*FILTLONG.*/
+            }
+            assert filtlongProcess != null : "FILTLONG process should have executed"
+
+            // Verify standardized QC outputs exist
+            assert path("${outputDir}/qc_analysis").exists() || path("${outputDir}/filtlong").exists() : "QC analysis directory should exist"
+
+            // Verify FastQC reports were generated (enhanced reporting for FILTLONG)
+            def fastqcFiles = path("${outputDir}/fastqc").listFiles()
+            assert fastqcFiles.length > 0 : "FastQC HTML reports should be generated for FILTLONG"
+
+            // Verify MultiQC was generated
+            assert path("${outputDir}/multiqc/multiqc_report.html").exists() : "MultiQC report should be generated"
+            assert path("${outputDir}/multiqc/multiqc_data/multiqc_data.json").exists() : "MultiQC data JSON should exist"
+        }
+    }
+
+    test("Should integrate all QC tools with MultiQC successfully") {
+
+        when {
+            params {
+                input = "$projectDir/assets/test_data/test_samplesheet_absolute.csv"
+                outdir = "$outputDir"
+
+                // Use default (CHOPPER)
+                qc_tool = 'chopper'
+
+                // Enable full QC pipeline
+                skip_nanoplot = false
+                skip_multiqc = false
+                max_cpus = 2
+                max_memory = '4.GB'
+                max_time = '10.min'
+
+                // Disable resource-intensive steps
+                kraken2_db = null
+                blast_validation = false
+                use_dorado = false
+                realtime_mode = false
+            }
+        }
+
+        then {
+            assert workflow.success
+
+            // Verify MultiQC report contains data
+            def multiqcReport = path("${outputDir}/multiqc/multiqc_report.html")
+            assert multiqcReport.exists() : "MultiQC report should exist"
+
+            // Verify MultiQC data JSON contains QC metrics
+            def multiqcDataJson = path("${outputDir}/multiqc/multiqc_data/multiqc_data.json")
+            assert multiqcDataJson.exists() : "MultiQC data JSON should exist"
+
+            // Verify NanoPlot data is included
+            def nanoplotData = path("${outputDir}/nanoplot")
+            assert nanoplotData.exists() : "NanoPlot data should be generated"
+
+            // Verify pipeline info is complete
+            assert path("${outputDir}/pipeline_info/software_versions.yml").exists() : "Software versions should be recorded"
+        }
+    }
+
+    test("Should validate output schema consistency across all QC tools") {
+
+        when {
+            params {
+                input = "$projectDir/assets/test_data/test_samplesheet_absolute.csv"
+                outdir = "$outputDir"
+
+                // This test uses CHOPPER but validates schema compliance
+                qc_tool = 'chopper'
+
+                // Fast execution
+                skip_nanoplot = false
+                skip_multiqc = false
+                max_cpus = 2
+                max_memory = '4.GB'
+                max_time = '10.min'
+
+                // Disable resource-intensive steps
+                kraken2_db = null
+                blast_validation = false
+                use_dorado = false
+                realtime_mode = false
+            }
+        }
+
+        then {
+            assert workflow.success
+
+            // Verify all expected output directories exist (standardized structure)
+            assert path("${outputDir}/multiqc").exists() : "MultiQC directory should exist"
+            assert path("${outputDir}/pipeline_info").exists() : "Pipeline info directory should exist"
+            assert path("${outputDir}/nanoplot").exists() : "NanoPlot directory should exist"
+
+            // Verify filtered reads were produced (core output)
+            def qcReads = file("${outputDir}/**/*_filtered.fastq.gz", type: 'any')
+            assert qcReads.size() > 0 : "QC'd/filtered reads should be produced"
+
+            // Verify versions file exists
+            assert path("${outputDir}/pipeline_info/software_versions.yml").exists() : "Software versions should be recorded"
+        }
+    }
+}

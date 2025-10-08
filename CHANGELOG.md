@@ -37,6 +37,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `tests/realtime_empty_samplesheet.nf.test`
   - `tests/realtime_processing.nf.test`
 
+#### Multi-Tool QC Output Standardization (CRITICAL)
+- **Output Integration Bug**: Fixed hardcoded FASTP outputs in main workflow that broke CHOPPER and FILTLONG integration
+  - Changed `workflows/nanometanf.nf:183` from `QC_ANALYSIS.out.fastp_json` to `QC_ANALYSIS.out.qc_json` (tool-agnostic)
+  - Changed `workflows/nanometanf.nf:191` from `QC_ANALYSIS.out.fastp_html` to `QC_ANALYSIS.out.qc_reports` (tool-agnostic)
+  - **Impact**: MultiQC now correctly collects QC data from all supported tools (chopper, fastp, filtlong)
+  - **Root Cause**: Legacy code assumed FASTP was the only QC tool; v1.1.0 introduced multi-tool support
+- **Test Coverage**: Added comprehensive QC tool integration tests (`tests/qc_tool_integration.nf.test`)
+- **Test Enhancement**: Extended `tests/main_workflow.nf.test` with CHOPPER and FILTLONG validation
+
 ### Changed
 - **nf-core Compliance**: Resolved all critical schema validation failures
 - **Production Readiness**: Pipeline now ready for stable backend deployment with Nanometa Live frontend
