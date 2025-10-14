@@ -226,6 +226,8 @@ EOF
 
     test("Should run in stub mode") {
 
+        options "-stub"
+
         when {
             process {
                 """
@@ -239,8 +241,6 @@ EOF
                 input[1] = 'stub_context'
                 """
             }
-            
-            stub true
         }
 
         then {

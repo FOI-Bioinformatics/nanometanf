@@ -460,6 +460,8 @@ EOF
 
     test("Should run in stub mode") {
 
+        options "-stub"
+
         when {
             process {
                 """
@@ -477,8 +479,6 @@ EOF
                 ]
                 """
             }
-            
-            stub true
         }
 
         then {
@@ -769,6 +769,8 @@ EOF
 
     test("Should run learning model update in stub mode") {
 
+        options "-stub"
+
         when {
             process {
                 """
@@ -779,8 +781,6 @@ EOF
                 ]
                 """
             }
-            
-            stub true
         }
 
         then {

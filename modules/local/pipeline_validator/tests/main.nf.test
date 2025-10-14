@@ -323,6 +323,8 @@ EOF
 
     test("Should run in stub mode") {
 
+        options "-stub"
+
         when {
             process {
                 """
@@ -336,8 +338,6 @@ EOF
                 input[1] = '{"validation_type": "stub"}'
                 """
             }
-            
-            stub true
         }
 
         then {

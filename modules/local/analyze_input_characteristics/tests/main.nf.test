@@ -209,6 +209,8 @@ nextflow_process {
 
     test("Should run in stub mode") {
 
+        options "-stub"
+
         when {
             process {
                 """
@@ -226,8 +228,6 @@ nextflow_process {
                 ]
                 """
             }
-            
-            stub true
         }
 
         then {
