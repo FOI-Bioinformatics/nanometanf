@@ -143,6 +143,24 @@
             "description": "Less common options for the pipeline, typically set in a config file.",
             "help_text": "These options are common to all nf-core pipelines and allow you to customise some of the core preferences for how the pipeline runs.\n\nTypically these options would be set in a Nextflow config file loaded for all pipeline runs, such as `~/.nextflow/config`.",
             "properties": {
+                "help": {
+                    "type": "boolean",
+                    "description": "Display help text.",
+                    "fa_icon": "fas fa-question-circle",
+                    "hidden": true
+                },
+                "help_full": {
+                    "type": "boolean",
+                    "description": "Display full help text with all parameters.",
+                    "fa_icon": "fas fa-question-circle",
+                    "hidden": true
+                },
+                "show_hidden": {
+                    "type": "boolean",
+                    "description": "Show hidden parameters in help text.",
+                    "fa_icon": "fas fa-question-circle",
+                    "hidden": true
+                },
                 "version": {
                     "type": "boolean",
                     "description": "Display version and exit.",
@@ -227,7 +245,7 @@
                 },
                 "trace_report_suffix": {
                     "type": "string",
-                    "fa_icon": "far calendar",
+                    "fa_icon": "far fa-calendar",
                     "description": "Suffix to add to the trace report filename. Dynamically generated as date and time in the format yyyy-MM-dd_HH-mm-ss. Set in nextflow.config.",
                     "hidden": true
                 },
@@ -248,316 +266,785 @@
                     "hidden": true
                 }
             }
+        },
+        "realtime_processing_options": {
+            "title": "Real-time processing options",
+            "type": "object",
+            "fa_icon": "fas fa-clock",
+            "description": "Parameters for real-time sequencing run monitoring and processing.",
+            "help_text": "Enable real-time monitoring of sequencing output directories. The pipeline will continuously watch for new files and process them as they become available during an active sequencing run.",
+            "properties": {
+                "realtime_mode": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Enable real-time file monitoring and processing during sequencing runs.",
+                    "fa_icon": "fas fa-play",
+                    "help_text": "When enabled, the pipeline will monitor specified directories for new files and process them incrementally as they are created during an active sequencing run."
+                },
+                "nanopore_output_dir": {
+                    "type": "string",
+                    "format": "directory-path",
+                    "description": "Directory to monitor for new FASTQ files in real-time mode.",
+                    "fa_icon": "fas fa-folder-open",
+                    "help_text": "Specify the output directory from your Oxford Nanopore sequencing instrument. The pipeline will watch this location for new FASTQ files."
+                },
+                "file_pattern": {
+                    "type": "string",
+                    "default": "**/*.fastq{,.gz}",
+                    "description": "Glob pattern for files to monitor in real-time mode.",
+                    "fa_icon": "fas fa-file-code",
+                    "help_text": "Glob pattern to match files (e.g., '**/*.fastq.gz' for gzipped FASTQ files only)."
+                },
+                "batch_size": {
+                    "type": "integer",
+                    "default": 10,
+                    "minimum": 1,
+                    "description": "Number of files to process in each batch.",
+                    "fa_icon": "fas fa-layer-group"
+                },
+                "batch_interval": {
+                    "type": "string",
+                    "default": "5min",
+                    "description": "Time interval between batch processing cycles (legacy parameter).",
+                    "fa_icon": "fas fa-hourglass-half",
+                    "hidden": true
+                },
+                "max_files": {
+                    "type": "string",
+                    "description": "Maximum number of files to process in real-time mode (limits watchPath file detection).",
+                    "fa_icon": "fas fa-stop-circle",
+                    "help_text": "Set a limit on the total number of files to process. Useful for testing real-time workflows without processing an entire sequencing run."
+                },
+                "watch_directories": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "description": "List of directories to monitor for real-time processing (supports multiple).",
+                    "fa_icon": "fas fa-folder-tree"
+                },
+                "priority_samples": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "description": "List of high-priority sample IDs for expedited processing.",
+                    "fa_icon": "fas fa-star"
+                },
+                "enable_realtime_stats": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Enable snapshot and cumulative statistics generation for real-time monitoring.",
+                    "fa_icon": "fas fa-chart-bar"
+                },
+                "realtime_report_interval": {
+                    "type": "integer",
+                    "default": 30000,
+                    "minimum": 1000,
+                    "description": "Report refresh interval in milliseconds for real-time dashboard.",
+                    "fa_icon": "fas fa-sync"
+                },
+                "adaptive_batching": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Enable intelligent batch sizing based on system load and file characteristics.",
+                    "fa_icon": "fas fa-brain"
+                },
+                "min_batch_size": {
+                    "type": "integer",
+                    "default": 1,
+                    "minimum": 1,
+                    "description": "Minimum number of files per batch for real-time processing.",
+                    "fa_icon": "fas fa-arrow-down"
+                },
+                "max_batch_size": {
+                    "type": "integer",
+                    "default": 50,
+                    "minimum": 1,
+                    "description": "Maximum number of files per batch for real-time processing.",
+                    "fa_icon": "fas fa-arrow-up"
+                },
+                "batch_size_factor": {
+                    "type": "number",
+                    "default": 1.0,
+                    "minimum": 0.1,
+                    "maximum": 10.0,
+                    "description": "Multiplier for dynamic batch sizing calculations.",
+                    "fa_icon": "fas fa-percent"
+                },
+                "min_files_per_second": {
+                    "type": "number",
+                    "default": 0.1,
+                    "minimum": 0.01,
+                    "description": "Alert threshold for minimum processing speed (files per second).",
+                    "fa_icon": "fas fa-tachometer-alt"
+                },
+                "max_avg_file_age_minutes": {
+                    "type": "number",
+                    "default": 10.0,
+                    "minimum": 0.1,
+                    "description": "Alert threshold for maximum average file age (minutes).",
+                    "fa_icon": "fas fa-clock"
+                },
+                "min_compression_ratio": {
+                    "type": "number",
+                    "default": 0.3,
+                    "minimum": 0.01,
+                    "maximum": 1.0,
+                    "description": "Alert threshold for minimum compression ratio (data quality indicator).",
+                    "fa_icon": "fas fa-compress"
+                }
+            }
+        },
+        "dorado_basecalling_options": {
+            "title": "Dorado basecalling options",
+            "type": "object",
+            "fa_icon": "fas fa-dna",
+            "description": "Parameters for Oxford Nanopore Technologies POD5 basecalling using Dorado.",
+            "help_text": "Dorado is ONT's official basecaller for converting raw POD5 signal data to FASTQ sequences. These parameters control basecalling and demultiplexing behavior.",
+            "properties": {
+                "use_dorado": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Enable Dorado basecalling from POD5 files.",
+                    "fa_icon": "fas fa-power-off",
+                    "help_text": "Enable this when starting from raw POD5 files instead of pre-basecalled FASTQ files."
+                },
+                "dorado_path": {
+                    "type": "string",
+                    "default": "dorado",
+                    "description": "Path to dorado binary.",
+                    "fa_icon": "fas fa-terminal",
+                    "help_text": "Path to dorado binary. Defaults to 'dorado' (searches in PATH). Specify full path for custom installations."
+                },
+                "dorado_model": {
+                    "type": "string",
+                    "default": "dna_r10.4.1_e4.3_400bps_hac",
+                    "description": "Dorado basecalling model to use.",
+                    "fa_icon": "fas fa-microchip",
+                    "help_text": "Basecalling model (e.g., 'dna_r10.4.1_e4.3_400bps_hac'). Use simplified syntax without @version suffix for Dorado 1.1+. Common models: hac (high accuracy), sup (super accuracy), fast (speed optimized)."
+                },
+                "pod5_input_dir": {
+                    "type": "string",
+                    "format": "directory-path",
+                    "description": "Directory containing POD5 files for basecalling.",
+                    "fa_icon": "fas fa-folder"
+                },
+                "barcode_kit": {
+                    "type": "string",
+                    "description": "Barcode kit for demultiplexing.",
+                    "fa_icon": "fas fa-barcode",
+                    "help_text": "Barcode kit identifier (e.g., 'SQK-NBD114-24', 'SQK-RBK114-96'). Required when using --demultiplex."
+                },
+                "demultiplex": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Enable demultiplexing during basecalling.",
+                    "fa_icon": "fas fa-split",
+                    "help_text": "Enable demultiplexing if your samples are barcoded. Requires --barcode_kit parameter."
+                },
+                "min_qscore": {
+                    "type": "integer",
+                    "default": 9,
+                    "minimum": 0,
+                    "maximum": 50,
+                    "description": "Minimum quality score for basecalling.",
+                    "fa_icon": "fas fa-filter",
+                    "help_text": "Phred quality score threshold. Reads below this score will be filtered during basecalling."
+                },
+                "trim_adapters": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Trim adapters during basecalling using Dorado's built-in adapter trimming.",
+                    "fa_icon": "fas fa-cut",
+                    "help_text": "Recommended by ONT. Uses Dorado's built-in adapter detection and trimming."
+                },
+                "trim_barcodes": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Trim barcodes during demultiplexing.",
+                    "fa_icon": "fas fa-cut"
+                }
+            }
+        },
+        "quality_control_options": {
+            "title": "Quality control options",
+            "type": "object",
+            "fa_icon": "fas fa-check-circle",
+            "description": "Parameters for read quality filtering and QC reporting.",
+            "help_text": "Choose between multiple nanopore-optimized QC tools and configure filtering thresholds for read length and quality.",
+            "properties": {
+                "qc_tool": {
+                    "type": "string",
+                    "default": "chopper",
+                    "enum": ["chopper", "fastp", "filtlong"],
+                    "description": "Quality control tool to use.",
+                    "fa_icon": "fas fa-tools",
+                    "help_text": "chopper: nanopore-native Rust-based filtering (7x faster, default), fastp: general-purpose with rich HTML reporting, filtlong: nanopore-optimized length-weighted filtering."
+                },
+                "skip_fastp": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Skip FASTP QC step (legacy parameter for backward compatibility).",
+                    "fa_icon": "fas fa-forward",
+                    "hidden": true,
+                    "help_text": "Legacy parameter. Use --qc_tool parameter instead to select quality control tool."
+                },
+                "skip_nanoplot": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Skip NanoPlot visualization.",
+                    "fa_icon": "fas fa-chart-line"
+                },
+                "skip_multiqc": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Skip MultiQC report generation.",
+                    "fa_icon": "fas fa-file-alt"
+                },
+                "enable_adapter_trimming": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Enable nanopore adapter trimming with PORECHOP.",
+                    "fa_icon": "fas fa-cut",
+                    "help_text": "Recommended for filtlong/chopper workflows. Dorado users should use --trim_adapters instead."
+                },
+                "enable_qc_benchmark": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Enable QC tool performance benchmarking.",
+                    "fa_icon": "fas fa-stopwatch",
+                    "help_text": "Compare performance metrics across QC tools (chopper vs fastp vs filtlong)."
+                },
+                "chopper_quality": {
+                    "type": "integer",
+                    "default": 10,
+                    "minimum": 0,
+                    "maximum": 50,
+                    "description": "Minimum quality score for CHOPPER filtering.",
+                    "fa_icon": "fas fa-filter"
+                },
+                "chopper_minlength": {
+                    "type": "integer",
+                    "default": 1000,
+                    "minimum": 1,
+                    "description": "Minimum read length for CHOPPER filtering.",
+                    "fa_icon": "fas fa-ruler"
+                },
+                "chopper_maxlength": {
+                    "type": "integer",
+                    "description": "Maximum read length for CHOPPER filtering (null = no limit).",
+                    "fa_icon": "fas fa-ruler"
+                },
+                "chopper_headcrop": {
+                    "type": "integer",
+                    "default": 0,
+                    "minimum": 0,
+                    "description": "Number of bases to trim from read start (CHOPPER).",
+                    "fa_icon": "fas fa-cut"
+                },
+                "chopper_tailcrop": {
+                    "type": "integer",
+                    "default": 0,
+                    "minimum": 0,
+                    "description": "Number of bases to trim from read end (CHOPPER).",
+                    "fa_icon": "fas fa-cut"
+                },
+                "filtlong_min_length": {
+                    "type": "integer",
+                    "default": 1000,
+                    "minimum": 1,
+                    "description": "Minimum read length for FILTLONG filtering.",
+                    "fa_icon": "fas fa-ruler"
+                },
+                "filtlong_keep_percent": {
+                    "type": "integer",
+                    "default": 90,
+                    "minimum": 1,
+                    "maximum": 100,
+                    "description": "Percentage of best reads to keep with FILTLONG (1-100).",
+                    "fa_icon": "fas fa-percent"
+                },
+                "filtlong_target_bases": {
+                    "type": "integer",
+                    "default": 0,
+                    "minimum": 0,
+                    "description": "Target number of bases to keep with FILTLONG (0 = no limit).",
+                    "fa_icon": "fas fa-bullseye"
+                },
+                "filtlong_min_mean_q": {
+                    "type": "number",
+                    "default": 8.0,
+                    "minimum": 0.0,
+                    "maximum": 50.0,
+                    "description": "Minimum mean quality score for FILTLONG.",
+                    "fa_icon": "fas fa-filter"
+                },
+                "fastp_qualified_quality": {
+                    "type": "integer",
+                    "default": 15,
+                    "minimum": 0,
+                    "maximum": 50,
+                    "description": "Quality threshold for FASTP (phred score).",
+                    "fa_icon": "fas fa-filter"
+                },
+                "fastp_length_required": {
+                    "type": "integer",
+                    "default": 1000,
+                    "minimum": 1,
+                    "description": "Minimum read length required for FASTP.",
+                    "fa_icon": "fas fa-ruler"
+                },
+                "fastp_cut_mean_quality": {
+                    "type": "integer",
+                    "default": 20,
+                    "minimum": 0,
+                    "maximum": 50,
+                    "description": "Mean quality threshold for FASTP sliding window.",
+                    "fa_icon": "fas fa-filter"
+                }
+            }
+        },
+        "taxonomic_classification_options": {
+            "title": "Taxonomic classification options",
+            "type": "object",
+            "fa_icon": "fas fa-sitemap",
+            "description": "Parameters for metagenomic taxonomic profiling and classification.",
+            "help_text": "Configure Kraken2 taxonomic classification and taxpasta output standardization for metagenomic analysis.",
+            "properties": {
+                "classifier": {
+                    "type": "string",
+                    "default": "kraken2",
+                    "enum": ["kraken2"],
+                    "description": "Taxonomic classifier to use.",
+                    "fa_icon": "fas fa-project-diagram",
+                    "help_text": "Currently supports: kraken2. Future versions may include centrifuge, metaphlan, kaiju."
+                },
+                "kraken2_db": {
+                    "type": "string",
+                    "format": "directory-path",
+                    "description": "Path to Kraken2 database directory.",
+                    "fa_icon": "fas fa-database",
+                    "help_text": "Directory containing Kraken2 database files (hash.k2d, opts.k2d, taxo.k2d). Download from https://benlangmead.github.io/aws-indexes/k2 or build custom databases."
+                },
+                "save_output_fastqs": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Save classified/unclassified FASTQ files from Kraken2.",
+                    "fa_icon": "fas fa-save",
+                    "help_text": "Outputs separate FASTQ files for classified and unclassified reads. Useful for downstream analysis of specific taxa."
+                },
+                "save_reads_assignment": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Save read-level taxonomic assignments.",
+                    "fa_icon": "fas fa-save",
+                    "help_text": "Save the complete Kraken2 output file with per-read taxonomic assignments. Large files for high-depth sequencing runs."
+                },
+                "enable_taxpasta_standardization": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Enable taxpasta output standardization for consistent taxonomic profile formats.",
+                    "fa_icon": "fas fa-table"
+                },
+                "taxpasta_format": {
+                    "type": "string",
+                    "default": "tsv",
+                    "enum": ["tsv", "csv", "arrow", "parquet", "biom"],
+                    "description": "Output format for standardized taxonomic profiles.",
+                    "fa_icon": "fas fa-file-export",
+                    "help_text": "TSV and CSV for human-readable tables, arrow/parquet for efficient storage, BIOM for compatibility with microbiome analysis tools."
+                },
+                "taxonomy_file": {
+                    "type": "string",
+                    "format": "file-path",
+                    "description": "Optional taxonomy file for taxpasta standardization.",
+                    "fa_icon": "fas fa-file-alt"
+                },
+                "kraken2_use_optimizations": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Enable Kraken2 performance optimizations.",
+                    "fa_icon": "fas fa-rocket"
+                },
+                "kraken2_memory_mapping": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Use memory-mapped database loading (faster, less memory).",
+                    "fa_icon": "fas fa-memory"
+                },
+                "kraken2_confidence": {
+                    "type": "number",
+                    "default": 0.0,
+                    "minimum": 0.0,
+                    "maximum": 1.0,
+                    "description": "Confidence score threshold (0.0-1.0, 0=no filter).",
+                    "fa_icon": "fas fa-percent",
+                    "help_text": "Minimum confidence score for taxonomic assignments. Higher values reduce false positives but may miss low-abundance taxa."
+                },
+                "kraken2_minimum_hit_groups": {
+                    "type": "integer",
+                    "default": 0,
+                    "minimum": 0,
+                    "description": "Minimum number of hit groups (0=no filter).",
+                    "fa_icon": "fas fa-hashtag"
+                },
+                "kraken2_batch_size": {
+                    "type": "integer",
+                    "default": 10,
+                    "minimum": 1,
+                    "description": "Batch size for parallel Kraken2 classification.",
+                    "fa_icon": "fas fa-layer-group"
+                },
+                "kraken2_db_chunking": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Enable database chunking for large datasets.",
+                    "fa_icon": "fas fa-th"
+                },
+                "kraken2_db_merge_strategy": {
+                    "type": "string",
+                    "default": "union",
+                    "enum": ["union", "intersection", "consensus"],
+                    "description": "Merge strategy for multiple database results.",
+                    "fa_icon": "fas fa-code-branch"
+                }
+            }
+        },
+        "validation_options": {
+            "title": "Validation options",
+            "type": "object",
+            "fa_icon": "fas fa-check-double",
+            "description": "Parameters for BLAST-based sequence validation.",
+            "help_text": "Optional BLAST validation against reference databases to verify taxonomic assignments or identify specific target organisms.",
+            "properties": {
+                "blast_validation": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Enable BLAST validation of classified sequences.",
+                    "fa_icon": "fas fa-search"
+                },
+                "blast_db": {
+                    "type": "string",
+                    "format": "file-path",
+                    "description": "Path to BLAST database.",
+                    "fa_icon": "fas fa-database"
+                },
+                "validation_taxa": {
+                    "type": "string",
+                    "description": "Comma-separated list of taxa to validate.",
+                    "fa_icon": "fas fa-list",
+                    "help_text": "Specify taxa names or taxIDs to validate (e.g., 'Bacillus anthracis,Yersinia pestis')."
+                }
+            }
+        },
+        "assembly_options": {
+            "title": "Assembly options",
+            "type": "object",
+            "fa_icon": "fas fa-puzzle-piece",
+            "description": "Parameters for long-read genome assembly.",
+            "help_text": "Optional genome assembly from filtered nanopore reads using Flye or Miniasm assemblers.",
+            "properties": {
+                "enable_assembly": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Enable genome assembly step for long-read nanopore data.",
+                    "fa_icon": "fas fa-power-off"
+                },
+                "assembler": {
+                    "type": "string",
+                    "default": "flye",
+                    "enum": ["flye", "miniasm"],
+                    "description": "Genome assembler to use.",
+                    "fa_icon": "fas fa-cogs",
+                    "help_text": "flye: polished assemblies with repeat resolution (default), miniasm: fast draft assemblies. Future versions may include canu, raven, shasta."
+                },
+                "genome_size": {
+                    "type": "string",
+                    "default": "5m",
+                    "description": "Expected genome size (e.g., '5m' for 5Mb, '3.2g' for 3.2Gb).",
+                    "fa_icon": "fas fa-ruler-horizontal",
+                    "help_text": "Used by assemblers like flye and canu for parameter optimization."
+                },
+                "sequencing_mode": {
+                    "type": "string",
+                    "default": "--nano-raw",
+                    "enum": ["--nano-raw", "--nano-corr", "--nano-hq", "--pacbio-raw", "--pacbio-corr", "--pacbio-hifi"],
+                    "description": "Sequencing technology and data type for flye assembler.",
+                    "fa_icon": "fas fa-dna",
+                    "help_text": "nano-raw: regular ONT reads, nano-hq: ONT Q20+ reads, nano-corr: error-corrected reads."
+                }
+            }
+        },
+        "enhanced_monitoring_options": {
+            "title": "Enhanced monitoring options",
+            "type": "object",
+            "fa_icon": "fas fa-eye",
+            "description": "Advanced monitoring, error handling, and reliability features.",
+            "help_text": "Experimental features for production-scale real-time processing with enhanced error recovery and monitoring capabilities.",
+            "properties": {
+                "enable_enhanced_monitoring": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Enable enhanced real-time monitoring with all advanced features.",
+                    "fa_icon": "fas fa-satellite"
+                },
+                "file_stability_time": {
+                    "type": "integer",
+                    "default": 5,
+                    "minimum": 1,
+                    "description": "File stability check time in seconds (file locking detection).",
+                    "fa_icon": "fas fa-hourglass-half"
+                },
+                "max_file_retries": {
+                    "type": "integer",
+                    "default": 3,
+                    "minimum": 1,
+                    "description": "Maximum retry attempts for file processing.",
+                    "fa_icon": "fas fa-redo"
+                },
+                "watchdog_timeout": {
+                    "type": "integer",
+                    "default": 3600,
+                    "minimum": 60,
+                    "description": "Watchdog timeout in seconds (1 hour = 3600s).",
+                    "fa_icon": "fas fa-stopwatch"
+                },
+                "enable_progress_dashboard": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Enable real-time progress tracking dashboard.",
+                    "fa_icon": "fas fa-tachometer-alt"
+                },
+                "enable_error_handler": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Enable comprehensive error handling with retry logic.",
+                    "fa_icon": "fas fa-shield-alt"
+                },
+                "error_base_delay": {
+                    "type": "integer",
+                    "default": 2,
+                    "minimum": 1,
+                    "description": "Base delay for exponential backoff (seconds).",
+                    "fa_icon": "fas fa-clock"
+                },
+                "error_max_delay": {
+                    "type": "integer",
+                    "default": 300,
+                    "minimum": 10,
+                    "description": "Maximum backoff delay (seconds, 5 minutes).",
+                    "fa_icon": "fas fa-clock"
+                },
+                "error_backoff_factor": {
+                    "type": "number",
+                    "default": 2.0,
+                    "minimum": 1.0,
+                    "maximum": 10.0,
+                    "description": "Exponential backoff growth factor.",
+                    "fa_icon": "fas fa-chart-line"
+                },
+                "error_max_retries": {
+                    "type": "integer",
+                    "default": 10,
+                    "minimum": 1,
+                    "description": "Maximum retry attempts before dead letter queue.",
+                    "fa_icon": "fas fa-redo"
+                },
+                "circuit_breaker_threshold": {
+                    "type": "integer",
+                    "default": 5,
+                    "minimum": 1,
+                    "description": "Number of failures to trigger circuit breaker.",
+                    "fa_icon": "fas fa-power-off"
+                },
+                "circuit_breaker_window": {
+                    "type": "integer",
+                    "default": 300,
+                    "minimum": 10,
+                    "description": "Time window for failure counting (seconds, 5 minutes).",
+                    "fa_icon": "fas fa-window-maximize"
+                }
+            }
+        },
+        "dynamic_resource_allocation_options": {
+            "title": "Dynamic resource allocation options",
+            "type": "object",
+            "fa_icon": "fas fa-server",
+            "description": "Experimental intelligent resource allocation system.",
+            "help_text": "EXPERIMENTAL: Adaptive resource allocation based on input characteristics and system availability. Disabled by default for v1.0 stability.",
+            "properties": {
+                "enable_dynamic_resources": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Enable intelligent resource allocation system.",
+                    "fa_icon": "fas fa-brain",
+                    "help_text": "EXPERIMENTAL - disabled by default for v1.0. When enabled, the pipeline will dynamically adjust CPU, memory, and time allocations based on input characteristics."
+                },
+                "optimization_profile": {
+                    "type": "string",
+                    "default": "auto",
+                    "enum": ["auto", "high_throughput", "balanced", "resource_conservative", "gpu_optimized", "realtime_optimized", "development_testing"],
+                    "description": "Resource optimization profile.",
+                    "fa_icon": "fas fa-sliders-h",
+                    "help_text": "auto: intelligent detection, high_throughput: maximize speed, balanced: speed/resource tradeoff, resource_conservative: minimize resource usage, gpu_optimized: GPU workloads, realtime_optimized: real-time processing, development_testing: development/testing."
+                },
+                "resource_safety_factor": {
+                    "type": "number",
+                    "default": 0.8,
+                    "minimum": 0.1,
+                    "maximum": 1.0,
+                    "description": "Safety factor for resource allocation (0.0-1.0).",
+                    "fa_icon": "fas fa-shield-alt",
+                    "help_text": "Multiplier applied to predicted resource requirements to add safety margin. Lower values = more conservative allocation."
+                },
+                "max_parallel_jobs": {
+                    "type": "integer",
+                    "default": 4,
+                    "minimum": 1,
+                    "description": "Maximum parallel jobs for resource optimization.",
+                    "fa_icon": "fas fa-tasks"
+                },
+                "enable_gpu_optimization": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Enable GPU-specific optimizations.",
+                    "fa_icon": "fas fa-microchip"
+                },
+                "resource_monitoring_interval": {
+                    "type": "integer",
+                    "default": 30,
+                    "minimum": 1,
+                    "description": "System monitoring interval (seconds).",
+                    "fa_icon": "fas fa-heartbeat"
+                }
+            }
+        },
+        "reporting_visualization_options": {
+            "title": "Reporting and visualization options",
+            "type": "object",
+            "fa_icon": "fas fa-chart-pie",
+            "description": "MultiQC reporting and visualization customization.",
+            "help_text": "Configure MultiQC report generation, custom content, and nanopore-specific visualizations.",
+            "properties": {
+                "enable_nanoplot_comparison": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Enable multi-sample NanoPlot comparison plots.",
+                    "fa_icon": "fas fa-chart-bar"
+                },
+                "enable_multiqc_custom_content": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Enable nanopore-specific custom content in MultiQC.",
+                    "fa_icon": "fas fa-file-alt"
+                },
+                "enable_krona_plots": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Generate Krona interactive taxonomic visualization.",
+                    "fa_icon": "fas fa-chart-pie",
+                    "help_text": "Creates interactive HTML charts for exploring taxonomic composition."
+                },
+                "enable_dorado_mqc": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Include Dorado basecalling statistics in MultiQC.",
+                    "fa_icon": "fas fa-dna"
+                },
+                "enable_nanopore_stats_mqc": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Include comprehensive nanopore statistics in MultiQC.",
+                    "fa_icon": "fas fa-chart-line"
+                }
+            }
+        },
+        "testing_performance_options": {
+            "title": "Testing and performance options",
+            "type": "object",
+            "fa_icon": "fas fa-vial",
+            "description": "Development, testing, and performance benchmarking parameters.",
+            "help_text": "Options for test coverage tracking and performance regression detection during development.",
+            "properties": {
+                "enable_test_coverage_tracking": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Enable test coverage monitoring.",
+                    "fa_icon": "fas fa-check-circle",
+                    "hidden": true
+                },
+                "enable_performance_benchmarks": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Enable performance regression testing.",
+                    "fa_icon": "fas fa-tachometer-alt",
+                    "hidden": true
+                },
+                "test_coverage_threshold": {
+                    "type": "integer",
+                    "default": 95,
+                    "minimum": 0,
+                    "maximum": 100,
+                    "description": "Minimum test coverage threshold (P0+P1).",
+                    "fa_icon": "fas fa-percentage",
+                    "hidden": true
+                },
+                "performance_regression_threshold": {
+                    "type": "number",
+                    "default": 0.1,
+                    "minimum": 0.0,
+                    "maximum": 1.0,
+                    "description": "Performance regression threshold (10%).",
+                    "fa_icon": "fas fa-percent",
+                    "hidden": true
+                }
+            }
         }
     },
-    "properties": {
-        "realtime_mode": {
-            "type": "boolean"
-        },
-        "nanopore_output_dir": {
-            "type": "string"
-        },
-        "file_pattern": {
-            "type": "string",
-            "default": "**/*.fastq{,.gz}"
-        },
-        "batch_size": {
-            "type": "integer",
-            "default": 10
-        },
-        "batch_interval": {
-            "type": "string",
-            "default": "5min"
-        },
-        "max_files": {
-            "type": "string",
-            "description": "Maximum number of files to process in real-time mode (limits watchPath file detection)"
-        },
-        "watch_directories": {
-            "type": "array",
-            "items": {"type": "string"},
-            "description": "List of directories to monitor for real-time processing (supports multiple)"
-        },
-        "priority_samples": {
-            "type": "array", 
-            "items": {"type": "string"},
-            "description": "List of high-priority sample IDs for expedited processing"
-        },
-        "enable_realtime_stats": {
-            "type": "boolean",
-            "default": true,
-            "description": "Enable snapshot and cumulative statistics generation for real-time monitoring"
-        },
-        "realtime_report_interval": {
-            "type": "integer",
-            "default": 30000,
-            "description": "Report refresh interval in milliseconds for real-time dashboard"
-        },
-        "adaptive_batching": {
-            "type": "boolean",
-            "default": true,
-            "description": "Enable intelligent batch sizing based on system load and file characteristics"
-        },
-        "min_batch_size": {
-            "type": "integer",
-            "default": 1,
-            "description": "Minimum number of files per batch for real-time processing"
-        },
-        "max_batch_size": {
-            "type": "integer", 
-            "default": 50,
-            "description": "Maximum number of files per batch for real-time processing"
-        },
-        "batch_size_factor": {
-            "type": "number",
-            "default": 1.0,
-            "description": "Multiplier for dynamic batch sizing calculations"
-        },
-        "min_files_per_second": {
-            "type": "number",
-            "default": 0.1,
-            "description": "Alert threshold for minimum processing speed (files per second)"
-        },
-        "max_avg_file_age_minutes": {
-            "type": "number",
-            "default": 10,
-            "description": "Alert threshold for maximum average file age (minutes)"
-        },
-        "min_compression_ratio": {
-            "type": "number",
-            "default": 0.3,
-            "description": "Alert threshold for minimum compression ratio (data quality indicator)"
-        },
-        "use_dorado": {
-            "type": "boolean"
-        },
-        "dorado_path": {
-            "type": "string",
-            "default": "/Users/andreassjodin/Downloads/dorado-1.1.1-osx-arm64/bin/dorado"
-        },
-        "barcode_kit": {
-            "type": "string"
-        },
-        "classifier": {
-            "type": "string",
-            "default": "kraken2",
-            "enum": ["kraken2"],
-            "description": "Taxonomic classifier to use. Currently supports: kraken2"
-        },
-        "kraken2_db": {
-            "type": "string",
-            "description": "Path to Kraken2/classifier database"
-        },
-        "save_output_fastqs": {
-            "type": "boolean",
-            "description": "Save classified/unclassified FASTQ files"
-        },
-        "save_reads_assignment": {
-            "type": "boolean",
-            "description": "Save read-level taxonomic assignments"
-        },
-        "enable_taxpasta_standardization": {
-            "type": "boolean",
-            "default": true,
-            "description": "Enable taxpasta output standardization for consistent taxonomic profile formats"
-        },
-        "taxpasta_format": {
-            "type": "string",
-            "default": "tsv",
-            "enum": ["tsv", "csv", "arrow", "parquet", "biom"],
-            "description": "Output format for standardized taxonomic profiles"
-        },
-        "taxonomy_file": {
-            "type": "string",
-            "description": "Optional taxonomy file for taxpasta standardization"
-        },
-        "blast_validation": {
-            "type": "boolean"
-        },
-        "blast_db": {
-            "type": "string"
-        },
-        "validation_taxa": {
-            "type": "string"
-        },
-        "enable_assembly": {
-            "type": "boolean",
-            "description": "Enable genome assembly step for long-read nanopore data"
-        },
-        "assembler": {
-            "type": "string",
-            "default": "flye",
-            "enum": ["flye", "miniasm"],
-            "description": "Genome assembler to use. Currently supports: flye (default), miniasm"
-        },
-        "genome_size": {
-            "type": "string",
-            "default": "5m",
-            "description": "Expected genome size (e.g., '5m' for 5Mb, '3.2g' for 3.2Gb). Used by assemblers like flye and canu."
-        },
-        "sequencing_mode": {
-            "type": "string",
-            "default": "--nano-raw",
-            "enum": ["--nano-raw", "--nano-corr", "--nano-hq", "--pacbio-raw", "--pacbio-corr", "--pacbio-hifi"],
-            "description": "Sequencing technology and data type for flye assembler"
-        },
-        "qc_tool": {
-            "type": "string",
-            "default": "chopper",
-            "enum": ["chopper", "fastp", "filtlong"],
-            "description": "Quality control tool to use. chopper: nanopore-native Rust-based filtering (7x faster), fastp: general-purpose with rich reporting, filtlong: nanopore-optimized filtering"
-        },
-        "enable_adapter_trimming": {
-            "type": "boolean",
-            "description": "Enable nanopore adapter trimming with PORECHOP (recommended for filtlong/chopper)"
-        },
-        "enable_qc_benchmark": {
-            "type": "boolean",
-            "description": "Enable QC tool performance benchmarking (compares FASTP vs FILTLONG)"
-        },
-        "filtlong_min_length": {
-            "type": "integer",
-            "default": 1000,
-            "description": "Minimum read length for FILTLONG filtering"
-        },
-        "filtlong_keep_percent": {
-            "type": "integer",
-            "default": 90,
-            "description": "Percentage of best reads to keep with FILTLONG (1-100)"
-        },
-        "filtlong_target_bases": {
-            "type": "integer",
-            "default": 0,
-            "description": "Target number of bases to keep with FILTLONG (0 = no limit)"
-        },
-        "filtlong_min_mean_q": {
-            "type": "number",
-            "default": 8.0,
-            "description": "Minimum mean quality score for FILTLONG"
-        },
-        "chopper_quality": {
-            "type": "integer",
-            "default": 10,
-            "description": "Minimum quality score for CHOPPER filtering"
-        },
-        "chopper_minlength": {
-            "type": "integer",
-            "default": 1000,
-            "description": "Minimum read length for CHOPPER filtering"
-        },
-        "chopper_maxlength": {
-            "type": "integer",
-            "description": "Maximum read length for CHOPPER filtering (null = no limit)"
-        },
-        "chopper_headcrop": {
-            "type": "integer",
-            "default": 0,
-            "description": "Number of bases to trim from read start (CHOPPER)"
-        },
-        "chopper_tailcrop": {
-            "type": "integer",
-            "default": 0,
-            "description": "Number of bases to trim from read end (CHOPPER)"
-        },
-        "fastp_qualified_quality": {
-            "type": "integer",
-            "default": 15,
-            "description": "Quality threshold for FASTP (phred score)"
-        },
-        "fastp_length_required": {
-            "type": "integer",
-            "default": 1000,
-            "description": "Minimum read length required for FASTP"
-        },
-        "fastp_cut_mean_quality": {
-            "type": "integer",
-            "default": 20,
-            "description": "Mean quality threshold for FASTP sliding window"
-        },
-        "skip_fastp": {
-            "type": "boolean",
-            "description": "Legacy parameter: skip FASTP (use qc_tool parameter instead)"
-        },
-        "skip_nanoplot": {
-            "type": "boolean",
-            "description": "Skip NanoPlot visualization"
-        },
-        "skip_multiqc": {
-            "type": "boolean",
-            "description": "Skip MultiQC report generation"
-        },
-        "help": {
-            "type": "boolean"
-        },
-        "help_full": {
-            "type": "boolean"
-        },
-        "show_hidden": {
-            "type": "boolean"
-        },
-        "dorado_model": {
-            "type": "string",
-            "default": "dna_r10.4.1_e4.3_400bps_hac"
-        },
-        "pod5_input_dir": {
-            "type": "string"
-        },
-        "demultiplex": {
-            "type": "boolean"
-        },
-        "min_qscore": {
-            "type": "integer",
-            "default": 9
-        },
-        "trim_adapters": {
-            "type": "boolean",
-            "default": true,
-            "description": "Trim adapters during basecalling using Dorado's built-in adapter trimming (recommended by ONT)"
-        },
-        "trim_barcodes": {
-            "type": "boolean",
-            "default": true
-        },
-        "enable_dynamic_resources": {
-            "type": "boolean",
-            "default": false,
-            "description": "Enable intelligent resource allocation system (experimental - disabled by default for v1.0)"
-        },
-        "optimization_profile": {
-            "type": "string",
-            "default": "auto",
-            "enum": ["auto", "high_throughput", "balanced", "resource_conservative", "gpu_optimized", "realtime_optimized", "development_testing"],
-            "description": "Resource optimization profile: auto, high_throughput, balanced, resource_conservative, gpu_optimized, realtime_optimized, development_testing"
-        },
-        "resource_safety_factor": {
-            "type": "number",
-            "default": 0.8,
-            "minimum": 0.1,
-            "maximum": 1.0,
-            "description": "Safety factor for resource allocation (0.0-1.0)"
-        },
-        "max_parallel_jobs": {
-            "type": "integer",
-            "default": 4,
-            "minimum": 1,
-            "description": "Maximum parallel jobs for resource optimization"
-        },
-        "enable_gpu_optimization": {
-            "type": "boolean",
-            "default": true,
-            "description": "Enable GPU-specific optimizations"
-        },
-        "resource_monitoring_interval": {
-            "type": "integer",
-            "default": 30,
-            "minimum": 1,
-            "description": "System monitoring interval (seconds)"
-        }
-    },
+    "properties": {},
     "allOf": [
-        {"$ref": "#/$defs/input_output_options"},
-        {"$ref": "#/$defs/reference_genome_options"},
-        {"$ref": "#/$defs/institutional_config_options"},
-        {"$ref": "#/$defs/generic_options"}
+        {
+            "$ref": "#/$defs/input_output_options"
+        },
+        {
+            "$ref": "#/$defs/realtime_processing_options"
+        },
+        {
+            "$ref": "#/$defs/dorado_basecalling_options"
+        },
+        {
+            "$ref": "#/$defs/quality_control_options"
+        },
+        {
+            "$ref": "#/$defs/taxonomic_classification_options"
+        },
+        {
+            "$ref": "#/$defs/validation_options"
+        },
+        {
+            "$ref": "#/$defs/assembly_options"
+        },
+        {
+            "$ref": "#/$defs/enhanced_monitoring_options"
+        },
+        {
+            "$ref": "#/$defs/dynamic_resource_allocation_options"
+        },
+        {
+            "$ref": "#/$defs/reporting_visualization_options"
+        },
+        {
+            "$ref": "#/$defs/testing_performance_options"
+        },
+        {
+            "$ref": "#/$defs/reference_genome_options"
+        },
+        {
+            "$ref": "#/$defs/institutional_config_options"
+        },
+        {
+            "$ref": "#/$defs/generic_options"
+        }
     ]
 }

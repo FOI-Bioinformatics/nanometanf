@@ -58,7 +58,7 @@ workflow NANOMETANF {
                 params.dorado_model
             )
             ch_processed_samples = REALTIME_POD5_MONITORING.out.samples
-            ch_versions = ch_versions.mix(REALTIME_POD5_MONITORING.out.versions.ifEmpty(null))
+            ch_versions = ch_versions.mix(REALTIME_POD5_MONITORING.out.versions.ifEmpty([]))
             
         } else {
             // Static POD5 basecalling

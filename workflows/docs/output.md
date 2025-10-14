@@ -2,60 +2,198 @@
 
 ## Introduction
 
-This document describes the output produced by the pipeline. Most of the plots are taken from the MultiQC report, which summarises results at the end of the pipeline.
+This document describes the output produced by the nanometanf pipeline. Most plots and statistics are aggregated in the MultiQC report.
 
-The directories listed below will be created in the results directory after the pipeline has finished. All paths are relative to the top-level results directory.
+All output directories are created relative to the specified `--outdir`.
 
-<!-- TODO nf-core: Write this documentation describing your workflow's output -->
+For comprehensive output documentation including file formats and interpretation guidelines, see the [main output documentation](../../docs/user/output.md).
 
-## Pipeline overview
+## Pipeline Overview
 
-The pipeline is built using [Nextflow](https://www.nextflow.io/) and processes data using the following steps:
+The nanometanf pipeline processes Oxford Nanopore long-read sequencing data through the following stages:
 
-- [FastQC](#fastqc) - Raw read QC
-- [MultiQC](#multiqc) - Aggregate report describing results and QC from the whole pipeline
-- [Pipeline information](#pipeline-information) - Report metrics generated during the workflow execution
+1. **Basecalling** (optional) - Dorado basecalling from POD5 files
+2. **Quality Control** - Chopper/FASTP/Filtlong read filtering
+3. **Taxonomic Classification** - Kraken2 metagenomic profiling
+4. **Validation** (optional) - BLAST sequence validation
+5. **Report Generation** - MultiQC comprehensive reporting
 
-### FastQC
+## Output Directory Structure
+
+```
+results/
+├── dorado/                 # Basecalled FASTQ files (if --use_dorado)
+├── chopper/               # QC-filtered reads (default QC tool)
+├── fastp/                 # Alternative QC tool output
+├── filtlong/              # Alternative QC tool output
+├── nanoplot/              # Nanopore-specific QC visualizations
+├── kraken2/               # Taxonomic classification results
+├── taxpasta/              # Standardized taxonomic profiles
+├── blast/                 # Validation results (if --blast_validation)
+├── multiqc/               # Comprehensive QC report
+└── pipeline_info/         # Execution metadata and logs
+```
+
+## Key Output Files
+
+### Dorado Basecalling
 
 <details markdown="1">
 <summary>Output files</summary>
 
-- `fastqc/`
-  - `*_fastqc.html`: FastQC report containing quality metrics.
-  - `*_fastqc.zip`: Zip archive containing the FastQC report, tab-delimited data file and plot images.
+- `dorado/`
+  - `*.fastq.gz` - Basecalled reads in FASTQ format
+  - `*_summary.txt` - Basecalling summary with model, device, and quality metrics
 
 </details>
 
-[FastQC](http://www.bioinformatics.babraham.ac.uk/projects/fastqc/) gives general quality metrics about your sequenced reads. It provides information about the quality score distribution across your reads, per base sequence content (%A/T/G/C), adapter contamination and overrepresented sequences. For further reading and documentation see the [FastQC help pages](http://www.bioinformatics.babraham.ac.uk/projects/fastqc/Help/).
+Generated when using `--use_dorado` with POD5 input files.
 
-### MultiQC
+### Quality Control
+
+<details markdown="1">
+<summary>Output files</summary>
+
+- `chopper/` (default)
+  - `*.chopper.fastq.gz` - Quality-filtered reads
+  - `*.chopper.log` - Filtering statistics
+
+- `fastp/` (if `--qc_tool fastp`)
+  - `*.fastp.fastq.gz` - Quality-filtered reads
+  - `*.fastp.html` - Interactive QC report
+  - `*.fastp.json` - Machine-readable statistics
+
+- `filtlong/` (if `--qc_tool filtlong`)
+  - `*.filtlong.fastq.gz` - Quality-filtered reads
+  - `*.filtlong.log` - Filtering statistics
+
+</details>
+
+Quality-controlled reads after filtering based on quality scores and read length thresholds.
+
+### NanoPlot Visualization
+
+<details markdown="1">
+<summary>Output files</summary>
+
+- `nanoplot/`
+  - `*_NanoPlot-report.html` - Interactive quality report
+  - `*_NanoStats.txt` - Statistical summary
+  - `*_LengthvsQualityScatterPlot_dot.png` - Read length vs quality visualization
+  - `*_Weighted_HistogramReadlength.png` - Read length distribution
+
+</details>
+
+Comprehensive nanopore-specific quality control visualizations.
+
+### Taxonomic Classification
+
+<details markdown="1">
+<summary>Output files</summary>
+
+- `kraken2/`
+  - `*.kraken2.report.txt` - Taxonomic classification report
+  - `*.kraken2.classified.fastq.gz` - Classified reads (if `--save_output_fastqs`)
+  - `*.kraken2.unclassified.fastq.gz` - Unclassified reads (if `--save_output_fastqs`)
+
+- `taxpasta/`
+  - `*.taxpasta.tsv` - Standardized taxonomic profile (default format)
+  - `*.taxpasta.biom` - BIOM format (if `--taxpasta_format biom`)
+
+</details>
+
+Metagenomic taxonomic profiling using Kraken2 with optional taxpasta standardization.
+
+### BLAST Validation
+
+<details markdown="1">
+<summary>Output files</summary>
+
+- `blast/`
+  - `*.blast.txt` - BLAST alignment results
+  - `*.blast.summary.txt` - Validation summary statistics
+
+</details>
+
+Generated when using `--blast_validation` for sequence validation against reference databases.
+
+### MultiQC Report
 
 <details markdown="1">
 <summary>Output files</summary>
 
 - `multiqc/`
-  - `multiqc_report.html`: a standalone HTML file that can be viewed in your web browser.
-  - `multiqc_data/`: directory containing parsed statistics from the different tools used in the pipeline.
-  - `multiqc_plots/`: directory containing static images from the report in various formats.
+  - `multiqc_report.html` - Standalone HTML report viewable in web browsers
+  - `multiqc_data/` - Parsed statistics from all pipeline tools
+  - `multiqc_plots/` - Static images in various formats
 
 </details>
 
-[MultiQC](http://multiqc.info) is a visualization tool that generates a single HTML report summarising all samples in your project. Most of the pipeline QC results are visualised in the report and further statistics are available in the report data directory.
+[MultiQC](http://multiqc.info) aggregates results from all pipeline stages into a single comprehensive report. The report includes:
 
-Results generated by MultiQC collate pipeline QC from supported tools e.g. FastQC. The pipeline has special steps which also allow the software versions to be reported in the MultiQC output for future traceability. For more information about how to use MultiQC reports, see <http://multiqc.info>.
+- Dorado basecalling statistics (if applicable)
+- Quality control metrics (Chopper/FASTP/Filtlong)
+- NanoPlot visualizations
+- Kraken2 taxonomic composition
+- Software versions and pipeline configuration
 
-### Pipeline information
+### Pipeline Information
 
 <details markdown="1">
 <summary>Output files</summary>
 
 - `pipeline_info/`
-  - Reports generated by Nextflow: `execution_report.html`, `execution_timeline.html`, `execution_trace.txt` and `pipeline_dag.dot`/`pipeline_dag.svg`.
-  - Reports generated by the pipeline: `pipeline_report.html`, `pipeline_report.txt` and `software_versions.yml`. The `pipeline_report*` files will only be present if the `--email` / `--email_on_fail` parameter's are used when running the pipeline.
-  - Reformatted samplesheet files used as input to the pipeline: `samplesheet.valid.csv`.
-  - Parameters used by the pipeline run: `params.json`.
+  - `execution_report_*.html` - Nextflow execution report with resource usage
+  - `execution_timeline_*.html` - Interactive timeline of process execution
+  - `execution_trace_*.txt` - Detailed trace of all executed tasks
+  - `pipeline_dag_*.html` - Pipeline directed acyclic graph visualization
+  - `params.json` - Complete parameters used for the run
+  - `software_versions.yml` - All software versions used in the pipeline
 
 </details>
 
-[Nextflow](https://www.nextflow.io/docs/latest/tracing.html) provides excellent functionality for generating various reports relevant to the running and execution of the pipeline. This will allow you to troubleshoot errors with the running of the pipeline, and also provide you with other information such as launch commands, run times and resource usage.
+[Nextflow](https://www.nextflow.io/docs/latest/tracing.html) automatically generates these reports for troubleshooting and reproducibility.
+
+## Real-time Output Updates
+
+When running in real-time mode (`--realtime_mode`), output directories are updated incrementally as new files are processed.
+
+Monitor progress with:
+
+```bash
+watch -n 30 "ls -lh results/multiqc/"
+```
+
+## Output Customization
+
+### Saving Additional Files
+
+- `--save_output_fastqs` - Save classified/unclassified FASTQ files from Kraken2
+- `--save_reads_assignment` - Save read-level taxonomic assignments
+
+### Output Formats
+
+- `--taxpasta_format` - Choose standardized output format: `tsv`, `csv`, `arrow`, `parquet`, `biom`
+- `--publish_dir_mode` - Control how files are published: `copy`, `symlink`, `move`
+
+## Data Interpretation
+
+For guidance on interpreting results and quality thresholds, see:
+
+- [Quality Control Guide](../../docs/user/qc_guide.md)
+- [Output Documentation](../../docs/user/output.md)
+- [Troubleshooting Guide](../../README.md#troubleshooting)
+
+## File Formats
+
+- **FASTQ** - Sequence data with quality scores
+- **TSV/CSV** - Taxonomic profiles and statistics
+- **HTML** - Interactive reports and visualizations
+- **JSON** - Machine-readable statistics
+- **BIOM** - Biological Observation Matrix format for taxonomic data
+
+## Additional Resources
+
+- [MultiQC documentation](http://multiqc.info)
+- [Kraken2 output format](https://github.com/DerrickWood/kraken2/wiki/Manual#output-formats)
+- [Nextflow reports](https://www.nextflow.io/docs/latest/tracing.html)

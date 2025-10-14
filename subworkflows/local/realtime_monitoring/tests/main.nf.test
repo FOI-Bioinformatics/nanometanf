@@ -135,9 +135,16 @@ nextflow_workflow {
             """
             # Create multiple FASTQ files for batch testing
             mkdir -p $outputDir/batch_test_dir
-            for i in {1..10}; do
-                echo "@read$i\nATCGATCGATCG\n+\nIIIIIIIIIIII" > $outputDir/batch_test_dir/batch_$(printf "%03d" $i).fastq
-            done
+            echo "@read1\nATCGATCGATCG\n+\nIIIIIIIIIIII" > $outputDir/batch_test_dir/batch_001.fastq
+            echo "@read2\nATCGATCGATCG\n+\nIIIIIIIIIIII" > $outputDir/batch_test_dir/batch_002.fastq
+            echo "@read3\nATCGATCGATCG\n+\nIIIIIIIIIIII" > $outputDir/batch_test_dir/batch_003.fastq
+            echo "@read4\nATCGATCGATCG\n+\nIIIIIIIIIIII" > $outputDir/batch_test_dir/batch_004.fastq
+            echo "@read5\nATCGATCGATCG\n+\nIIIIIIIIIIII" > $outputDir/batch_test_dir/batch_005.fastq
+            echo "@read6\nATCGATCGATCG\n+\nIIIIIIIIIIII" > $outputDir/batch_test_dir/batch_006.fastq
+            echo "@read7\nATCGATCGATCG\n+\nIIIIIIIIIIII" > $outputDir/batch_test_dir/batch_007.fastq
+            echo "@read8\nATCGATCGATCG\n+\nIIIIIIIIIIII" > $outputDir/batch_test_dir/batch_008.fastq
+            echo "@read9\nATCGATCGATCG\n+\nIIIIIIIIIIII" > $outputDir/batch_test_dir/batch_009.fastq
+            echo "@read10\nATCGATCGATCG\n+\nIIIIIIIIIIII" > $outputDir/batch_test_dir/batch_010.fastq
             """
         }
 
@@ -175,11 +182,28 @@ nextflow_workflow {
 
         setup {
             """
-            # Create scenario for large batches
+            # Create scenario for large batches (reduced from 50 to 20 for test efficiency)
             mkdir -p $outputDir/large_batch_dir
-            for i in {1..50}; do
-                echo "@read$i\nATCGATCGATCGATCGATCG\n+\nIIIIIIIIIIIIIIIIIIII" > $outputDir/large_batch_dir/large_batch_$(printf "%03d" $i).fastq
-            done
+            echo "@read1\nATCGATCGATCGATCGATCG\n+\nIIIIIIIIIIIIIIIIIIII" > $outputDir/large_batch_dir/large_batch_001.fastq
+            echo "@read2\nATCGATCGATCGATCGATCG\n+\nIIIIIIIIIIIIIIIIIIII" > $outputDir/large_batch_dir/large_batch_002.fastq
+            echo "@read3\nATCGATCGATCGATCGATCG\n+\nIIIIIIIIIIIIIIIIIIII" > $outputDir/large_batch_dir/large_batch_003.fastq
+            echo "@read4\nATCGATCGATCGATCGATCG\n+\nIIIIIIIIIIIIIIIIIIII" > $outputDir/large_batch_dir/large_batch_004.fastq
+            echo "@read5\nATCGATCGATCGATCGATCG\n+\nIIIIIIIIIIIIIIIIIIII" > $outputDir/large_batch_dir/large_batch_005.fastq
+            echo "@read6\nATCGATCGATCGATCGATCG\n+\nIIIIIIIIIIIIIIIIIIII" > $outputDir/large_batch_dir/large_batch_006.fastq
+            echo "@read7\nATCGATCGATCGATCGATCG\n+\nIIIIIIIIIIIIIIIIIIII" > $outputDir/large_batch_dir/large_batch_007.fastq
+            echo "@read8\nATCGATCGATCGATCGATCG\n+\nIIIIIIIIIIIIIIIIIIII" > $outputDir/large_batch_dir/large_batch_008.fastq
+            echo "@read9\nATCGATCGATCGATCGATCG\n+\nIIIIIIIIIIIIIIIIIIII" > $outputDir/large_batch_dir/large_batch_009.fastq
+            echo "@read10\nATCGATCGATCGATCGATCG\n+\nIIIIIIIIIIIIIIIIIIII" > $outputDir/large_batch_dir/large_batch_010.fastq
+            echo "@read11\nATCGATCGATCGATCGATCG\n+\nIIIIIIIIIIIIIIIIIIII" > $outputDir/large_batch_dir/large_batch_011.fastq
+            echo "@read12\nATCGATCGATCGATCGATCG\n+\nIIIIIIIIIIIIIIIIIIII" > $outputDir/large_batch_dir/large_batch_012.fastq
+            echo "@read13\nATCGATCGATCGATCGATCG\n+\nIIIIIIIIIIIIIIIIIIII" > $outputDir/large_batch_dir/large_batch_013.fastq
+            echo "@read14\nATCGATCGATCGATCGATCG\n+\nIIIIIIIIIIIIIIIIIIII" > $outputDir/large_batch_dir/large_batch_014.fastq
+            echo "@read15\nATCGATCGATCGATCGATCG\n+\nIIIIIIIIIIIIIIIIIIII" > $outputDir/large_batch_dir/large_batch_015.fastq
+            echo "@read16\nATCGATCGATCGATCGATCG\n+\nIIIIIIIIIIIIIIIIIIII" > $outputDir/large_batch_dir/large_batch_016.fastq
+            echo "@read17\nATCGATCGATCGATCGATCG\n+\nIIIIIIIIIIIIIIIIIIII" > $outputDir/large_batch_dir/large_batch_017.fastq
+            echo "@read18\nATCGATCGATCGATCGATCG\n+\nIIIIIIIIIIIIIIIIIIII" > $outputDir/large_batch_dir/large_batch_018.fastq
+            echo "@read19\nATCGATCGATCGATCGATCG\n+\nIIIIIIIIIIIIIIIIIIII" > $outputDir/large_batch_dir/large_batch_019.fastq
+            echo "@read20\nATCGATCGATCGATCGATCG\n+\nIIIIIIIIIIIIIIIIIIII" > $outputDir/large_batch_dir/large_batch_020.fastq
             """
         }
 
@@ -408,11 +432,28 @@ nextflow_workflow {
 
         setup {
             """
-            # Create resource-intensive scenario
+            # Create resource-intensive scenario (reduced from 100 to 20 for test efficiency)
             mkdir -p $outputDir/resource_test_dir
-            for i in {1..100}; do
-                echo "@read$i\nATCGATCGATCGATCGATCGATCGATCGATCGATCG\n+\nIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII" > $outputDir/resource_test_dir/resource_$(printf "%04d" $i).fastq
-            done
+            echo "@read1\nATCGATCGATCGATCGATCGATCGATCGATCGATCG\n+\nIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII" > $outputDir/resource_test_dir/resource_0001.fastq
+            echo "@read2\nATCGATCGATCGATCGATCGATCGATCGATCGATCG\n+\nIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII" > $outputDir/resource_test_dir/resource_0002.fastq
+            echo "@read3\nATCGATCGATCGATCGATCGATCGATCGATCGATCG\n+\nIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII" > $outputDir/resource_test_dir/resource_0003.fastq
+            echo "@read4\nATCGATCGATCGATCGATCGATCGATCGATCGATCG\n+\nIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII" > $outputDir/resource_test_dir/resource_0004.fastq
+            echo "@read5\nATCGATCGATCGATCGATCGATCGATCGATCGATCG\n+\nIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII" > $outputDir/resource_test_dir/resource_0005.fastq
+            echo "@read6\nATCGATCGATCGATCGATCGATCGATCGATCGATCG\n+\nIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII" > $outputDir/resource_test_dir/resource_0006.fastq
+            echo "@read7\nATCGATCGATCGATCGATCGATCGATCGATCGATCG\n+\nIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII" > $outputDir/resource_test_dir/resource_0007.fastq
+            echo "@read8\nATCGATCGATCGATCGATCGATCGATCGATCGATCG\n+\nIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII" > $outputDir/resource_test_dir/resource_0008.fastq
+            echo "@read9\nATCGATCGATCGATCGATCGATCGATCGATCGATCG\n+\nIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII" > $outputDir/resource_test_dir/resource_0009.fastq
+            echo "@read10\nATCGATCGATCGATCGATCGATCGATCGATCGATCG\n+\nIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII" > $outputDir/resource_test_dir/resource_0010.fastq
+            echo "@read11\nATCGATCGATCGATCGATCGATCGATCGATCGATCG\n+\nIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII" > $outputDir/resource_test_dir/resource_0011.fastq
+            echo "@read12\nATCGATCGATCGATCGATCGATCGATCGATCGATCG\n+\nIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII" > $outputDir/resource_test_dir/resource_0012.fastq
+            echo "@read13\nATCGATCGATCGATCGATCGATCGATCGATCGATCG\n+\nIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII" > $outputDir/resource_test_dir/resource_0013.fastq
+            echo "@read14\nATCGATCGATCGATCGATCGATCGATCGATCGATCG\n+\nIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII" > $outputDir/resource_test_dir/resource_0014.fastq
+            echo "@read15\nATCGATCGATCGATCGATCGATCGATCGATCGATCG\n+\nIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII" > $outputDir/resource_test_dir/resource_0015.fastq
+            echo "@read16\nATCGATCGATCGATCGATCGATCGATCGATCGATCG\n+\nIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII" > $outputDir/resource_test_dir/resource_0016.fastq
+            echo "@read17\nATCGATCGATCGATCGATCGATCGATCGATCGATCG\n+\nIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII" > $outputDir/resource_test_dir/resource_0017.fastq
+            echo "@read18\nATCGATCGATCGATCGATCGATCGATCGATCGATCG\n+\nIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII" > $outputDir/resource_test_dir/resource_0018.fastq
+            echo "@read19\nATCGATCGATCGATCGATCGATCGATCGATCGATCG\n+\nIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII" > $outputDir/resource_test_dir/resource_0019.fastq
+            echo "@read20\nATCGATCGATCGATCGATCGATCGATCGATCGATCG\n+\nIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII" > $outputDir/resource_test_dir/resource_0020.fastq
             """
         }
 

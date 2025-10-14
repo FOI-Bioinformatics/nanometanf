@@ -164,12 +164,15 @@ This release focuses on backend stability and API documentation for Nanometa Liv
 
 ## [Unreleased]
 
-### Planned for v1.1.0
+### Planned for Future Versions (v1.2.0+)
 - Assembly workflow using Flye and Miniasm
 - Advanced adapter trimming with Porechop
 - Cloud-native execution profiles (AWS, Azure, GCP)
 - Enhanced MultiQC custom content
 - Performance profiling dashboard
+- Integration testing with real nanopore datasets
+- Cross-platform validation (Linux, macOS, HPC)
+- Performance benchmarking and optimization
 
 ---
 

@@ -79,5 +79,5 @@ workflow REALTIME_POD5_MONITORING {
 
     emit:
     samples = ch_basecalled_samples    // channel: [ val(meta), path(fastq) ]
-    versions = DORADO_BASECALLER.out.versions.ifEmpty(null)
+    versions = DORADO_BASECALLER.out.versions.ifEmpty([])
 }

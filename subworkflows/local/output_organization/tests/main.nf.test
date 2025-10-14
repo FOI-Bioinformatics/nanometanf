@@ -106,10 +106,12 @@ nextflow_workflow {
             
             # Create multiple classification reports
             mkdir -p $outputDir/batch_classification
-            for i in 1 2 3; do
-                echo "taxid\tcount\tname" > $outputDir/batch_classification/kraken2_sample${i}.txt
-                echo "1\t$((100 * i))\troot" >> $outputDir/batch_classification/kraken2_sample${i}.txt
-            done
+            echo "taxid\tcount\tname" > $outputDir/batch_classification/kraken2_sample1.txt
+            echo "1\t100\troot" >> $outputDir/batch_classification/kraken2_sample1.txt
+            echo "taxid\tcount\tname" > $outputDir/batch_classification/kraken2_sample2.txt
+            echo "1\t200\troot" >> $outputDir/batch_classification/kraken2_sample2.txt
+            echo "taxid\tcount\tname" > $outputDir/batch_classification/kraken2_sample3.txt
+            echo "1\t300\troot" >> $outputDir/batch_classification/kraken2_sample3.txt
             
             # Create multiple validation reports
             mkdir -p $outputDir/batch_validation

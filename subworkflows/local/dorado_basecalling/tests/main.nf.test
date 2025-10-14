@@ -401,9 +401,26 @@ nextflow_workflow {
             """
             # Create large POD5 dataset
             mkdir -p $outputDir/large_pod5_dataset
-            for i in {1..20}; do
-                echo "Large dataset POD5 file $i - $(date)" > $outputDir/large_pod5_dataset/large_$(printf "%03d" $i).pod5
-            done
+            echo "Large dataset POD5 file 1" > $outputDir/large_pod5_dataset/large_001.pod5
+            echo "Large dataset POD5 file 2" > $outputDir/large_pod5_dataset/large_002.pod5
+            echo "Large dataset POD5 file 3" > $outputDir/large_pod5_dataset/large_003.pod5
+            echo "Large dataset POD5 file 4" > $outputDir/large_pod5_dataset/large_004.pod5
+            echo "Large dataset POD5 file 5" > $outputDir/large_pod5_dataset/large_005.pod5
+            echo "Large dataset POD5 file 6" > $outputDir/large_pod5_dataset/large_006.pod5
+            echo "Large dataset POD5 file 7" > $outputDir/large_pod5_dataset/large_007.pod5
+            echo "Large dataset POD5 file 8" > $outputDir/large_pod5_dataset/large_008.pod5
+            echo "Large dataset POD5 file 9" > $outputDir/large_pod5_dataset/large_009.pod5
+            echo "Large dataset POD5 file 10" > $outputDir/large_pod5_dataset/large_010.pod5
+            echo "Large dataset POD5 file 11" > $outputDir/large_pod5_dataset/large_011.pod5
+            echo "Large dataset POD5 file 12" > $outputDir/large_pod5_dataset/large_012.pod5
+            echo "Large dataset POD5 file 13" > $outputDir/large_pod5_dataset/large_013.pod5
+            echo "Large dataset POD5 file 14" > $outputDir/large_pod5_dataset/large_014.pod5
+            echo "Large dataset POD5 file 15" > $outputDir/large_pod5_dataset/large_015.pod5
+            echo "Large dataset POD5 file 16" > $outputDir/large_pod5_dataset/large_016.pod5
+            echo "Large dataset POD5 file 17" > $outputDir/large_pod5_dataset/large_017.pod5
+            echo "Large dataset POD5 file 18" > $outputDir/large_pod5_dataset/large_018.pod5
+            echo "Large dataset POD5 file 19" > $outputDir/large_pod5_dataset/large_019.pod5
+            echo "Large dataset POD5 file 20" > $outputDir/large_pod5_dataset/large_020.pod5
             """
         }
 

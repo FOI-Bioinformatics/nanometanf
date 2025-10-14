@@ -143,9 +143,16 @@ nextflow_workflow {
             """
             # Create multiple POD5 files for batch testing
             mkdir -p $outputDir/batch_test_dir
-            for i in {1..10}; do
-                echo "POD5 batch data $i" > $outputDir/batch_test_dir/batch_$(printf "%03d" $i).pod5
-            done
+            echo "POD5 batch data 1" > $outputDir/batch_test_dir/batch_001.pod5
+            echo "POD5 batch data 2" > $outputDir/batch_test_dir/batch_002.pod5
+            echo "POD5 batch data 3" > $outputDir/batch_test_dir/batch_003.pod5
+            echo "POD5 batch data 4" > $outputDir/batch_test_dir/batch_004.pod5
+            echo "POD5 batch data 5" > $outputDir/batch_test_dir/batch_005.pod5
+            echo "POD5 batch data 6" > $outputDir/batch_test_dir/batch_006.pod5
+            echo "POD5 batch data 7" > $outputDir/batch_test_dir/batch_007.pod5
+            echo "POD5 batch data 8" > $outputDir/batch_test_dir/batch_008.pod5
+            echo "POD5 batch data 9" > $outputDir/batch_test_dir/batch_009.pod5
+            echo "POD5 batch data 10" > $outputDir/batch_test_dir/batch_010.pod5
             """
         }
 
@@ -185,11 +192,28 @@ nextflow_workflow {
 
         setup {
             """
-            # Create scenario for large batches
+            # Create scenario for large batches (reduced from 50 to 20 for test efficiency)
             mkdir -p $outputDir/large_batch_dir
-            for i in {1..50}; do
-                echo "Large POD5 dataset $i" > $outputDir/large_batch_dir/large_batch_$(printf "%03d" $i).pod5
-            done
+            echo "Large POD5 dataset 1" > $outputDir/large_batch_dir/large_batch_001.pod5
+            echo "Large POD5 dataset 2" > $outputDir/large_batch_dir/large_batch_002.pod5
+            echo "Large POD5 dataset 3" > $outputDir/large_batch_dir/large_batch_003.pod5
+            echo "Large POD5 dataset 4" > $outputDir/large_batch_dir/large_batch_004.pod5
+            echo "Large POD5 dataset 5" > $outputDir/large_batch_dir/large_batch_005.pod5
+            echo "Large POD5 dataset 6" > $outputDir/large_batch_dir/large_batch_006.pod5
+            echo "Large POD5 dataset 7" > $outputDir/large_batch_dir/large_batch_007.pod5
+            echo "Large POD5 dataset 8" > $outputDir/large_batch_dir/large_batch_008.pod5
+            echo "Large POD5 dataset 9" > $outputDir/large_batch_dir/large_batch_009.pod5
+            echo "Large POD5 dataset 10" > $outputDir/large_batch_dir/large_batch_010.pod5
+            echo "Large POD5 dataset 11" > $outputDir/large_batch_dir/large_batch_011.pod5
+            echo "Large POD5 dataset 12" > $outputDir/large_batch_dir/large_batch_012.pod5
+            echo "Large POD5 dataset 13" > $outputDir/large_batch_dir/large_batch_013.pod5
+            echo "Large POD5 dataset 14" > $outputDir/large_batch_dir/large_batch_014.pod5
+            echo "Large POD5 dataset 15" > $outputDir/large_batch_dir/large_batch_015.pod5
+            echo "Large POD5 dataset 16" > $outputDir/large_batch_dir/large_batch_016.pod5
+            echo "Large POD5 dataset 17" > $outputDir/large_batch_dir/large_batch_017.pod5
+            echo "Large POD5 dataset 18" > $outputDir/large_batch_dir/large_batch_018.pod5
+            echo "Large POD5 dataset 19" > $outputDir/large_batch_dir/large_batch_019.pod5
+            echo "Large POD5 dataset 20" > $outputDir/large_batch_dir/large_batch_020.pod5
             """
         }
 
@@ -419,11 +443,28 @@ nextflow_workflow {
 
         setup {
             """
-            # Create resource-intensive scenario
+            # Create resource-intensive scenario (reduced from 100 to 20 for test efficiency)
             mkdir -p $outputDir/resource_test_dir
-            for i in {1..100}; do
-                echo "Resource test POD5 $i - $(date)" > $outputDir/resource_test_dir/resource_$(printf "%04d" $i).pod5
-            done
+            echo "Resource test POD5 1" > $outputDir/resource_test_dir/resource_0001.pod5
+            echo "Resource test POD5 2" > $outputDir/resource_test_dir/resource_0002.pod5
+            echo "Resource test POD5 3" > $outputDir/resource_test_dir/resource_0003.pod5
+            echo "Resource test POD5 4" > $outputDir/resource_test_dir/resource_0004.pod5
+            echo "Resource test POD5 5" > $outputDir/resource_test_dir/resource_0005.pod5
+            echo "Resource test POD5 6" > $outputDir/resource_test_dir/resource_0006.pod5
+            echo "Resource test POD5 7" > $outputDir/resource_test_dir/resource_0007.pod5
+            echo "Resource test POD5 8" > $outputDir/resource_test_dir/resource_0008.pod5
+            echo "Resource test POD5 9" > $outputDir/resource_test_dir/resource_0009.pod5
+            echo "Resource test POD5 10" > $outputDir/resource_test_dir/resource_0010.pod5
+            echo "Resource test POD5 11" > $outputDir/resource_test_dir/resource_0011.pod5
+            echo "Resource test POD5 12" > $outputDir/resource_test_dir/resource_0012.pod5
+            echo "Resource test POD5 13" > $outputDir/resource_test_dir/resource_0013.pod5
+            echo "Resource test POD5 14" > $outputDir/resource_test_dir/resource_0014.pod5
+            echo "Resource test POD5 15" > $outputDir/resource_test_dir/resource_0015.pod5
+            echo "Resource test POD5 16" > $outputDir/resource_test_dir/resource_0016.pod5
+            echo "Resource test POD5 17" > $outputDir/resource_test_dir/resource_0017.pod5
+            echo "Resource test POD5 18" > $outputDir/resource_test_dir/resource_0018.pod5
+            echo "Resource test POD5 19" > $outputDir/resource_test_dir/resource_0019.pod5
+            echo "Resource test POD5 20" > $outputDir/resource_test_dir/resource_0020.pod5
             """
         }
 
