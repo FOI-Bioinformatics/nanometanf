@@ -178,6 +178,80 @@ then {
 }
 ```
 
+## Critical: Module Resolution Pattern ⚠️
+
+**Issue:** nf-test fails to resolve relative include paths in subworkflows/modules
+**Impact:** 150+ tests blocked by "Can't find a matching module file for include"
+**Priority:** FIX FIRST - Blocks all tests for affected workflows
+
+### The Problem
+
+When running nf-test, relative paths in `include` statements fail because nf-test executes from a different working directory:
+
+```groovy
+// ❌ BROKEN: Relative paths fail in nf-test
+include { SOME_MODULE } from '../../modules/local/some_module/main'
+include { SUB_WORKFLOW } from './sub_workflow'
+include { ANOTHER_MOD } from '../../../modules/nf-core/another_mod/main'
+
+// ERROR: Can't find a matching module file for include: ../../modules/...
+```
+
+### The Fix
+
+Use `${projectDir}` for **absolute paths** to modules and subworkflows:
+
+```groovy
+// ✅ FIXED: Absolute paths work in all contexts
+include { SOME_MODULE } from "${projectDir}/modules/local/some_module/main"
+include { SUB_WORKFLOW } from "${projectDir}/subworkflows/local/sub_workflow/main"
+include { ANOTHER_MOD } from "${projectDir}/modules/nf-core/another_mod/main"
+```
+
+### How to Find and Fix
+
+1. **Search for relative includes:**
+   ```bash
+   grep -r "from ['\"]\.\./" subworkflows/local/*/main.nf
+   grep -r "from ['\"]\\./" subworkflows/local/*/main.nf
+   ```
+
+2. **Replace pattern:**
+   ```bash
+   # For modules:
+   sed -i '' "s|from '../../modules/|from \"\${projectDir}/modules/|g" subworkflow.nf
+   sed -i '' "s|from '../../../modules/|from \"\${projectDir}/modules/|g" subworkflow.nf
+
+   # For subworkflows:
+   sed -i '' "s|from '\./|from \"\${projectDir}/subworkflows/local/|g" subworkflow.nf
+   ```
+
+3. **Verify fix:**
+   ```bash
+   nf-test test subworkflows/local/<name>/tests/main.nf.test --verbose
+   ```
+
+### Fixed Workflows
+
+| Commit | Workflow | Includes Fixed | Tests Unblocked |
+|--------|----------|----------------|-----------------|
+| `9256e14` | 10 subworkflows | 142 module includes | +142 tests |
+| `cbaa2c1` | DORADO_BASECALLING | 1 subworkflow include | +10 tests |
+| `4cc94e0` | ENHANCED_REALTIME_MONITORING, ERROR_HANDLER | 6 module includes | +tests TBD |
+
+**Total Impact:** 13 subworkflows fixed, ~160+ tests unblocked
+
+### When NOT to Fix
+
+**Exception:** nf-core utility subworkflows may use relative paths correctly:
+```groovy
+// ✅ OK: Relative path within nf-core structure
+// From: subworkflows/local/utils_nfcore_pipeline/main.nf
+include { UTILS_NFCORE_PIPELINE } from '../../nf-core/utils_nfcore_pipeline'
+```
+
+This works because `../../nf-core/` correctly resolves to `subworkflows/nf-core/`
+
 ## Batch Fix Script
 
 Use this script to apply fixes systematically:
@@ -284,9 +358,18 @@ Create proper fixtures for:
 
 ## Commits Reference
 
-- `9256e14` - **CRITICAL** Module resolution fix (+142 tests)
+**Module Resolution Fixes:**
+- `9256e14` - **CRITICAL** Fixed 10 subworkflows (+142 module includes, +142 tests unblocked)
+- `cbaa2c1` - Fixed DORADO_BASECALLING subworkflow (+1 include, +10 tests)
+- `4cc94e0` - Fixed ENHANCED_REALTIME_MONITORING + ERROR_HANDLER (+6 includes)
+
+**Systematic Test Pattern:**
 - `a18c2c4` - QC_ANALYSIS systematic fixes (7/11 passing, **7x improvement**)
 - `b8410eb` - TAXONOMIC_CLASSIFICATION structural fixes (documented limitations)
+
+**Guide Documentation:**
+- `578a816` - Created SYSTEMATIC_FIX_GUIDE.md (320 lines)
+- Latest - Added Module Resolution Pattern section
 
 ## Template Checklist
 
