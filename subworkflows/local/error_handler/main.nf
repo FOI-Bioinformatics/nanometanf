@@ -14,10 +14,10 @@
 ----------------------------------------------------------------------------------------
 */
 
-include { ERROR_CLASSIFIER             } from '../../../modules/local/error_classifier/main'
-include { EXPONENTIAL_BACKOFF_HANDLER  } from '../../../modules/local/exponential_backoff_handler/main'
-include { CIRCUIT_BREAKER              } from '../../../modules/local/circuit_breaker/main'
-include { DEAD_LETTER_QUEUE            } from '../../../modules/local/dead_letter_queue/main'
+include { ERROR_CLASSIFIER             } from "${projectDir}/modules/local/error_classifier/main"
+include { EXPONENTIAL_BACKOFF_HANDLER  } from "${projectDir}/modules/local/exponential_backoff_handler/main"
+include { CIRCUIT_BREAKER              } from "${projectDir}/modules/local/circuit_breaker/main"
+include { DEAD_LETTER_QUEUE            } from "${projectDir}/modules/local/dead_letter_queue/main"
 
 workflow ERROR_HANDLER {
 

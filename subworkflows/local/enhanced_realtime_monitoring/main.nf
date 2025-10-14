@@ -11,8 +11,8 @@
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
 
-include { FILE_READINESS_CHECKER   } from '../../../modules/local/file_readiness_checker/main'
-include { REALTIME_PROGRESS_TRACKER } from '../../../modules/local/realtime_progress_tracker/main'
+include { FILE_READINESS_CHECKER   } from "${projectDir}/modules/local/file_readiness_checker/main"
+include { REALTIME_PROGRESS_TRACKER } from "${projectDir}/modules/local/realtime_progress_tracker/main"
 
 workflow ENHANCED_REALTIME_MONITORING {
 
