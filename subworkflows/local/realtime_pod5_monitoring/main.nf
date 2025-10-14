@@ -14,7 +14,8 @@ workflow REALTIME_POD5_MONITORING {
     dorado_model   // val: Dorado basecalling model
 
     main:
-    
+    ch_versions = Channel.empty()
+
     //
     // CHANNEL: Watch for new POD5 files using watchPath
     //
@@ -58,7 +59,8 @@ workflow REALTIME_POD5_MONITORING {
             ch_pod5_samples,
             dorado_model
         )
-        
+        ch_versions = ch_versions.mix(DORADO_BASECALLER.out.versions.first())
+
         //
         // CHANNEL: Convert basecalled FASTQ to standard sample format
         //
@@ -79,5 +81,5 @@ workflow REALTIME_POD5_MONITORING {
 
     emit:
     samples = ch_basecalled_samples    // channel: [ val(meta), path(fastq) ]
-    versions = DORADO_BASECALLER.out.versions.ifEmpty([])
+    versions = ch_versions              // channel: [ versions.yml ]
 }
