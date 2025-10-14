@@ -1,7 +1,7 @@
 nextflow_workflow {
 
     name "Test REALTIME_STATISTICS"
-    script "../../realtime_statistics.nf"
+    script "../main.nf"
     workflow "REALTIME_STATISTICS"
 
     test("Should generate snapshot statistics for single batch") {

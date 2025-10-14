@@ -1,7 +1,7 @@
 nextflow_workflow {
 
     name "Test DORADO_BASECALLING"
-    script "../../dorado_basecalling.nf"
+    script "../main.nf"
     workflow "DORADO_BASECALLING"
 
     test("Should perform basic Dorado basecalling without demultiplexing") {

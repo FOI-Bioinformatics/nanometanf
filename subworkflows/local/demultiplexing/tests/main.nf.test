@@ -1,7 +1,7 @@
 nextflow_workflow {
 
     name "Test DEMULTIPLEXING"
-    script "../../demultiplexing.nf"
+    script "../main.nf"
     workflow "DEMULTIPLEXING"
 
     test("Should handle pre-demultiplexed samples without processing") {

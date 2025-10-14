@@ -1,7 +1,7 @@
 nextflow_workflow {
 
     name "Test ASSEMBLY"
-    script "../../assembly.nf"
+    script "../main.nf"
     workflow "ASSEMBLY"
 
     test("Should perform basic Flye assembly") {

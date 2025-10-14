@@ -1,7 +1,7 @@
 nextflow_workflow {
 
     name "Test TAXONOMIC_CLASSIFICATION"
-    script "../../taxonomic_classification.nf"
+    script "../main.nf"
     workflow "TAXONOMIC_CLASSIFICATION"
 
     test("Should perform basic Kraken2 taxonomic classification") {

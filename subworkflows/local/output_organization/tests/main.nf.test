@@ -1,7 +1,7 @@
 nextflow_workflow {
 
     name "Test OUTPUT_ORGANIZATION"
-    script "../../output_organization.nf"
+    script "../main.nf"
     workflow "OUTPUT_ORGANIZATION"
 
     test("Should organize single sample outputs correctly") {

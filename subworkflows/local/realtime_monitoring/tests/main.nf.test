@@ -1,7 +1,7 @@
 nextflow_workflow {
 
     name "Test REALTIME_MONITORING"
-    script "../../realtime_monitoring.nf"
+    script "../main.nf"
     workflow "REALTIME_MONITORING"
 
     test("Should handle disabled real-time mode gracefully") {

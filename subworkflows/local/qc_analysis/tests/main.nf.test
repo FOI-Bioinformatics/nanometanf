@@ -1,7 +1,7 @@
 nextflow_workflow {
 
     name "Test QC_ANALYSIS"
-    script "../../qc_analysis.nf"
+    script "../main.nf"
     workflow "QC_ANALYSIS"
 
     test("Should perform basic FASTP quality control") {

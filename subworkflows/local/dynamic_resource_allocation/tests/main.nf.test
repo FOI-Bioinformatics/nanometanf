@@ -1,7 +1,7 @@
 nextflow_workflow {
 
     name "Test DYNAMIC_RESOURCE_ALLOCATION"
-    script "../../dynamic_resource_allocation.nf"
+    script "../main.nf"
     workflow "DYNAMIC_RESOURCE_ALLOCATION"
 
     test("Should analyze input characteristics and predict basic resource requirements") {

@@ -1,7 +1,7 @@
 nextflow_workflow {
 
     name "Test VALIDATION"
-    script "../../validation.nf"
+    script "../main.nf"
     workflow "VALIDATION"
 
     test("Should perform basic BLAST sequence validation") {

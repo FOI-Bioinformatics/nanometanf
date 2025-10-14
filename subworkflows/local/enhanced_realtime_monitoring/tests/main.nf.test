@@ -1,7 +1,7 @@
 nextflow_workflow {
 
     name "Test ENHANCED_REALTIME_MONITORING"
-    script "../../enhanced_realtime_monitoring.nf"
+    script "../main.nf"
     workflow "ENHANCED_REALTIME_MONITORING"
 
     test("Should monitor single directory with basic configuration") {
