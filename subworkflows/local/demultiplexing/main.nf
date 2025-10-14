@@ -2,7 +2,7 @@
 // Demultiplexing subworkflow for multiplexed nanopore samples
 //
 
-include { DORADO_DEMUX } from '../../modules/local/dorado_demux/main'
+include { DORADO_DEMUX } from "${projectDir}/modules/local/dorado_demux/main"
 
 workflow DEMULTIPLEXING {
 

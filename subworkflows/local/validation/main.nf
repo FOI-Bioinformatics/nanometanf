@@ -2,7 +2,7 @@
 // Validation subworkflow for BLAST analysis
 //
 
-include { BLAST_BLASTN            } from '../../modules/nf-core/blast/blastn/main'
+include { BLAST_BLASTN            } from "${projectDir}/modules/nf-core/blast/blastn/main"
 
 workflow VALIDATION {
 

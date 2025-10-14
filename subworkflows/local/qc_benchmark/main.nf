@@ -22,13 +22,13 @@
 
 import groovy.json.JsonSlurper
 
-include { FASTP                   } from '../../modules/nf-core/fastp/main'
-include { FILTLONG                } from '../../modules/nf-core/filtlong/main'
-include { CHOPPER                 } from '../../modules/nf-core/chopper/main'
-include { PORECHOP_PORECHOP       } from '../../modules/nf-core/porechop/porechop/main'
-include { FASTQC                  } from '../../modules/nf-core/fastqc/main'
-include { SEQKIT_STATS            } from '../../modules/nf-core/seqkit/stats/main'
-include { NANOPLOT                } from '../../modules/nf-core/nanoplot/main'
+include { FASTP                   } from "${projectDir}/modules/nf-core/fastp/main"
+include { FILTLONG                } from "${projectDir}/modules/nf-core/filtlong/main"
+include { CHOPPER                 } from "${projectDir}/modules/nf-core/chopper/main"
+include { PORECHOP_PORECHOP       } from "${projectDir}/modules/nf-core/porechop/porechop/main"
+include { FASTQC                  } from "${projectDir}/modules/nf-core/fastqc/main"
+include { SEQKIT_STATS            } from "${projectDir}/modules/nf-core/seqkit/stats/main"
+include { NANOPLOT                } from "${projectDir}/modules/nf-core/nanoplot/main"
 
 workflow QC_BENCHMARK {
 

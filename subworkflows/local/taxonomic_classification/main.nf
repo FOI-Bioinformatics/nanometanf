@@ -19,9 +19,9 @@
 ----------------------------------------------------------------------------------------
 */
 
-include { KRAKEN2_KRAKEN2         } from '../../modules/nf-core/kraken2/kraken2/main'
-include { KRAKEN2_OPTIMIZED       } from '../../../modules/local/kraken2_optimized/main'
-include { TAXPASTA_STANDARDISE    } from '../../modules/nf-core/taxpasta/standardise/main'
+include { KRAKEN2_KRAKEN2         } from "${projectDir}/modules/nf-core/kraken2/kraken2/main"
+include { KRAKEN2_OPTIMIZED       } from "${projectDir}/modules/local/kraken2_optimized/main"
+include { TAXPASTA_STANDARDISE    } from "${projectDir}/modules/nf-core/taxpasta/standardise/main"
 
 workflow TAXONOMIC_CLASSIFICATION {
 

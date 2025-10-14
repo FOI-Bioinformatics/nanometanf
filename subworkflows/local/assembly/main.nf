@@ -21,9 +21,9 @@
 ----------------------------------------------------------------------------------------
 */
 
-include { FLYE              } from '../../modules/nf-core/flye/main'
-include { MINIMAP2_ALIGN    } from '../../modules/nf-core/minimap2/align/main'
-include { MINIASM           } from '../../modules/nf-core/miniasm/main'
+include { FLYE              } from "${projectDir}/modules/nf-core/flye/main"
+include { MINIMAP2_ALIGN    } from "${projectDir}/modules/nf-core/minimap2/align/main"
+include { MINIASM           } from "${projectDir}/modules/nf-core/miniasm/main"
 
 workflow ASSEMBLY {
 

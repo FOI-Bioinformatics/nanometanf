@@ -2,7 +2,7 @@
 // Real-time POD5 file monitoring with Dorado basecalling
 //
 
-include { DORADO_BASECALLER } from '../../modules/local/dorado_basecaller/main'
+include { DORADO_BASECALLER } from "${projectDir}/modules/local/dorado_basecaller/main"
 
 workflow REALTIME_POD5_MONITORING {
 

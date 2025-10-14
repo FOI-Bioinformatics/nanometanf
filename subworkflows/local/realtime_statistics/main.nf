@@ -17,9 +17,9 @@
 ----------------------------------------------------------------------------------------
 */
 
-include { GENERATE_SNAPSHOT_STATS } from '../../modules/local/generate_snapshot_stats/main'
-include { UPDATE_CUMULATIVE_STATS } from '../../modules/local/update_cumulative_stats/main'
-include { GENERATE_REALTIME_REPORT } from '../../modules/local/generate_realtime_report/main'
+include { GENERATE_SNAPSHOT_STATS } from "${projectDir}/modules/local/generate_snapshot_stats/main"
+include { UPDATE_CUMULATIVE_STATS } from "${projectDir}/modules/local/update_cumulative_stats/main"
+include { GENERATE_REALTIME_REPORT } from "${projectDir}/modules/local/generate_realtime_report/main"
 
 workflow REALTIME_STATISTICS {
 

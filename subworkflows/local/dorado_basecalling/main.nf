@@ -6,7 +6,7 @@
 ----------------------------------------------------------------------------------------
 */
 
-include { DORADO_BASECALLER      } from '../../modules/local/dorado_basecaller/main'
+include { DORADO_BASECALLER      } from "${projectDir}/modules/local/dorado_basecaller/main"
 include { DEMULTIPLEXING         } from './demultiplexing'
 
 workflow DORADO_BASECALLING {

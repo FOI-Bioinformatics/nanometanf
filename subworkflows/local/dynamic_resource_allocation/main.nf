@@ -21,11 +21,11 @@
 ----------------------------------------------------------------------------------------
 */
 
-include { ANALYZE_INPUT_CHARACTERISTICS } from '../../modules/local/analyze_input_characteristics/main'
-include { MONITOR_SYSTEM_RESOURCES      } from '../../modules/local/monitor_system_resources/main'
-include { PREDICT_RESOURCE_REQUIREMENTS } from '../../modules/local/predict_resource_requirements/main'
-include { OPTIMIZE_RESOURCE_ALLOCATION  } from '../../modules/local/optimize_resource_allocation/main'
-include { LOAD_OPTIMIZATION_PROFILES    } from '../../modules/local/resource_optimization_profiles/main'
+include { ANALYZE_INPUT_CHARACTERISTICS } from "${projectDir}/modules/local/analyze_input_characteristics/main"
+include { MONITOR_SYSTEM_RESOURCES      } from "${projectDir}/modules/local/monitor_system_resources/main"
+include { PREDICT_RESOURCE_REQUIREMENTS } from "${projectDir}/modules/local/predict_resource_requirements/main"
+include { OPTIMIZE_RESOURCE_ALLOCATION  } from "${projectDir}/modules/local/optimize_resource_allocation/main"
+include { LOAD_OPTIMIZATION_PROFILES    } from "${projectDir}/modules/local/resource_optimization_profiles/main"
 
 workflow DYNAMIC_RESOURCE_ALLOCATION {
 
