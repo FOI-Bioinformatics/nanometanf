@@ -6,20 +6,12 @@ nextflow_workflow {
 
     test("Should perform basic FASTP quality control") {
 
-        setup {
-            """
-            cp $projectDir/tests/test_sample.fastq.gz $outputDir/basic_sample.fastq.gz
-            """
-        }
-
         when {
             workflow {
                 """
                 input[0] = [
-                    [
-                        [id: 'basic_qc_test', single_end: true],
-                        file('$outputDir/basic_sample.fastq.gz')
-                    ]
+                    [id: 'basic_qc_test', single_end: true],
+                    file('$projectDir/tests/fixtures/fastq/test_sample.fastq.gz')
                 ]
                 """
             }
@@ -38,13 +30,13 @@ nextflow_workflow {
         then {
             assert workflow.success
             assert snapshot(workflow.out.versions).match()
-            assert workflow.out.qc_reads
+            assert workflow.out.reads
             assert workflow.out.qc_reports
-            
+
             // Verify FASTP processing
-            def qc_reads = workflow.out.qc_reads.toList()
+            def qc_reads = workflow.out.reads.toList()
             assert qc_reads.size() >= 1
-            
+
             def qc_reports = workflow.out.qc_reports.toList()
             assert qc_reports.size() >= 1
         }
@@ -52,24 +44,16 @@ nextflow_workflow {
 
     test("Should perform comprehensive nanopore QC with multiple tools") {
 
-        setup {
-            """
-            cp $projectDir/tests/test_sample.fastq.gz $outputDir/comprehensive_sample.fastq.gz
-            """
-        }
-
         when {
             workflow {
                 """
                 input[0] = [
-                    [
-                        [id: 'comprehensive_qc_test', single_end: true],
-                        file('$outputDir/comprehensive_sample.fastq.gz')
-                    ]
+                    [id: 'comprehensive_qc_test', single_end: true],
+                    file('$projectDir/tests/fixtures/fastq/test_sample.fastq.gz')
                 ]
                 """
             }
-            
+
             params {
                 qc_tool = 'fastp'
                 skip_fastp = false
@@ -87,20 +71,20 @@ nextflow_workflow {
         then {
             assert workflow.success
             assert snapshot(workflow.out.versions).match()
-            assert workflow.out.qc_reads
+            assert workflow.out.reads
             assert workflow.out.qc_reports
-            assert workflow.out.nanoplot_reports
-            
+            assert workflow.out.nanoplot
+
             // Verify multiple QC tools ran
-            def qc_reads = workflow.out.qc_reads.toList()
+            def qc_reads = workflow.out.reads.toList()
             assert qc_reads.size() >= 1
-            
+
             def qc_reports = workflow.out.qc_reports.toList()
             assert qc_reports.size() >= 1
-            
+
             // Verify nanopore-specific QC
-            if (workflow.out.nanoplot_reports) {
-                def nanoplot_reports = workflow.out.nanoplot_reports.toList()
+            if (workflow.out.nanoplot) {
+                def nanoplot_reports = workflow.out.nanoplot.toList()
                 assert nanoplot_reports.size() >= 1
             }
         }
@@ -108,24 +92,16 @@ nextflow_workflow {
 
     test("Should handle FILTLONG nanopore-optimized filtering") {
 
-        setup {
-            """
-            cp $projectDir/tests/test_sample.fastq.gz $outputDir/filtlong_sample.fastq.gz
-            """
-        }
-
         when {
             workflow {
                 """
                 input[0] = [
-                    [
-                        [id: 'filtlong_test', single_end: true],
-                        file('$outputDir/filtlong_sample.fastq.gz')
-                    ]
+                    [id: 'filtlong_test', single_end: true],
+                    file('$projectDir/tests/fixtures/fastq/test_sample.fastq.gz')
                 ]
                 """
             }
-            
+
             params {
                 qc_tool = 'filtlong'
                 filtlong_min_length = 1000
@@ -143,34 +119,26 @@ nextflow_workflow {
         then {
             assert workflow.success
             assert snapshot(workflow.out.versions).match()
-            assert workflow.out.qc_reads
-            
+            assert workflow.out.reads
+
             // Verify FILTLONG processing
-            def qc_reads = workflow.out.qc_reads.toList()
+            def qc_reads = workflow.out.reads.toList()
             assert qc_reads.size() >= 1
         }
     }
 
     test("Should perform adapter trimming with PORECHOP") {
 
-        setup {
-            """
-            cp $projectDir/tests/test_sample.fastq.gz $outputDir/adapter_sample.fastq.gz
-            """
-        }
-
         when {
             workflow {
                 """
                 input[0] = [
-                    [
-                        [id: 'porechop_test', single_end: true],
-                        file('$outputDir/adapter_sample.fastq.gz')
-                    ]
+                    [id: 'porechop_test', single_end: true],
+                    file('$projectDir/tests/fixtures/fastq/test_sample.fastq.gz')
                 ]
                 """
             }
-            
+
             params {
                 qc_tool = 'fastp'
                 enable_porechop = true
@@ -187,40 +155,32 @@ nextflow_workflow {
         then {
             assert workflow.success
             assert snapshot(workflow.out.versions).match()
-            assert workflow.out.qc_reads
-            
+            assert workflow.out.reads
+
             // Verify adapter trimming occurred
-            def qc_reads = workflow.out.qc_reads.toList()
+            def qc_reads = workflow.out.reads.toList()
             assert qc_reads.size() >= 1
         }
     }
 
     test("Should generate comprehensive nanopore statistics") {
 
-        setup {
-            """
-            cp $projectDir/tests/test_sample.fastq.gz $outputDir/stats_sample.fastq.gz
-            """
-        }
-
         when {
             workflow {
                 """
                 input[0] = [
-                    [
-                        [id: 'stats_test', single_end: true],
-                        file('$outputDir/stats_sample.fastq.gz')
-                    ]
+                    [id: 'stats_test', single_end: true],
+                    file('$projectDir/tests/fixtures/fastq/test_sample.fastq.gz')
                 ]
                 """
             }
-            
+
             params {
-                qc_tool = 'fastp'
-                enable_seqkit_stats = true
+                qc_tool = 'chopper'
+                chopper_quality = 10
+                chopper_minlength = 1000
                 skip_nanoplot = false
                 nanoplot_format = 'png'
-                skip_fastqc = true
                 max_cpus = 2
                 max_memory = '4.GB'
                 max_time = '2.min'
@@ -230,17 +190,17 @@ nextflow_workflow {
         then {
             assert workflow.success
             assert snapshot(workflow.out.versions).match()
-            assert workflow.out.qc_reads
+            assert workflow.out.reads
             assert workflow.out.qc_reports
-            assert workflow.out.stats_reports
-            
-            // Verify statistics generation
-            def stats_reports = workflow.out.stats_reports.toList()
+            assert workflow.out.seqkit_stats
+
+            // Verify statistics generation (CHOPPER always runs SEQKIT_STATS)
+            def stats_reports = workflow.out.seqkit_stats.toList()
             assert stats_reports.size() >= 1
-            
+
             // Verify NanoPlot visualization
-            if (workflow.out.nanoplot_reports) {
-                def nanoplot_reports = workflow.out.nanoplot_reports.toList()
+            if (workflow.out.nanoplot) {
+                def nanoplot_reports = workflow.out.nanoplot.toList()
                 assert nanoplot_reports.size() >= 1
             }
         }
@@ -248,35 +208,26 @@ nextflow_workflow {
 
     test("Should handle multiple samples in batch processing") {
 
-        setup {
-            """
-            # Create multiple test samples
-            cp $projectDir/tests/test_sample.fastq.gz $outputDir/batch_sample1.fastq.gz
-            cp $projectDir/tests/test_sample.fastq.gz $outputDir/batch_sample2.fastq.gz
-            cp $projectDir/tests/test_sample.fastq.gz $outputDir/batch_sample3.fastq.gz
-            """
-        }
-
         when {
             workflow {
                 """
                 input[0] = [
                     [
                         [id: 'batch_sample1', single_end: true],
-                        file('$outputDir/batch_sample1.fastq.gz')
+                        file('$projectDir/tests/fixtures/fastq/test_sample.fastq.gz')
                     ],
                     [
                         [id: 'batch_sample2', single_end: true],
-                        file('$outputDir/batch_sample2.fastq.gz')
+                        file('$projectDir/tests/fixtures/fastq/test_sample.fastq.gz')
                     ],
                     [
                         [id: 'batch_sample3', single_end: true],
-                        file('$outputDir/batch_sample3.fastq.gz')
+                        file('$projectDir/tests/fixtures/fastq/test_sample.fastq.gz')
                     ]
                 ]
                 """
             }
-            
+
             params {
                 qc_tool = 'fastp'
                 skip_nanoplot = true
@@ -290,13 +241,13 @@ nextflow_workflow {
         then {
             assert workflow.success
             assert snapshot(workflow.out.versions).match()
-            assert workflow.out.qc_reads
+            assert workflow.out.reads
             assert workflow.out.qc_reports
-            
+
             // Verify batch processing
-            def qc_reads = workflow.out.qc_reads.toList()
+            def qc_reads = workflow.out.reads.toList()
             assert qc_reads.size() >= 3
-            
+
             def qc_reports = workflow.out.qc_reports.toList()
             assert qc_reports.size() >= 3
         }
@@ -304,24 +255,16 @@ nextflow_workflow {
 
     test("Should handle quality-based filtering with custom thresholds") {
 
-        setup {
-            """
-            cp $projectDir/tests/test_sample.fastq.gz $outputDir/quality_sample.fastq.gz
-            """
-        }
-
         when {
             workflow {
                 """
                 input[0] = [
-                    [
-                        [id: 'quality_filter_test', single_end: true],
-                        file('$outputDir/quality_sample.fastq.gz')
-                    ]
+                    [id: 'quality_filter_test', single_end: true],
+                    file('$projectDir/tests/fixtures/fastq/test_sample.fastq.gz')
                 ]
                 """
             }
-            
+
             params {
                 qc_tool = 'fastp'
                 fastp_qualified_quality_phred = 15
@@ -340,13 +283,13 @@ nextflow_workflow {
         then {
             assert workflow.success
             assert snapshot(workflow.out.versions).match()
-            assert workflow.out.qc_reads
+            assert workflow.out.reads
             assert workflow.out.qc_reports
-            
+
             // Verify quality filtering
-            def qc_reads = workflow.out.qc_reads.toList()
+            def qc_reads = workflow.out.reads.toList()
             assert qc_reads.size() >= 1
-            
+
             def qc_reports = workflow.out.qc_reports.toList()
             assert qc_reports.size() >= 1
         }
@@ -354,31 +297,21 @@ nextflow_workflow {
 
     test("Should handle FastQC analysis for general quality assessment") {
 
-        setup {
-            """
-            cp $projectDir/tests/test_sample.fastq.gz $outputDir/fastqc_sample.fastq.gz
-            """
-        }
-
         when {
             workflow {
                 """
                 input[0] = [
-                    [
-                        [id: 'fastqc_test', single_end: true],
-                        file('$outputDir/fastqc_sample.fastq.gz')
-                    ]
+                    [id: 'fastqc_test', single_end: true],
+                    file('$projectDir/tests/fixtures/fastq/test_sample.fastq.gz')
                 ]
                 """
             }
-            
+
             params {
-                qc_tool = 'fastp'
-                skip_fastp = true
+                qc_tool = 'filtlong'
+                filtlong_min_length = 1000
+                filtlong_keep_percent = 90
                 skip_nanoplot = true
-                skip_fastqc = false
-                fastqc_adapters = null
-                fastqc_limits = null
                 max_cpus = 2
                 max_memory = '4.GB'
                 max_time = '2.min'
@@ -388,10 +321,10 @@ nextflow_workflow {
         then {
             assert workflow.success
             assert snapshot(workflow.out.versions).match()
-            assert workflow.out.fastqc_reports
-            
-            // Verify FastQC analysis
-            def fastqc_reports = workflow.out.fastqc_reports.toList()
+            assert workflow.out.fastqc_html
+
+            // Verify FastQC analysis (FILTLONG always runs FastQC)
+            def fastqc_reports = workflow.out.fastqc_html.toList()
             assert fastqc_reports.size() >= 1
         }
     }
@@ -451,24 +384,16 @@ nextflow_workflow {
 
     test("Should run minimal QC with skip options") {
 
-        setup {
-            """
-            cp $projectDir/tests/test_sample.fastq.gz $outputDir/minimal_sample.fastq.gz
-            """
-        }
-
         when {
             workflow {
                 """
                 input[0] = [
-                    [
-                        [id: 'minimal_qc_test', single_end: true],
-                        file('$outputDir/minimal_sample.fastq.gz')
-                    ]
+                    [id: 'minimal_qc_test', single_end: true],
+                    file('$projectDir/tests/fixtures/fastq/test_sample.fastq.gz')
                 ]
                 """
             }
-            
+
             params {
                 qc_tool = 'fastp'
                 skip_fastp = false
@@ -488,10 +413,10 @@ nextflow_workflow {
         then {
             assert workflow.success
             assert snapshot(workflow.out.versions).match()
-            assert workflow.out.qc_reads
-            
+            assert workflow.out.reads
+
             // Verify minimal processing
-            def qc_reads = workflow.out.qc_reads.toList()
+            def qc_reads = workflow.out.reads.toList()
             assert qc_reads.size() >= 1
         }
     }
