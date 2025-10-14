@@ -7,7 +7,7 @@
 */
 
 include { DORADO_BASECALLER      } from "${projectDir}/modules/local/dorado_basecaller/main"
-include { DEMULTIPLEXING         } from './demultiplexing'
+include { DEMULTIPLEXING         } from "${projectDir}/subworkflows/local/demultiplexing/main"
 
 workflow DORADO_BASECALLING {
     
