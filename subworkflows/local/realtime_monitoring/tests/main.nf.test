@@ -78,9 +78,9 @@ nextflow_workflow {
             // The workflow should initialize correctly
             assert workflow.success
             assert snapshot(workflow.out.versions).match()
-            
-            // Check that the workflow handles the parameter configuration
-            assert workflow.duration.toMillis() < 120000 // Should complete quickly
+
+            // Duration property not available in nf-test workflow context
+            // Test validates successful parameter configuration
         }
     }
 
@@ -245,7 +245,7 @@ nextflow_workflow {
             # Create FASTQ files for interval testing
             mkdir -p $outputDir/interval_test_dir
             for i in 1 2 3 4 5; do
-                echo "@read$i\nATCGATCGATCG\n+\nIIIIIIIIIIII" > $outputDir/interval_test_dir/interval_$i.fastq
+                echo "@read\${i}\nATCGATCGATCG\n+\nIIIIIIIIIIII" > $outputDir/interval_test_dir/interval_\${i}.fastq
             done
             """
         }
@@ -479,15 +479,15 @@ nextflow_workflow {
         then {
             assert workflow.success
             assert snapshot(workflow.out.versions).match()
-            
+
             // Resource requirement validation
             if (workflow.out.samples) {
                 def samples = workflow.out.samples.toList()
                 assert samples.size() == 0
             }
-            
-            // Should handle high resource scenarios
-            assert workflow.duration.toMillis() < 180000 // Less than 3 minutes
+
+            // Duration property not available in nf-test workflow context
+            // Test validates successful resource configuration
         }
     }
 
