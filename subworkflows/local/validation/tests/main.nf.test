@@ -15,12 +15,6 @@ ATGCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGAT
 >test_sequence_2
 ATGCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGAT
 EOF
-
-            # Create mock BLAST database directory
-            mkdir -p $outputDir/mock_blast_db
-            echo "Mock BLAST database" > $outputDir/mock_blast_db/test_db.nhr
-            echo "Mock BLAST index" > $outputDir/mock_blast_db/test_db.nin
-            echo "Mock BLAST sequences" > $outputDir/mock_blast_db/test_db.nsq
             """
         }
 
@@ -33,7 +27,7 @@ EOF
                         file('$outputDir/query_sequences.fasta')
                     ]
                 ]
-                input[1] = file('$outputDir/mock_blast_db')
+                input[1] = file('$projectDir/tests/fixtures/blast_db/test_db')
                 """
             }
             
@@ -75,12 +69,6 @@ GCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCG
 >query_sequence_4
 TCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGA
 EOF
-
-            # Create mock database
-            mkdir -p $outputDir/multi_blast_db
-            echo "Multiple query mock database" > $outputDir/multi_blast_db/multi_db.nhr
-            echo "Multiple query mock index" > $outputDir/multi_blast_db/multi_db.nin
-            echo "Multiple query mock sequences" > $outputDir/multi_blast_db/multi_db.nsq
             """
         }
 
@@ -93,7 +81,7 @@ EOF
                         file('$outputDir/multiple_queries.fasta')
                     ]
                 ]
-                input[1] = file('$outputDir/multi_blast_db')
+                input[1] = file('$projectDir/tests/fixtures/blast_db/test_db')
                 """
             }
             
@@ -139,11 +127,6 @@ EOF
 GATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATC
 EOF
 
-            # Create mock database
-            mkdir -p $outputDir/batch_blast_db
-            echo "Batch validation mock database" > $outputDir/batch_blast_db/batch_db.nhr
-            echo "Batch validation mock index" > $outputDir/batch_blast_db/batch_db.nin
-            echo "Batch validation mock sequences" > $outputDir/batch_blast_db/batch_db.nsq
             """
         }
 
@@ -164,7 +147,7 @@ EOF
                         file('$outputDir/sample3_queries.fasta')
                     ]
                 ]
-                input[1] = file('$outputDir/batch_blast_db')
+                input[1] = file('$projectDir/tests/fixtures/blast_db/test_db')
                 """
             }
             
@@ -196,11 +179,6 @@ EOF
 ATGCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGAT
 EOF
 
-            # Create mock database
-            mkdir -p $outputDir/format_blast_db
-            echo "Format test mock database" > $outputDir/format_blast_db/format_db.nhr
-            echo "Format test mock index" > $outputDir/format_blast_db/format_db.nin
-            echo "Format test mock sequences" > $outputDir/format_blast_db/format_db.nsq
             """
         }
 
@@ -213,7 +191,7 @@ EOF
                         file('$outputDir/format_queries.fasta')
                     ]
                 ]
-                input[1] = file('$outputDir/format_blast_db')
+                input[1] = file('$projectDir/tests/fixtures/blast_db/test_db')
                 """
             }
             
@@ -248,11 +226,6 @@ EOF
 ATGCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGAT
 EOF
 
-            # Create mock database
-            mkdir -p $outputDir/stringent_blast_db
-            echo "Stringent validation mock database" > $outputDir/stringent_blast_db/stringent_db.nhr
-            echo "Stringent validation mock index" > $outputDir/stringent_blast_db/stringent_db.nin
-            echo "Stringent validation mock sequences" > $outputDir/stringent_blast_db/stringent_db.nsq
             """
         }
 
@@ -265,7 +238,7 @@ EOF
                         file('$outputDir/stringent_queries.fasta')
                     ]
                 ]
-                input[1] = file('$outputDir/stringent_blast_db')
+                input[1] = file('$projectDir/tests/fixtures/blast_db/test_db')
                 """
             }
             
@@ -336,11 +309,6 @@ ATGCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGAT
 CGCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATG
 EOF
 
-            # Create mock database
-            mkdir -p $outputDir/custom_blast_db
-            echo "Custom parameters mock database" > $outputDir/custom_blast_db/custom_db.nhr
-            echo "Custom parameters mock index" > $outputDir/custom_blast_db/custom_db.nin
-            echo "Custom parameters mock sequences" > $outputDir/custom_blast_db/custom_db.nsq
             """
         }
 
@@ -353,7 +321,7 @@ EOF
                         file('$outputDir/custom_queries.fasta')
                     ]
                 ]
-                input[1] = file('$outputDir/custom_blast_db')
+                input[1] = file('$projectDir/tests/fixtures/blast_db/test_db')
                 """
             }
             
