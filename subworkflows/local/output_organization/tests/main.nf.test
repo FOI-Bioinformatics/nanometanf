@@ -100,8 +100,8 @@ nextflow_workflow {
             # Create multiple sample QC reports
             mkdir -p $outputDir/batch_qc
             for i in 1 2 3; do
-                echo "<html><body>QC Report Sample $i</body></html>" > $outputDir/batch_qc/fastp_sample${i}.html
-                echo "<html><body>NanoPlot Sample $i</body></html>" > $outputDir/batch_qc/nanoplot_sample${i}.html
+                echo "<html><body>QC Report Sample \${i}</body></html>" > $outputDir/batch_qc/fastp_sample\${i}.html
+                echo "<html><body>NanoPlot Sample \${i}</body></html>" > $outputDir/batch_qc/nanoplot_sample\${i}.html
             done
             
             # Create multiple classification reports
@@ -116,8 +116,8 @@ nextflow_workflow {
             # Create multiple validation reports
             mkdir -p $outputDir/batch_validation
             for i in 1 2 3; do
-                echo "qseqid\tsseqid\tpident" > $outputDir/batch_validation/blast_sample${i}.txt
-                echo "seq${i}\tref${i}\t9$i.5" >> $outputDir/batch_validation/blast_sample${i}.txt
+                echo "qseqid\tsseqid\tpident" > $outputDir/batch_validation/blast_sample\${i}.txt
+                echo "seq\${i}\tref\${i}\t9\${i}.5" >> $outputDir/batch_validation/blast_sample\${i}.txt
             done
             
             # Create MultiQC report
