@@ -1,0 +1,67 @@
+{
+    "Should handle multiple classification formats": {
+        "content": [
+            [
+                "versions.yml:md5,47cea2c8122ce1997cb90d2dfcb64f57",
+                "versions.yml:md5,b4e713197270631d10fc1b5c0697869c"
+            ]
+        ],
+        "meta": {
+            "nf-test": "0.9.2",
+            "nextflow": "25.04.7"
+        },
+        "timestamp": "2025-10-15T16:22:30.137745"
+    },
+    "Should perform basic Kraken2 taxonomic classification": {
+        "content": [
+            [
+                "versions.yml:md5,47cea2c8122ce1997cb90d2dfcb64f57",
+                "versions.yml:md5,b4e713197270631d10fc1b5c0697869c"
+            ]
+        ],
+        "meta": {
+            "nf-test": "0.9.2",
+            "nextflow": "25.04.7"
+        },
+        "timestamp": "2025-10-15T16:20:17.787946"
+    },
+    "Should support different Kraken2 database types": {
+        "content": [
+            [
+                "versions.yml:md5,47cea2c8122ce1997cb90d2dfcb64f57",
+                "versions.yml:md5,b4e713197270631d10fc1b5c0697869c"
+            ]
+        ],
+        "meta": {
+            "nf-test": "0.9.2",
+            "nextflow": "25.04.7"
+        },
+        "timestamp": "2025-10-15T16:23:06.073322"
+    },
+    "Should handle classification confidence thresholds": {
+        "content": [
+            [
+                "versions.yml:md5,47cea2c8122ce1997cb90d2dfcb64f57",
+                "versions.yml:md5,b4e713197270631d10fc1b5c0697869c"
+            ]
+        ],
+        "meta": {
+            "nf-test": "0.9.2",
+            "nextflow": "25.04.7"
+        },
+        "timestamp": "2025-10-15T16:22:43.972488"
+    },
+    "Should standardize output with Taxpasta": {
+        "content": [
+            [
+                "versions.yml:md5,47cea2c8122ce1997cb90d2dfcb64f57",
+                "versions.yml:md5,b4e713197270631d10fc1b5c0697869c"
+            ]
+        ],
+        "meta": {
+            "nf-test": "0.9.2",
+            "nextflow": "25.04.7"
+        },
+        "timestamp": "2025-10-15T16:22:52.528962"
+    }
+}
