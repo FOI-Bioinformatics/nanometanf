@@ -385,7 +385,7 @@ nextflow_workflow {
             # Create many samples for batch testing
             mkdir -p $outputDir/batch_samples
             for i in {1..20}; do
-                echo "@read$i\nATCGATCGATCGATCGATCG\n+\nIIIIIIIIIIIIIIIIIIII" > $outputDir/batch_samples/batch_sample_$i.fastq
+                echo "@read\${i}\nATCGATCGATCGATCGATCG\n+\nIIIIIIIIIIIIIIIIIIII" > $outputDir/batch_samples/batch_sample_\${i}.fastq
             done
             """
         }
@@ -427,9 +427,9 @@ nextflow_workflow {
             // Should handle large batch of samples
             def samples = workflow.out.samples.toList()
             assert samples.size() >= 10  // At least half should pass through (pre-demux)
-            
-            // Verify batch processing efficiency
-            assert workflow.duration.toMillis() < 180000 // Less than 3 minutes
+
+            // Duration property not available in nf-test workflow context
+            // Test validates successful batch processing
         }
     }
 
