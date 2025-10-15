@@ -17,7 +17,7 @@ nextflow_process {
                 """
                 input[0] = [
                     [id: 'test_sample'],
-                    file(params.test_data['generic']['txt']['kraken2_report'], checkIfExists: true)
+                    file('$projectDir/tests/fixtures/outputs/classification/kraken2_report.txt')
                 ]
                 """
             }
