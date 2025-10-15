@@ -21,3 +21,5 @@ lint_output_eval.txt
 nf-core-lint-results.log
 full_test_analysis.log
 *.backup
+.claude/
+SECURITY.md
