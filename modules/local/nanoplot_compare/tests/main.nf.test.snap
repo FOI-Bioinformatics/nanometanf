@@ -1,0 +1,43 @@
+{
+    "nanoplot_compare - stub run": {
+        "content": [
+            {
+                "0": [
+                    
+                ],
+                "1": [
+                    
+                ],
+                "2": [
+                    
+                ],
+                "3": [
+                    
+                ],
+                "4": [
+                    
+                ],
+                "comparison_dir": [
+                    
+                ],
+                "html": [
+                    
+                ],
+                "png": [
+                    
+                ],
+                "txt": [
+                    
+                ],
+                "versions": [
+                    
+                ]
+            }
+        ],
+        "meta": {
+            "nf-test": "0.9.2",
+            "nextflow": "25.04.7"
+        },
+        "timestamp": "2025-10-14T15:30:20.550489"
+    }
+}

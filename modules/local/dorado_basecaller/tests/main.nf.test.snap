@@ -1,0 +1,31 @@
+{
+    "Should run dorado basecalling on POD5 files": {
+        "content": [
+            {
+                "0": [
+                    
+                ],
+                "1": [
+                    
+                ],
+                "2": [
+                    
+                ],
+                "fastq": [
+                    
+                ],
+                "summary": [
+                    
+                ],
+                "versions": [
+                    
+                ]
+            }
+        ],
+        "meta": {
+            "nf-test": "0.9.2",
+            "nextflow": "25.04.7"
+        },
+        "timestamp": "2025-10-14T11:56:53.765529"
+    }
+}

@@ -1,0 +1,95 @@
+{
+    "Should handle FastQC analysis for general quality assessment": {
+        "content": [
+            [
+                "versions.yml:md5,289c30c0c8f1d0b00532329504572f16",
+                "versions.yml:md5,b20891e5d879f88cd6f63e9573d45c31"
+            ]
+        ],
+        "meta": {
+            "nf-test": "0.9.2",
+            "nextflow": "25.04.7"
+        },
+        "timestamp": "2025-10-14T20:29:16.585064"
+    },
+    "Should handle quality-based filtering with custom thresholds": {
+        "content": [
+            [
+                "versions.yml:md5,289c30c0c8f1d0b00532329504572f16",
+                "versions.yml:md5,b20891e5d879f88cd6f63e9573d45c31"
+            ]
+        ],
+        "meta": {
+            "nf-test": "0.9.2",
+            "nextflow": "25.04.7"
+        },
+        "timestamp": "2025-10-14T20:29:07.346736"
+    },
+    "Should perform comprehensive nanopore QC with multiple tools": {
+        "content": [
+            [
+                "versions.yml:md5,289c30c0c8f1d0b00532329504572f16",
+                "versions.yml:md5,b20891e5d879f88cd6f63e9573d45c31"
+            ]
+        ],
+        "meta": {
+            "nf-test": "0.9.2",
+            "nextflow": "25.04.7"
+        },
+        "timestamp": "2025-10-14T20:28:35.962374"
+    },
+    "Should perform basic FASTP quality control": {
+        "content": [
+            [
+                "versions.yml:md5,289c30c0c8f1d0b00532329504572f16",
+                "versions.yml:md5,b20891e5d879f88cd6f63e9573d45c31"
+            ]
+        ],
+        "meta": {
+            "nf-test": "0.9.2",
+            "nextflow": "25.04.7"
+        },
+        "timestamp": "2025-10-14T20:19:56.74021"
+    },
+    "Should run minimal QC with skip options": {
+        "content": [
+            [
+                "versions.yml:md5,289c30c0c8f1d0b00532329504572f16",
+                "versions.yml:md5,b20891e5d879f88cd6f63e9573d45c31"
+            ]
+        ],
+        "meta": {
+            "nf-test": "0.9.2",
+            "nextflow": "25.04.7"
+        },
+        "timestamp": "2025-10-14T20:29:27.84905"
+    },
+    "Should generate comprehensive nanopore statistics": {
+        "content": [
+            [
+                "versions.yml:md5,278de80cb05a3c6ded00c0b6ccd67373",
+                "versions.yml:md5,289c30c0c8f1d0b00532329504572f16",
+                "versions.yml:md5,f032c923a92969ab13137db3483fb44f",
+                "versions.yml:md5,fc9c37561b82c26a4f7126eff84900de"
+            ]
+        ],
+        "meta": {
+            "nf-test": "0.9.2",
+            "nextflow": "25.04.7"
+        },
+        "timestamp": "2025-10-15T17:02:45.547267"
+    },
+    "Should perform adapter trimming with PORECHOP": {
+        "content": [
+            [
+                "versions.yml:md5,289c30c0c8f1d0b00532329504572f16",
+                "versions.yml:md5,b20891e5d879f88cd6f63e9573d45c31"
+            ]
+        ],
+        "meta": {
+            "nf-test": "0.9.2",
+            "nextflow": "25.04.7"
+        },
+        "timestamp": "2025-10-14T20:28:47.654786"
+    }
+}
