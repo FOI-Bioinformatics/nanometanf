@@ -15,3 +15,9 @@ test_*
 # Temporary development scripts
 /*.sh
 !bin/*.sh
+lint_results.log
+lint_output.txt
+lint_output_eval.txt
+nf-core-lint-results.log
+full_test_analysis.log
+*.backup
