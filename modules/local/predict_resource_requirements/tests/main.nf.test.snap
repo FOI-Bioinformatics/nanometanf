@@ -1,4 +1,113 @@
 {
+    "Should handle tool-specific predictions": {
+        "content": [
+            {
+                "0": [
+                    [
+                        {
+                            "id": "tool_specific_test",
+                            "single_end": true,
+                            "tool": "nanoplot"
+                        },
+                        "tool_specific_test_resource_predictions.json:md5,5c59f74ff93f097b15eda340f45924b3"
+                    ]
+                ],
+                "1": [
+                    "versions.yml:md5,8411434d9b17cd52810288a4f3fe34e8"
+                ],
+                "predictions": [
+                    [
+                        {
+                            "id": "tool_specific_test",
+                            "single_end": true,
+                            "tool": "nanoplot"
+                        },
+                        "tool_specific_test_resource_predictions.json:md5,5c59f74ff93f097b15eda340f45924b3"
+                    ]
+                ],
+                "versions": [
+                    "versions.yml:md5,8411434d9b17cd52810288a4f3fe34e8"
+                ]
+            }
+        ],
+        "meta": {
+            "nf-test": "0.9.2",
+            "nextflow": "25.04.7"
+        },
+        "timestamp": "2025-10-15T17:51:05.179858"
+    },
+    "Should predict resources with ML model": {
+        "content": [
+            {
+                "0": [
+                    [
+                        {
+                            "id": "ml_prediction_test",
+                            "single_end": true,
+                            "tool": "fastp"
+                        },
+                        "ml_prediction_test_resource_predictions.json:md5,5d5ae1508a1cb466c6824d878fabde81"
+                    ]
+                ],
+                "1": [
+                    "versions.yml:md5,8411434d9b17cd52810288a4f3fe34e8"
+                ],
+                "predictions": [
+                    [
+                        {
+                            "id": "ml_prediction_test",
+                            "single_end": true,
+                            "tool": "fastp"
+                        },
+                        "ml_prediction_test_resource_predictions.json:md5,5d5ae1508a1cb466c6824d878fabde81"
+                    ]
+                ],
+                "versions": [
+                    "versions.yml:md5,8411434d9b17cd52810288a4f3fe34e8"
+                ]
+            }
+        ],
+        "meta": {
+            "nf-test": "0.9.2",
+            "nextflow": "25.04.7"
+        },
+        "timestamp": "2025-10-15T17:51:01.548537"
+    },
+    "Should handle prediction confidence thresholds": {
+        "content": [
+            {
+                "0": [
+                    [
+                        {
+                            "id": "confidence_test",
+                            "single_end": true
+                        },
+                        "confidence_test_resource_predictions.json:md5,1991bf14b855a7ad71b600274d8e283a"
+                    ]
+                ],
+                "1": [
+                    "versions.yml:md5,8411434d9b17cd52810288a4f3fe34e8"
+                ],
+                "predictions": [
+                    [
+                        {
+                            "id": "confidence_test",
+                            "single_end": true
+                        },
+                        "confidence_test_resource_predictions.json:md5,1991bf14b855a7ad71b600274d8e283a"
+                    ]
+                ],
+                "versions": [
+                    "versions.yml:md5,8411434d9b17cd52810288a4f3fe34e8"
+                ]
+            }
+        ],
+        "meta": {
+            "nf-test": "0.9.2",
+            "nextflow": "25.04.7"
+        },
+        "timestamp": "2025-10-15T17:51:09.011599"
+    },
     "Should predict resource requirements from input characteristics": {
         "content": [
             {
@@ -33,5 +142,40 @@
             "nextflow": "25.04.7"
         },
         "timestamp": "2025-10-03T07:35:33.569353"
+    },
+    "Should handle edge cases and fallbacks": {
+        "content": [
+            {
+                "0": [
+                    [
+                        {
+                            "id": "edge_case_test",
+                            "single_end": true
+                        },
+                        "edge_case_test_resource_predictions.json:md5,3bff1a219610441599071d8e666c8335"
+                    ]
+                ],
+                "1": [
+                    "versions.yml:md5,8411434d9b17cd52810288a4f3fe34e8"
+                ],
+                "predictions": [
+                    [
+                        {
+                            "id": "edge_case_test",
+                            "single_end": true
+                        },
+                        "edge_case_test_resource_predictions.json:md5,3bff1a219610441599071d8e666c8335"
+                    ]
+                ],
+                "versions": [
+                    "versions.yml:md5,8411434d9b17cd52810288a4f3fe34e8"
+                ]
+            }
+        ],
+        "meta": {
+            "nf-test": "0.9.2",
+            "nextflow": "25.04.7"
+        },
+        "timestamp": "2025-10-15T17:51:12.434141"
     }
 }
