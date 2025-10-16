@@ -37,7 +37,7 @@ template:
   name: nanometanf
   description: Backend of Nanometa-Live
   author: "Andreas Sj\xF6din"
-  version: 1.2.0
+  version: 1.2.1dev
   force: true
   outdir: .
   skip_features:
