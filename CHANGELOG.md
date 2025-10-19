@@ -14,12 +14,53 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 -
 
 ### Fixed
+-
 
-- **CRITICAL v1.3.0 Bug**: Disabled missing Kraken2 incremental classifier modules (commit a71652f)
+---
+
+## [1.3.1] - 2025-10-20
+
+### 🚨 Emergency Hotfix for v1.3.0 Critical Bug
+
+This is an emergency hotfix release to address a critical parse-time error in v1.3.0 that prevented the pipeline from executing at all.
+
+### Fixed
+
+- **CRITICAL**: Parse-time error due to missing Kraken2 incremental classifier modules (v1.3.0 blocker)
   - Commented out includes for non-existent modules: `KRAKEN2_INCREMENTAL_CLASSIFIER`, `KRAKEN2_OUTPUT_MERGER`, `KRAKEN2_REPORT_GENERATOR`
-  - Disabled incremental classification code path (line 75: `if (false && params.kraken2_enable_incremental == true)`)
-  - **Impact**: v1.3.0 is unusable due to parse-time error. This fix restores basic functionality.
-  - **Status**: Fixed in dev, pending v1.3.1 hotfix release
+  - Disabled incremental classification code path in `subworkflows/local/taxonomic_classification/main.nf:75`
+  - **Impact**: v1.3.0 was completely unusable. v1.3.1 restores all core functionality.
+  - **Scope**: Affects only unreleased Phase 1.1/1.2 features (incremental processing)
+  - **Status**: All v1.3.0 features (Phase 2 database preloading, Phase 3 platform profiles) fully functional
+
+### Impact
+
+- **v1.3.0 Users**: Immediate upgrade required - v1.3.0 cannot execute any pipelines
+- **Error Type**: Parse-time error (prevents pipeline from starting)
+- **Affected Modes**: All execution modes (even with `--skip_kraken2`)
+- **Fix**: Single file change in `subworkflows/local/taxonomic_classification/main.nf`
+
+### Recommendation
+
+**Users on v1.3.0**: Upgrade immediately to v1.3.1:
+```bash
+nextflow run foi-bioinformatics/nanometanf -r v1.3.1 -profile conda
+```
+
+**Users on v1.2.0**: Can upgrade to v1.3.1 for PromethION optimizations, or remain on v1.2.0 (stable)
+
+### Contributors
+
+- Andreas Sjödin (Lead Developer)
+- Claude Code (Bug identification and systematic fix)
+
+### Commits in This Release
+
+```
+a71652f - Fix v1.3.0 critical bug: disable missing Kraken2 incremental modules
+8c24015 - Document v1.3.0 critical issue in CHANGELOG
+8936b54 - Update CLAUDE.md with v1.3.0 status warning
+```
 
 ---
 
