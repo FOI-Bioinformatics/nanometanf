@@ -21,9 +21,10 @@
 
 include { KRAKEN2_KRAKEN2                } from "${projectDir}/modules/nf-core/kraken2/kraken2/main"
 include { KRAKEN2_OPTIMIZED              } from "${projectDir}/modules/local/kraken2_optimized/main"
-include { KRAKEN2_INCREMENTAL_CLASSIFIER } from "${projectDir}/modules/local/kraken2_incremental_classifier/main"
-include { KRAKEN2_OUTPUT_MERGER          } from "${projectDir}/modules/local/kraken2_output_merger/main"
-include { KRAKEN2_REPORT_GENERATOR       } from "${projectDir}/modules/local/kraken2_report_generator/main"
+// NOTE: Incremental classification feature disabled - modules not implemented
+// include { KRAKEN2_INCREMENTAL_CLASSIFIER } from "${projectDir}/modules/local/kraken2_incremental_classifier/main"
+// include { KRAKEN2_OUTPUT_MERGER          } from "${projectDir}/modules/local/kraken2_output_merger/main"
+// include { KRAKEN2_REPORT_GENERATOR       } from "${projectDir}/modules/local/kraken2_report_generator/main"
 include { TAXPASTA_STANDARDISE           } from "${projectDir}/modules/nf-core/taxpasta/standardise/main"
 
 workflow TAXONOMIC_CLASSIFICATION {
@@ -69,9 +70,9 @@ workflow TAXONOMIC_CLASSIFICATION {
         case 'kraken2':
             //
             // MODULE: Run Kraken2 for taxonomic classification
-            // Three modes: incremental, optimized, or standard
+            // Two modes: optimized or standard (incremental disabled - modules not implemented)
             //
-            if (params.kraken2_enable_incremental == true) {
+            if (false && params.kraken2_enable_incremental == true) {  // Incremental mode disabled
                 log.info "Using incremental Kraken2 processing with batch caching"
                 log.info "  - Raw outputs cached per batch for efficient merging"
                 log.info "  - Cumulative reports generated from merged data"
