@@ -335,20 +335,11 @@
           "fa_icon": "fas fa-folder-tree"
         },
         "priority_samples": {
-          "oneOf": [
-            {
-              "type": "array",
-              "items": {
-                "type": "string"
-              }
-            },
-            {
-              "type": "string",
-              "pattern": "^[^,]+(,[^,]+)*$"
-            }
-          ],
-          "description": "List of high-priority sample IDs for expedited processing (comma-separated string or array).",
-          "fa_icon": "fas fa-star"
+          "type": "string",
+          "pattern": "^[^,]+(,[^,]+)*$",
+          "description": "Comma-separated list of high-priority sample IDs for expedited processing.",
+          "fa_icon": "fas fa-star",
+          "help_text": "Specify sample IDs as a comma-separated string (e.g., 'sample1,sample2,sample3'). These samples will be processed before others in real-time mode."
         },
         "enable_realtime_stats": {
           "type": "boolean",
