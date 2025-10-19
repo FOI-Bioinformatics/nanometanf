@@ -27,6 +27,7 @@ include { PORECHOP_PORECHOP       } from "${projectDir}/modules/nf-core/porechop
 include { NANOPLOT                } from "${projectDir}/modules/nf-core/nanoplot/main"
 include { FASTQC                  } from "${projectDir}/modules/nf-core/fastqc/main"
 include { SEQKIT_STATS            } from "${projectDir}/modules/nf-core/seqkit/stats/main"
+include { SEQKIT_MERGE_STATS      } from "${projectDir}/modules/local/seqkit_merge_stats/main"
 
 workflow QC_ANALYSIS {
 
@@ -166,29 +167,106 @@ workflow QC_ANALYSIS {
         default:
             error "Unsupported QC tool: ${qc_tool}. Currently supported: fastp, filtlong, chopper"
     }
-    
+
     //
-    // MODULE: Run NanoPlot for nanopore-specific QC visualization (always run)
+    // OPTIONAL: Incremental QC statistics aggregation (PromethION optimization)
     //
-    NANOPLOT (
-        ch_qc_reads.ifEmpty(ch_reads)
-    )
-    ch_versions = ch_versions.mix(NANOPLOT.out.versions)
+    // For tools that use SEQKIT_STATS (chopper, filtlong), aggregate batch-level stats
+    // into cumulative statistics when incremental mode is enabled
+    //
+    def enable_incremental = params.qc_enable_incremental ?: false
+    def ch_final_seqkit_stats = ch_seqkit_stats
+
+    if (enable_incremental && (qc_tool == 'chopper' || qc_tool == 'filtlong')) {
+        log.info "Using incremental QC statistics aggregation for ${qc_tool}"
+
+        // Group batch-level seqkit stats by sample ID
+        def ch_grouped_batch_stats = ch_seqkit_stats.groupTuple(by: 0)
+
+        // Merge batch statistics into cumulative statistics
+        SEQKIT_MERGE_STATS(
+            ch_grouped_batch_stats
+        )
+        ch_versions = ch_versions.mix(SEQKIT_MERGE_STATS.out.versions)
+
+        // Use cumulative stats instead of batch stats
+        ch_final_seqkit_stats = SEQKIT_MERGE_STATS.out.cumulative_stats
+    }
+
+    //
+    // MODULE: Run NanoPlot for nanopore-specific QC visualization (conditional in real-time mode)
+    //
+    // NanoPlot optimization for real-time processing:
+    // - Skip intermediate batches if nanoplot_realtime_skip_intermediate = true
+    // - Run every N batches if nanoplot_batch_interval is set
+    // - Always run on final batch (when is_final_batch = true in meta)
+    //
+    def skip_nanoplot = params.skip_nanoplot ?: false
+    def is_realtime = params.realtime_mode ?: false
+    def skip_intermediate = params.nanoplot_realtime_skip_intermediate ?: true
+    def batch_interval = params.nanoplot_batch_interval ?: 10
+
+    def ch_nanoplot_input = ch_qc_reads
+    def ch_nanoplot_html = Channel.empty()
+    def ch_nanoplot_txt = Channel.empty()
+    def ch_nanoplot_png = Channel.empty()
+
+    if (!skip_nanoplot) {
+        // Apply real-time optimizations
+        if (is_realtime && skip_intermediate) {
+            log.info "Real-time mode: NanoPlot will run every ${batch_interval} batches and on final batch"
+
+            // Filter channel to only include samples that should run NanoPlot
+            ch_nanoplot_input = ch_qc_reads.filter { meta, reads ->
+                // Always run on final batch
+                if (meta.is_final_batch == true) {
+                    log.info "Running NanoPlot for ${meta.id} (final batch)"
+                    return true
+                }
+
+                // Run every N batches based on batch_id
+                if (meta.batch_id != null) {
+                    def batch_num = meta.batch_id instanceof String ?
+                        Integer.parseInt(meta.batch_id.replaceAll(/\D/, '')) : meta.batch_id
+
+                    if (batch_num % batch_interval == 0) {
+                        log.info "Running NanoPlot for ${meta.id} (batch ${batch_num} - interval milestone)"
+                        return true
+                    }
+                }
+
+                // Skip this batch
+                log.debug "Skipping NanoPlot for ${meta.id} (intermediate batch)"
+                return false
+            }
+        }
+
+        // Run NanoPlot on filtered samples
+        NANOPLOT (
+            ch_nanoplot_input
+        )
+        ch_versions = ch_versions.mix(NANOPLOT.out.versions)
+        ch_nanoplot_html = NANOPLOT.out.html
+        ch_nanoplot_txt = NANOPLOT.out.txt
+        ch_nanoplot_png = NANOPLOT.out.png
+    } else {
+        log.info "NanoPlot is disabled (skip_nanoplot = true)"
+    }
 
     emit:
     reads        = ch_qc_reads            // channel: [ val(meta), path(reads) ] - QC'd reads
     qc_reports   = ch_qc_reports          // channel: [ val(meta), path(html) ] - QC HTML reports (tool-specific)
     qc_logs      = ch_qc_logs             // channel: [ val(meta), path(log) ] - QC log files
     qc_json      = ch_qc_json             // channel: [ val(meta), path(json) ] - QC JSON reports (if available)
-    nanoplot     = NANOPLOT.out.html      // channel: [ val(meta), path(html) ] - NanoPlot visualization
-    nanoplot_txt = NANOPLOT.out.txt       // channel: [ val(meta), path(txt) ] - NanoPlot summary stats (for MultiQC)
-    nanoplot_png = NANOPLOT.out.png       // channel: [ val(meta), path(png) ] - NanoPlot plots (optional)
+    nanoplot     = ch_nanoplot_html       // channel: [ val(meta), path(html) ] - NanoPlot visualization (conditional in real-time mode)
+    nanoplot_txt = ch_nanoplot_txt        // channel: [ val(meta), path(txt) ] - NanoPlot summary stats (conditional, for MultiQC)
+    nanoplot_png = ch_nanoplot_png        // channel: [ val(meta), path(png) ] - NanoPlot plots (conditional)
     qc_tool_used = Channel.value(qc_tool) // channel: val(qc_tool_name) - Tool identification
     versions     = ch_versions            // channel: [ path(versions.yml) ]
 
     // Enhanced reporting outputs
-    fastqc_html  = ch_fastqc_html         // channel: [ val(meta), path(html) ] - FastQC HTML reports (FILTLONG enhancement)
-    seqkit_stats = ch_seqkit_stats        // channel: [ val(meta), path(txt) ] - SeqKit detailed statistics
+    fastqc_html  = ch_fastqc_html         // channel: [ val(meta), path(html) ] - FastQC HTML reports (FILTLONG/CHOPPER enhancement)
+    seqkit_stats = ch_final_seqkit_stats  // channel: [ val(meta), path(txt) ] - SeqKit detailed statistics (cumulative if incremental mode)
 
     // Legacy outputs for backward compatibility
     fastp_json   = qc_tool == 'fastp' ? ch_qc_json : Channel.empty()     // channel: [ val(meta), path(json) ]

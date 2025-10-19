@@ -51,8 +51,8 @@ workflow NANOMETANF {
         if (params.realtime_mode) {
             // Real-time POD5 monitoring with Dorado basecalling
             REALTIME_POD5_MONITORING (
-                params.nanopore_output_dir,
-                params.file_pattern ?: "**/*.pod5",
+                params.pod5_input_dir,
+                "*.pod5",  // POD5 files in watch_dir (not subdirectories)
                 params.batch_size ?: 10,
                 params.batch_interval ?: "5min",
                 params.dorado_model
@@ -108,8 +108,39 @@ workflow NANOMETANF {
             )
             ch_processed_samples = REALTIME_MONITORING.out.samples
         } else {
-            // Standard samplesheet input
-            ch_processed_samples = ch_samplesheet
+            // Standard samplesheet input - detect and handle POD5 files
+            ch_samplesheet
+                .branch { meta, reads ->
+                    // Extract first file if reads is a list (from samplesheet parser)
+                    def fileToCheck = reads instanceof List ? reads[0] : reads
+                    // Get filename
+                    def fileName = fileToCheck instanceof java.nio.file.Path ? fileToCheck.getName() : fileToCheck.toString()
+                    // Check if it's a POD5 file
+                    pod5: fileName.endsWith('.pod5')
+                        return [meta, reads]
+                    fastq: true
+                        return [meta, reads]
+                }
+                .set { ch_branched_input }
+
+            // If POD5 files detected and Dorado enabled, basecall them
+            if (params.use_dorado) {
+                log.info "Checking for POD5 files in samplesheet for Dorado basecalling..."
+
+                DORADO_BASECALLING (
+                    ch_branched_input.pod5,
+                    params.dorado_model
+                )
+                ch_basecalled_pod5 = DORADO_BASECALLING.out.fastq
+                ch_versions = ch_versions.mix(DORADO_BASECALLING.out.versions)
+
+                // Combine basecalled POD5 samples with FASTQ samples
+                ch_processed_samples = ch_branched_input.fastq.mix(ch_basecalled_pod5)
+            } else {
+                // No basecalling - use samplesheet as-is
+                // POD5 files without use_dorado will fail downstream (expected)
+                ch_processed_samples = ch_samplesheet
+            }
         }
     }
     
@@ -275,7 +306,13 @@ workflow NANOMETANF {
 
 
     //
-    // MODULE: MultiQC
+    // MODULE: MultiQC - Comprehensive quality control report
+    //
+    // Real-time mode optimization (PromethION):
+    // - The .collect() operator naturally defers MultiQC execution until ALL input files are emitted
+    // - This means MultiQC runs once at the end, avoiding re-parsing intermediate batch files
+    // - No additional logic needed - .collect() implements deferred execution automatically
+    // - Controlled by: params.multiqc_realtime_final_only (default: true)
     //
     ch_multiqc_config        = Channel.fromPath(
         "$projectDir/assets/multiqc_config.yml", checkIfExists: true)
@@ -306,6 +343,11 @@ workflow NANOMETANF {
     )
 
     if (!params.skip_multiqc) {
+        // Log real-time mode optimization
+        if (params.realtime_mode && params.multiqc_realtime_final_only) {
+            log.info "Real-time mode: MultiQC will run once at the end (deferred execution via .collect())"
+        }
+
         MULTIQC (
             ch_multiqc_files.collect(),
             ch_multiqc_config.toList(),

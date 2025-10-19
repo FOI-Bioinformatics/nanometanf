@@ -1,0 +1,46 @@
+name: seqkit_merge_stats
+description: Merge multiple batch-level SeqKit statistics into cumulative statistics
+keywords:
+  - statistics
+  - QC
+  - merge
+  - seqkit
+  - incremental
+tools:
+  - custom:
+      description: Python script for merging seqkit batch statistics
+      documentation: https://bioinf.shenwei.me/seqkit/
+      licence: ["MIT"]
+
+input:
+  - meta:
+      type: map
+      description: |
+        Groovy Map containing sample information
+        e.g. [ id:'sample1', barcode:'barcode01' ]
+  - batch_stats:
+      type: file
+      description: Multiple batch-level SeqKit statistics TSV files
+      pattern: "batch_*.tsv"
+
+output:
+  - meta:
+      type: map
+      description: |
+        Groovy Map containing sample information
+        e.g. [ id:'sample1', barcode:'barcode01' ]
+  - cumulative_stats:
+      type: file
+      description: Cumulative statistics TSV file
+      pattern: "*.cumulative.tsv"
+  - merge_manifest:
+      type: file
+      description: JSON manifest with merge metadata
+      pattern: "*merge_stats.json"
+  - versions:
+      type: file
+      description: File containing software versions
+      pattern: "versions.yml"
+
+authors:
+  - "@foi-bioinformatics"
