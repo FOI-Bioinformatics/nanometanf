@@ -32,10 +32,19 @@ When working on this pipeline, the `bioinformatics-pipeline-dev` agent is availa
 - Creating and maintaining nf-test test suites
 - Real-time monitoring pattern implementation
 
-## Current Release: v1.2.0 (Production Ready)
+## Current Release Status
+
+### ⚠️ CRITICAL: v1.3.0 IS BROKEN - DO NOT USE
+
+**v1.3.0 Release:** 2025-10-19 (BROKEN - parse-time error)
+**Status:** 🚫 **Completely unusable** - fails immediately on ANY invocation
+**Issue:** Missing Kraken2 incremental classifier modules cause parse error
+**Workaround:** **Use v1.2.0 until v1.3.1 hotfix is released**
+
+### Recommended Production Release: v1.2.0
 
 **Release Date:** 2025-10-16
-**Status:** ✅ Production Release
+**Status:** ✅ Production Ready
 **nf-core Compliance:** 100% (707/707 tests passing, 0 failures)
 
 ### Key Features (v1.1.0 + v1.2.0)
@@ -88,27 +97,24 @@ When working on this pipeline, the `bioinformatics-pipeline-dev` agent is availa
      - **Implementation**: Channel branching with priority stream mixed first
      - **Use case**: Urgent pathogen detection, clinical samples, control samples
 
-6. **PromethION Real-Time Processing Optimizations** (v1.3.0dev)
-   - **Comprehensive optimization suite for high-throughput real-time analysis**
-   - **Total performance improvement**: 94% computational time reduction (5.4 hours → 0.3 hours for 30 batches)
-   - **Throughput gains**: 2-6x improvement with platform-specific profiles
+6. **PromethION Real-Time Processing Optimizations** (v1.3.0 - Platform Profiles Only)
+   - **⚠️  NOTE**: v1.3.0 released with **platform profiles only**. Incremental processing features (Phase 1.1 and 1.2) are **planned but not yet implemented**.
+   - **Working features**: Platform-specific profiles, memory-mapped database loading (Phase 2), conditional NanoPlot execution (Phase 1.3)
+   - **Non-functional**: Incremental Kraken2 classification, QC statistics aggregation (modules missing in v1.3.0)
+   - **Performance gains**: 2-6x throughput improvement with platform profiles (Phase 3)
 
-   **Phase 1: Core Processing Optimizations**
+   **Phase 1: Core Processing Optimizations** (Partially Implemented)
 
-   - **1.1 Incremental Kraken2 Classification**:
-     - Batch-level caching eliminates O(n²) re-classification complexity
-     - Cache raw outputs per batch, merge on final batch
-     - **Time savings**: 30-90 minutes for 30-batch run
-     - **Enable**: `--kraken2_enable_incremental true` (auto-enabled with `--realtime_mode`)
-     - **Files**: `subworkflows/local/taxonomic_classification/main.nf`, `modules/local/kraken2_incremental_classifier/`, `modules/local/kraken2_output_merger/`, `modules/local/kraken2_report_generator/`
+   - **1.1 Incremental Kraken2 Classification** ⚠️  **NOT IMPLEMENTED IN v1.3.0**:
+     - **Status**: Modules missing (`kraken2_incremental_classifier/`, `kraken2_output_merger/`, `kraken2_report_generator/`)
+     - **Planned feature**: Batch-level caching to eliminate O(n²) re-classification complexity
+     - **Expected time savings**: 30-90 minutes for 30-batch run (when implemented)
+     - **Implementation**: Disabled in v1.3.1dev until modules are created
 
-   - **1.2 QC Statistics Aggregation**:
-     - Weighted statistical merging from batch-level SeqKit stats
-     - Eliminates redundant recalculations on growing datasets
-     - Weighted averages for Q20%, Q30%, AvgQual, GC% (by sequence length)
-     - **Time savings**: 5-15 minutes for 30-batch run
-     - **Enable**: `--qc_enable_incremental true` (auto-enabled with `--realtime_mode`)
-     - **Files**: `subworkflows/local/qc_analysis/main.nf`, `modules/local/seqkit_merge_stats/`
+   - **1.2 QC Statistics Aggregation** ⚠️  **NOT IMPLEMENTED IN v1.3.0**:
+     - **Status**: Module missing (`seqkit_merge_stats/`)
+     - **Planned feature**: Weighted statistical merging from batch-level SeqKit stats
+     - **Expected time savings**: 5-15 minutes for 30-batch run (when implemented)
 
    - **1.3 Conditional NanoPlot Execution**:
      - Skip intermediate batches, run every Nth batch + final batch
@@ -820,15 +826,21 @@ gh pr create --title "Title" --body "Description"
 ---
 
 **Last Updated**: 2025-10-19
-**Current Release**: v1.2.0 (Production Ready)
-**Development Version**: 1.3.0dev (PromethION optimizations + platform profiles)
+**Current Stable Release**: v1.2.0 (Production Ready - Recommended)
+**Latest Release**: v1.3.0 (⚠️  BROKEN - Do not use)
+**Development Version**: 1.3.1dev (Hotfix for v1.3.0 + future optimizations)
 **Nextflow Version**: >=24.10.5
 **nf-core Compliance**: 100% (707/707 tests passing)
 
-**Major Features in Development** (v1.3.0dev):
-- PromethION real-time processing optimizations (94% computational time reduction)
-- Platform-specific profiles (minion, promethion_8, promethion)
-- Incremental Kraken2 classification with batch caching
-- QC statistics aggregation with weighted calculations
-- Memory-mapped database preloading
-- Conditional NanoPlot execution (54-81 min savings)
+**v1.3.0 Critical Issue**:
+- **Status**: Parse-time error prevents ANY pipeline execution
+- **Cause**: Missing Kraken2 incremental classifier modules
+- **Fix**: Disabled in v1.3.1dev (commit a71652f)
+- **Workaround**: Use v1.2.0 until v1.3.1 is released
+
+**Major Features in v1.3.0** (Platform Profiles Working, Incremental Processing Planned):
+- Platform-specific profiles (minion, promethion_8, promethion) ✅ WORKING
+- Memory-mapped database preloading (Phase 2) ✅ WORKING
+- Conditional NanoPlot execution (Phase 1.3) ✅ WORKING
+- Incremental Kraken2 classification ❌ NOT IMPLEMENTED (planned for future)
+- QC statistics aggregation ❌ NOT IMPLEMENTED (planned for future)
