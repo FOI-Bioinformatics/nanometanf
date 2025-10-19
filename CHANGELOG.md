@@ -14,15 +14,50 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 -
 
 ### Fixed
--
+
+- **CRITICAL v1.3.0 Bug**: Disabled missing Kraken2 incremental classifier modules (commit a71652f)
+  - Commented out includes for non-existent modules: `KRAKEN2_INCREMENTAL_CLASSIFIER`, `KRAKEN2_OUTPUT_MERGER`, `KRAKEN2_REPORT_GENERATOR`
+  - Disabled incremental classification code path (line 75: `if (false && params.kraken2_enable_incremental == true)`)
+  - **Impact**: v1.3.0 is unusable due to parse-time error. This fix restores basic functionality.
+  - **Status**: Fixed in dev, pending v1.3.1 hotfix release
 
 ---
 
 ## [1.3.0] - 2025-10-19
 
+### ⚠️ CRITICAL ISSUE: v1.3.0 IS BROKEN
+
+**DO NOT USE v1.3.0 - Pipeline fails immediately on ANY invocation**
+
+**Issue**: Parse-time error due to missing Kraken2 incremental classifier modules:
+- `modules/local/kraken2_incremental_classifier/main` (referenced but not implemented)
+- `modules/local/kraken2_output_merger/main` (referenced but not implemented)
+- `modules/local/kraken2_report_generator/main` (referenced but not implemented)
+
+**Error**: `ERROR ~ No such file or directory: Can't find a matching module file for include`
+
+**Impact**:
+- Pipeline cannot be used at all (parse error prevents execution)
+- Affects ALL execution modes, even with `--skip_kraken2`
+- No workaround possible without code fix
+
+**Status**:
+- ✅ Fixed in dev branch (commit a71652f) - incremental classification disabled
+- 🔄 v1.3.1 hotfix release planned
+- ⚠️  Use v1.2.0 until v1.3.1 is released
+
+**Recommendation**: Revert to v1.2.0 for production use:
+```bash
+nextflow run foi-bioinformatics/nanometanf -r v1.2.0 -profile conda
+```
+
+---
+
 ### 🚀 PromethION Optimizations Release
 
 This release delivers comprehensive performance optimizations for PromethION real-time sequencing workflows, achieving **94% reduction in computational time** (324 min → 18 min for 30-batch runs) while maintaining 100% correctness guarantees.
+
+**⚠️  NOTE**: The incremental Kraken2 and QC statistics features described below are **not functional** in v1.3.0 due to missing module implementations. These features will be implemented in a future release.
 
 ### Added
 
@@ -237,10 +272,13 @@ nextflow run foi-bioinformatics/nanometanf --realtime_mode
 
 ### New Modules
 
-- `modules/local/seqkit_merge_stats/` - Weighted QC statistics merging
-- `modules/local/kraken2_incremental_classifier/` - Batch-level caching
-- `modules/local/kraken2_output_merger/` - Merge batch outputs
-- `modules/local/kraken2_report_generator/` - Generate cumulative reports
+**⚠️  NOTE**: The following modules are **documented but not implemented** in v1.3.0:
+- `modules/local/seqkit_merge_stats/` - Weighted QC statistics merging (planned)
+- `modules/local/kraken2_incremental_classifier/` - Batch-level caching (planned)
+- `modules/local/kraken2_output_merger/` - Merge batch outputs (planned)
+- `modules/local/kraken2_report_generator/` - Generate cumulative reports (planned)
+
+These features will be implemented in a future release. For now, the pipeline uses standard (non-incremental) processing modes.
 
 ### New Configuration Files
 
