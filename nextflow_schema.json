@@ -1,1050 +1,1168 @@
 {
-    "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "$id": "https://raw.githubusercontent.com/foi-bioinformatics/nanometanf/master/nextflow_schema.json",
-    "title": "foi-bioinformatics/nanometanf pipeline parameters",
-    "description": "Backend of Nanometa-Live",
-    "type": "object",
-    "$defs": {
-        "input_output_options": {
-            "title": "Input/output options",
-            "type": "object",
-            "fa_icon": "fas fa-terminal",
-            "description": "Define where the pipeline should find input data and save output data.",
-            "required": ["input", "outdir"],
-            "properties": {
-                "input": {
-                    "type": "string",
-                    "format": "file-path",
-                    "schema": "assets/schema_input.json",
-                    "mimetype": "text/csv",
-                    "pattern": "^\\S+\\.csv$",
-                    "description": "Path to comma-separated file containing information about the samples in the experiment.",
-                    "help_text": "You will need to create a design file with information about the samples in your experiment before running the pipeline. Use this parameter to specify its location. It has to be a comma-separated file with 3 columns, and a header row. Can be a local file path or URL.",
-                    "fa_icon": "fas fa-file-csv"
-                },
-                "outdir": {
-                    "type": "string",
-                    "format": "directory-path",
-                    "description": "The output directory where the results will be saved. You have to use absolute paths to storage on Cloud infrastructure.",
-                    "fa_icon": "fas fa-folder-open"
-                },
-                "barcode_input_dir": {
-                    "type": "string",
-                    "format": "directory-path",
-                    "description": "Directory containing pre-demultiplexed barcode subdirectories (alternative to samplesheet input)",
-                    "help_text": "Provide a directory path containing barcode subdirectories (e.g., barcode01/, barcode02/, unclassified/). The pipeline will automatically discover and process all barcode directories. Mutually exclusive with --input parameter.",
-                    "fa_icon": "fas fa-folder"
-                },
-                "email": {
-                    "type": "string",
-                    "description": "Email address for completion summary.",
-                    "fa_icon": "fas fa-envelope",
-                    "help_text": "Set this parameter to your e-mail address to get a summary e-mail with details of the run sent to you when the workflow exits. If set in your user config file (`~/.nextflow/config`) then you don't need to specify this on the command line for every run.",
-                    "pattern": "^([a-zA-Z0-9_\\-\\.]+)@([a-zA-Z0-9_\\-\\.]+)\\.([a-zA-Z]{2,5})$"
-                },
-                "multiqc_title": {
-                    "type": "string",
-                    "description": "MultiQC report title. Printed as page header, used for filename if not otherwise specified.",
-                    "fa_icon": "fas fa-file-signature"
-                }
-            }
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/foi-bioinformatics/nanometanf/master/nextflow_schema.json",
+  "title": "foi-bioinformatics/nanometanf pipeline parameters",
+  "description": "Backend of Nanometa-Live",
+  "type": "object",
+  "$defs": {
+    "input_output_options": {
+      "title": "Input/output options",
+      "type": "object",
+      "fa_icon": "fas fa-terminal",
+      "description": "Define where the pipeline should find input data and save output data.",
+      "required": [
+        "input",
+        "outdir"
+      ],
+      "properties": {
+        "input": {
+          "type": "string",
+          "format": "file-path",
+          "schema": "assets/schema_input.json",
+          "mimetype": "text/csv",
+          "pattern": "^\\S+\\.csv$",
+          "description": "Path to comma-separated file containing information about the samples in the experiment.",
+          "help_text": "You will need to create a design file with information about the samples in your experiment before running the pipeline. Use this parameter to specify its location. It has to be a comma-separated file with 3 columns, and a header row. Can be a local file path or URL.",
+          "fa_icon": "fas fa-file-csv"
         },
-        "reference_genome_options": {
-            "title": "Reference genome options",
-            "type": "object",
-            "fa_icon": "fas fa-dna",
-            "description": "Reference genome related files and options required for the workflow.",
-            "properties": {
-                "genome": {
-                    "type": "string",
-                    "description": "Name of iGenomes reference.",
-                    "fa_icon": "fas fa-book",
-                    "help_text": "If using a reference genome configured in the pipeline using iGenomes, use this parameter to give the ID for the reference. This is then used to build the full paths for all required reference genome files e.g. `--genome GRCh38`. \n\nSee the [nf-core website docs](https://nf-co.re/usage/reference_genomes) for more details."
-                },
-                "fasta": {
-                    "type": "string",
-                    "format": "file-path",
-                    "exists": true,
-                    "mimetype": "text/plain",
-                    "pattern": "^\\S+\\.fn?a(sta)?(\\.gz)?$",
-                    "description": "Path to FASTA genome file.",
-                    "help_text": "This parameter is *mandatory* if `--genome` is not specified. If you don't have a BWA index available this will be generated for you automatically. Combine with `--save_reference` to save BWA index for future runs.",
-                    "fa_icon": "far fa-file-code"
-                },
-                "igenomes_ignore": {
-                    "type": "boolean",
-                    "description": "Do not load the iGenomes reference config.",
-                    "fa_icon": "fas fa-ban",
-                    "hidden": true,
-                    "help_text": "Do not load `igenomes.config` when running the pipeline. You may choose this option if you observe clashes between custom parameters and those supplied in `igenomes.config`."
-                },
-                "igenomes_base": {
-                    "type": "string",
-                    "format": "directory-path",
-                    "description": "The base path to the igenomes reference files",
-                    "fa_icon": "fas fa-ban",
-                    "hidden": true,
-                    "default": "s3://ngi-igenomes/igenomes/"
-                }
-            }
+        "outdir": {
+          "type": "string",
+          "format": "directory-path",
+          "description": "The output directory where the results will be saved. You have to use absolute paths to storage on Cloud infrastructure.",
+          "fa_icon": "fas fa-folder-open"
         },
-        "institutional_config_options": {
-            "title": "Institutional config options",
-            "type": "object",
-            "fa_icon": "fas fa-university",
-            "description": "Parameters used to describe centralised config profiles. These should not be edited.",
-            "help_text": "The centralised nf-core configuration profiles use a handful of pipeline parameters to describe themselves. This information is then printed to the Nextflow log when you run a pipeline. You should not need to change these values when you run a pipeline.",
-            "properties": {
-                "custom_config_version": {
-                    "type": "string",
-                    "description": "Git commit id for Institutional configs.",
-                    "default": "master",
-                    "hidden": true,
-                    "fa_icon": "fas fa-users-cog"
-                },
-                "custom_config_base": {
-                    "type": "string",
-                    "description": "Base directory for Institutional configs.",
-                    "default": "https://raw.githubusercontent.com/nf-core/configs/master",
-                    "hidden": true,
-                    "help_text": "If you're running offline, Nextflow will not be able to fetch the institutional config files from the internet. If you don't need them, then this is not a problem. If you do need them, you should download the files from the repo and tell Nextflow where to find them with this parameter.",
-                    "fa_icon": "fas fa-users-cog"
-                },
-                "config_profile_name": {
-                    "type": "string",
-                    "description": "Institutional config name.",
-                    "hidden": true,
-                    "fa_icon": "fas fa-users-cog"
-                },
-                "config_profile_description": {
-                    "type": "string",
-                    "description": "Institutional config description.",
-                    "hidden": true,
-                    "fa_icon": "fas fa-users-cog"
-                },
-                "config_profile_contact": {
-                    "type": "string",
-                    "description": "Institutional config contact information.",
-                    "hidden": true,
-                    "fa_icon": "fas fa-users-cog"
-                },
-                "config_profile_url": {
-                    "type": "string",
-                    "description": "Institutional config URL link.",
-                    "hidden": true,
-                    "fa_icon": "fas fa-users-cog"
-                }
-            }
+        "barcode_input_dir": {
+          "type": "string",
+          "format": "directory-path",
+          "description": "Directory containing pre-demultiplexed barcode subdirectories (alternative to samplesheet input)",
+          "help_text": "Provide a directory path containing barcode subdirectories (e.g., barcode01/, barcode02/, unclassified/). The pipeline will automatically discover and process all barcode directories. Mutually exclusive with --input parameter.",
+          "fa_icon": "fas fa-folder"
         },
-        "generic_options": {
-            "title": "Generic options",
-            "type": "object",
-            "fa_icon": "fas fa-file-import",
-            "description": "Less common options for the pipeline, typically set in a config file.",
-            "help_text": "These options are common to all nf-core pipelines and allow you to customise some of the core preferences for how the pipeline runs.\n\nTypically these options would be set in a Nextflow config file loaded for all pipeline runs, such as `~/.nextflow/config`.",
-            "properties": {
-                "help": {
-                    "type": "boolean",
-                    "description": "Display help text.",
-                    "fa_icon": "fas fa-question-circle",
-                    "hidden": true
-                },
-                "help_full": {
-                    "type": "boolean",
-                    "description": "Display full help text with all parameters.",
-                    "fa_icon": "fas fa-question-circle",
-                    "hidden": true
-                },
-                "show_hidden": {
-                    "type": "boolean",
-                    "description": "Show hidden parameters in help text.",
-                    "fa_icon": "fas fa-question-circle",
-                    "hidden": true
-                },
-                "version": {
-                    "type": "boolean",
-                    "description": "Display version and exit.",
-                    "fa_icon": "fas fa-question-circle",
-                    "hidden": true
-                },
-                "publish_dir_mode": {
-                    "type": "string",
-                    "default": "copy",
-                    "description": "Method used to save pipeline results to output directory.",
-                    "help_text": "The Nextflow `publishDir` option specifies which intermediate files should be saved to the output directory. This option tells the pipeline what method should be used to move these files. See [Nextflow docs](https://www.nextflow.io/docs/latest/process.html#publishdir) for details.",
-                    "fa_icon": "fas fa-copy",
-                    "enum": ["symlink", "rellink", "link", "copy", "copyNoFollow", "move"],
-                    "hidden": true
-                },
-                "email_on_fail": {
-                    "type": "string",
-                    "description": "Email address for completion summary, only when pipeline fails.",
-                    "fa_icon": "fas fa-exclamation-triangle",
-                    "pattern": "^([a-zA-Z0-9_\\-\\.]+)@([a-zA-Z0-9_\\-\\.]+)\\.([a-zA-Z]{2,5})$",
-                    "help_text": "An email address to send a summary email to when the pipeline is completed - ONLY sent if the pipeline does not exit successfully.",
-                    "hidden": true
-                },
-                "plaintext_email": {
-                    "type": "boolean",
-                    "description": "Send plain-text email instead of HTML.",
-                    "fa_icon": "fas fa-remove-format",
-                    "hidden": true
-                },
-                "max_multiqc_email_size": {
-                    "type": "string",
-                    "description": "File size limit when attaching MultiQC reports to summary emails.",
-                    "pattern": "^\\d+(\\.\\d+)?\\.?\\s*(K|M|G|T)?B$",
-                    "default": "25.MB",
-                    "fa_icon": "fas fa-file-upload",
-                    "hidden": true
-                },
-                "monochrome_logs": {
-                    "type": "boolean",
-                    "description": "Do not use coloured log outputs.",
-                    "fa_icon": "fas fa-palette",
-                    "hidden": true
-                },
-                "hook_url": {
-                    "type": "string",
-                    "description": "Incoming hook URL for messaging service",
-                    "fa_icon": "fas fa-people-group",
-                    "help_text": "Incoming hook URL for messaging service. Currently, MS Teams and Slack are supported.",
-                    "hidden": true
-                },
-                "multiqc_config": {
-                    "type": "string",
-                    "format": "file-path",
-                    "description": "Custom config file to supply to MultiQC.",
-                    "fa_icon": "fas fa-cog",
-                    "hidden": true
-                },
-                "multiqc_logo": {
-                    "type": "string",
-                    "description": "Custom logo file to supply to MultiQC. File name must also be set in the MultiQC config file",
-                    "fa_icon": "fas fa-image",
-                    "hidden": true
-                },
-                "multiqc_methods_description": {
-                    "type": "string",
-                    "description": "Custom MultiQC yaml file containing HTML including a methods description.",
-                    "fa_icon": "fas fa-cog"
-                },
-                "validate_params": {
-                    "type": "boolean",
-                    "description": "Boolean whether to validate parameters against the schema at runtime",
-                    "default": true,
-                    "fa_icon": "fas fa-check-square",
-                    "hidden": true
-                },
-                "pipelines_testdata_base_path": {
-                    "type": "string",
-                    "fa_icon": "far fa-check-circle",
-                    "description": "Base URL or local path to location of pipeline test dataset files",
-                    "default": "https://raw.githubusercontent.com/nf-core/test-datasets/",
-                    "hidden": true
-                },
-                "trace_report_suffix": {
-                    "type": "string",
-                    "fa_icon": "far fa-calendar",
-                    "description": "Suffix to add to the trace report filename. Dynamically generated as date and time in the format yyyy-MM-dd_HH-mm-ss. Set in nextflow.config.",
-                    "hidden": true
-                },
-                "enable_performance_logging": {
-                    "type": "boolean",
-                    "default": true,
-                    "description": "Enable detailed performance logging",
-                    "fa_icon": "fas fa-chart-line",
-                    "hidden": true
-                },
-                "resource_prediction_confidence": {
-                    "type": "number",
-                    "default": 0.7,
-                    "minimum": 0.1,
-                    "maximum": 1.0,
-                    "description": "Minimum confidence for resource predictions",
-                    "fa_icon": "fas fa-brain",
-                    "hidden": true
-                }
-            }
+        "email": {
+          "type": "string",
+          "description": "Email address for completion summary.",
+          "fa_icon": "fas fa-envelope",
+          "help_text": "Set this parameter to your e-mail address to get a summary e-mail with details of the run sent to you when the workflow exits. If set in your user config file (`~/.nextflow/config`) then you don't need to specify this on the command line for every run.",
+          "pattern": "^([a-zA-Z0-9_\\-\\.]+)@([a-zA-Z0-9_\\-\\.]+)\\.([a-zA-Z]{2,5})$"
         },
-        "realtime_processing_options": {
-            "title": "Real-time processing options",
-            "type": "object",
-            "fa_icon": "fas fa-clock",
-            "description": "Parameters for real-time sequencing run monitoring and processing.",
-            "help_text": "Enable real-time monitoring of sequencing output directories. The pipeline will continuously watch for new files and process them as they become available during an active sequencing run.",
-            "properties": {
-                "realtime_mode": {
-                    "type": "boolean",
-                    "default": false,
-                    "description": "Enable real-time file monitoring and processing during sequencing runs.",
-                    "fa_icon": "fas fa-play",
-                    "help_text": "When enabled, the pipeline will monitor specified directories for new files and process them incrementally as they are created during an active sequencing run."
-                },
-                "nanopore_output_dir": {
-                    "type": "string",
-                    "format": "directory-path",
-                    "description": "Directory to monitor for new FASTQ files in real-time mode.",
-                    "fa_icon": "fas fa-folder-open",
-                    "help_text": "Specify the output directory from your Oxford Nanopore sequencing instrument. The pipeline will watch this location for new FASTQ files."
-                },
-                "file_pattern": {
-                    "type": "string",
-                    "default": "**/*.fastq{,.gz}",
-                    "description": "Glob pattern for files to monitor in real-time mode.",
-                    "fa_icon": "fas fa-file-code",
-                    "help_text": "Glob pattern to match files (e.g., '**/*.fastq.gz' for gzipped FASTQ files only)."
-                },
-                "batch_size": {
-                    "type": "integer",
-                    "default": 10,
-                    "minimum": 1,
-                    "description": "Number of files to process in each batch.",
-                    "fa_icon": "fas fa-layer-group"
-                },
-                "batch_interval": {
-                    "type": "string",
-                    "default": "5min",
-                    "description": "Time interval between batch processing cycles (legacy parameter).",
-                    "fa_icon": "fas fa-hourglass-half",
-                    "hidden": true
-                },
-                "max_files": {
-                    "type": "string",
-                    "description": "Maximum number of files to process in real-time mode (limits watchPath file detection).",
-                    "fa_icon": "fas fa-stop-circle",
-                    "help_text": "Set a limit on the total number of files to process. Useful for testing real-time workflows without processing an entire sequencing run."
-                },
-                "watch_directories": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    },
-                    "description": "List of directories to monitor for real-time processing (supports multiple).",
-                    "fa_icon": "fas fa-folder-tree"
-                },
-                "priority_samples": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    },
-                    "description": "List of high-priority sample IDs for expedited processing.",
-                    "fa_icon": "fas fa-star"
-                },
-                "enable_realtime_stats": {
-                    "type": "boolean",
-                    "default": true,
-                    "description": "Enable snapshot and cumulative statistics generation for real-time monitoring.",
-                    "fa_icon": "fas fa-chart-bar"
-                },
-                "realtime_report_interval": {
-                    "type": "integer",
-                    "default": 30000,
-                    "minimum": 1000,
-                    "description": "Report refresh interval in milliseconds for real-time dashboard.",
-                    "fa_icon": "fas fa-sync"
-                },
-                "adaptive_batching": {
-                    "type": "boolean",
-                    "default": true,
-                    "description": "Enable intelligent batch sizing based on system load and file characteristics.",
-                    "fa_icon": "fas fa-brain"
-                },
-                "min_batch_size": {
-                    "type": "integer",
-                    "default": 1,
-                    "minimum": 1,
-                    "description": "Minimum number of files per batch for real-time processing.",
-                    "fa_icon": "fas fa-arrow-down"
-                },
-                "max_batch_size": {
-                    "type": "integer",
-                    "default": 50,
-                    "minimum": 1,
-                    "description": "Maximum number of files per batch for real-time processing.",
-                    "fa_icon": "fas fa-arrow-up"
-                },
-                "batch_size_factor": {
-                    "type": "number",
-                    "default": 1.0,
-                    "minimum": 0.1,
-                    "maximum": 10.0,
-                    "description": "Multiplier for dynamic batch sizing calculations.",
-                    "fa_icon": "fas fa-percent"
-                },
-                "min_files_per_second": {
-                    "type": "number",
-                    "default": 0.1,
-                    "minimum": 0.01,
-                    "description": "Alert threshold for minimum processing speed (files per second).",
-                    "fa_icon": "fas fa-tachometer-alt"
-                },
-                "max_avg_file_age_minutes": {
-                    "type": "number",
-                    "default": 10.0,
-                    "minimum": 0.1,
-                    "description": "Alert threshold for maximum average file age (minutes).",
-                    "fa_icon": "fas fa-clock"
-                },
-                "min_compression_ratio": {
-                    "type": "number",
-                    "default": 0.3,
-                    "minimum": 0.01,
-                    "maximum": 1.0,
-                    "description": "Alert threshold for minimum compression ratio (data quality indicator).",
-                    "fa_icon": "fas fa-compress"
-                }
-            }
-        },
-        "dorado_basecalling_options": {
-            "title": "Dorado basecalling options",
-            "type": "object",
-            "fa_icon": "fas fa-dna",
-            "description": "Parameters for Oxford Nanopore Technologies POD5 basecalling using Dorado.",
-            "help_text": "Dorado is ONT's official basecaller for converting raw POD5 signal data to FASTQ sequences. These parameters control basecalling and demultiplexing behavior.",
-            "properties": {
-                "use_dorado": {
-                    "type": "boolean",
-                    "default": false,
-                    "description": "Enable Dorado basecalling from POD5 files.",
-                    "fa_icon": "fas fa-power-off",
-                    "help_text": "Enable this when starting from raw POD5 files instead of pre-basecalled FASTQ files."
-                },
-                "dorado_path": {
-                    "type": "string",
-                    "default": "dorado",
-                    "description": "Path to dorado binary.",
-                    "fa_icon": "fas fa-terminal",
-                    "help_text": "Path to dorado binary. Defaults to 'dorado' (searches in PATH). Specify full path for custom installations."
-                },
-                "dorado_model": {
-                    "type": "string",
-                    "default": "dna_r10.4.1_e4.3_400bps_hac",
-                    "description": "Dorado basecalling model to use.",
-                    "fa_icon": "fas fa-microchip",
-                    "help_text": "Basecalling model (e.g., 'dna_r10.4.1_e4.3_400bps_hac'). Use simplified syntax without @version suffix for Dorado 1.1+. Common models: hac (high accuracy), sup (super accuracy), fast (speed optimized)."
-                },
-                "pod5_input_dir": {
-                    "type": "string",
-                    "format": "directory-path",
-                    "description": "Directory containing POD5 files for basecalling.",
-                    "fa_icon": "fas fa-folder"
-                },
-                "barcode_kit": {
-                    "type": "string",
-                    "description": "Barcode kit for demultiplexing.",
-                    "fa_icon": "fas fa-barcode",
-                    "help_text": "Barcode kit identifier (e.g., 'SQK-NBD114-24', 'SQK-RBK114-96'). Required when using --demultiplex."
-                },
-                "demultiplex": {
-                    "type": "boolean",
-                    "default": false,
-                    "description": "Enable demultiplexing during basecalling.",
-                    "fa_icon": "fas fa-split",
-                    "help_text": "Enable demultiplexing if your samples are barcoded. Requires --barcode_kit parameter."
-                },
-                "min_qscore": {
-                    "type": "integer",
-                    "default": 9,
-                    "minimum": 0,
-                    "maximum": 50,
-                    "description": "Minimum quality score for basecalling.",
-                    "fa_icon": "fas fa-filter",
-                    "help_text": "Phred quality score threshold. Reads below this score will be filtered during basecalling."
-                },
-                "trim_adapters": {
-                    "type": "boolean",
-                    "default": true,
-                    "description": "Trim adapters during basecalling using Dorado's built-in adapter trimming.",
-                    "fa_icon": "fas fa-cut",
-                    "help_text": "Recommended by ONT. Uses Dorado's built-in adapter detection and trimming."
-                },
-                "trim_barcodes": {
-                    "type": "boolean",
-                    "default": true,
-                    "description": "Trim barcodes during demultiplexing.",
-                    "fa_icon": "fas fa-cut"
-                }
-            }
-        },
-        "quality_control_options": {
-            "title": "Quality control options",
-            "type": "object",
-            "fa_icon": "fas fa-check-circle",
-            "description": "Parameters for read quality filtering and QC reporting.",
-            "help_text": "Choose between multiple nanopore-optimized QC tools and configure filtering thresholds for read length and quality.",
-            "properties": {
-                "qc_tool": {
-                    "type": "string",
-                    "default": "chopper",
-                    "enum": ["chopper", "fastp", "filtlong"],
-                    "description": "Quality control tool to use.",
-                    "fa_icon": "fas fa-tools",
-                    "help_text": "chopper: nanopore-native Rust-based filtering (7x faster, default), fastp: general-purpose with rich HTML reporting, filtlong: nanopore-optimized length-weighted filtering."
-                },
-                "skip_fastp": {
-                    "type": "boolean",
-                    "default": false,
-                    "description": "Skip FASTP QC step (legacy parameter for backward compatibility).",
-                    "fa_icon": "fas fa-forward",
-                    "hidden": true,
-                    "help_text": "Legacy parameter. Use --qc_tool parameter instead to select quality control tool."
-                },
-                "skip_nanoplot": {
-                    "type": "boolean",
-                    "default": false,
-                    "description": "Skip NanoPlot visualization.",
-                    "fa_icon": "fas fa-chart-line"
-                },
-                "skip_multiqc": {
-                    "type": "boolean",
-                    "default": false,
-                    "description": "Skip MultiQC report generation.",
-                    "fa_icon": "fas fa-file-alt"
-                },
-                "enable_adapter_trimming": {
-                    "type": "boolean",
-                    "default": false,
-                    "description": "Enable nanopore adapter trimming with PORECHOP.",
-                    "fa_icon": "fas fa-cut",
-                    "help_text": "Recommended for filtlong/chopper workflows. Dorado users should use --trim_adapters instead."
-                },
-                "enable_qc_benchmark": {
-                    "type": "boolean",
-                    "default": false,
-                    "description": "Enable QC tool performance benchmarking.",
-                    "fa_icon": "fas fa-stopwatch",
-                    "help_text": "Compare performance metrics across QC tools (chopper vs fastp vs filtlong)."
-                },
-                "chopper_quality": {
-                    "type": "integer",
-                    "default": 10,
-                    "minimum": 0,
-                    "maximum": 50,
-                    "description": "Minimum quality score for CHOPPER filtering.",
-                    "fa_icon": "fas fa-filter"
-                },
-                "chopper_minlength": {
-                    "type": "integer",
-                    "default": 1000,
-                    "minimum": 1,
-                    "description": "Minimum read length for CHOPPER filtering.",
-                    "fa_icon": "fas fa-ruler"
-                },
-                "chopper_maxlength": {
-                    "type": "integer",
-                    "description": "Maximum read length for CHOPPER filtering (null = no limit).",
-                    "fa_icon": "fas fa-ruler"
-                },
-                "chopper_headcrop": {
-                    "type": "integer",
-                    "default": 0,
-                    "minimum": 0,
-                    "description": "Number of bases to trim from read start (CHOPPER).",
-                    "fa_icon": "fas fa-cut"
-                },
-                "chopper_tailcrop": {
-                    "type": "integer",
-                    "default": 0,
-                    "minimum": 0,
-                    "description": "Number of bases to trim from read end (CHOPPER).",
-                    "fa_icon": "fas fa-cut"
-                },
-                "filtlong_min_length": {
-                    "type": "integer",
-                    "default": 1000,
-                    "minimum": 1,
-                    "description": "Minimum read length for FILTLONG filtering.",
-                    "fa_icon": "fas fa-ruler"
-                },
-                "filtlong_keep_percent": {
-                    "type": "integer",
-                    "default": 90,
-                    "minimum": 1,
-                    "maximum": 100,
-                    "description": "Percentage of best reads to keep with FILTLONG (1-100).",
-                    "fa_icon": "fas fa-percent"
-                },
-                "filtlong_target_bases": {
-                    "type": "integer",
-                    "default": 0,
-                    "minimum": 0,
-                    "description": "Target number of bases to keep with FILTLONG (0 = no limit).",
-                    "fa_icon": "fas fa-bullseye"
-                },
-                "filtlong_min_mean_q": {
-                    "type": "number",
-                    "default": 8.0,
-                    "minimum": 0.0,
-                    "maximum": 50.0,
-                    "description": "Minimum mean quality score for FILTLONG.",
-                    "fa_icon": "fas fa-filter"
-                },
-                "fastp_qualified_quality": {
-                    "type": "integer",
-                    "default": 15,
-                    "minimum": 0,
-                    "maximum": 50,
-                    "description": "Quality threshold for FASTP (phred score).",
-                    "fa_icon": "fas fa-filter"
-                },
-                "fastp_length_required": {
-                    "type": "integer",
-                    "default": 1000,
-                    "minimum": 1,
-                    "description": "Minimum read length required for FASTP.",
-                    "fa_icon": "fas fa-ruler"
-                },
-                "fastp_cut_mean_quality": {
-                    "type": "integer",
-                    "default": 20,
-                    "minimum": 0,
-                    "maximum": 50,
-                    "description": "Mean quality threshold for FASTP sliding window.",
-                    "fa_icon": "fas fa-filter"
-                }
-            }
-        },
-        "taxonomic_classification_options": {
-            "title": "Taxonomic classification options",
-            "type": "object",
-            "fa_icon": "fas fa-sitemap",
-            "description": "Parameters for metagenomic taxonomic profiling and classification.",
-            "help_text": "Configure Kraken2 taxonomic classification and taxpasta output standardization for metagenomic analysis.",
-            "properties": {
-                "classifier": {
-                    "type": "string",
-                    "default": "kraken2",
-                    "enum": ["kraken2"],
-                    "description": "Taxonomic classifier to use.",
-                    "fa_icon": "fas fa-project-diagram",
-                    "help_text": "Currently supports: kraken2. Future versions may include centrifuge, metaphlan, kaiju."
-                },
-                "kraken2_db": {
-                    "type": "string",
-                    "format": "directory-path",
-                    "description": "Path to Kraken2 database directory.",
-                    "fa_icon": "fas fa-database",
-                    "help_text": "Directory containing Kraken2 database files (hash.k2d, opts.k2d, taxo.k2d). Download from https://benlangmead.github.io/aws-indexes/k2 or build custom databases."
-                },
-                "save_output_fastqs": {
-                    "type": "boolean",
-                    "default": false,
-                    "description": "Save classified/unclassified FASTQ files from Kraken2.",
-                    "fa_icon": "fas fa-save",
-                    "help_text": "Outputs separate FASTQ files for classified and unclassified reads. Useful for downstream analysis of specific taxa."
-                },
-                "save_reads_assignment": {
-                    "type": "boolean",
-                    "default": false,
-                    "description": "Save read-level taxonomic assignments.",
-                    "fa_icon": "fas fa-save",
-                    "help_text": "Save the complete Kraken2 output file with per-read taxonomic assignments. Large files for high-depth sequencing runs."
-                },
-                "enable_taxpasta_standardization": {
-                    "type": "boolean",
-                    "default": true,
-                    "description": "Enable taxpasta output standardization for consistent taxonomic profile formats.",
-                    "fa_icon": "fas fa-table"
-                },
-                "taxpasta_format": {
-                    "type": "string",
-                    "default": "tsv",
-                    "enum": ["tsv", "csv", "arrow", "parquet", "biom"],
-                    "description": "Output format for standardized taxonomic profiles.",
-                    "fa_icon": "fas fa-file-export",
-                    "help_text": "TSV and CSV for human-readable tables, arrow/parquet for efficient storage, BIOM for compatibility with microbiome analysis tools."
-                },
-                "taxonomy_file": {
-                    "type": "string",
-                    "format": "file-path",
-                    "description": "Optional taxonomy file for taxpasta standardization.",
-                    "fa_icon": "fas fa-file-alt"
-                },
-                "kraken2_use_optimizations": {
-                    "type": "boolean",
-                    "default": false,
-                    "description": "Enable Kraken2 performance optimizations.",
-                    "fa_icon": "fas fa-rocket"
-                },
-                "kraken2_memory_mapping": {
-                    "type": "boolean",
-                    "default": false,
-                    "description": "Use memory-mapped database loading (faster, less memory).",
-                    "fa_icon": "fas fa-memory"
-                },
-                "kraken2_confidence": {
-                    "type": "number",
-                    "default": 0.0,
-                    "minimum": 0.0,
-                    "maximum": 1.0,
-                    "description": "Confidence score threshold (0.0-1.0, 0=no filter).",
-                    "fa_icon": "fas fa-percent",
-                    "help_text": "Minimum confidence score for taxonomic assignments. Higher values reduce false positives but may miss low-abundance taxa."
-                },
-                "kraken2_minimum_hit_groups": {
-                    "type": "integer",
-                    "default": 0,
-                    "minimum": 0,
-                    "description": "Minimum number of hit groups (0=no filter).",
-                    "fa_icon": "fas fa-hashtag"
-                },
-                "kraken2_batch_size": {
-                    "type": "integer",
-                    "default": 10,
-                    "minimum": 1,
-                    "description": "Batch size for parallel Kraken2 classification.",
-                    "fa_icon": "fas fa-layer-group"
-                },
-                "kraken2_db_chunking": {
-                    "type": "boolean",
-                    "default": false,
-                    "description": "Enable database chunking for large datasets.",
-                    "fa_icon": "fas fa-th"
-                },
-                "kraken2_db_merge_strategy": {
-                    "type": "string",
-                    "default": "union",
-                    "enum": ["union", "intersection", "consensus"],
-                    "description": "Merge strategy for multiple database results.",
-                    "fa_icon": "fas fa-code-branch"
-                }
-            }
-        },
-        "validation_options": {
-            "title": "Validation options",
-            "type": "object",
-            "fa_icon": "fas fa-check-double",
-            "description": "Parameters for BLAST-based sequence validation.",
-            "help_text": "Optional BLAST validation against reference databases to verify taxonomic assignments or identify specific target organisms.",
-            "properties": {
-                "blast_validation": {
-                    "type": "boolean",
-                    "default": false,
-                    "description": "Enable BLAST validation of classified sequences.",
-                    "fa_icon": "fas fa-search"
-                },
-                "blast_db": {
-                    "type": "string",
-                    "format": "file-path",
-                    "description": "Path to BLAST database.",
-                    "fa_icon": "fas fa-database"
-                },
-                "validation_taxa": {
-                    "type": "string",
-                    "description": "Comma-separated list of taxa to validate.",
-                    "fa_icon": "fas fa-list",
-                    "help_text": "Specify taxa names or taxIDs to validate (e.g., 'Bacillus anthracis,Yersinia pestis')."
-                }
-            }
-        },
-        "assembly_options": {
-            "title": "Assembly options",
-            "type": "object",
-            "fa_icon": "fas fa-puzzle-piece",
-            "description": "Parameters for long-read genome assembly.",
-            "help_text": "Optional genome assembly from filtered nanopore reads using Flye or Miniasm assemblers.",
-            "properties": {
-                "enable_assembly": {
-                    "type": "boolean",
-                    "default": false,
-                    "description": "Enable genome assembly step for long-read nanopore data.",
-                    "fa_icon": "fas fa-power-off"
-                },
-                "assembler": {
-                    "type": "string",
-                    "default": "flye",
-                    "enum": ["flye", "miniasm"],
-                    "description": "Genome assembler to use.",
-                    "fa_icon": "fas fa-cogs",
-                    "help_text": "flye: polished assemblies with repeat resolution (default), miniasm: fast draft assemblies. Future versions may include canu, raven, shasta."
-                },
-                "genome_size": {
-                    "type": "string",
-                    "default": "5m",
-                    "description": "Expected genome size (e.g., '5m' for 5Mb, '3.2g' for 3.2Gb).",
-                    "fa_icon": "fas fa-ruler-horizontal",
-                    "help_text": "Used by assemblers like flye and canu for parameter optimization."
-                },
-                "sequencing_mode": {
-                    "type": "string",
-                    "default": "--nano-raw",
-                    "enum": ["--nano-raw", "--nano-corr", "--nano-hq", "--pacbio-raw", "--pacbio-corr", "--pacbio-hifi"],
-                    "description": "Sequencing technology and data type for flye assembler.",
-                    "fa_icon": "fas fa-dna",
-                    "help_text": "nano-raw: regular ONT reads, nano-hq: ONT Q20+ reads, nano-corr: error-corrected reads."
-                }
-            }
-        },
-        "enhanced_monitoring_options": {
-            "title": "Enhanced monitoring options",
-            "type": "object",
-            "fa_icon": "fas fa-eye",
-            "description": "Advanced monitoring, error handling, and reliability features.",
-            "help_text": "Experimental features for production-scale real-time processing with enhanced error recovery and monitoring capabilities.",
-            "properties": {
-                "enable_enhanced_monitoring": {
-                    "type": "boolean",
-                    "default": false,
-                    "description": "Enable enhanced real-time monitoring with all advanced features.",
-                    "fa_icon": "fas fa-satellite"
-                },
-                "file_stability_time": {
-                    "type": "integer",
-                    "default": 5,
-                    "minimum": 1,
-                    "description": "File stability check time in seconds (file locking detection).",
-                    "fa_icon": "fas fa-hourglass-half"
-                },
-                "max_file_retries": {
-                    "type": "integer",
-                    "default": 3,
-                    "minimum": 1,
-                    "description": "Maximum retry attempts for file processing.",
-                    "fa_icon": "fas fa-redo"
-                },
-                "watchdog_timeout": {
-                    "type": "integer",
-                    "default": 3600,
-                    "minimum": 60,
-                    "description": "Watchdog timeout in seconds (1 hour = 3600s).",
-                    "fa_icon": "fas fa-stopwatch"
-                },
-                "enable_progress_dashboard": {
-                    "type": "boolean",
-                    "default": true,
-                    "description": "Enable real-time progress tracking dashboard.",
-                    "fa_icon": "fas fa-tachometer-alt"
-                },
-                "enable_error_handler": {
-                    "type": "boolean",
-                    "default": false,
-                    "description": "Enable comprehensive error handling with retry logic.",
-                    "fa_icon": "fas fa-shield-alt"
-                },
-                "error_base_delay": {
-                    "type": "integer",
-                    "default": 2,
-                    "minimum": 1,
-                    "description": "Base delay for exponential backoff (seconds).",
-                    "fa_icon": "fas fa-clock"
-                },
-                "error_max_delay": {
-                    "type": "integer",
-                    "default": 300,
-                    "minimum": 10,
-                    "description": "Maximum backoff delay (seconds, 5 minutes).",
-                    "fa_icon": "fas fa-clock"
-                },
-                "error_backoff_factor": {
-                    "type": "number",
-                    "default": 2.0,
-                    "minimum": 1.0,
-                    "maximum": 10.0,
-                    "description": "Exponential backoff growth factor.",
-                    "fa_icon": "fas fa-chart-line"
-                },
-                "error_max_retries": {
-                    "type": "integer",
-                    "default": 10,
-                    "minimum": 1,
-                    "description": "Maximum retry attempts before dead letter queue.",
-                    "fa_icon": "fas fa-redo"
-                },
-                "circuit_breaker_threshold": {
-                    "type": "integer",
-                    "default": 5,
-                    "minimum": 1,
-                    "description": "Number of failures to trigger circuit breaker.",
-                    "fa_icon": "fas fa-power-off"
-                },
-                "circuit_breaker_window": {
-                    "type": "integer",
-                    "default": 300,
-                    "minimum": 10,
-                    "description": "Time window for failure counting (seconds, 5 minutes).",
-                    "fa_icon": "fas fa-window-maximize"
-                }
-            }
-        },
-        "dynamic_resource_allocation_options": {
-            "title": "Dynamic resource allocation options",
-            "type": "object",
-            "fa_icon": "fas fa-server",
-            "description": "Experimental intelligent resource allocation system.",
-            "help_text": "EXPERIMENTAL: Adaptive resource allocation based on input characteristics and system availability. Disabled by default for v1.0 stability.",
-            "properties": {
-                "enable_dynamic_resources": {
-                    "type": "boolean",
-                    "default": false,
-                    "description": "Enable intelligent resource allocation system.",
-                    "fa_icon": "fas fa-brain",
-                    "help_text": "EXPERIMENTAL - disabled by default for v1.0. When enabled, the pipeline will dynamically adjust CPU, memory, and time allocations based on input characteristics."
-                },
-                "optimization_profile": {
-                    "type": "string",
-                    "default": "auto",
-                    "enum": ["auto", "high_throughput", "balanced", "resource_conservative", "gpu_optimized", "realtime_optimized", "development_testing"],
-                    "description": "Resource optimization profile.",
-                    "fa_icon": "fas fa-sliders-h",
-                    "help_text": "auto: intelligent detection, high_throughput: maximize speed, balanced: speed/resource tradeoff, resource_conservative: minimize resource usage, gpu_optimized: GPU workloads, realtime_optimized: real-time processing, development_testing: development/testing."
-                },
-                "resource_safety_factor": {
-                    "type": "number",
-                    "default": 0.8,
-                    "minimum": 0.1,
-                    "maximum": 1.0,
-                    "description": "Safety factor for resource allocation (0.0-1.0).",
-                    "fa_icon": "fas fa-shield-alt",
-                    "help_text": "Multiplier applied to predicted resource requirements to add safety margin. Lower values = more conservative allocation."
-                },
-                "max_parallel_jobs": {
-                    "type": "integer",
-                    "default": 4,
-                    "minimum": 1,
-                    "description": "Maximum parallel jobs for resource optimization.",
-                    "fa_icon": "fas fa-tasks"
-                },
-                "enable_gpu_optimization": {
-                    "type": "boolean",
-                    "default": true,
-                    "description": "Enable GPU-specific optimizations.",
-                    "fa_icon": "fas fa-microchip"
-                },
-                "resource_monitoring_interval": {
-                    "type": "integer",
-                    "default": 30,
-                    "minimum": 1,
-                    "description": "System monitoring interval (seconds).",
-                    "fa_icon": "fas fa-heartbeat"
-                }
-            }
-        },
-        "reporting_visualization_options": {
-            "title": "Reporting and visualization options",
-            "type": "object",
-            "fa_icon": "fas fa-chart-pie",
-            "description": "MultiQC reporting and visualization customization.",
-            "help_text": "Configure MultiQC report generation, custom content, and nanopore-specific visualizations.",
-            "properties": {
-                "enable_nanoplot_comparison": {
-                    "type": "boolean",
-                    "default": false,
-                    "description": "Enable multi-sample NanoPlot comparison plots.",
-                    "fa_icon": "fas fa-chart-bar"
-                },
-                "enable_multiqc_custom_content": {
-                    "type": "boolean",
-                    "default": true,
-                    "description": "Enable nanopore-specific custom content in MultiQC.",
-                    "fa_icon": "fas fa-file-alt"
-                },
-                "enable_krona_plots": {
-                    "type": "boolean",
-                    "default": true,
-                    "description": "Generate Krona interactive taxonomic visualization.",
-                    "fa_icon": "fas fa-chart-pie",
-                    "help_text": "Creates interactive HTML charts for exploring taxonomic composition."
-                },
-                "enable_dorado_mqc": {
-                    "type": "boolean",
-                    "default": true,
-                    "description": "Include Dorado basecalling statistics in MultiQC.",
-                    "fa_icon": "fas fa-dna"
-                },
-                "enable_nanopore_stats_mqc": {
-                    "type": "boolean",
-                    "default": true,
-                    "description": "Include comprehensive nanopore statistics in MultiQC.",
-                    "fa_icon": "fas fa-chart-line"
-                }
-            }
-        },
-        "testing_performance_options": {
-            "title": "Testing and performance options",
-            "type": "object",
-            "fa_icon": "fas fa-vial",
-            "description": "Development, testing, and performance benchmarking parameters.",
-            "help_text": "Options for test coverage tracking and performance regression detection during development.",
-            "properties": {
-                "enable_test_coverage_tracking": {
-                    "type": "boolean",
-                    "default": false,
-                    "description": "Enable test coverage monitoring.",
-                    "fa_icon": "fas fa-check-circle",
-                    "hidden": true
-                },
-                "enable_performance_benchmarks": {
-                    "type": "boolean",
-                    "default": false,
-                    "description": "Enable performance regression testing.",
-                    "fa_icon": "fas fa-tachometer-alt",
-                    "hidden": true
-                },
-                "test_coverage_threshold": {
-                    "type": "integer",
-                    "default": 95,
-                    "minimum": 0,
-                    "maximum": 100,
-                    "description": "Minimum test coverage threshold (P0+P1).",
-                    "fa_icon": "fas fa-percentage",
-                    "hidden": true
-                },
-                "performance_regression_threshold": {
-                    "type": "number",
-                    "default": 0.1,
-                    "minimum": 0.0,
-                    "maximum": 1.0,
-                    "description": "Performance regression threshold (10%).",
-                    "fa_icon": "fas fa-percent",
-                    "hidden": true
-                }
-            }
+        "multiqc_title": {
+          "type": "string",
+          "description": "MultiQC report title. Printed as page header, used for filename if not otherwise specified.",
+          "fa_icon": "fas fa-file-signature"
         }
+      }
     },
-    "properties": {},
-    "allOf": [
-        {
-            "$ref": "#/$defs/input_output_options"
+    "reference_genome_options": {
+      "title": "Reference genome options",
+      "type": "object",
+      "fa_icon": "fas fa-dna",
+      "description": "Reference genome related files and options required for the workflow.",
+      "properties": {
+        "genome": {
+          "type": "string",
+          "description": "Name of iGenomes reference.",
+          "fa_icon": "fas fa-book",
+          "help_text": "If using a reference genome configured in the pipeline using iGenomes, use this parameter to give the ID for the reference. This is then used to build the full paths for all required reference genome files e.g. `--genome GRCh38`. \n\nSee the [nf-core website docs](https://nf-co.re/usage/reference_genomes) for more details."
         },
-        {
-            "$ref": "#/$defs/realtime_processing_options"
+        "fasta": {
+          "type": "string",
+          "format": "file-path",
+          "exists": true,
+          "mimetype": "text/plain",
+          "pattern": "^\\S+\\.fn?a(sta)?(\\.gz)?$",
+          "description": "Path to FASTA genome file.",
+          "help_text": "This parameter is *mandatory* if `--genome` is not specified. If you don't have a BWA index available this will be generated for you automatically. Combine with `--save_reference` to save BWA index for future runs.",
+          "fa_icon": "far fa-file-code"
         },
-        {
-            "$ref": "#/$defs/dorado_basecalling_options"
+        "igenomes_ignore": {
+          "type": "boolean",
+          "description": "Do not load the iGenomes reference config.",
+          "fa_icon": "fas fa-ban",
+          "hidden": true,
+          "help_text": "Do not load `igenomes.config` when running the pipeline. You may choose this option if you observe clashes between custom parameters and those supplied in `igenomes.config`."
         },
-        {
-            "$ref": "#/$defs/quality_control_options"
-        },
-        {
-            "$ref": "#/$defs/taxonomic_classification_options"
-        },
-        {
-            "$ref": "#/$defs/validation_options"
-        },
-        {
-            "$ref": "#/$defs/assembly_options"
-        },
-        {
-            "$ref": "#/$defs/enhanced_monitoring_options"
-        },
-        {
-            "$ref": "#/$defs/dynamic_resource_allocation_options"
-        },
-        {
-            "$ref": "#/$defs/reporting_visualization_options"
-        },
-        {
-            "$ref": "#/$defs/testing_performance_options"
-        },
-        {
-            "$ref": "#/$defs/reference_genome_options"
-        },
-        {
-            "$ref": "#/$defs/institutional_config_options"
-        },
-        {
-            "$ref": "#/$defs/generic_options"
+        "igenomes_base": {
+          "type": "string",
+          "format": "directory-path",
+          "description": "The base path to the igenomes reference files",
+          "fa_icon": "fas fa-ban",
+          "hidden": true,
+          "default": "s3://ngi-igenomes/igenomes/"
         }
-    ]
+      }
+    },
+    "institutional_config_options": {
+      "title": "Institutional config options",
+      "type": "object",
+      "fa_icon": "fas fa-university",
+      "description": "Parameters used to describe centralised config profiles. These should not be edited.",
+      "help_text": "The centralised nf-core configuration profiles use a handful of pipeline parameters to describe themselves. This information is then printed to the Nextflow log when you run a pipeline. You should not need to change these values when you run a pipeline.",
+      "properties": {
+        "custom_config_version": {
+          "type": "string",
+          "description": "Git commit id for Institutional configs.",
+          "default": "master",
+          "hidden": true,
+          "fa_icon": "fas fa-users-cog"
+        },
+        "custom_config_base": {
+          "type": "string",
+          "description": "Base directory for Institutional configs.",
+          "default": "https://raw.githubusercontent.com/nf-core/configs/master",
+          "hidden": true,
+          "help_text": "If you're running offline, Nextflow will not be able to fetch the institutional config files from the internet. If you don't need them, then this is not a problem. If you do need them, you should download the files from the repo and tell Nextflow where to find them with this parameter.",
+          "fa_icon": "fas fa-users-cog"
+        },
+        "config_profile_name": {
+          "type": "string",
+          "description": "Institutional config name.",
+          "hidden": true,
+          "fa_icon": "fas fa-users-cog"
+        },
+        "config_profile_description": {
+          "type": "string",
+          "description": "Institutional config description.",
+          "hidden": true,
+          "fa_icon": "fas fa-users-cog"
+        },
+        "config_profile_contact": {
+          "type": "string",
+          "description": "Institutional config contact information.",
+          "hidden": true,
+          "fa_icon": "fas fa-users-cog"
+        },
+        "config_profile_url": {
+          "type": "string",
+          "description": "Institutional config URL link.",
+          "hidden": true,
+          "fa_icon": "fas fa-users-cog"
+        }
+      }
+    },
+    "generic_options": {
+      "title": "Generic options",
+      "type": "object",
+      "fa_icon": "fas fa-file-import",
+      "description": "Less common options for the pipeline, typically set in a config file.",
+      "help_text": "These options are common to all nf-core pipelines and allow you to customise some of the core preferences for how the pipeline runs.\n\nTypically these options would be set in a Nextflow config file loaded for all pipeline runs, such as `~/.nextflow/config`.",
+      "properties": {
+        "help": {
+          "type": "boolean",
+          "description": "Display help text.",
+          "fa_icon": "fas fa-question-circle",
+          "hidden": true
+        },
+        "help_full": {
+          "type": "boolean",
+          "description": "Display full help text with all parameters.",
+          "fa_icon": "fas fa-question-circle",
+          "hidden": true
+        },
+        "show_hidden": {
+          "type": "boolean",
+          "description": "Show hidden parameters in help text.",
+          "fa_icon": "fas fa-question-circle",
+          "hidden": true
+        },
+        "version": {
+          "type": "boolean",
+          "description": "Display version and exit.",
+          "fa_icon": "fas fa-question-circle",
+          "hidden": true
+        },
+        "publish_dir_mode": {
+          "type": "string",
+          "default": "copy",
+          "description": "Method used to save pipeline results to output directory.",
+          "help_text": "The Nextflow `publishDir` option specifies which intermediate files should be saved to the output directory. This option tells the pipeline what method should be used to move these files. See [Nextflow docs](https://www.nextflow.io/docs/latest/process.html#publishdir) for details.",
+          "fa_icon": "fas fa-copy",
+          "enum": [
+            "symlink",
+            "rellink",
+            "link",
+            "copy",
+            "copyNoFollow",
+            "move"
+          ],
+          "hidden": true
+        },
+        "email_on_fail": {
+          "type": "string",
+          "description": "Email address for completion summary, only when pipeline fails.",
+          "fa_icon": "fas fa-exclamation-triangle",
+          "pattern": "^([a-zA-Z0-9_\\-\\.]+)@([a-zA-Z0-9_\\-\\.]+)\\.([a-zA-Z]{2,5})$",
+          "help_text": "An email address to send a summary email to when the pipeline is completed - ONLY sent if the pipeline does not exit successfully.",
+          "hidden": true
+        },
+        "plaintext_email": {
+          "type": "boolean",
+          "description": "Send plain-text email instead of HTML.",
+          "fa_icon": "fas fa-remove-format",
+          "hidden": true
+        },
+        "max_multiqc_email_size": {
+          "type": "string",
+          "description": "File size limit when attaching MultiQC reports to summary emails.",
+          "pattern": "^\\d+(\\.\\d+)?\\.?\\s*(K|M|G|T)?B$",
+          "default": "25.MB",
+          "fa_icon": "fas fa-file-upload",
+          "hidden": true
+        },
+        "monochrome_logs": {
+          "type": "boolean",
+          "description": "Do not use coloured log outputs.",
+          "fa_icon": "fas fa-palette",
+          "hidden": true
+        },
+        "hook_url": {
+          "type": "string",
+          "description": "Incoming hook URL for messaging service",
+          "fa_icon": "fas fa-people-group",
+          "help_text": "Incoming hook URL for messaging service. Currently, MS Teams and Slack are supported.",
+          "hidden": true
+        },
+        "multiqc_config": {
+          "type": "string",
+          "format": "file-path",
+          "description": "Custom config file to supply to MultiQC.",
+          "fa_icon": "fas fa-cog",
+          "hidden": true
+        },
+        "multiqc_logo": {
+          "type": "string",
+          "description": "Custom logo file to supply to MultiQC. File name must also be set in the MultiQC config file",
+          "fa_icon": "fas fa-image",
+          "hidden": true
+        },
+        "multiqc_methods_description": {
+          "type": "string",
+          "description": "Custom MultiQC yaml file containing HTML including a methods description.",
+          "fa_icon": "fas fa-cog"
+        },
+        "validate_params": {
+          "type": "boolean",
+          "description": "Boolean whether to validate parameters against the schema at runtime",
+          "default": true,
+          "fa_icon": "fas fa-check-square",
+          "hidden": true
+        },
+        "pipelines_testdata_base_path": {
+          "type": "string",
+          "fa_icon": "far fa-check-circle",
+          "description": "Base URL or local path to location of pipeline test dataset files",
+          "default": "https://raw.githubusercontent.com/nf-core/test-datasets/",
+          "hidden": true
+        },
+        "trace_report_suffix": {
+          "type": "string",
+          "fa_icon": "far fa-calendar",
+          "description": "Suffix to add to the trace report filename. Dynamically generated as date and time in the format yyyy-MM-dd_HH-mm-ss. Set in nextflow.config.",
+          "hidden": true
+        },
+        "enable_performance_logging": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable detailed performance logging",
+          "fa_icon": "fas fa-chart-line",
+          "hidden": true
+        },
+        "resource_prediction_confidence": {
+          "type": "number",
+          "default": 0.7,
+          "minimum": 0.1,
+          "maximum": 1.0,
+          "description": "Minimum confidence for resource predictions",
+          "fa_icon": "fas fa-brain",
+          "hidden": true
+        }
+      }
+    },
+    "realtime_processing_options": {
+      "title": "Real-time processing options",
+      "type": "object",
+      "fa_icon": "fas fa-clock",
+      "description": "Parameters for real-time sequencing run monitoring and processing.",
+      "help_text": "Enable real-time monitoring of sequencing output directories. The pipeline will continuously watch for new files and process them as they become available during an active sequencing run.",
+      "properties": {
+        "realtime_mode": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable real-time file monitoring and processing during sequencing runs.",
+          "fa_icon": "fas fa-play",
+          "help_text": "When enabled, the pipeline will monitor specified directories for new files and process them incrementally as they are created during an active sequencing run."
+        },
+        "nanopore_output_dir": {
+          "type": "string",
+          "format": "directory-path",
+          "description": "Directory to monitor for new FASTQ files in real-time mode.",
+          "fa_icon": "fas fa-folder-open",
+          "help_text": "Specify the output directory from your Oxford Nanopore sequencing instrument. The pipeline will watch this location for new FASTQ files."
+        },
+        "file_pattern": {
+          "type": "string",
+          "default": "*.fastq{,.gz}",
+          "description": "Glob pattern for files to monitor in real-time mode.",
+          "fa_icon": "fas fa-file-code",
+          "help_text": "Glob pattern to match files in the watched directory. Default matches FASTQ files (compressed or uncompressed) in the root directory. Use '**/*.fastq{,.gz}' for subdirectories only."
+        },
+        "batch_size": {
+          "type": "integer",
+          "default": 10,
+          "minimum": 1,
+          "description": "Number of files to process in each batch.",
+          "fa_icon": "fas fa-layer-group"
+        },
+        "batch_interval": {
+          "type": "string",
+          "default": "5min",
+          "description": "Time interval between batch processing cycles (legacy parameter).",
+          "fa_icon": "fas fa-hourglass-half",
+          "hidden": true
+        },
+        "max_files": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Maximum number of files to process in real-time mode (limits watchPath file detection).",
+          "fa_icon": "fas fa-stop-circle",
+          "help_text": "Set a limit on the total number of files to process. Useful for testing real-time workflows without processing an entire sequencing run."
+        },
+        "watch_directories": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "List of directories to monitor for real-time processing (supports multiple).",
+          "fa_icon": "fas fa-folder-tree"
+        },
+        "priority_samples": {
+          "oneOf": [
+            {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            {
+              "type": "string",
+              "pattern": "^[^,]+(,[^,]+)*$"
+            }
+          ],
+          "description": "List of high-priority sample IDs for expedited processing (comma-separated string or array).",
+          "fa_icon": "fas fa-star"
+        },
+        "enable_realtime_stats": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable snapshot and cumulative statistics generation for real-time monitoring.",
+          "fa_icon": "fas fa-chart-bar"
+        },
+        "realtime_report_interval": {
+          "type": "integer",
+          "default": 30000,
+          "minimum": 1000,
+          "description": "Report refresh interval in milliseconds for real-time dashboard.",
+          "fa_icon": "fas fa-sync"
+        },
+        "adaptive_batching": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable intelligent batch sizing based on system load and file characteristics.",
+          "fa_icon": "fas fa-brain"
+        },
+        "min_batch_size": {
+          "type": "integer",
+          "default": 1,
+          "minimum": 1,
+          "description": "Minimum number of files per batch for real-time processing.",
+          "fa_icon": "fas fa-arrow-down"
+        },
+        "max_batch_size": {
+          "type": "integer",
+          "default": 50,
+          "minimum": 1,
+          "description": "Maximum number of files per batch for real-time processing.",
+          "fa_icon": "fas fa-arrow-up"
+        },
+        "batch_size_factor": {
+          "type": "number",
+          "default": 1.0,
+          "minimum": 0.1,
+          "maximum": 10.0,
+          "description": "Multiplier for dynamic batch sizing calculations.",
+          "fa_icon": "fas fa-percent"
+        },
+        "min_files_per_second": {
+          "type": "number",
+          "default": 0.1,
+          "minimum": 0.01,
+          "description": "Alert threshold for minimum processing speed (files per second).",
+          "fa_icon": "fas fa-tachometer-alt"
+        },
+        "max_avg_file_age_minutes": {
+          "type": "number",
+          "default": 10.0,
+          "minimum": 0.1,
+          "description": "Alert threshold for maximum average file age (minutes).",
+          "fa_icon": "fas fa-clock"
+        },
+        "min_compression_ratio": {
+          "type": "number",
+          "default": 0.3,
+          "minimum": 0.01,
+          "maximum": 1.0,
+          "description": "Alert threshold for minimum compression ratio (data quality indicator).",
+          "fa_icon": "fas fa-compress"
+        },
+        "realtime_timeout_minutes": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Stop real-time monitoring after N minutes of inactivity (null = run indefinitely).",
+          "fa_icon": "fas fa-clock",
+          "help_text": "Automatically stop the pipeline if no new files are detected for this duration. Useful for unattended sequencing runs."
+        },
+        "realtime_processing_grace_period": {
+          "type": "integer",
+          "default": 5,
+          "minimum": 1,
+          "description": "Additional minutes to wait for downstream processing after file detection timeout.",
+          "fa_icon": "fas fa-hourglass-end",
+          "help_text": "Grace period after realtime_timeout_minutes expires to allow downstream processes to complete."
+        }
+      }
+    },
+    "dorado_basecalling_options": {
+      "title": "Dorado basecalling options",
+      "type": "object",
+      "fa_icon": "fas fa-dna",
+      "description": "Parameters for Oxford Nanopore Technologies POD5 basecalling using Dorado.",
+      "help_text": "Dorado is ONT's official basecaller for converting raw POD5 signal data to FASTQ sequences. These parameters control basecalling and demultiplexing behavior.",
+      "properties": {
+        "use_dorado": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable Dorado basecalling from POD5 files.",
+          "fa_icon": "fas fa-power-off",
+          "help_text": "Enable this when starting from raw POD5 files instead of pre-basecalled FASTQ files."
+        },
+        "dorado_path": {
+          "type": "string",
+          "default": "dorado",
+          "description": "Path to dorado binary.",
+          "fa_icon": "fas fa-terminal",
+          "help_text": "Path to dorado binary. Defaults to 'dorado' (searches in PATH). Specify full path for custom installations."
+        },
+        "dorado_model": {
+          "type": "string",
+          "default": "dna_r10.4.1_e4.3_400bps_hac",
+          "description": "Dorado basecalling model to use.",
+          "fa_icon": "fas fa-microchip",
+          "help_text": "Basecalling model (e.g., 'dna_r10.4.1_e4.3_400bps_hac'). Use simplified syntax without @version suffix for Dorado 1.1+. Common models: hac (high accuracy), sup (super accuracy), fast (speed optimized)."
+        },
+        "pod5_input_dir": {
+          "type": "string",
+          "format": "directory-path",
+          "description": "Directory containing POD5 files for basecalling.",
+          "fa_icon": "fas fa-folder"
+        },
+        "barcode_kit": {
+          "type": "string",
+          "description": "Barcode kit for demultiplexing.",
+          "fa_icon": "fas fa-barcode",
+          "help_text": "Barcode kit identifier (e.g., 'SQK-NBD114-24', 'SQK-RBK114-96'). Required when using --demultiplex."
+        },
+        "demultiplex": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable demultiplexing during basecalling.",
+          "fa_icon": "fas fa-split",
+          "help_text": "Enable demultiplexing if your samples are barcoded. Requires --barcode_kit parameter."
+        },
+        "min_qscore": {
+          "type": "integer",
+          "default": 9,
+          "minimum": 0,
+          "maximum": 50,
+          "description": "Minimum quality score for basecalling.",
+          "fa_icon": "fas fa-filter",
+          "help_text": "Phred quality score threshold. Reads below this score will be filtered during basecalling."
+        },
+        "trim_adapters": {
+          "type": "boolean",
+          "default": true,
+          "description": "Trim adapters during basecalling using Dorado's built-in adapter trimming.",
+          "fa_icon": "fas fa-cut",
+          "help_text": "Recommended by ONT. Uses Dorado's built-in adapter detection and trimming."
+        },
+        "trim_barcodes": {
+          "type": "boolean",
+          "default": true,
+          "description": "Trim barcodes during demultiplexing.",
+          "fa_icon": "fas fa-cut"
+        }
+      }
+    },
+    "quality_control_options": {
+      "title": "Quality control options",
+      "type": "object",
+      "fa_icon": "fas fa-check-circle",
+      "description": "Parameters for read quality filtering and QC reporting.",
+      "help_text": "Choose between multiple nanopore-optimized QC tools and configure filtering thresholds for read length and quality.",
+      "properties": {
+        "qc_tool": {
+          "type": "string",
+          "default": "chopper",
+          "enum": [
+            "chopper",
+            "fastp",
+            "filtlong"
+          ],
+          "description": "Quality control tool to use.",
+          "fa_icon": "fas fa-tools",
+          "help_text": "chopper: nanopore-native Rust-based filtering (7x faster, default), fastp: general-purpose with rich HTML reporting, filtlong: nanopore-optimized length-weighted filtering."
+        },
+        "skip_fastp": {
+          "type": "boolean",
+          "default": false,
+          "description": "Skip FASTP QC step (legacy parameter for backward compatibility).",
+          "fa_icon": "fas fa-forward",
+          "hidden": true,
+          "help_text": "Legacy parameter. Use --qc_tool parameter instead to select quality control tool."
+        },
+        "skip_nanoplot": {
+          "type": "boolean",
+          "default": false,
+          "description": "Skip NanoPlot visualization.",
+          "fa_icon": "fas fa-chart-line"
+        },
+        "skip_multiqc": {
+          "type": "boolean",
+          "default": false,
+          "description": "Skip MultiQC report generation.",
+          "fa_icon": "fas fa-file-alt"
+        },
+        "enable_adapter_trimming": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable nanopore adapter trimming with PORECHOP.",
+          "fa_icon": "fas fa-cut",
+          "help_text": "Recommended for filtlong/chopper workflows. Dorado users should use --trim_adapters instead."
+        },
+        "enable_qc_benchmark": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable QC tool performance benchmarking.",
+          "fa_icon": "fas fa-stopwatch",
+          "help_text": "Compare performance metrics across QC tools (chopper vs fastp vs filtlong)."
+        },
+        "chopper_quality": {
+          "type": "integer",
+          "default": 10,
+          "minimum": 0,
+          "maximum": 50,
+          "description": "Minimum quality score for CHOPPER filtering.",
+          "fa_icon": "fas fa-filter"
+        },
+        "chopper_minlength": {
+          "type": "integer",
+          "default": 1000,
+          "minimum": 1,
+          "description": "Minimum read length for CHOPPER filtering.",
+          "fa_icon": "fas fa-ruler"
+        },
+        "chopper_maxlength": {
+          "type": "integer",
+          "description": "Maximum read length for CHOPPER filtering (null = no limit).",
+          "fa_icon": "fas fa-ruler"
+        },
+        "chopper_headcrop": {
+          "type": "integer",
+          "default": 0,
+          "minimum": 0,
+          "description": "Number of bases to trim from read start (CHOPPER).",
+          "fa_icon": "fas fa-cut"
+        },
+        "chopper_tailcrop": {
+          "type": "integer",
+          "default": 0,
+          "minimum": 0,
+          "description": "Number of bases to trim from read end (CHOPPER).",
+          "fa_icon": "fas fa-cut"
+        },
+        "filtlong_min_length": {
+          "type": "integer",
+          "default": 1000,
+          "minimum": 1,
+          "description": "Minimum read length for FILTLONG filtering.",
+          "fa_icon": "fas fa-ruler"
+        },
+        "filtlong_keep_percent": {
+          "type": "integer",
+          "default": 90,
+          "minimum": 1,
+          "maximum": 100,
+          "description": "Percentage of best reads to keep with FILTLONG (1-100).",
+          "fa_icon": "fas fa-percent"
+        },
+        "filtlong_target_bases": {
+          "type": "integer",
+          "default": 0,
+          "minimum": 0,
+          "description": "Target number of bases to keep with FILTLONG (0 = no limit).",
+          "fa_icon": "fas fa-bullseye"
+        },
+        "filtlong_min_mean_q": {
+          "type": "number",
+          "default": 8.0,
+          "minimum": 0.0,
+          "maximum": 50.0,
+          "description": "Minimum mean quality score for FILTLONG.",
+          "fa_icon": "fas fa-filter"
+        },
+        "fastp_qualified_quality": {
+          "type": "integer",
+          "default": 15,
+          "minimum": 0,
+          "maximum": 50,
+          "description": "Quality threshold for FASTP (phred score).",
+          "fa_icon": "fas fa-filter"
+        },
+        "fastp_length_required": {
+          "type": "integer",
+          "default": 1000,
+          "minimum": 1,
+          "description": "Minimum read length required for FASTP.",
+          "fa_icon": "fas fa-ruler"
+        },
+        "fastp_cut_mean_quality": {
+          "type": "integer",
+          "default": 20,
+          "minimum": 0,
+          "maximum": 50,
+          "description": "Mean quality threshold for FASTP sliding window.",
+          "fa_icon": "fas fa-filter"
+        },
+        "qc_enable_incremental": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable incremental QC statistics aggregation (PromethION optimization).",
+          "fa_icon": "fas fa-rocket",
+          "help_text": "When enabled with chopper/filtlong, batch-level SeqKit statistics are merged using weighted calculations instead of recomputing the entire dataset. Eliminates redundant computations in real-time mode."
+        },
+        "nanoplot_realtime_skip_intermediate": {
+          "type": "boolean",
+          "default": true,
+          "description": "Skip NanoPlot visualization for intermediate batches in real-time mode (PromethION optimization).",
+          "fa_icon": "fas fa-forward",
+          "help_text": "Run NanoPlot only every Nth batch (see nanoplot_batch_interval) and on the final batch. Saves 54-81 minutes for 30-batch runs."
+        },
+        "nanoplot_batch_interval": {
+          "type": "integer",
+          "default": 10,
+          "minimum": 1,
+          "description": "Run NanoPlot visualization every N batches in real-time mode (PromethION optimization).",
+          "fa_icon": "fas fa-hashtag",
+          "help_text": "When nanoplot_realtime_skip_intermediate is enabled, NanoPlot runs every N batches plus the final batch. Lower values = more frequent plots. Platform defaults: MinION=5, PromethION-8=7, PromethION=10."
+        },
+        "multiqc_realtime_final_only": {
+          "type": "boolean",
+          "default": true,
+          "description": "Run MultiQC report generation only at the end of real-time processing (PromethION optimization).",
+          "fa_icon": "fas fa-stopwatch",
+          "help_text": "Leverages Nextflow .collect() operator to defer MultiQC execution until all batch files are available. Saves 3-9 minutes by avoiding redundant file parsing."
+        }
+      }
+    },
+    "taxonomic_classification_options": {
+      "title": "Taxonomic classification options",
+      "type": "object",
+      "fa_icon": "fas fa-sitemap",
+      "description": "Parameters for metagenomic taxonomic profiling and classification.",
+      "help_text": "Configure Kraken2 taxonomic classification and taxpasta output standardization for metagenomic analysis.",
+      "properties": {
+        "classifier": {
+          "type": "string",
+          "default": "kraken2",
+          "enum": [
+            "kraken2"
+          ],
+          "description": "Taxonomic classifier to use.",
+          "fa_icon": "fas fa-project-diagram",
+          "help_text": "Currently supports: kraken2. Future versions may include centrifuge, metaphlan, kaiju."
+        },
+        "kraken2_db": {
+          "type": "string",
+          "format": "directory-path",
+          "description": "Path to Kraken2 database directory.",
+          "fa_icon": "fas fa-database",
+          "help_text": "Directory containing Kraken2 database files (hash.k2d, opts.k2d, taxo.k2d). Download from https://benlangmead.github.io/aws-indexes/k2 or build custom databases."
+        },
+        "save_output_fastqs": {
+          "type": "boolean",
+          "default": false,
+          "description": "Save classified/unclassified FASTQ files from Kraken2.",
+          "fa_icon": "fas fa-save",
+          "help_text": "Outputs separate FASTQ files for classified and unclassified reads. Useful for downstream analysis of specific taxa."
+        },
+        "save_reads_assignment": {
+          "type": "boolean",
+          "default": false,
+          "description": "Save read-level taxonomic assignments.",
+          "fa_icon": "fas fa-save",
+          "help_text": "Save the complete Kraken2 output file with per-read taxonomic assignments. Large files for high-depth sequencing runs."
+        },
+        "enable_taxpasta_standardization": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable taxpasta output standardization for consistent taxonomic profile formats.",
+          "fa_icon": "fas fa-table"
+        },
+        "taxpasta_format": {
+          "type": "string",
+          "default": "tsv",
+          "enum": [
+            "tsv",
+            "csv",
+            "arrow",
+            "parquet",
+            "biom"
+          ],
+          "description": "Output format for standardized taxonomic profiles.",
+          "fa_icon": "fas fa-file-export",
+          "help_text": "TSV and CSV for human-readable tables, arrow/parquet for efficient storage, BIOM for compatibility with microbiome analysis tools."
+        },
+        "taxonomy_file": {
+          "type": "string",
+          "format": "file-path",
+          "description": "Optional taxonomy file for taxpasta standardization.",
+          "fa_icon": "fas fa-file-alt"
+        },
+        "kraken2_use_optimizations": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable Kraken2 performance optimizations.",
+          "fa_icon": "fas fa-rocket"
+        },
+        "kraken2_memory_mapping": {
+          "type": "boolean",
+          "default": false,
+          "description": "Use memory-mapped database loading (faster, less memory).",
+          "fa_icon": "fas fa-memory"
+        },
+        "kraken2_confidence": {
+          "type": "number",
+          "default": 0.0,
+          "minimum": 0.0,
+          "maximum": 1.0,
+          "description": "Confidence score threshold (0.0-1.0, 0=no filter).",
+          "fa_icon": "fas fa-percent",
+          "help_text": "Minimum confidence score for taxonomic assignments. Higher values reduce false positives but may miss low-abundance taxa."
+        },
+        "kraken2_minimum_hit_groups": {
+          "type": "integer",
+          "default": 0,
+          "minimum": 0,
+          "description": "Minimum number of hit groups (0=no filter).",
+          "fa_icon": "fas fa-hashtag"
+        },
+        "kraken2_batch_size": {
+          "type": "integer",
+          "default": 10,
+          "minimum": 1,
+          "description": "Batch size for parallel Kraken2 classification.",
+          "fa_icon": "fas fa-layer-group"
+        },
+        "kraken2_db_chunking": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable database chunking for large datasets.",
+          "fa_icon": "fas fa-th"
+        },
+        "kraken2_db_merge_strategy": {
+          "type": "string",
+          "default": "union",
+          "enum": [
+            "union",
+            "intersection",
+            "consensus"
+          ],
+          "description": "Merge strategy for multiple database results.",
+          "fa_icon": "fas fa-code-branch"
+        },
+        "kraken2_enable_incremental": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable incremental Kraken2 classification with batch caching (PromethION optimization).",
+          "fa_icon": "fas fa-rocket",
+          "help_text": "Cache batch-level .kraken2 outputs and merge at the end instead of re-classifying the growing dataset. Eliminates O(n²) complexity. Saves 30-90 minutes for 30-batch runs."
+        },
+        "kraken2_cache_dir": {
+          "type": "string",
+          "format": "directory-path",
+          "description": "Cache directory for incremental Kraken2 outputs (PromethION optimization).",
+          "fa_icon": "fas fa-folder",
+          "help_text": "Directory to store batch-level .kraken2 and metadata files when kraken2_enable_incremental is enabled. Defaults to ${outdir}/cache/kraken2."
+        },
+        "kraken2_preload_database": {
+          "type": "boolean",
+          "default": false,
+          "description": "Preload Kraken2 database to shared memory for multi-sample runs (PromethION optimization).",
+          "fa_icon": "fas fa-memory",
+          "help_text": "Load database once into shared memory, reducing RAM requirements 24x for parallel sample processing. Automatically enabled with --realtime_mode via memory-mapping."
+        }
+      }
+    },
+    "validation_options": {
+      "title": "Validation options",
+      "type": "object",
+      "fa_icon": "fas fa-check-double",
+      "description": "Parameters for BLAST-based sequence validation.",
+      "help_text": "Optional BLAST validation against reference databases to verify taxonomic assignments or identify specific target organisms.",
+      "properties": {
+        "blast_validation": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable BLAST validation of classified sequences.",
+          "fa_icon": "fas fa-search"
+        },
+        "blast_db": {
+          "type": "string",
+          "format": "file-path",
+          "description": "Path to BLAST database.",
+          "fa_icon": "fas fa-database"
+        },
+        "validation_taxa": {
+          "type": "string",
+          "description": "Comma-separated list of taxa to validate.",
+          "fa_icon": "fas fa-list",
+          "help_text": "Specify taxa names or taxIDs to validate (e.g., 'Bacillus anthracis,Yersinia pestis')."
+        }
+      }
+    },
+    "assembly_options": {
+      "title": "Assembly options",
+      "type": "object",
+      "fa_icon": "fas fa-puzzle-piece",
+      "description": "Parameters for long-read genome assembly.",
+      "help_text": "Optional genome assembly from filtered nanopore reads using Flye or Miniasm assemblers.",
+      "properties": {
+        "enable_assembly": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable genome assembly step for long-read nanopore data.",
+          "fa_icon": "fas fa-power-off"
+        },
+        "assembler": {
+          "type": "string",
+          "default": "flye",
+          "enum": [
+            "flye",
+            "miniasm"
+          ],
+          "description": "Genome assembler to use.",
+          "fa_icon": "fas fa-cogs",
+          "help_text": "flye: polished assemblies with repeat resolution (default), miniasm: fast draft assemblies. Future versions may include canu, raven, shasta."
+        },
+        "genome_size": {
+          "type": "string",
+          "default": "5m",
+          "description": "Expected genome size (e.g., '5m' for 5Mb, '3.2g' for 3.2Gb).",
+          "fa_icon": "fas fa-ruler-horizontal",
+          "help_text": "Used by assemblers like flye and canu for parameter optimization."
+        },
+        "sequencing_mode": {
+          "type": "string",
+          "default": "--nano-raw",
+          "enum": [
+            "--nano-raw",
+            "--nano-corr",
+            "--nano-hq",
+            "--pacbio-raw",
+            "--pacbio-corr",
+            "--pacbio-hifi"
+          ],
+          "description": "Sequencing technology and data type for flye assembler.",
+          "fa_icon": "fas fa-dna",
+          "help_text": "nano-raw: regular ONT reads, nano-hq: ONT Q20+ reads, nano-corr: error-corrected reads."
+        }
+      }
+    },
+    "enhanced_monitoring_options": {
+      "title": "Enhanced monitoring options",
+      "type": "object",
+      "fa_icon": "fas fa-eye",
+      "description": "Advanced monitoring, error handling, and reliability features.",
+      "help_text": "Experimental features for production-scale real-time processing with enhanced error recovery and monitoring capabilities.",
+      "properties": {
+        "enable_enhanced_monitoring": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable enhanced real-time monitoring with all advanced features.",
+          "fa_icon": "fas fa-satellite"
+        },
+        "file_stability_time": {
+          "type": "integer",
+          "default": 5,
+          "minimum": 1,
+          "description": "File stability check time in seconds (file locking detection).",
+          "fa_icon": "fas fa-hourglass-half"
+        },
+        "max_file_retries": {
+          "type": "integer",
+          "default": 3,
+          "minimum": 1,
+          "description": "Maximum retry attempts for file processing.",
+          "fa_icon": "fas fa-redo"
+        },
+        "watchdog_timeout": {
+          "type": "integer",
+          "default": 3600,
+          "minimum": 60,
+          "description": "Watchdog timeout in seconds (1 hour = 3600s).",
+          "fa_icon": "fas fa-stopwatch"
+        },
+        "enable_progress_dashboard": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable real-time progress tracking dashboard.",
+          "fa_icon": "fas fa-tachometer-alt"
+        },
+        "enable_error_handler": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable comprehensive error handling with retry logic.",
+          "fa_icon": "fas fa-shield-alt"
+        },
+        "error_base_delay": {
+          "type": "integer",
+          "default": 2,
+          "minimum": 1,
+          "description": "Base delay for exponential backoff (seconds).",
+          "fa_icon": "fas fa-clock"
+        },
+        "error_max_delay": {
+          "type": "integer",
+          "default": 300,
+          "minimum": 10,
+          "description": "Maximum backoff delay (seconds, 5 minutes).",
+          "fa_icon": "fas fa-clock"
+        },
+        "error_backoff_factor": {
+          "type": "number",
+          "default": 2.0,
+          "minimum": 1.0,
+          "maximum": 10.0,
+          "description": "Exponential backoff growth factor.",
+          "fa_icon": "fas fa-chart-line"
+        },
+        "error_max_retries": {
+          "type": "integer",
+          "default": 10,
+          "minimum": 1,
+          "description": "Maximum retry attempts before dead letter queue.",
+          "fa_icon": "fas fa-redo"
+        },
+        "circuit_breaker_threshold": {
+          "type": "integer",
+          "default": 5,
+          "minimum": 1,
+          "description": "Number of failures to trigger circuit breaker.",
+          "fa_icon": "fas fa-power-off"
+        },
+        "circuit_breaker_window": {
+          "type": "integer",
+          "default": 300,
+          "minimum": 10,
+          "description": "Time window for failure counting (seconds, 5 minutes).",
+          "fa_icon": "fas fa-window-maximize"
+        }
+      }
+    },
+    "dynamic_resource_allocation_options": {
+      "title": "Dynamic resource allocation options",
+      "type": "object",
+      "fa_icon": "fas fa-server",
+      "description": "Experimental intelligent resource allocation system.",
+      "help_text": "EXPERIMENTAL: Adaptive resource allocation based on input characteristics and system availability. Disabled by default for v1.0 stability.",
+      "properties": {
+        "enable_dynamic_resources": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable intelligent resource allocation system.",
+          "fa_icon": "fas fa-brain",
+          "help_text": "EXPERIMENTAL - disabled by default for v1.0. When enabled, the pipeline will dynamically adjust CPU, memory, and time allocations based on input characteristics."
+        },
+        "optimization_profile": {
+          "type": "string",
+          "default": "auto",
+          "enum": [
+            "auto",
+            "high_throughput",
+            "balanced",
+            "resource_conservative",
+            "gpu_optimized",
+            "realtime_optimized",
+            "development_testing"
+          ],
+          "description": "Resource optimization profile.",
+          "fa_icon": "fas fa-sliders-h",
+          "help_text": "auto: intelligent detection, high_throughput: maximize speed, balanced: speed/resource tradeoff, resource_conservative: minimize resource usage, gpu_optimized: GPU workloads, realtime_optimized: real-time processing, development_testing: development/testing."
+        },
+        "resource_safety_factor": {
+          "type": "number",
+          "default": 0.8,
+          "minimum": 0.1,
+          "maximum": 1.0,
+          "description": "Safety factor for resource allocation (0.0-1.0).",
+          "fa_icon": "fas fa-shield-alt",
+          "help_text": "Multiplier applied to predicted resource requirements to add safety margin. Lower values = more conservative allocation."
+        },
+        "max_parallel_jobs": {
+          "type": "integer",
+          "default": 4,
+          "minimum": 1,
+          "description": "Maximum parallel jobs for resource optimization.",
+          "fa_icon": "fas fa-tasks"
+        },
+        "enable_gpu_optimization": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable GPU-specific optimizations.",
+          "fa_icon": "fas fa-microchip"
+        },
+        "resource_monitoring_interval": {
+          "type": "integer",
+          "default": 30,
+          "minimum": 1,
+          "description": "System monitoring interval (seconds).",
+          "fa_icon": "fas fa-heartbeat"
+        }
+      }
+    },
+    "reporting_visualization_options": {
+      "title": "Reporting and visualization options",
+      "type": "object",
+      "fa_icon": "fas fa-chart-pie",
+      "description": "MultiQC reporting and visualization customization.",
+      "help_text": "Configure MultiQC report generation, custom content, and nanopore-specific visualizations.",
+      "properties": {
+        "enable_nanoplot_comparison": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable multi-sample NanoPlot comparison plots.",
+          "fa_icon": "fas fa-chart-bar"
+        },
+        "enable_multiqc_custom_content": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable nanopore-specific custom content in MultiQC.",
+          "fa_icon": "fas fa-file-alt"
+        },
+        "enable_krona_plots": {
+          "type": "boolean",
+          "default": true,
+          "description": "Generate Krona interactive taxonomic visualization.",
+          "fa_icon": "fas fa-chart-pie",
+          "help_text": "Creates interactive HTML charts for exploring taxonomic composition."
+        },
+        "enable_dorado_mqc": {
+          "type": "boolean",
+          "default": true,
+          "description": "Include Dorado basecalling statistics in MultiQC.",
+          "fa_icon": "fas fa-dna"
+        },
+        "enable_nanopore_stats_mqc": {
+          "type": "boolean",
+          "default": true,
+          "description": "Include comprehensive nanopore statistics in MultiQC.",
+          "fa_icon": "fas fa-chart-line"
+        }
+      }
+    },
+    "testing_performance_options": {
+      "title": "Testing and performance options",
+      "type": "object",
+      "fa_icon": "fas fa-vial",
+      "description": "Development, testing, and performance benchmarking parameters.",
+      "help_text": "Options for test coverage tracking and performance regression detection during development.",
+      "properties": {
+        "enable_test_coverage_tracking": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable test coverage monitoring.",
+          "fa_icon": "fas fa-check-circle",
+          "hidden": true
+        },
+        "enable_performance_benchmarks": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable performance regression testing.",
+          "fa_icon": "fas fa-tachometer-alt",
+          "hidden": true
+        },
+        "test_coverage_threshold": {
+          "type": "integer",
+          "default": 95,
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Minimum test coverage threshold (P0+P1).",
+          "fa_icon": "fas fa-percentage",
+          "hidden": true
+        },
+        "performance_regression_threshold": {
+          "type": "number",
+          "default": 0.1,
+          "minimum": 0.0,
+          "maximum": 1.0,
+          "description": "Performance regression threshold (10%).",
+          "fa_icon": "fas fa-percent",
+          "hidden": true
+        }
+      }
+    }
+  },
+  "properties": {},
+  "allOf": [
+    {
+      "$ref": "#/$defs/input_output_options"
+    },
+    {
+      "$ref": "#/$defs/realtime_processing_options"
+    },
+    {
+      "$ref": "#/$defs/dorado_basecalling_options"
+    },
+    {
+      "$ref": "#/$defs/quality_control_options"
+    },
+    {
+      "$ref": "#/$defs/taxonomic_classification_options"
+    },
+    {
+      "$ref": "#/$defs/validation_options"
+    },
+    {
+      "$ref": "#/$defs/assembly_options"
+    },
+    {
+      "$ref": "#/$defs/enhanced_monitoring_options"
+    },
+    {
+      "$ref": "#/$defs/dynamic_resource_allocation_options"
+    },
+    {
+      "$ref": "#/$defs/reporting_visualization_options"
+    },
+    {
+      "$ref": "#/$defs/testing_performance_options"
+    },
+    {
+      "$ref": "#/$defs/reference_genome_options"
+    },
+    {
+      "$ref": "#/$defs/institutional_config_options"
+    },
+    {
+      "$ref": "#/$defs/generic_options"
+    }
+  ]
 }
