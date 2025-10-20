@@ -27,13 +27,22 @@ process DORADO_BASECALLER {
 
     // Handle both single POD5 file and directory of POD5 files
     def input_path = pod5_files.size() == 1 && pod5_files[0].isFile() ? pod5_files[0] : '.'
-    
+
+    // Use custom dorado path if specified
+    def dorado_cmd = params.dorado_path ?: 'dorado'
+
     """
+    # Set dorado command
+    DORADO_CMD="${dorado_cmd}"
+
     # Check if dorado is available
-    if ! command -v dorado &> /dev/null; then
-        echo "ERROR: Dorado not found in PATH"
+    if ! command -v \$DORADO_CMD &> /dev/null; then
+        echo "ERROR: Dorado not found: \$DORADO_CMD"
+        echo "Please ensure dorado is in PATH or set --dorado_path"
         exit 1
     fi
+
+    echo "Using dorado binary: \$DORADO_CMD"
 
     # GPU Detection and Device Selection
     echo "=== GPU Detection ==="
@@ -87,13 +96,13 @@ process DORADO_BASECALLER {
     
     echo "Device configuration: \$DEVICE_ARG \$BATCH_SIZE_ARG \$CHUNK_SIZE_ARG"
 
-    # Download model if not available locally  
+    # Download model if not available locally
     echo "=== Model Download ==="
-    dorado download --model ${model} || echo "Model may already be available"
+    \$DORADO_CMD download --model ${model} || echo "Model may already be available"
 
     # Run basecalling with optimal settings
     echo "=== Basecalling ==="
-    dorado basecaller \\
+    \$DORADO_CMD basecaller \\
         ${model} \\
         ${input_path} \\
         \$DEVICE_ARG \\
@@ -146,7 +155,7 @@ EOF
     # Version information
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
-        dorado: \$(dorado --version 2>&1 | head -n 1 | sed 's/.*dorado //g')
+        dorado: \$(\$DORADO_CMD --version 2>&1 | head -n 1 | sed 's/.*dorado //g')
     END_VERSIONS
     """
 

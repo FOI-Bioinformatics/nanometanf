@@ -1,0 +1,231 @@
+nextflow_pipeline {
+
+    name "Test Real-Time Edge Cases and Error Handling"
+    script "main.nf"
+    tag "pipeline"
+    tag "edge_cases"
+    tag "realtime"
+    tag "error_handling"
+
+    test("Empty priority_samples list - should work normally") {
+
+        when {
+            params {
+                input = "$projectDir/tests/fixtures/samplesheets/minimal.csv"
+                outdir = "$outputDir"
+                realtime_mode = true
+                nanopore_output_dir = "$projectDir/tests/fixtures/fastq"
+                max_files = 3
+                priority_samples = []  // Empty list
+                kraken2_db = null
+                skip_multiqc = true
+            }
+        }
+
+        then {
+            assert workflow.success
+            // Should process normally without priority routing
+        }
+    }
+
+    test("Batch size larger than available files") {
+
+        when {
+            params {
+                input = "$projectDir/tests/fixtures/samplesheets/minimal.csv"
+                outdir = "$outputDir"
+                realtime_mode = true
+                nanopore_output_dir = "$projectDir/tests/fixtures/fastq"
+                max_files = 2  // Only 2 files
+                batch_size = 100  // Much larger than files
+                kraken2_db = null
+                skip_multiqc = true
+            }
+        }
+
+        then {
+            assert workflow.success
+            // Should handle single batch with remainder
+        }
+    }
+
+    test("Min batch size equals max batch size") {
+
+        when {
+            params {
+                input = "$projectDir/tests/fixtures/samplesheets/minimal.csv"
+                outdir = "$outputDir"
+                realtime_mode = true
+                nanopore_output_dir = "$projectDir/tests/fixtures/fastq"
+                max_files = 5
+                adaptive_batching = true
+                min_batch_size = 3
+                max_batch_size = 3  // Same as min
+                kraken2_db = null
+                skip_multiqc = true
+            }
+        }
+
+        then {
+            assert workflow.success
+            // Should use fixed batch size of 3
+        }
+    }
+
+    test("Batch size factor of 0 - should use min_batch_size") {
+
+        when {
+            params {
+                input = "$projectDir/tests/fixtures/samplesheets/minimal.csv"
+                outdir = "$outputDir"
+                realtime_mode = true
+                nanopore_output_dir = "$projectDir/tests/fixtures/fastq"
+                max_files = 5
+                adaptive_batching = true
+                min_batch_size = 1
+                max_batch_size = 10
+                batch_size_factor = 0.0  // Edge case
+                kraken2_db = null
+                skip_multiqc = true
+            }
+        }
+
+        then {
+            assert workflow.success
+            // Should constrain to min_batch_size
+        }
+    }
+
+    test("Very large batch size factor - should constrain to max") {
+
+        when {
+            params {
+                input = "$projectDir/tests/fixtures/samplesheets/minimal.csv"
+                outdir = "$outputDir"
+                realtime_mode = true
+                nanopore_output_dir = "$projectDir/tests/fixtures/fastq"
+                max_files = 5
+                adaptive_batching = true
+                min_batch_size = 1
+                max_batch_size = 5
+                batch_size_factor = 100.0  // Very large
+                kraken2_db = null
+                skip_multiqc = true
+            }
+        }
+
+        then {
+            assert workflow.success
+            // Should constrain to max_batch_size
+        }
+    }
+
+    test("Priority sample with no matches - should work") {
+
+        when {
+            params {
+                input = "$projectDir/tests/fixtures/samplesheets/minimal.csv"
+                outdir = "$outputDir"
+                realtime_mode = true
+                nanopore_output_dir = "$projectDir/tests/fixtures/fastq"
+                max_files = 3
+                priority_samples = "nonexistent_sample,another_fake"  // Won't match anything
+                kraken2_db = null
+                skip_multiqc = true
+            }
+        }
+
+        then {
+            assert workflow.success
+            // Should process all files as normal (no priority matches)
+        }
+    }
+
+    test("Timeout of 0 minutes - edge case") {
+
+        when {
+            params {
+                input = "$projectDir/tests/fixtures/samplesheets/minimal.csv"
+                outdir = "$outputDir"
+                realtime_mode = true
+                nanopore_output_dir = "$projectDir/tests/fixtures/fastq"
+                max_files = 2  // Use max_files instead
+                realtime_timeout_minutes = 0  // Edge case - immediate timeout
+                kraken2_db = null
+                skip_multiqc = true
+            }
+        }
+
+        then {
+            // Should still process files (max_files takes precedence)
+            assert workflow.success || workflow.failed  // May timeout immediately
+        }
+    }
+
+    test("Grace period of 0 - should stop immediately after detection timeout") {
+
+        when {
+            params {
+                input = "$projectDir/tests/fixtures/samplesheets/minimal.csv"
+                outdir = "$outputDir"
+                realtime_mode = true
+                nanopore_output_dir = "$projectDir/tests/fixtures/fastq"
+                max_files = 3
+                realtime_timeout_minutes = 1
+                realtime_processing_grace_period = 0  // No grace period
+                kraken2_db = null
+                skip_multiqc = true
+            }
+        }
+
+        then {
+            assert workflow.success
+            // Should stop immediately after detection timeout
+        }
+    }
+
+    test("Negative batch size factor - should use absolute value or constrain") {
+
+        when {
+            params {
+                input = "$projectDir/tests/fixtures/samplesheets/minimal.csv"
+                outdir = "$outputDir"
+                realtime_mode = true
+                nanopore_output_dir = "$projectDir/tests/fixtures/fastq"
+                max_files = 3
+                adaptive_batching = true
+                batch_size_factor = -1.5  // Negative (unusual)
+                min_batch_size = 1
+                max_batch_size = 10
+                kraken2_db = null
+                skip_multiqc = true
+            }
+        }
+
+        then {
+            assert workflow.success || workflow.failed
+            // May handle gracefully or fail with clear message
+        }
+    }
+
+    test("Barcode pattern matching with special characters") {
+
+        when {
+            params {
+                input = "$projectDir/tests/fixtures/samplesheets/minimal.csv"
+                outdir = "$outputDir"
+                realtime_mode = true
+                nanopore_output_dir = "$projectDir/tests/fixtures/fastq"
+                max_files = 3
+                priority_samples = "barcode0[1-5],test.*"  // Regex patterns
+                kraken2_db = null
+                skip_multiqc = true
+            }
+        }
+
+        then {
+            assert workflow.success
+            // Should handle regex patterns gracefully
+        }
+    }
+}

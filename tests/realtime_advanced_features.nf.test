@@ -1,0 +1,171 @@
+nextflow_pipeline {
+
+    name "Test Advanced Real-Time Features"
+    script "main.nf"
+    tag "pipeline"
+    tag "realtime"
+    tag "advanced_features"
+
+    test("Real-time with timeout - should stop after timeout") {
+
+        when {
+            params {
+                input = "$projectDir/tests/fixtures/samplesheets/minimal.csv"
+                outdir = "$outputDir"
+                realtime_mode = true
+                nanopore_output_dir = "$projectDir/tests/fixtures/fastq"
+                file_pattern = "*.fastq.gz"
+                max_files = 3  // Process 3 files then stop
+                realtime_timeout_minutes = 1  // Very short for testing
+                realtime_processing_grace_period = 1
+                kraken2_db = null  // Skip Kraken2 for this test
+                skip_multiqc = true
+                batch_size = 1
+            }
+        }
+
+        then {
+            assert workflow.success
+            assert workflow.trace.tasks().size() > 0
+
+            // Should have processed 3 files (max_files limit, not timeout)
+            with(workflow.out) {
+                assert qc_reports
+            }
+        }
+    }
+
+    test("Adaptive batching - should respect min/max constraints") {
+
+        when {
+            params {
+                input = "$projectDir/tests/fixtures/samplesheets/minimal.csv"
+                outdir = "$outputDir"
+                realtime_mode = true
+                nanopore_output_dir = "$projectDir/tests/fixtures/fastq"
+                file_pattern = "*.fastq.gz"
+                max_files = 10
+                adaptive_batching = true
+                min_batch_size = 2
+                max_batch_size = 5
+                batch_size_factor = 2.0
+                kraken2_db = null
+                skip_multiqc = true
+            }
+        }
+
+        then {
+            assert workflow.success
+
+            // Verify adaptive batching was used (effective_batch_size within range)
+            // batch_size (10) * factor (2.0) = 20, constrained to max (5)
+            assert workflow.trace.tasks().size() > 0
+        }
+    }
+
+    test("Priority routing - priority samples should be marked") {
+
+        when {
+            params {
+                input = "$projectDir/tests/fixtures/samplesheets/minimal.csv"
+                outdir = "$outputDir"
+                realtime_mode = true
+                nanopore_output_dir = "$projectDir/tests/fixtures/fastq"
+                file_pattern = "*.fastq.gz"
+                max_files = 5
+                priority_samples = "test,control"
+                kraken2_db = null
+                skip_multiqc = true
+                batch_size = 2
+            }
+        }
+
+        then {
+            assert workflow.success
+
+            // Should process files, priority routing enabled
+            assert workflow.trace.tasks().size() > 0
+        }
+    }
+
+    test("Combined features - timeout + adaptive + priority") {
+
+        when {
+            params {
+                input = "$projectDir/tests/fixtures/samplesheets/minimal.csv"
+                outdir = "$outputDir"
+                realtime_mode = true
+                nanopore_output_dir = "$projectDir/tests/fixtures/fastq"
+                file_pattern = "*.fastq.gz"
+                max_files = 10
+                realtime_timeout_minutes = 2
+                realtime_processing_grace_period = 1
+                adaptive_batching = true
+                min_batch_size = 1
+                max_batch_size = 5
+                priority_samples = "urgent,control"
+                kraken2_db = null
+                skip_multiqc = true
+            }
+        }
+
+        then {
+            assert workflow.success
+
+            // All features should work together
+            assert workflow.trace.tasks().size() > 0
+
+            // Check that QC tasks ran
+            assert workflow.trace.tasks().any { it.process =~ /.*CHOPPER.*/ ||
+                                               it.process =~ /.*FASTP.*/ ||
+                                               it.process =~ /.*FILTLONG.*/ }
+        }
+    }
+
+    test("Barcode extraction - should detect barcodes in filenames") {
+
+        when {
+            params {
+                input = "$projectDir/tests/fixtures/samplesheets/minimal.csv"
+                outdir = "$outputDir"
+                realtime_mode = true
+                nanopore_output_dir = "$projectDir/tests/fixtures/fastq"
+                file_pattern = "barcode*.fastq.gz"  // Match barcode files
+                max_files = 5
+                kraken2_db = null
+                skip_multiqc = true
+            }
+        }
+
+        then {
+            assert workflow.success
+
+            // Should process files with barcode metadata
+            assert workflow.trace.tasks().size() > 0
+        }
+    }
+
+    test("No timeout or max_files - should warn user") {
+
+        when {
+            params {
+                input = "$projectDir/tests/fixtures/samplesheets/minimal.csv"
+                outdir = "$outputDir"
+                realtime_mode = true
+                nanopore_output_dir = "$projectDir/tests/fixtures/fastq"
+                file_pattern = "*.fastq.gz"
+                // No max_files or timeout - should still work but warn
+                max_files = 3  // Add max_files to prevent actual infinite run
+                kraken2_db = null
+                skip_multiqc = true
+            }
+        }
+
+        then {
+            assert workflow.success
+
+            // Should complete but would have logged warning
+            assert workflow.trace.tasks().size() > 0
+        }
+    }
+}

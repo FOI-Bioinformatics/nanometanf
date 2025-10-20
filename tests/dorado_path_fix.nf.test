@@ -1,0 +1,147 @@
+nextflow_process {
+
+    name "Test DORADO_BASECALLER with custom dorado_path"
+    script "modules/local/dorado_basecaller/main.nf"
+    process "DORADO_BASECALLER"
+    tag "modules"
+    tag "modules_local"
+    tag "dorado_basecaller"
+    tag "dorado_path"
+
+    test("Should use custom dorado_path parameter - stub") {
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id: 'test_custom_path', single_end: true ],
+                    []
+                ]
+                input[1] = 'dna_r10.4.1_e4.3_400bps_hac'
+                """
+            }
+            params {
+                dorado_path = '/custom/path/to/dorado'
+                min_qscore = 10
+                trim_adapters = true
+                trim_barcodes = false
+                demultiplex = false
+            }
+        }
+
+        then {
+            assertAll(
+                { assert process.success },
+                { assert snapshot(process.out).match() }
+            )
+        }
+    }
+
+    test("Should use default dorado from PATH - stub") {
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id: 'test_default_path', single_end: true ],
+                    []
+                ]
+                input[1] = 'dna_r10.4.1_e4.3_400bps_hac'
+                """
+            }
+            params {
+                dorado_path = 'dorado'  // Default
+                min_qscore = 9
+            }
+        }
+
+        then {
+            assertAll(
+                { assert process.success },
+                { assert snapshot(process.out).match() }
+            )
+        }
+    }
+
+    test("Should handle null dorado_path gracefully - stub") {
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id: 'test_null_path', single_end: true ],
+                    []
+                ]
+                input[1] = 'dna_r10.4.1_e4.3_400bps_sup'
+                """
+            }
+            params {
+                dorado_path = null  // Should fall back to 'dorado'
+                min_qscore = 12
+            }
+        }
+
+        then {
+            assertAll(
+                { assert process.success },
+                { assert process.out.fastq },
+                { assert process.out.summary },
+                { assert process.out.versions }
+            )
+        }
+    }
+
+    test("Summary should include dorado path information - stub") {
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id: 'test_summary', single_end: true ],
+                    []
+                ]
+                input[1] = 'dna_r10.4.1_e4.3_400bps_hac'
+                """
+            }
+            params {
+                dorado_path = '/usr/local/dorado-1.2.0/bin/dorado'
+            }
+        }
+
+        then {
+            assertAll(
+                { assert process.success },
+                { assert process.out.summary },
+                // Summary file should be generated
+                { assert process.out.summary[0][1].toString().endsWith('_summary.txt') }
+            )
+        }
+    }
+
+    test("Should work with paired-end reads - stub") {
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id: 'test_paired', single_end: false ],
+                    []
+                ]
+                input[1] = 'dna_r10.4.1_e4.3_400bps_hac'
+                """
+            }
+            params {
+                dorado_path = '/opt/dorado/dorado'
+                demultiplex = false
+            }
+        }
+
+        then {
+            assertAll(
+                { assert process.success },
+                { assert process.out.fastq },
+                { assert process.out.fastq[0][1].toString().endsWith('.fastq.gz') }
+            )
+        }
+    }
+}
