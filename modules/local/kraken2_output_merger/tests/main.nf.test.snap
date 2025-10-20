@@ -1,0 +1,79 @@
+{
+    "merge 2 batches - single sample - stub": {
+        "content": [
+            {
+                "0": [
+                    [
+                        {
+                            "id": "sample1"
+                        },
+                        "sample1.cumulative.kraken2.output.txt:md5,d41d8cd98f00b204e9800998ecf8427e"
+                    ]
+                ],
+                "1": [
+                    [
+                        {
+                            "id": "sample1"
+                        },
+                        "merge_stats.json:md5,5d924393e7a07202e2e69cd2ad3cb6f9"
+                    ]
+                ],
+                "2": [
+                    "versions.yml:md5,9aa44ea7f9e936b45d354a13672c9b4f"
+                ],
+                "cumulative_output": [
+                    [
+                        {
+                            "id": "sample1"
+                        },
+                        "sample1.cumulative.kraken2.output.txt:md5,d41d8cd98f00b204e9800998ecf8427e"
+                    ]
+                ],
+                "stats": [
+                    [
+                        {
+                            "id": "sample1"
+                        },
+                        "merge_stats.json:md5,5d924393e7a07202e2e69cd2ad3cb6f9"
+                    ]
+                ],
+                "versions": [
+                    "versions.yml:md5,9aa44ea7f9e936b45d354a13672c9b4f"
+                ]
+            }
+        ],
+        "meta": {
+            "nf-test": "0.9.2",
+            "nextflow": "25.04.7"
+        },
+        "timestamp": "2025-10-20T16:56:45.873846"
+    },
+    "merge 3 batches - chronological order - stub": {
+        "content": [
+            [
+                [
+                    {
+                        "id": "sample2"
+                    },
+                    "sample2.cumulative.kraken2.output.txt:md5,d41d8cd98f00b204e9800998ecf8427e"
+                ]
+            ],
+            [
+                [
+                    {
+                        "id": "sample2"
+                    },
+                    "merge_stats.json:md5,5130d721e19ee37d0d3aaa47f9b9deee"
+                ]
+            ],
+            [
+                "versions.yml:md5,9aa44ea7f9e936b45d354a13672c9b4f"
+            ]
+        ],
+        "meta": {
+            "nf-test": "0.9.2",
+            "nextflow": "25.04.7"
+        },
+        "timestamp": "2025-10-20T18:50:16.374354"
+    }
+}

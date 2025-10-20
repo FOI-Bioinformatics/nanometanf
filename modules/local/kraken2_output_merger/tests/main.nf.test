@@ -1,0 +1,199 @@
+nextflow_process {
+    name "Test Process KRAKEN2_OUTPUT_MERGER"
+    script "../main.nf"
+    process "KRAKEN2_OUTPUT_MERGER"
+    tag "modules"
+    tag "modules_local"
+    tag "kraken2_output_merger"
+    tag "kraken2"
+    tag "incremental"
+
+    test("merge 2 batches - single sample - stub") {
+        options "-stub"
+
+        when {
+            process {
+                """
+                // Create mock batch outputs
+                def batch0_output = file("test_batch0.kraken2.output.txt")
+                batch0_output.text = "C\\tread1\\t12345\\t100\\t12345:1\\nU\\tread2\\t0\\t100\\t0:100\\n"
+
+                def batch1_output = file("test_batch1.kraken2.output.txt")
+                batch1_output.text = "C\\tread3\\t67890\\t100\\t67890:1\\nC\\tread4\\t12345\\t100\\t12345:1\\n"
+
+                input[0] = [
+                    [ id:'sample1' ],
+                    [ batch0_output, batch1_output ]
+                ]
+
+                // Create batch metadata JSON files
+                def metadata0 = file("batch_metadata_0.json")
+                metadata0.text = '''{"sample_id": "sample1", "batch_id": 0, "kraken2_output": "test_batch0.kraken2.output.txt"}'''
+
+                def metadata1 = file("batch_metadata_1.json")
+                metadata1.text = '''{"sample_id": "sample1", "batch_id": 1, "kraken2_output": "test_batch1.kraken2.output.txt"}'''
+
+                input[1] = [ metadata0, metadata1 ]
+                """
+            }
+        }
+
+        then {
+            assertAll(
+                { assert process.success },
+                { assert snapshot(process.out).match() }
+            )
+        }
+    }
+
+    test("merge 3 batches - chronological order - stub") {
+        options "-stub"
+
+        when {
+            process {
+                """
+                // Create 3 mock batch outputs (intentionally out of order)
+                def batch2_output = file("test_batch2.kraken2.output.txt")
+                batch2_output.text = "C\\tread5\\t11111\\t100\\t11111:1\\n"
+
+                def batch0_output = file("test_batch0.kraken2.output.txt")
+                batch0_output.text = "C\\tread1\\t12345\\t100\\t12345:1\\n"
+
+                def batch1_output = file("test_batch1.kraken2.output.txt")
+                batch1_output.text = "C\\tread3\\t67890\\t100\\t67890:1\\n"
+
+                input[0] = [
+                    [ id:'sample2' ],
+                    [ batch2_output, batch0_output, batch1_output ]  // Intentionally unordered
+                ]
+
+                // Metadata files also unordered
+                def metadata2 = file("batch_metadata_2.json")
+                metadata2.text = '''{"sample_id": "sample2", "batch_id": 2, "kraken2_output": "test_batch2.kraken2.output.txt"}'''
+
+                def metadata0 = file("batch_metadata_0.json")
+                metadata0.text = '''{"sample_id": "sample2", "batch_id": 0, "kraken2_output": "test_batch0.kraken2.output.txt"}'''
+
+                def metadata1 = file("batch_metadata_1.json")
+                metadata1.text = '''{"sample_id": "sample2", "batch_id": 1, "kraken2_output": "test_batch1.kraken2.output.txt"}'''
+
+                input[1] = [ metadata2, metadata0, metadata1 ]  // Intentionally unordered
+                """
+            }
+        }
+
+        then {
+            assertAll(
+                { assert process.success },
+                { assert process.out.cumulative_output },
+                { assert process.out.stats },
+                { assert snapshot(
+                    process.out.cumulative_output,
+                    process.out.stats,
+                    process.out.versions
+                ).match() }
+            )
+        }
+    }
+
+    test("merge single batch - edge case - stub") {
+        options "-stub"
+
+        when {
+            process {
+                """
+                def batch0_output = file("test_batch0.kraken2.output.txt")
+                batch0_output.text = "C\\tread1\\t12345\\t100\\t12345:1\\nU\\tread2\\t0\\t100\\t0:100\\n"
+
+                input[0] = [
+                    [ id:'sample3' ],
+                    [ batch0_output ]
+                ]
+
+                def metadata0 = file("batch_metadata_0.json")
+                metadata0.text = '''{"sample_id": "sample3", "batch_id": 0, "kraken2_output": "test_batch0.kraken2.output.txt"}'''
+
+                input[1] = [ metadata0 ]
+                """
+            }
+        }
+
+        then {
+            assertAll(
+                { assert process.success },
+                { assert process.out.cumulative_output },
+                { assert process.out.stats }
+            )
+        }
+    }
+
+    test("merge 5 batches - large scale - stub") {
+        options "-stub"
+
+        when {
+            process {
+                """
+                // Create 5 batch outputs
+                def outputs = []
+                def metadatas = []
+
+                (0..4).each { idx ->
+                    def batch_output = file("test_batch\${idx}.kraken2.output.txt")
+                    batch_output.text = "C\\tread\${idx}\\t12345\\t100\\t12345:1\\n"
+                    outputs << batch_output
+
+                    def metadata = file("batch_metadata_\${idx}.json")
+                    metadata.text = '''{"sample_id": "sample4", "batch_id": ''' + idx + ''', "kraken2_output": "test_batch''' + idx + '''.kraken2.output.txt"}'''
+                    metadatas << metadata
+                }
+
+                input[0] = [
+                    [ id:'sample4' ],
+                    outputs
+                ]
+                input[1] = metadatas
+                """
+            }
+        }
+
+        then {
+            assertAll(
+                { assert process.success },
+                { assert process.out.cumulative_output },
+                { assert process.out.stats }
+            )
+        }
+    }
+
+    test("metadata preservation - stub") {
+        options "-stub"
+
+        when {
+            process {
+                """
+                def batch0_output = file("special_sample_batch0.kraken2.output.txt")
+                batch0_output.text = "C\\tread1\\t12345\\t100\\t12345:1\\n"
+
+                input[0] = [
+                    [ id:'special_sample', single_end:true, run_id:'RUN001' ],
+                    [ batch0_output ]
+                ]
+
+                def metadata0 = file("batch_metadata_0.json")
+                metadata0.text = '''{"sample_id": "special_sample", "batch_id": 0, "kraken2_output": "special_sample_batch0.kraken2.output.txt"}'''
+
+                input[1] = [ metadata0 ]
+                """
+            }
+        }
+
+        then {
+            assertAll(
+                { assert process.success },
+                { assert process.out.cumulative_output.get(0).get(0).id == 'special_sample' },
+                { assert process.out.cumulative_output.get(0).get(0).single_end == true },
+                { assert process.out.cumulative_output.get(0).get(0).run_id == 'RUN001' }
+            )
+        }
+    }
+}

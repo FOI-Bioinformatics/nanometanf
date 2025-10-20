@@ -21,10 +21,9 @@
 
 include { KRAKEN2_KRAKEN2                } from "${projectDir}/modules/nf-core/kraken2/kraken2/main"
 include { KRAKEN2_OPTIMIZED              } from "${projectDir}/modules/local/kraken2_optimized/main"
-// NOTE: Incremental classification feature disabled - modules not implemented
-// include { KRAKEN2_INCREMENTAL_CLASSIFIER } from "${projectDir}/modules/local/kraken2_incremental_classifier/main"
-// include { KRAKEN2_OUTPUT_MERGER          } from "${projectDir}/modules/local/kraken2_output_merger/main"
-// include { KRAKEN2_REPORT_GENERATOR       } from "${projectDir}/modules/local/kraken2_report_generator/main"
+include { KRAKEN2_INCREMENTAL_CLASSIFIER } from "${projectDir}/modules/local/kraken2_incremental_classifier/main"
+include { KRAKEN2_OUTPUT_MERGER          } from "${projectDir}/modules/local/kraken2_output_merger/main"
+include { KRAKEN2_REPORT_GENERATOR       } from "${projectDir}/modules/local/kraken2_report_generator/main"
 include { TAXPASTA_STANDARDISE           } from "${projectDir}/modules/nf-core/taxpasta/standardise/main"
 
 workflow TAXONOMIC_CLASSIFICATION {
@@ -70,22 +69,51 @@ workflow TAXONOMIC_CLASSIFICATION {
         case 'kraken2':
             //
             // MODULE: Run Kraken2 for taxonomic classification
-            // Two modes: optimized or standard (incremental disabled - modules not implemented)
+            // Three modes: incremental (batch caching), optimized (memory-mapping), or standard
             //
-            if (false && params.kraken2_enable_incremental == true) {  // Incremental mode disabled
-                log.info "Using incremental Kraken2 processing with batch caching"
+            if (params.kraken2_enable_incremental == true) {
+                log.info "=== Phase 1.1: Incremental Kraken2 Classification ==="
+                log.info "Using incremental Kraken2 processing with batch caching:"
+                log.info "  - Classify only NEW reads per batch (O(n) vs O(n²))"
                 log.info "  - Raw outputs cached per batch for efficient merging"
                 log.info "  - Cumulative reports generated from merged data"
+                log.info "  - Estimated time savings: 30-90 minutes for 30-batch runs"
+
+                //
+                // CHANNEL OPERATION: Add batch_id to metadata for incremental processing
+                // STREAMING-COMPATIBLE: Uses stateful counter without channel completion
+                // Works for real-time (streaming) and samplesheet (static) modes
+                // Per-sample batch numbering: each sample gets sequential batch_id (0, 1, 2...)
+                //
+                // ARCHITECTURE FIX: Previous .collect() approach waited for channel completion,
+                // incompatible with watchPath() which never closes in true streaming mode.
+                // This stateful .map() assigns batch_id as files arrive without blocking.
+                //
+                def sample_batch_counters = [:].withDefault { 0 }
+
+                ch_reads_with_batch = ch_reads
+                    .map { meta, reads ->
+                        def meta_with_batch = meta.clone()
+                        def sample_id = meta.id
+
+                        // Thread-safe counter increment per sample
+                        // Ensures sequential batch numbering: 0, 1, 2... for each sample
+                        synchronized(sample_batch_counters) {
+                            meta_with_batch.batch_id = sample_batch_counters[sample_id]
+                            sample_batch_counters[sample_id]++
+                        }
+
+                        return tuple(meta_with_batch, reads)
+                    }
 
                 //
                 // MODULE: Incremental classification with caching
                 //
                 KRAKEN2_INCREMENTAL_CLASSIFIER (
-                    ch_reads,
+                    ch_reads_with_batch,
                     ch_db,
                     params.save_output_fastqs ?: false,
-                    params.save_reads_assignment ?: false,
-                    params.kraken2_cache_dir ?: "${params.outdir}/cache/kraken2"
+                    params.save_reads_assignment ?: false
                 )
                 ch_versions = ch_versions.mix(KRAKEN2_INCREMENTAL_CLASSIFIER.out.versions)
 

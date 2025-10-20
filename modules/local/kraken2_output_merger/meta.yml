@@ -1,0 +1,51 @@
+name: "kraken2_output_merger"
+description: Merge raw Kraken2 outputs from multiple batches in chronological order
+keywords:
+  - kraken2
+  - merger
+  - incremental
+  - batch_processing
+tools:
+  - python:
+      description: Python programming language
+      homepage: https://www.python.org/
+      documentation: https://docs.python.org/3/
+      tool_dev_url: https://github.com/python/cpython
+      licence: ["PSF"]
+
+input:
+  - meta:
+      type: map
+      description: |
+        Groovy Map containing sample information
+        e.g. [ id:'sample1', single_end:false ]
+  - kraken2_outputs:
+      type: file
+      description: List of raw Kraken2 output files from all batches
+      pattern: "*.kraken2.output.txt"
+  - batch_metadata_files:
+      type: file
+      description: List of batch metadata JSON files for ordering
+      pattern: "batch_metadata.json"
+
+output:
+  - meta:
+      type: map
+      description: |
+        Groovy Map containing sample information
+        e.g. [ id:'sample1', single_end:false ]
+  - cumulative_output:
+      type: file
+      description: Merged cumulative Kraken2 output file
+      pattern: "*.cumulative.kraken2.output.txt"
+  - stats:
+      type: file
+      description: JSON file containing merge statistics
+      pattern: "merge_stats.json"
+  - versions:
+      type: file
+      description: File containing software versions
+      pattern: "versions.yml"
+
+authors:
+  - "@andreassjodin"

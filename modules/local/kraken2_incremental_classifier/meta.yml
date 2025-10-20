@@ -1,0 +1,77 @@
+name: "kraken2_incremental_classifier"
+description: Batch-level Kraken2 taxonomic classification with output caching for incremental real-time processing
+keywords:
+  - kraken2
+  - taxonomic_classification
+  - metagenomics
+  - incremental
+  - real-time
+tools:
+  - kraken2:
+      description: Kraken2 is a fast and memory-efficient k-mer based taxonomic classification system
+      homepage: https://github.com/DerrickWood/kraken2
+      documentation: https://github.com/DerrickWood/kraken2/wiki
+      tool_dev_url: https://github.com/DerrickWood/kraken2
+      doi: "10.1186/s13059-019-1891-0"
+      licence: ["MIT"]
+
+input:
+  - meta:
+      type: map
+      description: |
+        Groovy Map containing sample information and batch ID
+        e.g. [ id:'sample1', batch_id:0, single_end:false ]
+  - reads:
+      type: file
+      description: FASTQ file(s) for the current batch only
+      pattern: "*.{fastq,fastq.gz,fq,fq.gz}"
+  - db_meta:
+      type: map
+      description: Groovy Map containing database metadata
+  - db:
+      type: directory
+      description: Kraken2 database directory
+  - save_output_fastqs:
+      type: boolean
+      description: Save classified and unclassified reads to separate FASTQ files
+  - save_reads_assignment:
+      type: boolean
+      description: Save per-read classification assignments
+
+output:
+  - meta:
+      type: map
+      description: |
+        Groovy Map containing sample information and batch ID
+        e.g. [ id:'sample1', batch_id:0, single_end:false ]
+  - raw_kraken2_output:
+      type: file
+      description: Raw Kraken2 classification output for this batch
+      pattern: "*.kraken2.output.txt"
+  - report:
+      type: file
+      description: Kraken2 classification report for this batch
+      pattern: "*.kraken2.report.txt"
+  - batch_metadata:
+      type: file
+      description: JSON file containing batch processing metadata and statistics
+      pattern: "batch_metadata.json"
+  - classified_reads_fastq:
+      type: file
+      description: Classified reads in FASTQ format (optional)
+      pattern: "*classified*.fastq.gz"
+  - unclassified_reads_fastq:
+      type: file
+      description: Unclassified reads in FASTQ format (optional)
+      pattern: "*unclassified*.fastq.gz"
+  - classified_reads_assignment:
+      type: file
+      description: Per-read classification assignments (optional)
+      pattern: "*classifiedreads.txt"
+  - versions:
+      type: file
+      description: File containing software versions
+      pattern: "versions.yml"
+
+authors:
+  - "@andreassjodin"

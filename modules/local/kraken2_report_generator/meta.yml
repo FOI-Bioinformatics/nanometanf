@@ -1,0 +1,64 @@
+name: "kraken2_report_generator"
+description: Generate cumulative Kraken2 classification report by merging batch reports using KrakenTools
+keywords:
+  - kraken2
+  - report
+  - krakentools
+  - incremental
+  - taxonomic_classification
+tools:
+  - python:
+      description: Python programming language
+      homepage: https://www.python.org/
+      documentation: https://docs.python.org/3/
+      tool_dev_url: https://github.com/python/cpython
+      licence: ["PSF"]
+  - krakentools:
+      description: KrakenTools provides scripts and programs to be used alongside the Kraken and Bracken metagenomic classification engines
+      homepage: https://github.com/jenniferlu717/KrakenTools
+      documentation: https://github.com/jenniferlu717/KrakenTools
+      tool_dev_url: https://github.com/jenniferlu717/KrakenTools
+      licence: ["GPL-3.0"]
+
+input:
+  - meta:
+      type: map
+      description: |
+        Groovy Map containing sample information
+        e.g. [ id:'sample1', single_end:false ]
+  - cumulative_output:
+      type: file
+      description: Merged cumulative Kraken2 output file
+      pattern: "*.cumulative.kraken2.output.txt"
+  - batch_reports:
+      type: file
+      description: List of Kraken2 reports from individual batches
+      pattern: "*.kraken2.report.txt"
+  - db_meta:
+      type: map
+      description: Groovy Map containing database metadata
+  - db:
+      type: directory
+      description: Kraken2 database directory (for taxonomy information)
+
+output:
+  - meta:
+      type: map
+      description: |
+        Groovy Map containing sample information
+        e.g. [ id:'sample1', single_end:false ]
+  - report:
+      type: file
+      description: Cumulative Kraken2 classification report combining all batches
+      pattern: "*.cumulative.kraken2.report.txt"
+  - stats:
+      type: file
+      description: JSON file containing report generation statistics
+      pattern: "report_stats.json"
+  - versions:
+      type: file
+      description: File containing software versions
+      pattern: "versions.yml"
+
+authors:
+  - "@andreassjodin"
