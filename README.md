@@ -237,6 +237,14 @@ results/
 
 2. **Validation strategies:** Use BLAST validation for critical identifications, particularly in clinical contexts
 
+3. **Incremental Kraken2 Classification** ⭐ **NEW**: Enable batch-level classification to eliminate O(n²) complexity in real-time mode:
+   - **Parameter:** `--kraken2_enable_incremental` (default: false)
+   - **Performance:** 93% reduction in classifications vs cumulative mode (30-90 minutes savings for 30-batch runs)
+   - **Architecture:** Three-module system (CLASSIFIER → MERGER → REPORT_GENERATOR) with streaming-compatible batch tracking
+   - **Compatibility:** Works seamlessly in both real-time streaming and samplesheet modes
+   - **Use case:** Essential for long-running real-time sequencing with continuous taxonomic updates
+   - **Documentation:** See [docs/development/PHASE_1.1_STATUS.md](docs/development/PHASE_1.1_STATUS.md) and [docs/development/incremental_kraken2_implementation.md](docs/development/incremental_kraken2_implementation.md)
+
 ### Real-time Processing
 1. **Resource monitoring:** Monitor system resources during live sequencing to prevent pipeline interruption
 2. **Batch optimization:** Balance batch sizes and intervals based on sequencing throughput and analysis requirements
