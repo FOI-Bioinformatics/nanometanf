@@ -22,4 +22,16 @@ nf-core-lint-results.log
 full_test_analysis.log
 *.backup
 .claude/
-SECURITY.md
+
+# Documentation files that should be in docs/ directory
+/RELEASE_NOTES_v*.md
+/*_SUMMARY.md
+/*_REPORT.md
+/VERIFICATION_*.md
+/IMPLEMENTATION_*.md
+
+# Temporary test files and samplesheets
+/*.csv
+!assets/*.csv
+/main_simple.nf
+/test_workflow.nf

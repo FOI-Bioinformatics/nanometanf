@@ -573,17 +573,35 @@ nf-test test --tag core
 
 ```
 docs/
-├── README.md                      # Documentation index
-├── user/                          # User-facing documentation
-│   ├── usage.md                   # Pipeline usage guide
-│   ├── output.md                  # Output file descriptions
-│   └── qc_guide.md                # Quality control guide
-└── development/                   # Developer documentation
-    ├── testing_guide.md           # Testing guide
-    ├── TESTING.md                 # Comprehensive testing documentation
-    ├── production_deployment.md   # Production deployment guide
-    └── dynamic_resource_allocation.md  # Dynamic resource feature docs
+├── README.md                              # Documentation index
+├── releases/                              # Release notes (archived)
+│   ├── v1.3.3.md                          # Current release
+│   ├── v1.3.1.md                          # Hotfix release
+│   ├── v1.3.0.md                          # PromethION optimizations
+│   └── v1.2.0.md                          # Production readiness release
+├── user/                                  # User-facing documentation
+│   ├── usage.md                           # Pipeline usage guide
+│   ├── output.md                          # Output file descriptions
+│   ├── qc_guide.md                        # Quality control guide
+│   └── troubleshooting.md                 # Troubleshooting guide (to be created)
+├── development/                           # Developer documentation
+│   ├── testing_guide.md                   # Testing guide
+│   ├── TESTING.md                         # Comprehensive testing documentation
+│   ├── production_deployment.md           # Production deployment guide
+│   ├── dynamic_resource_allocation.md     # Dynamic resource feature docs
+│   ├── PROMETHION_OPTIMIZATIONS.md        # Platform-specific optimizations
+│   ├── PHASE_1.1_STATUS.md                # Incremental Kraken2 status
+│   ├── incremental_kraken2_implementation.md  # Kraken2 architecture
+│   ├── v1.3.3_final_summary.md            # v1.3.3 completion summary
+│   ├── v1.3.3_implementation_summary.md   # v1.3.3 implementation details
+│   ├── v1.3.3_verification_report.md      # v1.3.3 robustness audit
+│   └── v1.3.3_testing_validation.md       # v1.3.3 testing methodology
+├── validation/                            # Test coverage reports
+├── integration/                           # API documentation
+└── performance/                           # Performance benchmarks
 ```
+
+**Note:** Release notes are now archived in `docs/releases/` with version-based filenames. Development cycle reports (summaries, verification, testing) are stored in `docs/development/` with version prefixes for historical reference.
 
 ## Common Development Tasks
 
@@ -682,8 +700,8 @@ Update versions in:
 **3. Update Documentation**
 
 - **CHANGELOG.md**: Add comprehensive release section with all changes
-- **EVALUATION_SUMMARY.md**: Create production readiness assessment (for major releases)
-- **RELEASE_NOTES.md**: Create GitHub release notes file
+- **docs/EVALUATION_SUMMARY.md**: Create production readiness assessment (for major releases)
+- **docs/releases/vX.Y.Z.md**: Create GitHub release notes file in releases directory
 - Commit with message: `Release v1.X.Y: [brief description]`
 
 **4. Final Validation**
@@ -734,12 +752,12 @@ Option A - Using GitHub CLI:
 gh auth login
 gh release create v1.X.Y \
   --title "v1.X.Y - [Release Name]" \
-  --notes-file RELEASE_NOTES_v1.X.Y.md
+  --notes-file docs/releases/vX.Y.Z.md
 ```
 
 Option B - Using GitHub Web UI:
 1. Navigate to: `https://github.com/foi-bioinformatics/nanometanf/releases/new?tag=v1.X.Y`
-2. Copy contents from RELEASE_NOTES file
+2. Copy contents from `docs/releases/vX.Y.Z.md` file
 3. Publish release
 
 **8. Prepare Next Development Cycle**
@@ -795,8 +813,8 @@ git push origin dev
 - `nextflow.config` - Version string
 - `.nf-core.yml` - Template version
 - `CHANGELOG.md` - Complete change history
-- `EVALUATION_SUMMARY.md` - Major release assessment
-- `RELEASE_NOTES_vX.Y.Z.md` - GitHub release content
+- `docs/EVALUATION_SUMMARY.md` - Major release assessment
+- `docs/releases/vX.Y.Z.md` - GitHub release content (archived after release)
 - `modules.json` - Module version tracking
 - `ro-crate-metadata.json` - Auto-synced metadata
 

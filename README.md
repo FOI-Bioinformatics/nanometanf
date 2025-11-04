@@ -609,6 +609,34 @@ Planned enhancements for future releases (v1.2.0+):
 
 For the most up-to-date information on limitations and workarounds, please check the [GitHub Issues](https://github.com/foi-bioinformatics/nanometanf/issues) and [CHANGELOG](CHANGELOG.md).
 
+## Documentation
+
+### User Documentation
+- **[Usage Guide](docs/user/usage.md)** - Comprehensive parameter reference and usage examples
+- **[Output Files](docs/user/output.md)** - Detailed description of pipeline outputs
+- **[Troubleshooting Guide](docs/user/troubleshooting.md)** - Common issues and solutions *(coming soon)*
+- **[QC Strategy Guide](docs/user/qc_guide.md)** - Quality control strategies and interpretation
+
+### Release Notes
+- **[v1.3.3](docs/releases/v1.3.3.md)** - Real-time advanced features (current release)
+- **[v1.3.1](docs/releases/v1.3.1.md)** - Hotfix release
+- **[v1.3.0](docs/releases/v1.3.0.md)** - PromethION optimizations
+- **[v1.2.0](docs/releases/v1.2.0.md)** - Production readiness release
+- **[All releases](docs/releases/)** - Complete release history
+
+### Development Documentation
+- **[CLAUDE.md](CLAUDE.md)** - AI assistant integration guide and development patterns
+- **[Testing Guide](docs/development/testing_guide.md)** - Comprehensive testing documentation
+- **[PromethION Optimizations](docs/development/PROMETHION_OPTIMIZATIONS.md)** - Platform-specific performance tuning
+- **[Production Deployment](docs/development/production_deployment.md)** - Deployment best practices
+- **[Phase 1.1 Status](docs/development/PHASE_1.1_STATUS.md)** - Incremental Kraken2 implementation details
+- **[v1.3.3 Reports](docs/development/)** - Implementation, verification, and testing validation reports
+
+### Additional Resources
+- **[CHANGELOG.md](CHANGELOG.md)** - Complete version history with detailed changes
+- **[CITATIONS.md](CITATIONS.md)** - Citation information for tools and pipeline
+- **[SECURITY.md](SECURITY.md)** - Security policy and vulnerability reporting
+
 ## Credits
 
 foi-bioinformatics/nanometanf was originally written by Andreas Sjödin.
