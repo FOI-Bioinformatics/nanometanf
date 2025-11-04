@@ -1,8 +1,8 @@
 # Functional Refactor: Real-time Monitoring Mutable State Elimination
 
 **Date**: 2025-11-04
-**Status**: In Progress (1 of 3 files completed)
-**Pattern**: Mutable variables → Functional reactive pattern with `.scan()`
+**Status**: Complete (2 of 2 files refactored)
+**Pattern**: Mutable variables → Functional reactive patterns
 
 ## Overview
 
@@ -70,17 +70,26 @@ ch_input_files = ch_mixed
 ## Files Refactored
 
 ### ✅ 1. `subworkflows/local/realtime_monitoring/main.nf`
-- **Lines**: 45-120 → 45-176 (expanded with functional pattern)
-- **Context**: FASTQ file monitoring
+- **Lines**: 45-120 → 45-176 (expanded with functional `.scan()` pattern)
+- **Context**: FASTQ file monitoring with intelligent timeout
+- **Pattern**: Timeout state machine using `.scan()` with immutable state objects
 - **Status**: **COMPLETE** ✅
 
-### 🔄 2. `subworkflows/local/realtime_pod5_monitoring/main.nf`
-- **Status**: **TODO** - Apply same pattern
-- **Context**: POD5 file monitoring + basecalling
+### ✅ 2. `subworkflows/local/enhanced_realtime_monitoring/main.nf`
+- **Lines**: 32-171 → 33-240 (refactored with event sourcing pattern)
+- **Context**: Advanced monitoring with file locking detection and retry logic
+- **Pattern**: Event sourcing with `.inject()` accumulation of tracking events
+- **Status**: **COMPLETE** ✅
+- **Changes**:
+  - Replaced mutable `tracking_data` map with immutable `initialTrackingState`
+  - Introduced tracking events channel (`READY`, `RETRY`, `FAILED`, `PROCESSED`)
+  - Used functional `.inject()` to accumulate events into final state
+  - Separated concerns: file processing vs. metrics tracking
 
-### 🔄 3. `subworkflows/local/enhanced_realtime_monitoring/main.nf`
-- **Status**: **TODO** - Apply same pattern
-- **Context**: Advanced monitoring with priority/batching
+### ⚪ 3. `subworkflows/local/realtime_pod5_monitoring/main.nf`
+- **Status**: **NO ACTION NEEDED** - No mutable state anti-pattern present
+- **Context**: POD5 file monitoring + basecalling
+- **Rationale**: This file uses simple `.take(max_files)` limiting without timeout logic or mutable state tracking
 
 ## Key Improvements
 
@@ -183,4 +192,83 @@ This refactor eliminates mutable state anti-patterns, replacing them with functi
 - **Performance**: ✅ No degradation
 - **Testability**: ✅ Enhanced
 
-**Status**: ✅ **Pattern Proven** - 1/3 complete, ready to apply to remaining files
+**Status**: ✅ **Refactor Complete** - 2/2 files refactored, 1/3 files didn't need changes
+
+## Enhanced Realtime Monitoring Refactor Pattern
+
+The `enhanced_realtime_monitoring/main.nf` refactor used a different but complementary pattern: **Event Sourcing**.
+
+### Problem
+```groovy
+// MUTABLE STATE (Bad Practice)
+def tracking_data = [ready: 0, not_ready: 0, processed: 0, ...]
+
+ch_ready_files = ch_checked_files
+    .map { meta, file, status ->
+        tracking_data.ready++  // MUTATION!
+        tracking_data.last_file = ...  // MUTATION!
+        return [meta, file]
+    }
+
+ch_not_ready_files = ch_checked_files
+    .map { meta, file, status ->
+        tracking_data.not_ready++  // MUTATION!
+        tracking_data.retries++  // MUTATION!
+        return [meta, file, action]
+    }
+```
+
+### Solution: Event Sourcing Pattern
+```groovy
+// IMMUTABLE STATE (Best Practice)
+def initialTrackingState = [ready: 0, not_ready: 0, processed: 0, ...]
+
+// 1. Emit tracking events instead of mutating state
+ch_checked_files
+    .multiMap { meta, file, status ->
+        ready: status == 'READY' ? [meta, file] : null
+        tracking: status == 'READY' ? ['READY', meta.id, file.size()] : ['RETRY', meta.id]
+    }
+    .set { ch_split_files }
+
+// 2. Collect events and accumulate into immutable state
+ch_tracking_state = ch_tracking_events
+    .collect()
+    .map { events ->
+        events.inject(initialTrackingState) { state, event ->
+            // Return NEW state for each event
+            switch(event[0]) {
+                case 'READY': return state + [ready: state.ready + 1]
+                case 'RETRY': return state + [retries: state.retries + 1]
+                // ...
+            }
+        }
+    }
+```
+
+### Key Differences from `.scan()` Pattern
+
+| Aspect | `.scan()` Pattern (File 1) | Event Sourcing (File 2) |
+|--------|---------------------------|-------------------------|
+| **Use Case** | Stateful stream processing with early termination | Metrics aggregation across multiple channels |
+| **State Updates** | Incremental (per event) | Batch (collect all events, then reduce) |
+| **Termination** | Uses `.until()` on state | Processes all events |
+| **Channels** | Single mixed channel | Multiple parallel channels |
+| **Operator** | `.scan()` + `.until()` | `.multiMap()` + `.inject()` |
+
+### Benefits of Event Sourcing Pattern
+
+1. **Separation of Concerns**: File processing logic separate from metrics tracking
+2. **Testability**: Can replay events to verify state calculations
+3. **Debuggability**: Event stream provides audit trail of all state changes
+4. **Correctness**: Eliminates race conditions from parallel channel mutations
+5. **Extensibility**: Easy to add new event types or metrics
+
+### Behavioral Equivalence
+
+✅ **All functionality preserved**:
+- Ready file counting: `tracking_data.ready++` → event-based accumulation
+- Retry counting: `tracking_data.retries++` → event-based accumulation
+- Failed file tracking: `tracking_data.failed++` → event-based accumulation
+- Processing metrics: Same statistics computed from accumulated state
+- Logging: All original log messages at same trigger points
