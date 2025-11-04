@@ -6,6 +6,8 @@
 // - Per-barcode metadata extraction
 //
 
+include { BarcodeUtils } from '../../../lib/BarcodeUtils'
+
 workflow REALTIME_MONITORING {
 
     take:
@@ -256,10 +258,10 @@ workflow REALTIME_MONITORING {
                 def meta = [:]
                 def filename = file.baseName.replaceAll(/\.(fastq|fq)(\.gz)?$/, '')
 
-                // Extract barcode if present in filename (barcode01, barcode02, etc.)
-                def barcode_match = filename =~ /barcode(\d+)/
-                if (barcode_match) {
-                    meta.barcode = "barcode" + barcode_match[0][1]
+                // Extract barcode if present in filename using shared utility
+                def barcode = BarcodeUtils.extractBarcodeFromFilename(filename)
+                if (barcode) {
+                    meta.barcode = barcode
                 }
 
                 meta.id = filename
