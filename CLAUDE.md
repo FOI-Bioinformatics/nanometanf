@@ -91,7 +91,7 @@ The `bioinformatics-pipeline-dev` agent provides expert assistance with:
 
 ### Required Tools
 ```bash
-# Nextflow (>= 24.10.5)
+# Nextflow (>= 25.10.0)
 nextflow -version
 
 # nf-test (>= 0.9.0)

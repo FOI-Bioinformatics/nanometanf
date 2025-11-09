@@ -47,7 +47,7 @@ nf-test test --tag core
 **Use Case:** Nightly builds, pre-release validation
 
 **Matrix Testing:**
-- Multiple Nextflow versions (24.10.5, 24.04.4)
+- Nextflow version: 25.10.0
 - Ubuntu latest
 
 **Tests Included:**
