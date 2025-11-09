@@ -3,6 +3,17 @@ nextflow_pipeline {
     name "Test real-time statistics modules"
     script "../main.nf"
 
+    // Test Level & Component
+    tag "pipeline"
+    tag "integration"
+
+    // Feature Area
+    tag "realtime"
+
+    // Execution Speed & Criticality
+    tag "fast"
+    tag "extended"
+
     test("Should generate comprehensive snapshot statistics") {
 
         when {

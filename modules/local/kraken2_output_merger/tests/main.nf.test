@@ -2,11 +2,22 @@ nextflow_process {
     name "Test Process KRAKEN2_OUTPUT_MERGER"
     script "../main.nf"
     process "KRAKEN2_OUTPUT_MERGER"
-    tag "modules"
-    tag "modules_local"
+
+    // Test Level & Component
+    tag "module"
     tag "kraken2_output_merger"
-    tag "kraken2"
-    tag "incremental"
+
+    // Feature Area
+    tag "classification"
+    tag "realtime"
+
+    // Execution Speed & Criticality
+    tag "fast"
+    tag "core"
+
+    // Test Type
+    tag "stub"
+    tag "snapshot"
 
     test("merge 2 batches - single sample - stub") {
         options "-stub"

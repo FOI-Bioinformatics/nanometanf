@@ -2,9 +2,17 @@ nextflow_pipeline {
 
     name "Test Advanced Real-Time Features"
     script "main.nf"
+
+    // Test Level & Component
     tag "pipeline"
+    tag "integration"
+
+    // Feature Area
     tag "realtime"
-    tag "advanced_features"
+
+    // Execution Speed & Criticality
+    tag "fast"
+    tag "core"
 
     test("Real-time with timeout - should stop after timeout") {
 

@@ -1,0 +1,41 @@
+name: error_classifier
+description: Classify errors to determine appropriate handling strategy
+keywords:
+  - error handling
+  - classification
+  - error analysis
+  - fault tolerance
+  - experimental
+tools:
+  - python:
+      description: Python programming language
+      homepage: https://www.python.org/
+      documentation: https://docs.python.org/3/
+      licence: ['PSF']
+
+input:
+  - error_info:
+      type: map
+      description: |
+        Error information to classify
+        e.g. [ error_message:'Out of memory', exit_code:137, process:'KRAKEN2' ]
+  - error_log:
+      type: file
+      description: Error log file (optional)
+      pattern: "*.err"
+
+output:
+  - classification:
+      type: file
+      description: |
+        Error classification result with category, severity, and recommended action
+      pattern: "*_classification.json"
+  - versions:
+      type: file
+      description: File containing software versions
+      pattern: "versions.yml"
+
+authors:
+  - "@andreassjodin"
+maintainers:
+  - "@andreassjodin"

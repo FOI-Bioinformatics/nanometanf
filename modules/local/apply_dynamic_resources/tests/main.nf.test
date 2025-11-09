@@ -4,9 +4,19 @@ nextflow_process {
     script "../main.nf"
     process "APPLY_DYNAMIC_RESOURCES"
 
-    tag "modules"
-    tag "modules_local"
+    // Test Level & Component
+    tag "module"
     tag "apply_dynamic_resources"
+
+    // Feature Area
+    tag "resource_allocation"
+
+    // Execution Speed & Criticality
+    tag "fast"
+    tag "experimental"
+
+    // Test Type
+    tag "snapshot"
 
     test("Should apply basic resource adjustments") {
 

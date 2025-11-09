@@ -3,6 +3,18 @@ nextflow_pipeline {
     name "Test real-time barcode directory stream processing integration"
     script "../main.nf"
 
+    // Test Level & Component
+    tag "pipeline"
+    tag "integration"
+
+    // Feature Area
+    tag "realtime"
+    tag "barcode_discovery"
+
+    // Execution Speed & Criticality
+    tag "fast"
+    tag "core"
+
     test("Should integrate real-time monitoring with barcode discovery") {
 
         setup {

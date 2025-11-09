@@ -1,0 +1,63 @@
+name: Quick Test Validation (Core + Fast)
+
+on:
+  pull_request:
+    branches: [dev, master]
+  push:
+    branches: [dev]
+  workflow_dispatch:
+
+jobs:
+  quick-validation:
+    name: Quick CI - Core & Fast Tests Only
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    strategy:
+      matrix:
+        nxf_version: ['24.10.5']
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Nextflow
+        uses: nf-core/setup-nextflow@v2
+        with:
+          version: ${{ matrix.nxf_version }}
+
+      - name: Setup Java for nf-test
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Install nf-test
+        run: |
+          wget -qO- https://code.askimed.com/install/nf-test | bash
+          sudo mv nf-test /usr/local/bin/
+          nf-test version
+
+      - name: Run Quick Test Suite (core + fast tags)
+        run: |
+          nf-test test --tag core --tag fast --profile test,docker --verbose
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: quick-test-results-nf${{ matrix.nxf_version }}
+          path: |
+            .nf-test/reports/
+            .nf-test.log
+
+      - name: Test Summary
+        if: always()
+        run: |
+          echo "## Quick Test Validation Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Nextflow Version:** ${{ matrix.nxf_version }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Test Scope:** Core functionality with fast execution (<30s per test)" >> $GITHUB_STEP_SUMMARY
+          echo "**Expected Duration:** < 5 minutes" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "See artifacts for detailed test reports." >> $GITHUB_STEP_SUMMARY

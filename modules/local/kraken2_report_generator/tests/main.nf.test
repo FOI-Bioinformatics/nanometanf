@@ -2,12 +2,22 @@ nextflow_process {
     name "Test Process KRAKEN2_REPORT_GENERATOR"
     script "../main.nf"
     process "KRAKEN2_REPORT_GENERATOR"
-    tag "modules"
-    tag "modules_local"
+
+    // Test Level & Component
+    tag "module"
     tag "kraken2_report_generator"
-    tag "kraken2"
-    tag "incremental"
-    tag "krakentools"
+
+    // Feature Area
+    tag "classification"
+    tag "realtime"
+
+    // Execution Speed & Criticality
+    tag "fast"
+    tag "core"
+
+    // Test Type
+    tag "stub"
+    tag "snapshot"
 
     test("generate report from 2 batches - stub") {
         options "-stub"

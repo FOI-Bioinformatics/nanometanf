@@ -1,7 +1,19 @@
 nextflow_pipeline {
 
-    name "Test Dorado multiplex POD5 basecalling and demultiplexing"  
+    name "Test Dorado multiplex POD5 basecalling and demultiplexing"
     script "../main.nf"
+
+    // Test Level & Component
+    tag "pipeline"
+    tag "integration"
+
+    // Feature Area
+    tag "basecalling"
+    tag "barcode_discovery"
+
+    // Execution Speed & Criticality
+    tag "slow"
+    tag "core"
 
     test("Should basecall POD5 and demultiplex with Dorado") {
 

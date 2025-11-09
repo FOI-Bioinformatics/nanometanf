@@ -4,9 +4,19 @@ nextflow_process {
     script "../main.nf"
     process "UPDATE_CUMULATIVE_STATS"
 
-    tag "modules"
-    tag "modules_local"
+    // Test Level & Component
+    tag "module"
     tag "update_cumulative_stats"
+
+    // Feature Area
+    tag "realtime"
+
+    // Execution Speed & Criticality
+    tag "fast"
+    tag "core"
+
+    // Test Type
+    tag "snapshot"
 
     test("Should update cumulative stats with first batch") {
 

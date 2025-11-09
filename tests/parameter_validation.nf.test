@@ -3,6 +3,17 @@ nextflow_pipeline {
     name "Test parameter validation only"
     script "../main.nf"
 
+    // Test Level & Component
+    tag "pipeline"
+    tag "integration"
+
+    // Feature Area
+    tag "validation"
+
+    // Execution Speed & Criticality
+    tag "fast"
+    tag "core"
+
     test("Should validate all parameters without running workflow") {
 
         when {

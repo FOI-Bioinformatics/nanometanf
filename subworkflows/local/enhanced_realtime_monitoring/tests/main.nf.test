@@ -4,6 +4,17 @@ nextflow_workflow {
     script "../main.nf"
     workflow "ENHANCED_REALTIME_MONITORING"
 
+    // Test Level & Component
+    tag "subworkflow"
+    tag "enhanced_realtime_monitoring"
+
+    // Feature Area
+    tag "realtime"
+
+    // Execution Speed & Criticality
+    tag "medium"
+    tag "core"
+
     test("Should monitor single directory with basic configuration") {
 
         setup {

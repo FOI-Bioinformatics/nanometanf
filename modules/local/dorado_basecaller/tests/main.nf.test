@@ -4,9 +4,20 @@ nextflow_process {
     script "../main.nf"
     process "DORADO_BASECALLER"
 
-    tag "modules"
-    tag "modules_local"
+    // Test Level & Component
+    tag "module"
     tag "dorado_basecaller"
+
+    // Feature Area
+    tag "basecalling"
+
+    // Execution Speed & Criticality
+    tag "fast"
+    tag "core"
+
+    // Test Type
+    tag "stub"
+    tag "snapshot"
 
     test("Should run dorado basecalling on POD5 files") {
 

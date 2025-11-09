@@ -4,6 +4,17 @@ nextflow_process {
     script "../main.nf"
     process "COLLECT_PERFORMANCE_FEEDBACK"
 
+    // Test Level & Component
+    tag "module"
+    tag "resource_feedback_learning"
+
+    // Feature Area
+    tag "resource_allocation"
+
+    // Execution Speed & Criticality
+    tag "fast"
+    tag "experimental"
+
     test("Should collect basic performance feedback") {
 
         setup {

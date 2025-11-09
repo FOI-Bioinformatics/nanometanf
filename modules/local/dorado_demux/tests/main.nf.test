@@ -4,6 +4,18 @@ nextflow_process {
     script "../main.nf"
     process "DORADO_DEMUX"
 
+    // Test Level & Component
+    tag "module"
+    tag "dorado_demux"
+
+    // Feature Area
+    tag "barcode_discovery"
+    tag "basecalling"
+
+    // Execution Speed & Criticality
+    tag "fast"
+    tag "core"
+
     test("Should demultiplex FASTQ with Dorado") {
 
         when {

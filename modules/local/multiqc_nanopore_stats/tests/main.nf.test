@@ -4,9 +4,19 @@ nextflow_process {
     script "../main.nf"
     process "MULTIQC_NANOPORE_STATS"
 
-    tag "modules"
-    tag "modules_local"
+    // Test Level & Component
+    tag "module"
     tag "multiqc_nanopore_stats"
+
+    // Feature Area
+    tag "qc"
+
+    // Execution Speed & Criticality
+    tag "fast"
+    tag "core"
+
+    // Test Type
+    tag "snapshot"
 
     test("multiqc_nanopore_stats - basic functionality") {
 

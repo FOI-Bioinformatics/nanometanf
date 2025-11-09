@@ -3,10 +3,21 @@ nextflow_process {
     name "Test DORADO_BASECALLER with custom dorado_path"
     script "modules/local/dorado_basecaller/main.nf"
     process "DORADO_BASECALLER"
-    tag "modules"
-    tag "modules_local"
+
+    // Test Level & Component
+    tag "module"
     tag "dorado_basecaller"
-    tag "dorado_path"
+
+    // Feature Area
+    tag "basecalling"
+
+    // Execution Speed & Criticality
+    tag "fast"
+    tag "core"
+
+    // Test Type
+    tag "stub"
+    tag "snapshot"
 
     test("Should use custom dorado_path parameter - stub") {
 

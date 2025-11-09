@@ -1,0 +1,54 @@
+name: nanoplot_compare
+description: Compare multiple NanoPlot results across samples or batches
+keywords:
+  - quality control
+  - visualization
+  - nanoplot
+  - comparison
+  - nanopore
+tools:
+  - nanoplot:
+      description: Plotting scripts for long read sequencing data
+      homepage: https://github.com/wdecoster/NanoPlot
+      documentation: https://github.com/wdecoster/NanoPlot
+      tool_dev_url: https://github.com/wdecoster/NanoPlot
+      doi: "10.1093/bioinformatics/bty149"
+      licence: ['MIT']
+
+input:
+  - ontfiles:
+      type: file
+      description: |
+        FASTQ files or NanoPlot summary files to compare
+        Supports: *.fastq, *.fastq.gz, *.fq, *.fq.gz, *.txt (summary)
+      pattern: "*.{fastq,fastq.gz,fq,fq.gz,txt}"
+  - prefix:
+      type: string
+      description: Prefix for output directory and files
+
+output:
+  - comparison_dir:
+      type: directory
+      description: Directory containing all comparison outputs
+      pattern: "*_comparison"
+  - html:
+      type: file
+      description: HTML plots for comparison visualization
+      pattern: "*_comparison/*.html"
+  - png:
+      type: file
+      description: PNG plots (optional)
+      pattern: "*_comparison/*.png"
+  - txt:
+      type: file
+      description: NanoPlot statistics text files
+      pattern: "*_comparison/*.txt"
+  - versions:
+      type: file
+      description: File containing software versions
+      pattern: "versions.yml"
+
+authors:
+  - "@andreassjodin"
+maintainers:
+  - "@andreassjodin"

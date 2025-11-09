@@ -1,0 +1,43 @@
+name: kraken2_db_chunker
+description: Split Kraken2 database into chunks for parallel processing and memory optimization
+keywords:
+  - database
+  - kraken2
+  - chunking
+  - optimization
+  - parallelization
+tools:
+  - python:
+      description: Python programming language
+      homepage: https://www.python.org/
+      documentation: https://docs.python.org/3/
+      licence: ['PSF']
+
+input:
+  - db:
+      type: directory
+      description: Kraken2 database directory to chunk
+  - chunk_config:
+      type: map
+      description: |
+        Chunking configuration
+        e.g. [ num_chunks:4, chunk_size_gb:16, strategy:'balanced' ]
+
+output:
+  - chunks:
+      type: directory
+      description: Chunked database directories
+      pattern: "chunk_*"
+  - manifest:
+      type: file
+      description: JSON manifest describing chunks
+      pattern: "chunk_manifest.json"
+  - versions:
+      type: file
+      description: File containing software versions
+      pattern: "versions.yml"
+
+authors:
+  - "@andreassjodin"
+maintainers:
+  - "@andreassjodin"

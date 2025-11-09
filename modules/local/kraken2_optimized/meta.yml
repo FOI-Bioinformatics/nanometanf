@@ -1,0 +1,63 @@
+name: kraken2_optimized
+description: Optimized Kraken2 classification with memory mapping and performance enhancements
+keywords:
+  - metagenomics
+  - taxonomy
+  - kraken2
+  - optimization
+  - memory mapping
+tools:
+  - kraken2:
+      description: Taxonomic classification system using exact k-mer matches
+      homepage: https://ccb.jhu.edu/software/kraken2/
+      documentation: https://github.com/DerrickWood/kraken2/wiki
+      tool_dev_url: https://github.com/DerrickWood/kraken2
+      doi: "10.1186/s13059-019-1891-0"
+      licence: ['MIT']
+
+input:
+  - meta:
+      type: map
+      description: |
+        Groovy Map containing sample information
+        e.g. [ id:'sample1', single_end:false ]
+  - reads:
+      type: file
+      description: Input FASTQ files
+      pattern: "*.{fastq,fastq.gz,fq,fq.gz}"
+  - db:
+      type: directory
+      description: Kraken2 database directory
+  - optimization_config:
+      type: map
+      description: |
+        Optimization settings
+        e.g. [ memory_mapping:true, preload_db:true, use_mmap_cache:true ]
+
+output:
+  - meta:
+      type: map
+      description: |
+        Groovy Map containing sample information
+        e.g. [ id:'sample1', single_end:false ]
+  - output:
+      type: file
+      description: Kraken2 classification output
+      pattern: "*.kraken2.output.txt"
+  - report:
+      type: file
+      description: Kraken2 taxonomic report
+      pattern: "*.kraken2.report.txt"
+  - performance_metrics:
+      type: file
+      description: Performance metrics JSON
+      pattern: "*.performance.json"
+  - versions:
+      type: file
+      description: File containing software versions
+      pattern: "versions.yml"
+
+authors:
+  - "@andreassjodin"
+maintainers:
+  - "@andreassjodin"

@@ -4,9 +4,19 @@ nextflow_process {
     script "../main.nf"
     process "LOAD_OPTIMIZATION_PROFILES"
 
-    tag "modules"
-    tag "modules_local"
-    tag "load_optimization_profiles"
+    // Test Level & Component
+    tag "module"
+    tag "resource_optimization_profiles"
+
+    // Feature Area
+    tag "resource_allocation"
+
+    // Execution Speed & Criticality
+    tag "fast"
+    tag "experimental"
+
+    // Test Type
+    tag "snapshot"
 
     test("Should load high throughput profile") {
 

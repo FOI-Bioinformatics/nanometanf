@@ -4,6 +4,21 @@ nextflow_workflow {
     script "../main.nf"
     workflow "QC_ANALYSIS"
 
+    // Test Level & Component
+    tag "subworkflow"
+    tag "qc_analysis"
+
+    // Feature Area
+    tag "qc"
+
+    // Execution Speed & Criticality
+    tag "medium"
+    tag "core"
+
+    // Test Type
+    tag "edge_case"
+    tag "snapshot"
+
     test("Should perform basic FASTP quality control") {
 
         when {

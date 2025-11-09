@@ -1,0 +1,51 @@
+name: monitor_system_resources
+description: Monitor and report system resource utilization for dynamic resource allocation
+keywords:
+  - monitoring
+  - resources
+  - cpu
+  - memory
+  - gpu
+  - system metrics
+tools:
+  - python:
+      description: Python programming language
+      homepage: https://www.python.org/
+      documentation: https://docs.python.org/3/
+      licence: ['PSF']
+  - psutil:
+      description: Cross-platform library for process and system monitoring
+      homepage: https://github.com/giampaolo/psutil
+      documentation: https://psutil.readthedocs.io/
+      tool_dev_url: https://github.com/giampaolo/psutil
+      licence: ['BSD-3-Clause']
+
+input:
+  - system_config:
+      type: map
+      description: |
+        System monitoring configuration
+        e.g. [ monitoring_interval:60, enable_gpu_monitoring:true ]
+
+output:
+  - system_metrics:
+      type: file
+      description: |
+        Comprehensive system metrics JSON including CPU, memory, GPU, disk, network,
+        and current load information
+      pattern: "system_metrics.json"
+  - resource_limits:
+      type: file
+      description: |
+        Calculated resource limits and recommendations based on system capacity
+        and current load
+      pattern: "resource_limits.json"
+  - versions:
+      type: file
+      description: File containing software versions
+      pattern: "versions.yml"
+
+authors:
+  - "@andreassjodin"
+maintainers:
+  - "@andreassjodin"

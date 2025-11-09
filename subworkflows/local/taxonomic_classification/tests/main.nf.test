@@ -4,6 +4,17 @@ nextflow_workflow {
     script "../main.nf"
     workflow "TAXONOMIC_CLASSIFICATION"
 
+    // Test Level & Component
+    tag "subworkflow"
+    tag "taxonomic_classification"
+
+    // Feature Area
+    tag "classification"
+
+    // Execution Speed & Criticality
+    tag "medium"
+    tag "core"
+
     test("Should perform basic Kraken2 taxonomic classification") {
 
         when {

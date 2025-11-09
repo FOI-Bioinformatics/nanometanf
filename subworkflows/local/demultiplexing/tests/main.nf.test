@@ -4,6 +4,17 @@ nextflow_workflow {
     script "../main.nf"
     workflow "DEMULTIPLEXING"
 
+    // Test Level & Component
+    tag "subworkflow"
+    tag "demultiplexing"
+
+    // Feature Area
+    tag "barcode_discovery"
+
+    // Execution Speed & Criticality
+    tag "medium"
+    tag "core"
+
     test("Should handle pre-demultiplexed samples without processing") {
 
         setup {

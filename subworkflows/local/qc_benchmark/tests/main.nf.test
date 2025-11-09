@@ -4,6 +4,17 @@ nextflow_workflow {
     script "../main.nf"
     workflow "QC_BENCHMARK"
 
+    // Test Level & Component
+    tag "subworkflow"
+    tag "qc_benchmark"
+
+    // Feature Area
+    tag "qc"
+
+    // Execution Speed & Criticality
+    tag "slow"
+    tag "extended"
+
     test("Should perform basic QC benchmarking with FASTP, FILTLONG, and CHOPPER") {
 
         setup {

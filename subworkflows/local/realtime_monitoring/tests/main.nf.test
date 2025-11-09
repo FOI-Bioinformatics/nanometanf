@@ -4,6 +4,17 @@ nextflow_workflow {
     script "../main.nf"
     workflow "REALTIME_MONITORING"
 
+    // Test Level & Component
+    tag "subworkflow"
+    tag "realtime_monitoring"
+
+    // Feature Area
+    tag "realtime"
+
+    // Execution Speed & Criticality
+    tag "medium"
+    tag "core"
+
     test("Should handle disabled real-time mode gracefully") {
 
         when {

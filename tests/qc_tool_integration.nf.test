@@ -3,9 +3,16 @@ nextflow_pipeline {
     name "Multi-tool QC Integration Test - Output Standardization"
     script "../main.nf"
 
-    tag "qc_tools"
+    // Test Level & Component
+    tag "pipeline"
     tag "integration"
-    tag "multi_tool"
+
+    // Feature Area
+    tag "qc"
+
+    // Execution Speed & Criticality
+    tag "fast"
+    tag "core"
 
     test("Should produce standardized outputs with CHOPPER (default QC tool)") {
 

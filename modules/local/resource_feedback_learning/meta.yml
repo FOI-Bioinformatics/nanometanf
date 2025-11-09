@@ -1,0 +1,43 @@
+name: resource_feedback_learning
+description: Learn from actual resource usage to improve future predictions
+keywords:
+  - machine learning
+  - feedback loop
+  - resource optimization
+  - adaptive allocation
+  - experimental
+tools:
+  - python:
+      description: Python programming language
+      homepage: https://www.python.org/
+      documentation: https://docs.python.org/3/
+      licence: ['PSF']
+
+input:
+  - predictions:
+      type: file
+      description: Original resource predictions
+      pattern: "*_predictions.json"
+  - actual_usage:
+      type: file
+      description: Actual resource usage from completed tasks
+      pattern: "*_actual_usage.json"
+
+output:
+  - updated_model:
+      type: file
+      description: Updated prediction model
+      pattern: "*_model_updated.pkl"
+  - feedback_report:
+      type: file
+      description: Feedback analysis report
+      pattern: "*_feedback_report.json"
+  - versions:
+      type: file
+      description: File containing software versions
+      pattern: "versions.yml"
+
+authors:
+  - "@andreassjodin"
+maintainers:
+  - "@andreassjodin"

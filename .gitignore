@@ -21,6 +21,8 @@ lint_output_eval.txt
 nf-core-lint-results.log
 full_test_analysis.log
 *.backup
+*.bak
+*~
 .claude/
 
 # Documentation files that should be in docs/ directory

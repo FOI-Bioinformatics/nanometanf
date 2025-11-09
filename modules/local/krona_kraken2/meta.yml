@@ -1,0 +1,47 @@
+name: krona_kraken2
+description: Generate interactive Krona plots from Kraken2 taxonomic classification results
+keywords:
+  - visualization
+  - taxonomy
+  - kraken2
+  - krona
+  - metagenomics
+tools:
+  - krona:
+      description: Interactive metagenomic visualization in a Web browser
+      homepage: https://github.com/marbl/Krona
+      documentation: https://github.com/marbl/Krona/wiki
+      tool_dev_url: https://github.com/marbl/Krona
+      doi: "10.1186/1471-2105-12-385"
+      licence: ['BSD']
+
+input:
+  - meta:
+      type: map
+      description: |
+        Groovy Map containing sample information
+        e.g. [ id:'sample1', barcode:'barcode01' ]
+  - kraken_report:
+      type: file
+      description: Kraken2 classification report
+      pattern: "*.kraken2.report.txt"
+
+output:
+  - meta:
+      type: map
+      description: |
+        Groovy Map containing sample information
+        e.g. [ id:'sample1', barcode:'barcode01' ]
+  - html:
+      type: file
+      description: Interactive HTML Krona plot
+      pattern: "*.html"
+  - versions:
+      type: file
+      description: File containing software versions
+      pattern: "versions.yml"
+
+authors:
+  - "@andreassjodin"
+maintainers:
+  - "@andreassjodin"
