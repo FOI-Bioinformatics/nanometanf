@@ -1,0 +1,53 @@
+name: realtime_progress_tracker
+description: Track and report progress of real-time processing pipeline
+keywords:
+  - monitoring
+  - progress tracking
+  - real-time
+  - pipeline status
+tools:
+  - python:
+      description: Python programming language
+      homepage: https://www.python.org/
+      documentation: https://docs.python.org/3/
+      licence: ['PSF']
+
+input:
+  - session_meta:
+      type: map
+      description: |
+        Groovy Map containing session metadata
+        e.g. [ session_id:'session001', total_batches:10 ]
+  - batch_status:
+      type: file
+      description: Status files from completed batches
+      pattern: "batch_*.status.json"
+  - tracking_config:
+      type: map
+      description: |
+        Progress tracking configuration
+        e.g. [ update_interval:30, enable_alerts:true ]
+
+output:
+  - session_meta:
+      type: map
+      description: |
+        Groovy Map containing session metadata
+        e.g. [ session_id:'session001', total_batches:10 ]
+  - progress_report:
+      type: file
+      description: Progress tracking report
+      pattern: "progress_report.json"
+  - progress_log:
+      type: file
+      description: Human-readable progress log
+      pattern: "progress.log"
+  - versions:
+      type: file
+      description: File containing software versions
+      pattern: "versions.yml"
+
+authors:
+  - "@andreassjodin"
+maintainers:
+  - "@andreassjodin"

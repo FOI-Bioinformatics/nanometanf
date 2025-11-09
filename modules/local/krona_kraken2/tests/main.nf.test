@@ -4,9 +4,20 @@ nextflow_process {
     script "../main.nf"
     process "KRONA_KRAKEN2"
 
-    tag "modules"
-    tag "modules_local"
+    // Test Level & Component
+    tag "module"
     tag "krona_kraken2"
+
+    // Feature Area
+    tag "classification"
+
+    // Execution Speed & Criticality
+    tag "fast"
+    tag "core"
+
+    // Test Type
+    tag "stub"
+    tag "snapshot"
 
     test("krona_kraken2 - stub run") {
 

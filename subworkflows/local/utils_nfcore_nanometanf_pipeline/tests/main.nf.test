@@ -4,6 +4,17 @@ nextflow_workflow {
     script "../main.nf"
     workflow "PIPELINE_INITIALISATION"
 
+    // Test Level & Component
+    tag "subworkflow"
+    tag "pipeline_initialisation"
+
+    // Feature Area
+    tag "initialization"
+
+    // Execution Speed & Criticality
+    tag "fast"
+    tag "core"
+
     test("Should initialize pipeline with valid nanopore samplesheet") {
 
         when {

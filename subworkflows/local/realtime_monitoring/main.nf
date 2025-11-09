@@ -6,6 +6,8 @@
 // - Per-barcode metadata extraction
 //
 
+include { BarcodeUtils } from '../../../lib/BarcodeUtils'
+
 workflow REALTIME_MONITORING {
 
     take:
@@ -42,11 +44,6 @@ workflow REALTIME_MONITORING {
             log.info "Grace period: ${params.realtime_processing_grace_period} minutes for processing completion"
             log.info "="*80
 
-            // Track last file detection time
-            def last_file_time = System.currentTimeMillis()
-            def grace_period_start = null
-            def in_grace_period = false
-
             // Create heartbeat channel that checks timeout every minute
             def ch_timeout_check = Channel.interval('1min').map { 'TIMEOUT_CHECK' }
 
@@ -55,69 +52,130 @@ workflow REALTIME_MONITORING {
             def ch_checks_tagged = ch_timeout_check.map { check -> ['CHECK', check] }
             def ch_mixed = ch_files_tagged.mix(ch_checks_tagged)
 
-            // Apply timeout logic with until()
-            def files_processed = 0
+            // Define immutable state object for functional reactive pattern
+            // Using .scan() operator to maintain state without mutations
+            def initialState = [
+                last_file_time: System.currentTimeMillis(),
+                grace_period_start: null,
+                in_grace_period: false,
+                files_processed: 0,
+                should_stop: false,
+                type: null,
+                item: null
+            ]
+
+            // Apply timeout logic using functional .scan() pattern
+            // Each state transition returns a NEW immutable state object
             ch_input_files = ch_mixed
-                .until { type, item ->
+                .scan(initialState) { state, tuple ->
+                    def (type, item) = tuple
+
                     if (type == 'FILE') {
-                        // Update last file time when file is detected
-                        last_file_time = System.currentTimeMillis()
+                        // File detected - create new state with reset timer
+                        def new_files_processed = state.files_processed + 1
+                        def reached_max = params.max_files && new_files_processed >= params.max_files
 
-                        // Reset grace period if new file arrives
-                        if (in_grace_period) {
+                        // Log grace period exit if we were in one
+                        if (state.in_grace_period) {
                             log.info "New file detected during grace period - resetting timeout"
-                            in_grace_period = false
-                            grace_period_start = null
                         }
 
-                        files_processed++
-
-                        // Stop if max_files reached
-                        if (params.max_files && files_processed >= params.max_files) {
+                        // Log max_files limit reached
+                        if (reached_max) {
                             log.info "Real-time monitoring: Reached max_files limit (${params.max_files})"
-                            return true
                         }
-                        return false
+
+                        // Return new immutable state
+                        return [
+                            last_file_time: System.currentTimeMillis(),
+                            grace_period_start: null,
+                            in_grace_period: false,
+                            files_processed: new_files_processed,
+                            should_stop: reached_max,
+                            type: type,
+                            item: item
+                        ]
 
                     } else if (type == 'CHECK') {
-                        // Check if timeout exceeded
+                        // Periodic timeout check - compute new state based on elapsed time
                         def current_time = System.currentTimeMillis()
-                        def inactive_ms = current_time - last_file_time
+                        def inactive_ms = current_time - state.last_file_time
                         def inactive_minutes = inactive_ms / (1000 * 60)
 
-                        // Detection timeout phase
-                        if (!in_grace_period && inactive_minutes >= params.realtime_timeout_minutes) {
-                            log.info "="*80
-                            log.info "TIMEOUT: No new files detected for ${params.realtime_timeout_minutes} minutes"
-                            log.info "Entering grace period: ${params.realtime_processing_grace_period} minutes"
-                            log.info "Waiting for downstream processing to complete..."
-                            log.info "="*80
-                            grace_period_start = current_time
-                            in_grace_period = true
-                        }
+                        if (!state.in_grace_period) {
+                            // Not yet in grace period - check if detection timeout reached
+                            if (inactive_minutes >= params.realtime_timeout_minutes) {
+                                // Detection timeout reached - enter grace period
+                                log.info "="*80
+                                log.info "TIMEOUT: No new files detected for ${params.realtime_timeout_minutes} minutes"
+                                log.info "Entering grace period: ${params.realtime_processing_grace_period} minutes"
+                                log.info "Waiting for downstream processing to complete..."
+                                log.info "="*80
 
-                        // Grace period phase
-                        if (in_grace_period) {
-                            def grace_elapsed_ms = current_time - grace_period_start
-                            def grace_elapsed_minutes = grace_elapsed_ms / (1000 * 60)
+                                return [
+                                    last_file_time: state.last_file_time,
+                                    grace_period_start: current_time,
+                                    in_grace_period: true,
+                                    files_processed: state.files_processed,
+                                    should_stop: false,
+                                    type: type,
+                                    item: item
+                                ]
+                            }
+                        } else {
+                            // Already in grace period - check if grace period exceeded
+                            def grace_period_ms = current_time - state.grace_period_start
+                            def grace_period_minutes = grace_period_ms / (1000 * 60)
 
-                            log.info "Grace period: ${grace_elapsed_minutes.round(1)}/${params.realtime_processing_grace_period} min elapsed"
+                            // Log grace period progress
+                            def total_inactive = inactive_minutes.round(1)
+                            def grace_elapsed = grace_period_minutes.round(1)
+                            log.info "Grace period: ${grace_elapsed}/${params.realtime_processing_grace_period} min elapsed"
 
-                            if (grace_elapsed_minutes >= params.realtime_processing_grace_period) {
+                            if (grace_period_minutes >= params.realtime_processing_grace_period) {
                                 log.info "="*80
                                 log.info "Real-time monitoring STOPPED: Grace period completed"
-                                log.info "Total files processed: ${files_processed}"
+                                log.info "Total files processed: ${state.files_processed}"
                                 log.info "="*80
-                                return true
+
+                                return [
+                                    last_file_time: state.last_file_time,
+                                    grace_period_start: state.grace_period_start,
+                                    in_grace_period: state.in_grace_period,
+                                    files_processed: state.files_processed,
+                                    should_stop: true,
+                                    type: type,
+                                    item: item
+                                ]
                             }
                         }
 
-                        return false
+                        // No state change, preserve existing state with current event
+                        return [
+                            last_file_time: state.last_file_time,
+                            grace_period_start: state.grace_period_start,
+                            in_grace_period: state.in_grace_period,
+                            files_processed: state.files_processed,
+                            should_stop: false,
+                            type: type,
+                            item: item
+                        ]
                     }
-                    return false
+
+                    // Unknown type - preserve state
+                    return [
+                        last_file_time: state.last_file_time,
+                        grace_period_start: state.grace_period_start,
+                        in_grace_period: state.in_grace_period,
+                        files_processed: state.files_processed,
+                        should_stop: false,
+                        type: type,
+                        item: item
+                    ]
                 }
-                .filter { type, item -> type == 'FILE' }  // Remove timeout checks
-                .map { type, file -> file }  // Extract file from tuple
+                .until { state -> state.should_stop }  // Stop when state indicates completion
+                .filter { state -> state.type == 'FILE' }  // Only emit file events
+                .map { state -> state.item }  // Extract file from state object
         } else {
             // No timeout - use max_files only or run indefinitely
             ch_input_files = params.max_files
@@ -200,10 +258,10 @@ workflow REALTIME_MONITORING {
                 def meta = [:]
                 def filename = file.baseName.replaceAll(/\.(fastq|fq)(\.gz)?$/, '')
 
-                // Extract barcode if present in filename (barcode01, barcode02, etc.)
-                def barcode_match = filename =~ /barcode(\d+)/
-                if (barcode_match) {
-                    meta.barcode = "barcode" + barcode_match[0][1]
+                // Extract barcode if present in filename using shared utility
+                def barcode = BarcodeUtils.extractBarcodeFromFilename(filename)
+                if (barcode) {
+                    meta.barcode = barcode
                 }
 
                 meta.id = filename

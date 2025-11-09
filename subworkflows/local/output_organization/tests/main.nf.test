@@ -4,6 +4,17 @@ nextflow_workflow {
     script "../main.nf"
     workflow "OUTPUT_ORGANIZATION"
 
+    // Test Level & Component
+    tag "subworkflow"
+    tag "output_organization"
+
+    // Feature Area
+    tag "output_management"
+
+    // Execution Speed & Criticality
+    tag "fast"
+    tag "extended"
+
     test("Should organize single sample outputs correctly") {
 
         setup {

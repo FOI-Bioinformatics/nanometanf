@@ -3,6 +3,17 @@ nextflow_pipeline {
     name "Test default pipeline run"
     script "../main.nf"
 
+    // Test Level & Component
+    tag "pipeline"
+    tag "integration"
+
+    // Feature Area
+    tag "qc"
+
+    // Execution Speed & Criticality
+    tag "fast"
+    tag "core"
+
     test("Should run with standard test profile") {
 
         when {

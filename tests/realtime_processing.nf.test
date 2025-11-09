@@ -3,6 +3,21 @@ nextflow_pipeline {
     name "Test real-time processing functionality"
     script "../main.nf"
 
+    // Test Level & Component
+    tag "pipeline"
+    tag "integration"
+
+    // Feature Area
+    tag "realtime"
+
+    // Execution Speed & Criticality
+    tag "fast"
+    tag "core"
+
+    // Test Type
+    tag "edge_case"
+    tag "error_handling"
+
     test("Should validate real-time parameters without monitoring") {
 
         when {

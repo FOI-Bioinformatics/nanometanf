@@ -4,6 +4,20 @@ nextflow_process {
     script "../main.nf"
     process "GENERATE_REALTIME_REPORT"
 
+    // Test Level & Component
+    tag "module"
+    tag "generate_realtime_report"
+
+    // Feature Area
+    tag "realtime"
+
+    // Execution Speed & Criticality
+    tag "fast"
+    tag "core"
+
+    // Test Type
+    tag "snapshot"
+
     test("Should generate HTML real-time report from statistics") {
 
         setup {

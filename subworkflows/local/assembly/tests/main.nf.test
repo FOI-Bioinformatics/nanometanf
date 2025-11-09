@@ -4,6 +4,17 @@ nextflow_workflow {
     script "../main.nf"
     workflow "ASSEMBLY"
 
+    // Test Level & Component
+    tag "subworkflow"
+    tag "assembly"
+
+    // Feature Area
+    tag "assembly"
+
+    // Execution Speed & Criticality
+    tag "slow"
+    tag "extended"
+
     test("Should perform basic Flye assembly") {
 
         setup {

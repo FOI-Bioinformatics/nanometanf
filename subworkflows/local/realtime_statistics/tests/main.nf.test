@@ -4,6 +4,17 @@ nextflow_workflow {
     script "../main.nf"
     workflow "REALTIME_STATISTICS"
 
+    // Test Level & Component
+    tag "subworkflow"
+    tag "realtime_statistics"
+
+    // Feature Area
+    tag "realtime"
+
+    // Execution Speed & Criticality
+    tag "medium"
+    tag "core"
+
     test("Should generate snapshot statistics for single batch") {
 
         setup {

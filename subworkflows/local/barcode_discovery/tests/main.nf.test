@@ -3,6 +3,17 @@ nextflow_pipeline {
     name "Test pre-demultiplexed barcode directory discovery"
     script "../../../../main.nf"
 
+    // Test Level & Component
+    tag "subworkflow"
+    tag "barcode_discovery"
+
+    // Feature Area
+    tag "barcode_discovery"
+
+    // Execution Speed & Criticality
+    tag "medium"
+    tag "core"
+
     test("Should discover and process pre-demultiplexed barcode folders") {
 
         when {

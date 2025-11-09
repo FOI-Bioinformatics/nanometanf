@@ -1,0 +1,405 @@
+# Test Tag System for nanometanf Pipeline
+# =========================================
+# This file documents the comprehensive tag system for organizing and selectively
+# executing tests in the nanometanf pipeline.
+#
+# Usage:
+#   nf-test test --tag <tag_name>
+#   nf-test test --tag core --tag fast
+#   nf-test test --tag realtime --tag integration
+#
+# Last Updated: 2025-11-05
+
+# =============================================================================
+# 1. TEST LEVEL TAGS
+# =============================================================================
+# Define the scope/level of the test
+
+test_levels:
+  module:
+    description: Tests for individual modules
+    usage: Test a single process in isolation
+    example: nf-test test --tag module --tag kraken2
+
+  subworkflow:
+    description: Tests for subworkflows (multiple processes)
+    usage: Test coordinated process groups
+    example: nf-test test --tag subworkflow --tag realtime_monitoring
+
+  workflow:
+    description: Tests for main workflow logic
+    usage: Test complete workflow execution paths
+    example: nf-test test --tag workflow
+
+  pipeline:
+    description: Tests for complete pipeline execution
+    usage: Test end-to-end pipeline with all components
+    example: nf-test test --tag pipeline
+
+  integration:
+    description: Integration tests across multiple components
+    usage: Test component interactions and data flow
+    example: nf-test test --tag integration
+
+# =============================================================================
+# 2. TEST TYPE TAGS
+# =============================================================================
+# Define the nature/style of the test
+
+test_types:
+  unit:
+    description: Unit tests (single function/process)
+    usage: Isolated testing of individual components
+    example: nf-test test --tag unit
+
+  integration:
+    description: Integration tests (multiple components)
+    usage: Test component interactions
+    example: nf-test test --tag integration
+
+  edge_case:
+    description: Edge case and boundary condition tests
+    usage: Test unusual inputs and error conditions
+    example: nf-test test --tag edge_case
+
+  performance:
+    description: Performance and scalability tests
+    usage: Test resource usage and throughput
+    example: nf-test test --tag performance
+
+  stub:
+    description: Tests using stub/mock mode
+    usage: Fast tests with stub blocks
+    example: nf-test test --tag stub
+
+  snapshot:
+    description: Tests with snapshot validation
+    usage: Tests that verify output consistency
+    example: nf-test test --tag snapshot
+
+  regression:
+    description: Regression tests for bug fixes
+    usage: Prevent previously fixed bugs from reoccurring
+    example: nf-test test --tag regression
+
+# =============================================================================
+# 3. FEATURE AREA TAGS
+# =============================================================================
+# Define which functional area is being tested
+
+feature_areas:
+  realtime:
+    description: Real-time processing and monitoring
+    subfeatures:
+      - realtime_monitoring
+      - realtime_statistics
+      - adaptive_batching
+      - priority_routing
+      - intelligent_timeout
+    example: nf-test test --tag realtime
+
+  basecalling:
+    description: Dorado basecalling functionality
+    subfeatures:
+      - dorado_basecaller
+      - dorado_demux
+      - pod5_processing
+    example: nf-test test --tag basecalling
+
+  qc:
+    description: Quality control workflows
+    subfeatures:
+      - chopper
+      - fastp
+      - filtlong
+      - nanoplot
+      - fastqc
+    example: nf-test test --tag qc
+
+  classification:
+    description: Taxonomic classification
+    subfeatures:
+      - kraken2
+      - kraken2_incremental
+      - krona
+      - output_merging
+    example: nf-test test --tag classification
+
+  validation:
+    description: BLAST validation workflows
+    subfeatures:
+      - blast
+      - makeblastdb
+      - validation_workflow
+    example: nf-test test --tag validation
+
+  resource_allocation:
+    description: Dynamic resource allocation (experimental)
+    subfeatures:
+      - analyze_input
+      - predict_resources
+      - optimize_allocation
+      - apply_resources
+      - system_monitoring
+    example: nf-test test --tag resource_allocation
+
+  error_handling:
+    description: Error handling and fault tolerance
+    subfeatures:
+      - circuit_breaker
+      - dead_letter_queue
+      - error_classifier
+      - exponential_backoff
+    example: nf-test test --tag error_handling
+
+  barcode_discovery:
+    description: Barcode directory discovery
+    subfeatures:
+      - barcode_scan
+      - directory_validation
+      - metadata_extraction
+    example: nf-test test --tag barcode_discovery
+
+# =============================================================================
+# 4. EXECUTION SPEED TAGS
+# =============================================================================
+# Define expected test duration
+
+speed_tags:
+  fast:
+    description: Tests completing in < 30 seconds
+    usage: Quick validation during development
+    example: nf-test test --tag fast
+    typical_duration: "< 30s"
+
+  medium:
+    description: Tests completing in 30s - 5 minutes
+    usage: Standard test execution
+    example: nf-test test --tag medium
+    typical_duration: "30s - 5min"
+
+  slow:
+    description: Tests completing in > 5 minutes
+    usage: Comprehensive testing before release
+    example: nf-test test --tag slow
+    typical_duration: "> 5min"
+
+# =============================================================================
+# 5. CRITICALITY TAGS
+# =============================================================================
+# Define importance for CI/CD and releases
+
+criticality_tags:
+  core:
+    description: Core functionality tests (must pass)
+    usage: Critical tests required for release
+    ci_required: true
+    example: nf-test test --tag core
+
+  extended:
+    description: Extended functionality tests (should pass)
+    usage: Important but not blocking
+    ci_required: false
+    example: nf-test test --tag extended
+
+  experimental:
+    description: Experimental feature tests (may fail)
+    usage: Tests for features under development
+    ci_required: false
+    example: nf-test test --tag experimental
+
+# =============================================================================
+# 6. PLATFORM/ENVIRONMENT TAGS
+# =============================================================================
+# Define platform-specific tests
+
+platform_tags:
+  linux:
+    description: Tests requiring Linux
+    example: nf-test test --tag linux
+
+  macos:
+    description: Tests requiring macOS
+    example: nf-test test --tag macos
+
+  apple_silicon:
+    description: Tests specific to Apple Silicon (M1/M2/M3)
+    example: nf-test test --tag apple_silicon
+
+  gpu:
+    description: Tests requiring GPU
+    subfeatures:
+      - cuda
+      - metal
+    example: nf-test test --tag gpu
+
+  docker:
+    description: Tests requiring Docker
+    example: nf-test test --tag docker
+
+  singularity:
+    description: Tests requiring Singularity
+    example: nf-test test --tag singularity
+
+# =============================================================================
+# 7. DATA REQUIREMENT TAGS
+# =============================================================================
+# Define data dependencies
+
+data_tags:
+  small_data:
+    description: Tests with minimal data (< 1MB)
+    example: nf-test test --tag small_data
+
+  medium_data:
+    description: Tests with moderate data (1MB - 100MB)
+    example: nf-test test --tag medium_data
+
+  large_data:
+    description: Tests with large data (> 100MB)
+    example: nf-test test --tag large_data
+
+  requires_db:
+    description: Tests requiring Kraken2 database
+    example: nf-test test --tag requires_db
+    note: "May use stub mode to avoid database requirement"
+
+# =============================================================================
+# RECOMMENDED TAG COMBINATIONS
+# =============================================================================
+
+recommended_combinations:
+  ci_quick:
+    tags: [core, fast, stub]
+    description: "Quick CI validation (< 5 minutes)"
+    command: "nf-test test --tag core --tag fast"
+
+  ci_standard:
+    tags: [core, fast, medium]
+    description: "Standard CI testing (< 30 minutes)"
+    command: "nf-test test --tag core"
+
+  pre_release:
+    tags: [core, extended]
+    description: "Pre-release comprehensive testing"
+    command: "nf-test test --tag core --tag extended"
+
+  realtime_dev:
+    tags: [realtime, fast, stub]
+    description: "Quick realtime feature testing"
+    command: "nf-test test --tag realtime --tag fast"
+
+  full_suite:
+    tags: [all]
+    description: "Complete test suite execution"
+    command: "nf-test test"
+
+# =============================================================================
+# TAG NAMING CONVENTIONS
+# =============================================================================
+
+naming_conventions:
+  rules:
+    - Use lowercase with underscores (snake_case)
+    - Be descriptive but concise
+    - Use hierarchical names for related tags (e.g., kraken2, kraken2_incremental)
+    - Avoid overly generic names (e.g., use "qc_chopper" not just "test")
+    - Tag names should be self-documenting
+
+  examples:
+    good:
+      - realtime_monitoring
+      - dorado_basecaller
+      - kraken2_incremental
+      - edge_case_empty_input
+    bad:
+      - test
+      - quick
+      - v1
+      - tmp
+
+# =============================================================================
+# IMPLEMENTATION GUIDELINES
+# =============================================================================
+
+implementation:
+  module_tests:
+    required_tags:
+      - module
+      - <module_name>
+      - <feature_area>
+      - <speed>
+      - <criticality>
+    example: |
+      nextflow_process {
+          tag "module"
+          tag "kraken2"
+          tag "classification"
+          tag "fast"
+          tag "core"
+          ...
+      }
+
+  subworkflow_tests:
+    required_tags:
+      - subworkflow
+      - <subworkflow_name>
+      - <feature_area>
+      - <speed>
+      - <criticality>
+    example: |
+      nextflow_workflow {
+          tag "subworkflow"
+          tag "realtime_monitoring"
+          tag "realtime"
+          tag "medium"
+          tag "core"
+          ...
+      }
+
+  pipeline_tests:
+    required_tags:
+      - pipeline
+      - <test_type>
+      - <feature_area>
+      - <speed>
+      - <criticality>
+    example: |
+      nextflow_pipeline {
+          tag "pipeline"
+          tag "integration"
+          tag "realtime"
+          tag "slow"
+          tag "core"
+          ...
+      }
+
+# =============================================================================
+# MAINTENANCE
+# =============================================================================
+
+maintenance:
+  review_frequency: "Every release"
+  responsibilities:
+    - Keep tags consistent across similar tests
+    - Remove obsolete tags
+    - Add new tags for new features
+    - Update this documentation
+
+  deprecation_policy:
+    - Mark deprecated tags in this file
+    - Maintain for 2 releases before removal
+    - Provide migration guide
+
+# =============================================================================
+# VERSION HISTORY
+# =============================================================================
+
+version_history:
+  - version: "1.0"
+    date: "2025-11-05"
+    changes:
+      - Initial comprehensive tag system design
+      - Hierarchical 7-category system established
+      - Documentation created
+    author: "@andreassjodin"

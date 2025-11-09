@@ -1,0 +1,49 @@
+name: multiqc_nanopore_stats
+description: Generate custom MultiQC content from nanopore sequencing statistics
+keywords:
+  - quality control
+  - nanopore
+  - statistics
+  - multiqc
+  - visualization
+tools:
+  - python:
+      description: Python programming language
+      homepage: https://www.python.org/
+      documentation: https://docs.python.org/3/
+      licence: ['PSF']
+  - pyyaml:
+      description: YAML parser and emitter for Python
+      homepage: https://pyyaml.org/
+      documentation: https://pyyaml.org/wiki/PyYAMLDocumentation
+      licence: ['MIT']
+
+input:
+  - sample_stats:
+      type: list
+      description: |
+        List of sample statistics dictionaries containing:
+        - sample_id, total_reads, total_bases, mean_length, median_length,
+        - n50, mean_quality, read_length_histogram, etc.
+  - prefix:
+      type: string
+      description: Prefix for output files
+
+output:
+  - multiqc_files:
+      type: file
+      description: MultiQC custom content JSON files
+      pattern: "*_mqc.json"
+  - multiqc_yaml:
+      type: file
+      description: MultiQC configuration YAML
+      pattern: "*_mqc.yaml"
+  - versions:
+      type: file
+      description: File containing software versions
+      pattern: "versions.yml"
+
+authors:
+  - "@andreassjodin"
+maintainers:
+  - "@andreassjodin"

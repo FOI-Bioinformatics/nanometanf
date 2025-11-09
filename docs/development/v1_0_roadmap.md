@@ -2,7 +2,7 @@
 
 **Target**: Stable v1.0 release with 80%+ test pass rate
 **Status**: Phase 1 & 2 Complete
-**Last Updated**: 2025-10-04
+**Last Updated**: 2025-11-05
 
 ## Completed Work
 
@@ -121,7 +121,7 @@ Can fail for v1.0:
 
 **5.2 Developer Documentation**
 - [ ] Review CLAUDE.md for completeness
-- [ ] Update `docs/development/testing_guide.md`
+- [x] Update `docs/development/TESTING.md` (merged testing_guide.md)
 - [ ] Finalize `docs/development/test_organization.md`
 - [ ] Add contribution guidelines
 

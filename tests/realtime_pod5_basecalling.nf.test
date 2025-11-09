@@ -3,6 +3,18 @@ nextflow_pipeline {
     name "Test real-time POD5 monitoring with Dorado basecalling"
     script "../main.nf"
 
+    // Test Level & Component
+    tag "pipeline"
+    tag "integration"
+
+    // Feature Area
+    tag "realtime"
+    tag "basecalling"
+
+    // Execution Speed & Criticality
+    tag "slow"
+    tag "core"
+
     test("Should handle real-time POD5 processing") {
 
         when {

@@ -1,0 +1,44 @@
+name: dead_letter_queue
+description: Dead letter queue for handling repeatedly failed tasks
+keywords:
+  - error handling
+  - dead letter queue
+  - failed tasks
+  - reliability
+  - experimental
+tools:
+  - python:
+      description: Python programming language
+      homepage: https://www.python.org/
+      documentation: https://docs.python.org/3/
+      licence: ['PSF']
+
+input:
+  - failed_task:
+      type: map
+      description: |
+        Information about the failed task
+        e.g. [ task_id:'task_001', failure_count:3, error_type:'OutOfMemory' ]
+  - task_data:
+      type: file
+      description: Data associated with the failed task
+      pattern: "*"
+
+output:
+  - dlq_entry:
+      type: file
+      description: Dead letter queue entry for the failed task
+      pattern: "dlq_*.json"
+  - recovery_instructions:
+      type: file
+      description: Instructions for manual recovery (optional)
+      pattern: "recovery_*.txt"
+  - versions:
+      type: file
+      description: File containing software versions
+      pattern: "versions.yml"
+
+authors:
+  - "@andreassjodin"
+maintainers:
+  - "@andreassjodin"

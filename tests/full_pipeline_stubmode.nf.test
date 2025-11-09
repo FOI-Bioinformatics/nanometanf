@@ -3,10 +3,21 @@ nextflow_pipeline {
     name "Full Pipeline Integration Test - Stub Mode (Dependency-Free)"
     script "../main.nf"
 
+    // Test Level & Component
+    tag "pipeline"
     tag "integration"
+
+    // Feature Area
+    tag "qc"
+    tag "classification"
+    tag "validation"
+
+    // Execution Speed & Criticality
+    tag "fast"
+    tag "core"
+
+    // Test Type
     tag "stub"
-    tag "full_pipeline"
-    tag "dependency_free"
 
     /**
      * Comprehensive end-to-end integration test validating complete pipeline flow

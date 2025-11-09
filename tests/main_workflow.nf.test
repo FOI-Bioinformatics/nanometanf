@@ -3,6 +3,17 @@ nextflow_pipeline {
     name "Test complete nanometanf workflow"
     script "../main.nf"
 
+    // Test Level & Component
+    tag "pipeline"
+    tag "integration"
+
+    // Feature Area
+    tag "qc"
+
+    // Execution Speed & Criticality
+    tag "medium"
+    tag "core"
+
     test("Should run complete workflow without failures") {
 
         when {

@@ -545,8 +545,8 @@ ls ~/.cache/dorado/models/
 ## Next Steps
 
 - Review [Output Structure](output.md) to understand results
-- See [Production Deployment](production_deployment.md) for cluster setup
-- Check [Testing Guide](testing_guide.md) for validation
+- See [Production Deployment](../development/production_deployment.md) for cluster setup
+- Check [Testing Guide](../development/TESTING.md) for validation
 - Read [QC Guide](qc_guide.md) for result interpretation
 
 ---

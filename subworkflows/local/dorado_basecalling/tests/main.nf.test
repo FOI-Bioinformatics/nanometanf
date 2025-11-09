@@ -4,6 +4,17 @@ nextflow_workflow {
     script "../main.nf"
     workflow "DORADO_BASECALLING"
 
+    // Test Level & Component
+    tag "subworkflow"
+    tag "dorado_basecalling"
+
+    // Feature Area
+    tag "basecalling"
+
+    // Execution Speed & Criticality
+    tag "medium"
+    tag "core"
+
     test("Should perform basic Dorado basecalling without demultiplexing") {
 
         setup {

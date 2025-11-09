@@ -4,9 +4,19 @@ nextflow_process {
     script "../main.nf"
     process "OPTIMIZE_RESOURCE_ALLOCATION"
 
-    tag "modules"
-    tag "modules_local"
+    // Test Level & Component
+    tag "module"
     tag "optimize_resource_allocation"
+
+    // Feature Area
+    tag "resource_allocation"
+
+    // Execution Speed & Criticality
+    tag "fast"
+    tag "experimental"
+
+    // Test Type
+    tag "snapshot"
 
     test("Should optimize basic resource allocation") {
 

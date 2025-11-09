@@ -1,0 +1,41 @@
+name: apply_dynamic_resources
+description: Apply dynamically allocated resources to pipeline processes
+keywords:
+  - resource allocation
+  - dynamic resources
+  - optimization
+  - runtime configuration
+  - experimental
+tools:
+  - nextflow:
+      description: Nextflow workflow manager
+      homepage: https://www.nextflow.io/
+      documentation: https://www.nextflow.io/docs/latest/
+      tool_dev_url: https://github.com/nextflow-io/nextflow
+      licence: ['Apache-2.0']
+
+input:
+  - allocation_plan:
+      type: file
+      description: Resource allocation plan from optimize_resource_allocation
+      pattern: "*_allocation_plan.json"
+  - process_config:
+      type: map
+      description: |
+        Process configuration for resource application
+        e.g. [ process_name:'KRAKEN2', allow_dynamic:true ]
+
+output:
+  - resource_directives:
+      type: file
+      description: Nextflow resource directives to apply
+      pattern: "*_resource_directives.config"
+  - versions:
+      type: file
+      description: File containing software versions
+      pattern: "versions.yml"
+
+authors:
+  - "@andreassjodin"
+maintainers:
+  - "@andreassjodin"

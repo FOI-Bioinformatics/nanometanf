@@ -3,6 +3,17 @@ nextflow_pipeline {
     name "Test dynamic resource allocation system"
     script "../main.nf"
 
+    // Test Level & Component
+    tag "pipeline"
+    tag "integration"
+
+    // Feature Area
+    tag "resource_allocation"
+
+    // Execution Speed & Criticality
+    tag "fast"
+    tag "experimental"
+
     test("Should analyze input characteristics and predict resource requirements") {
 
         when {

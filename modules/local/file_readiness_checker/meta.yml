@@ -1,0 +1,43 @@
+name: file_readiness_checker
+description: Check if files are ready for processing (not still being written)
+keywords:
+  - validation
+  - file monitoring
+  - real-time
+  - file readiness
+tools:
+  - python:
+      description: Python programming language
+      homepage: https://www.python.org/
+      documentation: https://docs.python.org/3/
+      licence: ['PSF']
+
+input:
+  - files:
+      type: file
+      description: Files to check for readiness
+      pattern: "*"
+  - readiness_config:
+      type: map
+      description: |
+        Readiness checking configuration
+        e.g. [ stability_window_sec:5, check_size_changes:true ]
+
+output:
+  - ready_files:
+      type: file
+      description: Files confirmed as ready for processing
+      pattern: "*"
+  - readiness_report:
+      type: file
+      description: JSON report of readiness checks
+      pattern: "readiness_report.json"
+  - versions:
+      type: file
+      description: File containing software versions
+      pattern: "versions.yml"
+
+authors:
+  - "@andreassjodin"
+maintainers:
+  - "@andreassjodin"

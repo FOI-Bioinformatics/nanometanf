@@ -3,6 +3,17 @@ nextflow_pipeline {
     name "Test real-time processing with empty samplesheet"
     script "../main.nf"
 
+    // Test Level & Component
+    tag "pipeline"
+    tag "integration"
+
+    // Feature Area
+    tag "realtime"
+
+    // Execution Speed & Criticality
+    tag "fast"
+    tag "core"
+
     test("Should work with empty samplesheet in real-time mode") {
 
         when {

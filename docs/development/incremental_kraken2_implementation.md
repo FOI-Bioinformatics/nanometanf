@@ -642,7 +642,7 @@ results/
 
 - **CLAUDE.md**: Developer guide and pipeline overview
 - **CHANGELOG.md**: Complete version history and change log
-- **docs/development/testing_guide.md**: Testing best practices
+- **docs/development/TESTING.md**: Comprehensive testing guide and best practices
 - **docs/user/usage.md**: User-facing usage guide
 
 ### External Resources
@@ -661,5 +661,5 @@ results/
 ---
 
 **Document Version**: 1.0
-**Last Updated**: 2025-10-20
+**Last Updated**: 2025-11-05
 **Maintained By**: FOI Bioinformatics Team

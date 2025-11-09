@@ -4,6 +4,17 @@ nextflow_workflow {
     script "../main.nf"
     workflow "VALIDATION"
 
+    // Test Level & Component
+    tag "subworkflow"
+    tag "validation"
+
+    // Feature Area
+    tag "validation"
+
+    // Execution Speed & Criticality
+    tag "medium"
+    tag "core"
+
     test("Should perform basic BLAST sequence validation") {
 
         setup {

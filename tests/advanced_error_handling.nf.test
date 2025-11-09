@@ -3,6 +3,21 @@ nextflow_pipeline {
     name "Advanced Error Handling and Edge Case Coverage Testing"
     script "../main.nf"
 
+    // Test Level & Component
+    tag "pipeline"
+    tag "integration"
+
+    // Feature Area
+    tag "error_handling"
+    tag "validation"
+
+    // Execution Speed & Criticality
+    tag "fast"
+    tag "extended"
+
+    // Test Type
+    tag "edge_case"
+
     test("Should validate advanced parameter combinations and detect edge cases") {
 
         when {

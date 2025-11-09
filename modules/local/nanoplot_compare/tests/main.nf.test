@@ -4,9 +4,20 @@ nextflow_process {
     script "../main.nf"
     process "NANOPLOT_COMPARE"
 
-    tag "modules"
-    tag "modules_local"
+    // Test Level & Component
+    tag "module"
     tag "nanoplot_compare"
+
+    // Feature Area
+    tag "qc"
+
+    // Execution Speed & Criticality
+    tag "medium"
+    tag "core"
+
+    // Test Type
+    tag "stub"
+    tag "snapshot"
 
     test("nanoplot_compare - stub run") {
 

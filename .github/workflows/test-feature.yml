@@ -1,0 +1,107 @@
+name: Feature-Specific Test Validation
+
+on:
+  workflow_dispatch:
+    inputs:
+      feature_tag:
+        description: 'Feature area to test'
+        required: true
+        type: choice
+        options:
+          - realtime
+          - qc
+          - classification
+          - basecalling
+          - barcode_discovery
+          - validation
+          - resource_allocation
+          - error_handling
+      speed_filter:
+        description: 'Test speed filter (optional)'
+        required: false
+        type: choice
+        options:
+          - all
+          - fast
+          - medium
+          - slow
+        default: 'all'
+      criticality_filter:
+        description: 'Criticality filter (optional)'
+        required: false
+        type: choice
+        options:
+          - all
+          - core
+          - extended
+          - experimental
+        default: 'all'
+
+jobs:
+  feature-validation:
+    name: Feature Test - ${{ github.event.inputs.feature_tag }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Nextflow
+        uses: nf-core/setup-nextflow@v2
+        with:
+          version: '24.10.5'
+
+      - name: Setup Java for nf-test
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Install nf-test
+        run: |
+          wget -qO- https://code.askimed.com/install/nf-test | bash
+          sudo mv nf-test /usr/local/bin/
+          nf-test version
+
+      - name: Build test command
+        id: build-command
+        run: |
+          CMD="nf-test test --tag ${{ github.event.inputs.feature_tag }}"
+
+          if [ "${{ github.event.inputs.speed_filter }}" != "all" ]; then
+            CMD="$CMD --tag ${{ github.event.inputs.speed_filter }}"
+          fi
+
+          if [ "${{ github.event.inputs.criticality_filter }}" != "all" ]; then
+            CMD="$CMD --tag ${{ github.event.inputs.criticality_filter }}"
+          fi
+
+          CMD="$CMD --profile test,docker --verbose"
+          echo "test_command=$CMD" >> $GITHUB_OUTPUT
+          echo "Running: $CMD"
+
+      - name: Run Feature-Specific Tests
+        run: ${{ steps.build-command.outputs.test_command }}
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: feature-test-results-${{ github.event.inputs.feature_tag }}
+          path: |
+            .nf-test/reports/
+            .nf-test.log
+
+      - name: Test Summary
+        if: always()
+        run: |
+          echo "## Feature-Specific Test Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Feature Area:** ${{ github.event.inputs.feature_tag }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Speed Filter:** ${{ github.event.inputs.speed_filter }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Criticality Filter:** ${{ github.event.inputs.criticality_filter }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Test Command:** \`${{ steps.build-command.outputs.test_command }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "See artifacts for detailed test reports." >> $GITHUB_STEP_SUMMARY

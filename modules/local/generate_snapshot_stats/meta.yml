@@ -1,0 +1,50 @@
+name: generate_snapshot_stats
+description: Generate snapshot statistics for current batch in real-time processing
+keywords:
+  - statistics
+  - real-time
+  - monitoring
+  - snapshot
+  - batch processing
+tools:
+  - python:
+      description: Python programming language
+      homepage: https://www.python.org/
+      documentation: https://docs.python.org/3/
+      licence: ['PSF']
+
+input:
+  - batch_meta:
+      type: map
+      description: |
+        Groovy Map containing batch metadata
+        e.g. [ batch_id:'batch001', batch_time:'20240101_120000' ]
+  - batch_files:
+      type: file
+      description: Files in current batch
+      pattern: "*"
+  - stats_config:
+      type: map
+      description: |
+        Statistics configuration
+        e.g. [ calculate_file_metrics:true, estimate_reads:true ]
+
+output:
+  - batch_meta:
+      type: map
+      description: |
+        Groovy Map containing batch metadata
+        e.g. [ batch_id:'batch001', batch_time:'20240101_120000' ]
+  - snapshot_stats:
+      type: file
+      description: JSON file containing current batch statistics
+      pattern: "*.snapshot.json"
+  - versions:
+      type: file
+      description: File containing software versions
+      pattern: "versions.yml"
+
+authors:
+  - "@andreassjodin"
+maintainers:
+  - "@andreassjodin"

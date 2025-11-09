@@ -2,11 +2,22 @@ nextflow_process {
     name "Test Process KRAKEN2_INCREMENTAL_CLASSIFIER"
     script "../main.nf"
     process "KRAKEN2_INCREMENTAL_CLASSIFIER"
-    tag "modules"
-    tag "modules_local"
+
+    // Test Level & Component
+    tag "module"
     tag "kraken2_incremental_classifier"
-    tag "kraken2"
-    tag "incremental"
+
+    // Feature Area
+    tag "classification"
+    tag "realtime"
+
+    // Execution Speed & Criticality
+    tag "fast"
+    tag "core"
+
+    // Test Type
+    tag "stub"
+    tag "snapshot"
 
     test("sarscov2 single-end [fastq] - batch 0 - stub") {
         options "-stub"

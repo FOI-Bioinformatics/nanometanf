@@ -1,0 +1,49 @@
+name: update_cumulative_stats
+description: Update cumulative statistics across all batches in real-time processing
+keywords:
+  - statistics
+  - cumulative
+  - real-time
+  - aggregation
+  - monitoring
+tools:
+  - python:
+      description: Python programming language
+      homepage: https://www.python.org/
+      documentation: https://docs.python.org/3/
+      licence: ['PSF']
+
+input:
+  - session_meta:
+      type: map
+      description: |
+        Groovy Map containing session metadata
+        e.g. [ session_id:'session001', session_start:'20240101_100000' ]
+  - snapshot_stats:
+      type: file
+      description: Snapshot statistics from current batch
+      pattern: "*.snapshot.json"
+  - previous_cumulative:
+      type: file
+      description: Previous cumulative statistics (optional)
+      pattern: "*.cumulative.json"
+
+output:
+  - session_meta:
+      type: map
+      description: |
+        Groovy Map containing session metadata
+        e.g. [ session_id:'session001', session_start:'20240101_100000' ]
+  - cumulative_stats:
+      type: file
+      description: Updated cumulative statistics
+      pattern: "*.cumulative.json"
+  - versions:
+      type: file
+      description: File containing software versions
+      pattern: "versions.yml"
+
+authors:
+  - "@andreassjodin"
+maintainers:
+  - "@andreassjodin"

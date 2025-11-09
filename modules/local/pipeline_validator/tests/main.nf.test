@@ -4,6 +4,17 @@ nextflow_process {
     script "../main.nf"
     process "PIPELINE_VALIDATOR"
 
+    // Test Level & Component
+    tag "module"
+    tag "pipeline_validator"
+
+    // Feature Area
+    tag "validation"
+
+    // Execution Speed & Criticality
+    tag "fast"
+    tag "core"
+
     test("Should validate FASTQ files") {
 
         when {

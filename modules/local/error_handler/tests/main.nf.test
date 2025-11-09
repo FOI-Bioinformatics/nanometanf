@@ -4,6 +4,17 @@ nextflow_process {
     script "../main.nf"
     process "ERROR_HANDLER"
 
+    // Test Level & Component
+    tag "module"
+    tag "error_handler"
+
+    // Feature Area
+    tag "error_handling"
+
+    // Execution Speed & Criticality
+    tag "fast"
+    tag "extended"
+
     test("Should analyze basic error logs") {
 
         setup {

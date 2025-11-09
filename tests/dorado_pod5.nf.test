@@ -3,6 +3,17 @@ nextflow_pipeline {
     name "Test Dorado basecalling with POD5 data"
     script "../main.nf"
 
+    // Test Level & Component
+    tag "pipeline"
+    tag "integration"
+
+    // Feature Area
+    tag "basecalling"
+
+    // Execution Speed & Criticality
+    tag "slow"
+    tag "core"
+
     test("Should run Dorado basecalling with nf-core POD5 data") {
 
         when {

@@ -7,12 +7,12 @@
                 "nf-core": {
                     "blast/blastn": {
                         "branch": "master",
-                        "git_sha": "454504547c9d928cd374248a02ea8e137326da2c",
+                        "git_sha": "d46ce1891502bcf54c434d50d9a33ffe611beb19",
                         "installed_by": ["modules"]
                     },
                     "blast/makeblastdb": {
                         "branch": "master",
-                        "git_sha": "41dfa3f7c0ffabb96a6a813fe321c6d1cc5b6e46",
+                        "git_sha": "6330227ba2a71d39f35b0ef60e381f456489c6ee",
                         "installed_by": ["modules"]
                     },
                     "chopper": {
@@ -22,7 +22,7 @@
                     },
                     "fastp": {
                         "branch": "master",
-                        "git_sha": "c8be52dba1166c678e74cda9c3a3c221635c8bb1",
+                        "git_sha": "d9ec4ef289ad39b8a662a7a12be50409b11df84b",
                         "installed_by": ["modules"]
                     },
                     "fastqc": {
@@ -42,7 +42,7 @@
                     },
                     "kraken2/kraken2": {
                         "branch": "master",
-                        "git_sha": "1d0b8758afdad7919a2e55bc93a2f9de9c059811",
+                        "git_sha": "0821737e529094ddf3c355b76d19c49ea1469141",
                         "installed_by": ["modules"]
                     },
                     "miniasm": {
@@ -57,7 +57,7 @@
                     },
                     "multiqc": {
                         "branch": "master",
-                        "git_sha": "e10b76ca0c66213581bec2833e30d31f239dec0b",
+                        "git_sha": "af27af1be706e6a2bb8fe454175b0cdf77f47b49",
                         "installed_by": ["modules"]
                     },
                     "nanoplot": {
@@ -92,7 +92,7 @@
                     },
                     "untar": {
                         "branch": "master",
-                        "git_sha": "41dfa3f7c0ffabb96a6a813fe321c6d1cc5b6e46",
+                        "git_sha": "00ee87ebb541af0008596400ce6d5f66d79d5408",
                         "installed_by": ["modules"]
                     }
                 }

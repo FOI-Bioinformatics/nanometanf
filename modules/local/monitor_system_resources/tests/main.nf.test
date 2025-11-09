@@ -4,9 +4,19 @@ nextflow_process {
     script "../main.nf"
     process "MONITOR_SYSTEM_RESOURCES"
 
-    tag "modules"
-    tag "modules_local"
+    // Test Level & Component
+    tag "module"
     tag "monitor_system_resources"
+
+    // Feature Area
+    tag "resource_allocation"
+
+    // Execution Speed & Criticality
+    tag "fast"
+    tag "experimental"
+
+    // Test Type
+    tag "snapshot"
 
     test("Should monitor basic system resources") {
 

@@ -4,9 +4,19 @@ nextflow_process {
     script "../main.nf"
     process "GENERATE_SNAPSHOT_STATS"
 
-    tag "modules"
-    tag "modules_local"
+    // Test Level & Component
+    tag "module"
     tag "generate_snapshot_stats"
+
+    // Feature Area
+    tag "realtime"
+
+    // Execution Speed & Criticality
+    tag "fast"
+    tag "core"
+
+    // Test Type
+    tag "snapshot"
 
     test("Should generate basic snapshot statistics") {
 

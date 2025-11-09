@@ -4,6 +4,17 @@ nextflow_workflow {
     script "../main.nf"
     workflow "DYNAMIC_RESOURCE_ALLOCATION"
 
+    // Test Level & Component
+    tag "subworkflow"
+    tag "dynamic_resource_allocation"
+
+    // Feature Area
+    tag "resource_allocation"
+
+    // Execution Speed & Criticality
+    tag "medium"
+    tag "experimental"
+
     test("Should analyze input characteristics and predict basic resource requirements") {
 
         setup {

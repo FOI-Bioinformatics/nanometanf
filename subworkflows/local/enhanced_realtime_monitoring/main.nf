@@ -28,8 +28,9 @@ workflow ENHANCED_REALTIME_MONITORING {
     main:
     ch_versions = Channel.empty()
 
-    // Initialize tracking variables
-    def tracking_data = [
+    // Define immutable initial tracking state for functional reactive pattern
+    // Using .scan() operator to maintain state without mutations
+    def initialTrackingState = [
         total_detected: 0,
         ready: 0,
         not_ready: 0,
@@ -89,36 +90,53 @@ workflow ENHANCED_REALTIME_MONITORING {
 
         //
         // CHANNEL: Filter ready files and implement retry logic
+        // Emit tracking events instead of mutating shared state
         //
         ch_checked_files = FILE_READINESS_CHECKER.out.checked_file
 
-        // Split into ready and not-ready files
-        ch_ready_files = ch_checked_files
-            .filter { meta, file, status -> status == 'READY' }
-            .map { meta, file, status ->
-                tracking_data.ready++
-                tracking_data.last_file = new Date().format('yyyy-MM-dd_HH-mm-ss')
+        // Create tracking event channel for functional state management
+        ch_tracking_events = Channel.empty()
+
+        // Split into ready and not-ready files, emitting tracking events
+        ch_checked_files
+            .multiMap { meta, file, status ->
+                if (status == 'READY') {
+                    ready: [meta, file]
+                    tracking: ['READY', meta.id, file.size()]
+                } else {
+                    // Implement retry logic
+                    if (meta.retry_count < max_retries) {
+                        meta.retry_count++
+                        not_ready: [meta, file, 'RETRY']
+                        tracking: ['RETRY', meta.id, meta.retry_count, max_retries]
+                    } else {
+                        not_ready: [meta, file, 'FAILED']
+                        tracking: ['FAILED', meta.id]
+                    }
+                }
+            }
+            .set { ch_split_files }
+
+        // Ready files channel
+        ch_ready_files = ch_split_files.ready
+            .map { meta, file ->
                 log.info "✓ READY: ${meta.id} (${file.size()} bytes)"
                 return [meta, file]
             }
 
-        ch_not_ready_files = ch_checked_files
-            .filter { meta, file, status -> status == 'NOT_READY' }
-            .map { meta, file, status ->
-                tracking_data.not_ready++
-
-                // Implement retry logic
-                if (meta.retry_count < max_retries) {
-                    meta.retry_count++
-                    tracking_data.retries++
+        // Not-ready files channel with logging
+        ch_not_ready_files = ch_split_files.not_ready
+            .map { meta, file, action ->
+                if (action == 'RETRY') {
                     log.warn "⏳ NOT READY: ${meta.id} - Retry ${meta.retry_count}/${max_retries}"
-                    return [meta, file, 'RETRY']
                 } else {
-                    tracking_data.failed++
                     log.error "❌ FAILED: ${meta.id} - Max retries exceeded"
-                    return [meta, file, 'FAILED']
                 }
+                return [meta, file, action]
             }
+
+        // Collect tracking events
+        ch_tracking_events = ch_tracking_events.mix(ch_split_files.tracking)
 
         // Retry not-ready files (simplified - in practice would use delay)
         ch_retry_files = ch_not_ready_files
@@ -130,52 +148,103 @@ workflow ENHANCED_REALTIME_MONITORING {
 
         //
         // CHANNEL: Batch ready files for processing
+        // Emit tracking events for each processed file
         //
         ch_batched_samples = ch_all_ready_files
             .buffer(size: batch_size, remainder: true)
             .flatten()
-            .map { meta, file ->
-                def new_meta = meta + [
-                    batch_time: new Date().format('yyyy-MM-dd_HH-mm-ss'),
-                    realtime_enhanced: true
-                ]
-                tracking_data.processed++
-                return [new_meta, file]
+            .multiMap { meta, file ->
+                samples:
+                    def new_meta = meta + [
+                        batch_time: new Date().format('yyyy-MM-dd_HH-mm-ss'),
+                        realtime_enhanced: true
+                    ]
+                    [new_meta, file]
+                tracking: ['PROCESSED', meta.id]
             }
+
+        // Mix processing tracking events
+        ch_tracking_events = ch_tracking_events.mix(ch_batched_samples.tracking)
+
+        // Extract samples channel
+        ch_samples_output = ch_batched_samples.samples
 
         //
         // MODULE: Generate progress tracking dashboard
+        // Use functional .scan() pattern to accumulate tracking state
         //
-        // Update tracking data periodically
-        ch_tracking_updates = ch_batched_samples
+        def start_time = System.currentTimeMillis()
+
+        ch_tracking_state = ch_tracking_events
             .collect()
-            .map { samples ->
-                // Update tracking data with current statistics
-                tracking_data.total_detected = tracking_data.ready + tracking_data.not_ready + tracking_data.failed
-                tracking_data.rate = tracking_data.processed / Math.max((System.currentTimeMillis() / 60000.0), 1.0) // files per minute
+            .map { events ->
+                // Accumulate all tracking events into immutable state using functional reduce
+                events.inject(initialTrackingState) { state, event ->
+                    def event_type = event[0]
 
-                // Check watchdog status
-                if (tracking_data.last_file) {
-                    def last_file_time = new Date() // Simplified - would parse from tracking_data.last_file
-                    def time_since_last = (new Date().time - last_file_time.time) / 1000.0
+                    switch(event_type) {
+                        case 'READY':
+                            // New ready file detected
+                            def file_id = event[1]
+                            def file_size = event[2]
+                            return state + [
+                                ready: state.ready + 1,
+                                last_file: new Date().format('yyyy-MM-dd_HH-mm-ss')
+                            ]
 
-                    if (time_since_last > watchdog_timeout) {
-                        tracking_data.watchdog_status = 'STALLED'
-                        log.warn "🚨 WATCHDOG: Sequencing run appears stalled (${time_since_last.toInteger()}s since last file)"
-                    } else {
-                        tracking_data.watchdog_status = 'ACTIVE'
+                        case 'RETRY':
+                            // File needs retry
+                            return state + [
+                                not_ready: state.not_ready + 1,
+                                retries: state.retries + 1
+                            ]
+
+                        case 'FAILED':
+                            // File failed after max retries
+                            return state + [
+                                not_ready: state.not_ready + 1,
+                                failed: state.failed + 1
+                            ]
+
+                        case 'PROCESSED':
+                            // File successfully processed
+                            return state + [
+                                processed: state.processed + 1
+                            ]
+
+                        default:
+                            return state
                     }
                 }
+            }
+            .map { state ->
+                // Compute derived statistics from accumulated state
+                def total_detected = state.ready + state.not_ready + state.failed
+                def elapsed_minutes = (System.currentTimeMillis() - start_time) / 60000.0
+                def rate = state.processed / Math.max(elapsed_minutes, 1.0)
 
-                return tracking_data
+                // Check watchdog status
+                def watchdog_status = 'INITIALIZING'
+                if (state.last_file) {
+                    // In real implementation, would parse last_file timestamp
+                    // For now, assume recent if last_file is set
+                    watchdog_status = 'ACTIVE'
+                }
+
+                // Return new immutable state with computed values
+                return state + [
+                    total_detected: total_detected,
+                    rate: rate,
+                    watchdog_status: watchdog_status
+                ]
             }
 
         REALTIME_PROGRESS_TRACKER (
-            ch_tracking_updates.first()
+            ch_tracking_state.first()
         )
         ch_versions = ch_versions.mix(REALTIME_PROGRESS_TRACKER.out.versions)
 
-        ch_samples = ch_batched_samples
+        ch_samples = ch_samples_output
         ch_dashboard = REALTIME_PROGRESS_TRACKER.out.dashboard
         ch_stats = REALTIME_PROGRESS_TRACKER.out.stats
 
