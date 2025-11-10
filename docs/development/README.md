@@ -6,7 +6,7 @@ This directory contains comprehensive documentation for developers working on th
 
 ### Testing & Quality Assurance
 - [TESTING.md](TESTING.md) - Comprehensive testing guide with nf-test (includes quick reference)
-- [CODE_QUALITY_EVALUATION_2025-11-04.md](CODE_QUALITY_EVALUATION_2025-11-04.md) - Latest code quality assessment
+- [CODE_QUALITY_EVALUATION_2025-11-04.md](archive/sessions/CODE_QUALITY_EVALUATION_2025-11-04.md) - Latest code quality assessment
 
 ### Architecture & Implementation
 - [PROMETHION_OPTIMIZATIONS.md](PROMETHION_OPTIMIZATIONS.md) - Platform-specific performance optimizations
@@ -27,10 +27,8 @@ This directory contains comprehensive documentation for developers working on th
 ```
 development/
 ├── README.md                          # This file
-├── TESTING.md                         # Comprehensive testing guide (merged)
-├── CODE_QUALITY_EVALUATION_2025-11-04.md  # Latest quality report
+├── TESTING.md                         # Comprehensive testing guide
 ├── RELEASE_PROCESS.md                 # Release workflow for maintainers
-├── DOCUMENTATION_STREAMLINING_SUMMARY_2025-11-04.md  # Documentation cleanup summary
 ├── PROMETHION_OPTIMIZATIONS.md        # Performance optimizations
 ├── incremental_kraken2_implementation.md  # Kraken2 architecture
 ├── PHASE_1.1_STATUS.md                # Feature status
@@ -41,7 +39,7 @@ development/
 ├── v1_0_roadmap.md                    # Roadmap
 ├── EVALUATION_SUMMARY.md              # Production readiness assessment
 └── archive/                           # Historical documents
-    ├── sessions/                      # Development session notes
+    ├── sessions/                      # Development session notes (incl. code quality)
     ├── progress/                      # Historical progress reports
     ├── phases/                        # Completed development phases
     └── v1.3.3/                        # v1.3.3 development history
@@ -51,7 +49,7 @@ development/
 
 ### Prerequisites
 
-1. **Nextflow** (>= 24.10.5)
+1. **Nextflow** (>= 25.10.0)
 2. **nf-test** (>= 0.9.0)
 3. **Java** (>= 11)
 4. **nf-core tools**
@@ -89,7 +87,7 @@ The pipeline follows nf-core best practices. Key requirements:
 - ✅ meta.yml for all modules
 - ✅ Version tracking in all processes
 
-See [CODE_QUALITY_EVALUATION_2025-11-04.md](CODE_QUALITY_EVALUATION_2025-11-04.md) for detailed assessment.
+See [CODE_QUALITY_EVALUATION_2025-11-04.md](archive/sessions/CODE_QUALITY_EVALUATION_2025-11-04.md) for detailed assessment.
 
 ### Documentation Standards
 
@@ -235,6 +233,6 @@ These documents are preserved for historical reference but are not actively main
 
 ---
 
-**Last Updated:** 2025-11-05
+**Last Updated:** 2025-11-09
 **Maintainer:** Andreas Sjodin (@andreassjodin)
-**Version:** 1.3.1dev
+**Version:** 1.4.1dev
