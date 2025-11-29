@@ -18,7 +18,7 @@ nextflow_pipeline {
 
         when {
             params {
-                input = "$projectDir/assets/test_data/test_samplesheet_absolute.csv"
+                input = "$projectDir/tests/fixtures/samplesheets/test_samplesheet_absolute.csv"
                 outdir = "$outputDir"
 
                 // CHOPPER is the default
@@ -67,7 +67,7 @@ nextflow_pipeline {
 
         when {
             params {
-                input = "$projectDir/assets/test_data/test_samplesheet_absolute.csv"
+                input = "$projectDir/tests/fixtures/samplesheets/test_samplesheet_absolute.csv"
                 outdir = "$outputDir"
 
                 // Use FASTP
@@ -116,7 +116,7 @@ nextflow_pipeline {
 
         when {
             params {
-                input = "$projectDir/assets/test_data/test_samplesheet_absolute.csv"
+                input = "$projectDir/tests/fixtures/samplesheets/test_samplesheet_absolute.csv"
                 outdir = "$outputDir"
 
                 // Use FILTLONG
@@ -166,7 +166,7 @@ nextflow_pipeline {
 
         when {
             params {
-                input = "$projectDir/assets/test_data/test_samplesheet_absolute.csv"
+                input = "$projectDir/tests/fixtures/samplesheets/test_samplesheet_absolute.csv"
                 outdir = "$outputDir"
 
                 // Use default (CHOPPER)
@@ -211,7 +211,7 @@ nextflow_pipeline {
 
         when {
             params {
-                input = "$projectDir/assets/test_data/test_samplesheet_absolute.csv"
+                input = "$projectDir/tests/fixtures/samplesheets/test_samplesheet_absolute.csv"
                 outdir = "$outputDir"
 
                 // This test uses CHOPPER but validates schema compliance

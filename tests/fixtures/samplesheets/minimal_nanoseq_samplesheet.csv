@@ -1,0 +1,2 @@
+sample,fastq,barcode
+nanoseq_sample,tests/fixtures/fastq/sample_minimal.fastq.gz,

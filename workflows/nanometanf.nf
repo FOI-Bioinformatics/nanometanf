@@ -14,6 +14,7 @@ include { REALTIME_MONITORING        } from '../subworkflows/local/realtime_moni
 include { REALTIME_POD5_MONITORING   } from '../subworkflows/local/realtime_pod5_monitoring'
 include { DORADO_BASECALLING         } from '../subworkflows/local/dorado_basecalling'
 include { BARCODE_DISCOVERY          } from '../subworkflows/local/barcode_discovery'
+include { POD5_BARCODE_DISCOVERY    } from '../subworkflows/local/pod5_barcode_discovery'
 include { DEMULTIPLEXING             } from '../subworkflows/local/demultiplexing'
 include { QC_ANALYSIS                } from '../subworkflows/local/qc_analysis'
 include { ASSEMBLY                   } from '../subworkflows/local/assembly'
@@ -21,6 +22,35 @@ include { TAXONOMIC_CLASSIFICATION   } from '../subworkflows/local/taxonomic_cla
 include { VALIDATION                 } from '../subworkflows/local/validation'
 include { DYNAMIC_RESOURCE_ALLOCATION } from '../subworkflows/local/dynamic_resource_allocation'
 include { NANOPLOT_COMPARE           } from '../modules/local/nanoplot_compare/main'
+
+/*
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    HELPER FUNCTIONS
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+*/
+
+//
+// Detect POD5 directory structure: 'flat' or 'barcode_subdirs'
+// - flat: POD5 files directly in the directory (e.g., pod5_dir/*.pod5)
+// - barcode_subdirs: POD5 files in barcode subdirectories (e.g., pod5_dir/barcode01/*.pod5)
+//
+def detectPod5Structure(pod5_dir) {
+    def dir = file(pod5_dir)
+    def hasBarcodeDirs = false
+
+    // Check for barcode*/ subdirectories containing POD5 files
+    dir.eachFile { f ->
+        if (f.isDirectory() && f.name.startsWith('barcode')) {
+            def hasPod5 = false
+            f.eachFileMatch(~/.+\.pod5$/) { hasPod5 = true }
+            if (hasPod5) {
+                hasBarcodeDirs = true
+            }
+        }
+    }
+
+    return hasBarcodeDirs ? 'barcode_subdirs' : 'flat'
+}
 
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -65,23 +95,58 @@ workflow NANOMETANF {
             if (!params.pod5_input_dir) {
                 error "POD5 input directory is required when use_dorado is true and not in realtime mode"
             }
-            ch_pod5_files = Channel.fromPath("${params.pod5_input_dir}/*.pod5", checkIfExists: true)
-                .collect()
-                .map { files -> 
-                    def meta = [ 
-                        id: 'pod5_sample', 
-                        single_end: true,
-                        barcode_kit: params.barcode_kit ?: null
-                    ]
-                    [ meta, files ]
-                }
-            
-            DORADO_BASECALLING (
-                ch_pod5_files,
-                params.dorado_model
-            )
-            ch_processed_samples = DORADO_BASECALLING.out.fastq
-            ch_versions = ch_versions.mix(DORADO_BASECALLING.out.versions)
+
+            // Auto-detect POD5 directory structure
+            def pod5_structure = detectPod5Structure(params.pod5_input_dir)
+            log.info "POD5 directory structure detected: ${pod5_structure}"
+
+            if (pod5_structure == 'barcode_subdirs') {
+                //
+                // PRE-DEMULTIPLEXED POD5: barcode subdirectories with POD5 files
+                // Each barcode is processed as a separate sample, demultiplexing is skipped
+                //
+                log.info "Processing pre-demultiplexed POD5 barcode directories"
+
+                POD5_BARCODE_DISCOVERY (
+                    params.pod5_input_dir
+                )
+
+                // Run basecalling for each barcode sample
+                DORADO_BASECALLING (
+                    POD5_BARCODE_DISCOVERY.out.samples,
+                    params.dorado_model
+                )
+
+                // Skip demultiplexing - samples are already per-barcode
+                ch_processed_samples = DORADO_BASECALLING.out.fastq
+                ch_versions = ch_versions.mix(DORADO_BASECALLING.out.versions)
+                ch_versions = ch_versions.mix(POD5_BARCODE_DISCOVERY.out.versions)
+
+            } else {
+                //
+                // FLAT POD5: all POD5 files in a single directory
+                // Process as single sample, optionally demultiplex after basecalling
+                //
+                log.info "Processing flat POD5 directory"
+
+                ch_pod5_files = Channel.fromPath("${params.pod5_input_dir}/*.pod5", checkIfExists: true)
+                    .collect()
+                    .map { files ->
+                        def meta = [
+                            id: 'pod5_sample',
+                            single_end: true,
+                            barcode_kit: params.barcode_kit ?: null
+                        ]
+                        [ meta, files ]
+                    }
+
+                DORADO_BASECALLING (
+                    ch_pod5_files,
+                    params.dorado_model
+                )
+                ch_processed_samples = DORADO_BASECALLING.out.fastq
+                ch_versions = ch_versions.mix(DORADO_BASECALLING.out.versions)
+            }
         }
         
     } else if (is_barcode_discovery) {
@@ -275,21 +340,20 @@ workflow NANOMETANF {
         
         //
         // SUBWORKFLOW: Optional BLAST validation
+        // Note: Nextflow handles empty channels gracefully - VALIDATION won't run if no sequences match
         //
         if (params.blast_validation && params.blast_db) {
             // Extract sequences for validation from Kraken2 classified reads
             ch_validation_seqs = TAXONOMIC_CLASSIFICATION.out.classified_reads
                 .filter { meta, reads -> params.validation_taxa?.any { taxa -> meta.id.contains(taxa) } }
-            
-            if (!ch_validation_seqs.empty) {
-                ch_blast_db = Channel.fromPath(params.blast_db, checkIfExists: true)
-                
-                VALIDATION (
-                    ch_validation_seqs,
-                    ch_blast_db
-                )
-                ch_versions = ch_versions.mix(VALIDATION.out.versions)
-            }
+
+            ch_blast_db = Channel.fromPath(params.blast_db, checkIfExists: true)
+
+            VALIDATION (
+                ch_validation_seqs,
+                ch_blast_db
+            )
+            ch_versions = ch_versions.mix(VALIDATION.out.versions)
         }
     }
 

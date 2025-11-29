@@ -6,7 +6,7 @@ Practical solutions for common issues when running nanometanf.
 
 ```bash
 # Check installation
-nextflow -version          # Should be >= 23.04.0
+nextflow -version          # Should be >= 25.10.0
 java -version             # Should be 11+
 docker --version          # If using Docker profile
 
@@ -23,7 +23,7 @@ nextflow run ... -with-trace -with-report -with-timeline
 
 ### Error: "Nextflow version too old"
 
-**Problem**: Pipeline requires Nextflow >= 23.04.0
+**Problem**: Pipeline requires Nextflow >= 25.10.0
 
 **Solution**:
 ```bash

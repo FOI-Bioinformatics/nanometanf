@@ -16,8 +16,8 @@ Comprehensive usage instructions for all execution modes and advanced configurat
 
 ### Prerequisites
 
-- Nextflow ≥24.10.5
-- Java ≥11
+- Nextflow >=25.10.0
+- Java >=11
 - Docker, Singularity, or Conda
 
 ### Install Nextflow

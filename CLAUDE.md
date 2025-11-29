@@ -18,7 +18,9 @@ This file provides guidance specifically for AI assistants (Claude) working on t
 - Quality control (Chopper, FASTP, NanoPlot) and validation (BLAST)
 - Platform-specific optimizations (MinION, PromethION profiles)
 
-**Production Status:** v1.2.0 (stable), v1.3.3 (beta with advanced features)
+**Production Status:** v1.2.0 (stable), v1.4.1dev (current development)
+
+**nf-core Compliance:** 96/100 - Full meta.yml and stub block coverage
 **See:** [docs/releases/CURRENT_VERSION.md](docs/releases/CURRENT_VERSION.md) for version guidance
 
 ---
@@ -66,6 +68,11 @@ The `bioinformatics-pipeline-dev` agent provides expert assistance with:
 - **`dorado_basecalling/main.nf`** - POD5 basecalling workflow
 
 - **`barcode_discovery/main.nf`** - Automated barcode directory discovery
+
+- **`pod5_barcode_discovery/main.nf`** - Pre-demultiplexed POD5 barcode discovery (NEW)
+  - Discovers barcode subdirectories containing POD5 files
+  - Supports dual folder structures: flat POD5 or barcode subdirectories
+  - Used by detectPod5Structure() function in workflows/nanometanf.nf
 
 - **`qc_analysis/main.nf`** - Quality control workflow (multi-tool support)
   - Lines 196-254: Conditional NanoPlot execution for real-time optimization
@@ -233,18 +240,31 @@ nf-core subworkflows update
 export JAVA_HOME=$CONDA_PREFIX/lib/jvm
 export PATH=$JAVA_HOME/bin:$PATH
 
-# Run full test suite
-nf-test test --verbose
+# Quick validation (core + fast tests)
+nf-test test --tag core --tag fast
+
+# All core tests
+nf-test test --tag core
+
+# Full test suite
+nf-test test
 
 # Run specific test
 nf-test test tests/nanoseq_test.nf.test --verbose
 
-# Run tests with tag
-nf-test test --tag realtime
-
 # Update snapshots
 nf-test test --update-snapshot
 ```
+
+**Tag System (4 tags):**
+| Tag | Purpose |
+|-----|---------|
+| `core` | Must-pass tests |
+| `extended` | Nice-to-pass tests |
+| `fast` | Quick tests (< 1 min) |
+| `slow` | Longer tests (> 1 min) |
+
+Optional feature tags: `realtime`, `basecalling`, `qc`, `classification`
 
 **See:** [docs/development/TESTING.md](docs/development/TESTING.md) for comprehensive guide
 
@@ -343,6 +363,29 @@ Auto-detects in `workflows/nanometanf.nf`:
 4. **Barcode discovery**: `!realtime_mode && barcode_input_dir`
 5. **Standard samplesheet**: `!realtime_mode && input`
 
+### POD5 Folder Structure Detection
+
+The pipeline auto-detects POD5 folder structures using `detectPod5Structure()`:
+
+```groovy
+// Detect if POD5 directory has barcode subdirectories or flat structure
+def detectPod5Structure(pod5_dir) {
+    def dir = file(pod5_dir)
+    def barcode_dirs = dir.listFiles().findAll {
+        it.isDirectory() && it.name.startsWith('barcode')
+    }
+    def has_barcode_subdirs = barcode_dirs.size() > 0
+    def has_pod5_in_subdirs = barcode_dirs.any { bc_dir ->
+        bc_dir.listFiles().any { it.name.endsWith('.pod5') }
+    }
+    return has_barcode_subdirs && has_pod5_in_subdirs ? 'barcode_subdirs' : 'flat'
+}
+```
+
+**Supported structures:**
+- **Flat**: POD5 files directly in input directory (singleplex)
+- **Barcode subdirs**: `barcode01/`, `barcode02/`, etc. with POD5 files (pre-demultiplexed)
+
 ### Channel Flow
 
 ```
@@ -391,8 +434,8 @@ gh pr create --title "Title" --body "Description"
 
 ---
 
-**Last Updated:** 2025-11-04
-**Version:** 1.3.1dev
+**Last Updated:** 2025-11-29
+**Version:** 1.4.1dev
 **Maintainer:** foi-bioinformatics team (@andreassjodin)
 
 **For AI Assistants:** This file contains the essential patterns and critical information needed for AI-assisted development. For complete details, refer to the linked documentation files.

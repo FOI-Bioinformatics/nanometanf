@@ -18,8 +18,10 @@
 **Key Features:**
 - Real-time POD5/FASTQ monitoring during active sequencing
 - Seven execution modes supporting diverse laboratory workflows
+- Dual POD5 folder structure support (flat or pre-demultiplexed barcodes)
+- Metal GPU acceleration support for Apple Silicon (macOS)
 - Intelligent resource optimization (experimental)
-- Production-ready with 94 nf-tests and full nf-core compliance
+- Production-ready with 94 nf-tests and full nf-core compliance (96/100)
 
 ## Quick Start
 

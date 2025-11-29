@@ -11,7 +11,7 @@ nextflow_pipeline {
     tag "qc"
 
     // Execution Speed & Criticality
-    tag "medium"
+    tag "slow"
     tag "core"
 
     test("Should run complete workflow without failures") {

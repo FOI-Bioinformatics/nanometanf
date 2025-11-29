@@ -18,7 +18,7 @@ nextflow_pipeline {
 
         when {
             params {
-                input = "$projectDir/assets/test_data/test_samplesheet_absolute.csv"
+                input = "$projectDir/tests/fixtures/samplesheets/test_samplesheet_absolute.csv"
                 outdir = "$outputDir"
                 
                 // Enable real-time statistics
@@ -55,7 +55,7 @@ nextflow_pipeline {
 
         when {
             params {
-                input = "$projectDir/assets/test_data/test_samplesheet_absolute.csv"
+                input = "$projectDir/tests/fixtures/samplesheets/test_samplesheet_absolute.csv"
                 outdir = "$outputDir"
                 
                 // Minimal configuration

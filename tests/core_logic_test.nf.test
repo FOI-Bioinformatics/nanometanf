@@ -18,7 +18,7 @@ nextflow_pipeline {
 
         when {
             params {
-                input = "$projectDir/assets/test_data/test_samplesheet_absolute.csv"
+                input = "$projectDir/tests/fixtures/samplesheets/test_samplesheet_absolute.csv"
                 outdir = "$outputDir"
                 
                 // Use no-Docker configuration
@@ -73,7 +73,7 @@ nextflow_pipeline {
 
         when {
             params {
-                input = "$projectDir/assets/test_data/test_samplesheet_absolute.csv"
+                input = "$projectDir/tests/fixtures/samplesheets/test_samplesheet_absolute.csv"
                 outdir = "$outputDir"
                 
                 // Force early exit for validation only
@@ -113,13 +113,13 @@ nextflow_pipeline {
 
         when {
             params {
-                input = "$projectDir/assets/test_data/test_samplesheet_absolute.csv"
+                input = "$projectDir/tests/fixtures/samplesheets/test_samplesheet_absolute.csv"
                 outdir = "$outputDir"
                 
                 // Enable features that require tools
                 use_dorado = true
                 dorado_path = "/nonexistent/path/dorado"
-                pod5_input_dir = "$projectDir/assets/test_data/minimal_nanoseq/pod5"
+                pod5_input_dir = "$projectDir/tests/fixtures/pod5"
                 
                 // Resource limits
                 max_cpus = 1

@@ -54,7 +54,7 @@ workflow BARCODE_DISCOVERY {
             if (fastq_files.size() > 0) {
                 def meta = [
                     id: "unclassified",
-                    barcode: "unclassified", 
+                    barcode: "unclassified",
                     single_end: true,
                     demultiplexed: true,
                     demux_source: "pre_demultiplexed"
@@ -65,7 +65,7 @@ workflow BARCODE_DISCOVERY {
             }
         }
         .filter { it != null }
-        .ifEmpty([])  // Make optional
+        // Note: Removed .ifEmpty([]) as it emits an empty list that breaks downstream tuple destructuring
     
     //
     // COMBINE: Mix barcode and unclassified samples

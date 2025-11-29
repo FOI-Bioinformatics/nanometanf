@@ -18,7 +18,7 @@ nextflow_pipeline {
 
         when {
             params {
-                input = "$projectDir/assets/test_data/test_samplesheet_absolute.csv"
+                input = "$projectDir/tests/fixtures/samplesheets/test_samplesheet_absolute.csv"
                 outdir = "$outputDir"
 
                 // Chopper-specific: strict quality filtering
@@ -61,7 +61,7 @@ nextflow_pipeline {
 
         when {
             params {
-                input = "$projectDir/assets/test_data/test_samplesheet_absolute.csv"
+                input = "$projectDir/tests/fixtures/samplesheets/test_samplesheet_absolute.csv"
                 outdir = "$outputDir"
 
                 // Chopper-specific: length-based filtering
@@ -104,7 +104,7 @@ nextflow_pipeline {
 
         when {
             params {
-                input = "$projectDir/assets/test_data/test_samplesheet_absolute.csv"
+                input = "$projectDir/tests/fixtures/samplesheets/test_samplesheet_absolute.csv"
                 outdir = "$outputDir"
 
                 // Chopper-specific: adapter trimming

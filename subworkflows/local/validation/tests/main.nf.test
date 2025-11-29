@@ -12,7 +12,7 @@ nextflow_workflow {
     tag "validation"
 
     // Execution Speed & Criticality
-    tag "medium"
+    tag "slow"
     tag "core"
 
     test("Should perform basic BLAST sequence validation") {
@@ -282,7 +282,7 @@ EOF
             workflow {
                 """
                 input[0] = []
-                input[1] = file('$projectDir/assets/test_data')  // Use any existing directory
+                input[1] = file('$projectDir/tests/fixtures')  // Use any existing directory
                 """
             }
             

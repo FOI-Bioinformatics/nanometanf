@@ -11,7 +11,7 @@ nextflow_pipeline {
     tag "barcode_discovery"
 
     // Execution Speed & Criticality
-    tag "medium"
+    tag "slow"
     tag "core"
 
     test("Should discover and process pre-demultiplexed barcode folders") {
@@ -19,7 +19,7 @@ nextflow_pipeline {
         when {
             params {
                 // Use barcode directory input
-                barcode_input_dir = "$projectDir/tests/test_data/barcode_structure"
+                barcode_input_dir = "$projectDir/tests/fixtures/barcode_structure"
                 outdir = "$outputDir"
                 
                 // Provide required input parameter (empty samplesheet for barcode mode)

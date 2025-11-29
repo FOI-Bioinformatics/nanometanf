@@ -6,7 +6,7 @@
 // - Per-barcode metadata extraction
 //
 
-include { BarcodeUtils } from '../../../lib/BarcodeUtils'
+// Note: BarcodeUtils class is auto-loaded from lib/ in Nextflow 25.x+
 
 workflow REALTIME_MONITORING {
 

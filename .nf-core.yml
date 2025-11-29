@@ -1,11 +1,23 @@
 repository_type: pipeline
 
-nf_core_version: 3.3.2
+nf_core_version: 3.5.1
 
 lint:
+  files_exist:
+    - lib/WorkflowNanometanf.groovy
+    - CODE_OF_CONDUCT.md
+    - assets/nf-core-nanometanf_logo_light.png
+    - docs/images/nf-core-nanometanf_logo_light.png
+    - docs/images/nf-core-nanometanf_logo_dark.png
+    - .github/ISSUE_TEMPLATE/config.yml
+    - .github/workflows/awstest.yml
+    - .github/workflows/awsfulltest.yml
   files_unchanged:
     - CODE_OF_CONDUCT.md
     - LICENSE
+    - .github/workflows/linting.yml
+    - .github/workflows/linting_comment.yml
+    - .prettierignore
     - assets/nf-core-nanometanf_logo_light.png
     - docs/images/nf-core-nanometanf_logo_light.png
     - docs/images/nf-core-nanometanf_logo_dark.png
@@ -23,20 +35,12 @@ lint:
     - validation.summary.afterText
   multiqc_config:
     - report_comment
-  files_exist:
-    - CODE_OF_CONDUCT.md
-    - assets/nf-core-nanometanf_logo_light.png
-    - docs/images/nf-core-nanometanf_logo_light.png
-    - docs/images/nf-core-nanometanf_logo_dark.png
-    - .github/ISSUE_TEMPLATE/config.yml
-    - .github/workflows/awstest.yml
-    - .github/workflows/awsfulltest.yml
 
 template:
   org: foi-bioinformatics
   name: nanometanf
   description: Backend of Nanometa-Live
-  author: "Andreas Sj\xF6din"
+  author: "Andreas Sjodin"
   version: 1.4.1dev
   force: true
   outdir: .

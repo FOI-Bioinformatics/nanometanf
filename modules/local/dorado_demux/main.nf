@@ -10,8 +10,8 @@ process DORADO_DEMUX {
     val barcode_kit
 
     output:
-    tuple val(meta), path("demux_output/barcode*/*.fastq*"), emit: demuxed_reads
-    tuple val(meta), path("demux_output/unclassified/*.fastq*"), emit: unclassified, optional: true
+    tuple val(meta), path("demux_output/barcode*/*.fastq*"), emit: demuxed_reads, optional: true
+    tuple val(meta), path("demux_output/{unclassified,no_sample}/*.fastq*"), emit: unclassified, optional: true
     path "demux_output/demux_summary.txt", emit: summary, optional: true
     path "versions.yml", emit: versions
 
@@ -32,7 +32,20 @@ process DORADO_DEMUX {
         exit 1
     fi
 
-    dorado demux \\
+    # Resolve symlinks to find actual dorado location (required for Metal GPU support)
+    DORADO_CMD="dorado"
+    DORADO_PATH=\$(command -v dorado)
+    if [[ -L "\$DORADO_PATH" ]]; then
+        DORADO_REAL=\$(python3 -c "import os; print(os.path.realpath('\$DORADO_PATH'))" 2>/dev/null || readlink -f "\$DORADO_PATH" 2>/dev/null || echo "\$DORADO_PATH")
+        DORADO_BIN_DIR=\$(dirname "\$DORADO_REAL")
+        DORADO_LIB_DIR=\$(dirname "\$DORADO_BIN_DIR")/lib
+        if [[ -d "\$DORADO_LIB_DIR" ]]; then
+            export DYLD_LIBRARY_PATH="\$DORADO_LIB_DIR:\${DYLD_LIBRARY_PATH:-}"
+            DORADO_CMD="\$DORADO_REAL"
+        fi
+    fi
+
+    \$DORADO_CMD demux \\
         --kit-name ${barcode_kit} \\
         --output-dir demux_output \\
         ${trim_barcodes} \\

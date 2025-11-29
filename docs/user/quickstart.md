@@ -6,7 +6,7 @@ Get started with nanometanf in 5 minutes using real example datasets.
 
 ```bash
 # Required
-- Nextflow >= 23.04.0
+- Nextflow >= 25.10.0
 - Docker or Singularity (or Conda)
 - Java 11+ (for Nextflow)
 

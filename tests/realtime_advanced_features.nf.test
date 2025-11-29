@@ -40,6 +40,9 @@ nextflow_pipeline {
             with(workflow.out) {
                 assert qc_reports
             }
+
+            // Snapshot versions output
+            assert snapshot(workflow.out.versions).match("versions_timeout")
         }
     }
 
@@ -68,6 +71,9 @@ nextflow_pipeline {
             // Verify adaptive batching was used (effective_batch_size within range)
             // batch_size (10) * factor (2.0) = 20, constrained to max (5)
             assert workflow.trace.tasks().size() > 0
+
+            // Snapshot versions output
+            assert snapshot(workflow.out.versions).match("versions_adaptive")
         }
     }
 
@@ -93,6 +99,9 @@ nextflow_pipeline {
 
             // Should process files, priority routing enabled
             assert workflow.trace.tasks().size() > 0
+
+            // Snapshot versions output
+            assert snapshot(workflow.out.versions).match("versions_priority")
         }
     }
 
@@ -127,6 +136,9 @@ nextflow_pipeline {
             assert workflow.trace.tasks().any { it.process =~ /.*CHOPPER.*/ ||
                                                it.process =~ /.*FASTP.*/ ||
                                                it.process =~ /.*FILTLONG.*/ }
+
+            // Snapshot versions output
+            assert snapshot(workflow.out.versions).match("versions_combined")
         }
     }
 
@@ -150,6 +162,9 @@ nextflow_pipeline {
 
             // Should process files with barcode metadata
             assert workflow.trace.tasks().size() > 0
+
+            // Snapshot versions output
+            assert snapshot(workflow.out.versions).match("versions_barcode")
         }
     }
 
@@ -174,6 +189,9 @@ nextflow_pipeline {
 
             // Should complete but would have logged warning
             assert workflow.trace.tasks().size() > 0
+
+            // Snapshot versions output
+            assert snapshot(workflow.out.versions).match("versions_nowarn")
         }
     }
 }
