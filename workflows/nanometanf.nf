@@ -4,6 +4,7 @@
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
 include { MULTIQC                    } from '../modules/nf-core/multiqc/main'
+include { UNTAR                      } from '../modules/nf-core/untar/main'
 include { paramsSummaryMap           } from 'plugin/nf-schema'
 include { paramsSummaryMultiqc       } from '../subworkflows/nf-core/utils_nfcore_pipeline'
 include { softwareVersionsToYAML     } from '../subworkflows/nf-core/utils_nfcore_pipeline'
@@ -329,8 +330,24 @@ workflow NANOMETANF {
     // SUBWORKFLOW: Multi-tool taxonomic classification with taxpasta standardization
     //
     if (params.kraken2_db) {
-        ch_classification_db = Channel.fromPath(params.kraken2_db, checkIfExists: true)
-        
+        //
+        // PREPARE DATABASE: Handle both directory and tar.gz inputs
+        // Supports: local directories, local tar.gz files, and remote tar.gz URLs
+        //
+        def db_path = params.kraken2_db
+        def is_archive = db_path.toString().endsWith('.tar.gz') || db_path.toString().endsWith('.tgz')
+
+        if (is_archive) {
+            // Extract tar.gz archive using UNTAR module
+            ch_db_archive = Channel.of([ [id: 'kraken2_db'], file(db_path, checkIfExists: true) ])
+            UNTAR ( ch_db_archive )
+            ch_classification_db = UNTAR.out.untar.map { meta, db -> db }
+            ch_versions = ch_versions.mix(UNTAR.out.versions)
+        } else {
+            // Use directory path directly
+            ch_classification_db = Channel.fromPath(db_path, checkIfExists: true)
+        }
+
         TAXONOMIC_CLASSIFICATION (
             ch_qc_reads,
             ch_classification_db

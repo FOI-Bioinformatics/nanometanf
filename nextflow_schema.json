@@ -688,10 +688,16 @@
         },
         "kraken2_db": {
           "type": "string",
-          "format": "directory-path",
-          "description": "Path to Kraken2 database directory.",
+          "description": "Path to Kraken2 database directory or tar.gz archive.",
           "fa_icon": "fas fa-database",
-          "help_text": "Directory containing Kraken2 database files (hash.k2d, opts.k2d, taxo.k2d). Download from https://benlangmead.github.io/aws-indexes/k2 or build custom databases."
+          "help_text": "Directory containing Kraken2 database files (hash.k2d, opts.k2d, taxo.k2d) or a tar.gz archive that will be extracted automatically. Supports local paths and remote URLs. Download from https://benlangmead.github.io/aws-indexes/k2 or build custom databases."
+        },
+        "skip_kraken2": {
+          "type": "boolean",
+          "default": false,
+          "description": "Skip Kraken2 taxonomic classification.",
+          "fa_icon": "fas fa-ban",
+          "help_text": "Use this option to skip taxonomic classification and run only QC and processing steps."
         },
         "save_output_fastqs": {
           "type": "boolean",
