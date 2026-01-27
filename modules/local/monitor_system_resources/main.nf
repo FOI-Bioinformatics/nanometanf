@@ -406,10 +406,10 @@ STUB_EOF
 STUB_EOF
 
     cat <<-END_VERSIONS > versions.yml
-    "${task.process}":
-        python: "3.9"
-        psutil: "5.9.0"
-        resource_monitoring: "1.0"
-    END_VERSIONS
+"${task.process}":
+    python: "3.9"
+    psutil: "5.9.0"
+    resource_monitoring: "1.0"
+END_VERSIONS
     """
 }

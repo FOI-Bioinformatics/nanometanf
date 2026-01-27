@@ -68,10 +68,14 @@ workflow QC_ANALYSIS {
             //
             // MODULE: Run FASTP for general-purpose quality filtering and QC
             //
+            // FASTP expects: tuple(meta, reads, adapter_fasta), discard_trimmed_pass, save_trimmed_fail, save_merged
+            ch_fastp_input = ch_adapter_trimmed.map { meta, reads ->
+                [ meta, reads, [] ]  // Add empty adapter_fasta to tuple
+            }
+
             FASTP (
-                ch_adapter_trimmed,
-                [],           // adapter_fasta
-                false,        // discard_trimmed_pass  
+                ch_fastp_input,
+                false,        // discard_trimmed_pass
                 false,        // save_trimmed_fail
                 false         // save_merged
             )
@@ -174,23 +178,39 @@ workflow QC_ANALYSIS {
     // For tools that use SEQKIT_STATS (chopper, filtlong), aggregate batch-level stats
     // into cumulative statistics when incremental mode is enabled
     //
+    // STREAMING-FIX: groupTuple() waits for channel completion, which never happens
+    // with watchPath() in true streaming mode. This feature is incompatible with
+    // realtime streaming and should be disabled when realtime_mode is enabled.
+    //
     def enable_incremental = params.qc_enable_incremental ?: false
+    def is_realtime_mode = params.realtime_mode ?: false
     def ch_final_seqkit_stats = ch_seqkit_stats
 
     if (enable_incremental && (qc_tool == 'chopper' || qc_tool == 'filtlong')) {
-        log.info "Using incremental QC statistics aggregation for ${qc_tool}"
+        if (is_realtime_mode) {
+            // STREAMING-FIX: Skip groupTuple-based aggregation in realtime mode
+            // groupTuple() blocks indefinitely waiting for channel closure
+            // Instead, pass through individual batch stats - cumulative aggregation
+            // should be handled by the downstream dashboard or a streaming-compatible module
+            log.warn "Incremental QC stats aggregation disabled in realtime mode (groupTuple incompatible with watchPath)"
+            log.info "Individual batch statistics will be emitted instead of cumulative"
+            // ch_final_seqkit_stats remains as ch_seqkit_stats (individual batches)
+        } else {
+            // Non-realtime mode: safe to use groupTuple (channel will close)
+            log.info "Using incremental QC statistics aggregation for ${qc_tool}"
 
-        // Group batch-level seqkit stats by sample ID
-        def ch_grouped_batch_stats = ch_seqkit_stats.groupTuple(by: 0)
+            // Group batch-level seqkit stats by sample ID
+            def ch_grouped_batch_stats = ch_seqkit_stats.groupTuple(by: 0)
 
-        // Merge batch statistics into cumulative statistics
-        SEQKIT_MERGE_STATS(
-            ch_grouped_batch_stats
-        )
-        ch_versions = ch_versions.mix(SEQKIT_MERGE_STATS.out.versions)
+            // Merge batch statistics into cumulative statistics
+            SEQKIT_MERGE_STATS(
+                ch_grouped_batch_stats
+            )
+            ch_versions = ch_versions.mix(SEQKIT_MERGE_STATS.out.versions)
 
-        // Use cumulative stats instead of batch stats
-        ch_final_seqkit_stats = SEQKIT_MERGE_STATS.out.cumulative_stats
+            // Use cumulative stats instead of batch stats
+            ch_final_seqkit_stats = SEQKIT_MERGE_STATS.out.cumulative_stats
+        }
     }
 
     //

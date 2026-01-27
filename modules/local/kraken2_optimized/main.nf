@@ -143,10 +143,10 @@ EOF
     echo "========================================" >&2
 
     cat <<-END_VERSIONS > versions.yml
-    "${task.process}":
-        kraken2: \$(echo \$(kraken2 --version 2>&1) | sed 's/^.*Kraken version //; s/ .*\$//')
-        pigz: \$( pigz --version 2>&1 | sed 's/pigz //g' )
-    END_VERSIONS
+"${task.process}":
+    kraken2: \$(echo \$(kraken2 --version 2>&1) | sed 's/^.*Kraken version //; s/ .*\$//')
+    pigz: \$( pigz --version 2>&1 | sed 's/pigz //g' )
+END_VERSIONS
     """
 
     stub:
@@ -168,9 +168,9 @@ EOF
     fi
 
     cat <<-END_VERSIONS > versions.yml
-    "${task.process}":
-        kraken2: \$(echo \$(kraken2 --version 2>&1) | sed 's/^.*Kraken version //; s/ .*\$//')
-        pigz: \$( pigz --version 2>&1 | sed 's/pigz //g' )
-    END_VERSIONS
+"${task.process}":
+    kraken2: \$(echo \$(kraken2 --version 2>&1) | sed 's/^.*Kraken version //; s/ .*\$//')
+    pigz: \$( pigz --version 2>&1 | sed 's/pigz //g' )
+END_VERSIONS
     """
 }

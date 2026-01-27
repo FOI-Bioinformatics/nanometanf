@@ -4,6 +4,7 @@
 // - Adaptive batching with dynamic sizing (v1.2.1+)
 // - Priority sample routing (v1.2.1+)
 // - Per-barcode metadata extraction
+// - Backpressure with configurable concurrency limits (v1.5+)
 //
 
 // Note: BarcodeUtils class is auto-loaded from lib/ in Nextflow 25.x+
@@ -30,8 +31,46 @@ workflow REALTIME_MONITORING {
         log.info "Batch size: ${batch_size}"
         log.info "Batch interval: ${batch_interval}"
 
-        // Watch for files
-        def ch_watched = Channel.watchPath("${watch_dir}/${file_pattern}", 'create,modify')
+        //
+        // BACKPRESSURE CONFIGURATION (v1.5+)
+        // Limits concurrent processing to prevent queue saturation
+        //
+        def max_concurrent = params.max_concurrent_batches ?: 4
+        log.info "Backpressure: max ${max_concurrent} concurrent batches per sample"
+        log.info "Classification forks: ${params.max_classification_forks ?: 8} parallel Kraken2 jobs"
+
+        // Use file() function directly to find existing files - more reliable than Channel.fromPath
+        // The file() function with glob patterns returns a list of matching files
+        def full_pattern = "${watch_dir}/${file_pattern}"
+        def existing_files = file(full_pattern)
+
+        // file() returns a single Path if one match, a List if multiple, or empty list if none
+        def existing_list = []
+        if (existing_files instanceof List) {
+            existing_list = existing_files.findAll { it.exists() }
+        } else if (existing_files != null && existing_files.exists()) {
+            existing_list = [existing_files]
+        }
+
+        def existing_count = existing_list.size()
+
+        if (existing_count > 0) {
+            log.info "Found ${existing_count} existing files - will process immediately"
+            existing_list.each { f -> log.info "  - ${f.name}" }
+        } else {
+            log.info "No existing files found - waiting for new files..."
+        }
+
+        // Create channel from existing files
+        def ch_existing = existing_count > 0
+            ? Channel.fromList(existing_list)
+            : Channel.empty()
+
+        // Watch for new files being created or modified
+        def ch_new = Channel.watchPath(full_pattern, 'create,modify')
+
+        // Combine existing files (processed first) with new files (watched continuously)
+        def ch_watched = ch_existing.mix(ch_new)
 
         //
         // TIMEOUT LOGIC: Intelligent inactivity timeout with grace period (v1.2.1+)
@@ -121,15 +160,21 @@ workflow REALTIME_MONITORING {
                 .set { ch_branched_files }
 
             // Mix priority files first (they will be processed before normal files)
+            // STREAMING-FIX: Use collate instead of buffer for streaming compatibility
+            // buffer(size: N, remainder: true) blocks until channel closes (never with watchPath)
+            // collate(N, false) emits partial batches immediately without blocking
             ch_batched_files = ch_branched_files.priority
                 .mix(ch_branched_files.normal)
-                .buffer(size: effective_batch_size, remainder: true)
+                .collate(effective_batch_size, false)
 
             log.info "Priority samples will be processed before normal samples"
         } else {
             // Standard batching without priority
+            // STREAMING-FIX: Use collate instead of buffer for streaming compatibility
+            // buffer(size: N, remainder: true) blocks until channel closes (never with watchPath)
+            // collate(N, false) emits partial batches immediately without blocking
             ch_batched_files = ch_input_files
-                .buffer(size: effective_batch_size, remainder: true)
+                .collate(effective_batch_size, false)
         }
 
         log.info "="*80
@@ -149,19 +194,65 @@ workflow REALTIME_MONITORING {
                     meta.barcode = barcode
                 }
 
-                meta.id = filename
+                // Use params.sample_name for single-sample mode, otherwise use filename
+                meta.id = params.sample_name ?: filename
                 meta.single_end = true // Assume single-end for nanopore
                 meta.batch_time = new Date().format('yyyy-MM-dd_HH-mm-ss')
 
                 return [ meta, file ]
             }
 
+        // Transform batches for REALTIME_STATISTICS
+        // GENERATE_SNAPSHOT_STATS expects: tuple val(batch_meta), val(file_metas)
+        // where batch_meta is a map with batch_id, batch_timestamp, batch_time
+        // and file_metas is a list of maps with file metadata
+        ch_batches = ch_batched_files
+            .map { files ->
+                def batch_timestamp = System.currentTimeMillis()
+                def batch_time = new Date().format('yyyy-MM-dd_HH-mm-ss')
+                // Use timestamp for unique batch ID (counter variables don't work in Nextflow dataflow)
+                def batch_id = "batch_${batch_timestamp}"
+
+                // Create batch metadata
+                def batch_meta = [
+                    batch_id: batch_id,
+                    batch_timestamp: batch_timestamp,
+                    batch_time: batch_time,
+                    file_count: files.size()
+                ]
+
+                // Create file metadata for each file
+                def file_metas = files.collect { f ->
+                    def file_size = f.size()
+                    def file_name = f.name
+                    def is_compressed = file_name.endsWith('.gz')
+                    // Estimate reads based on file size (rough: ~4 bytes per base, 1000bp avg read)
+                    def estimated_reads = is_compressed ? (file_size * 4 / 4000).toLong() : (file_size / 4000).toLong()
+
+                    [
+                        file_path: f.toString(),
+                        file_name: file_name,
+                        file_size: file_size,
+                        is_compressed: is_compressed,
+                        estimated_reads: estimated_reads,
+                        file_age_ms: batch_timestamp - f.lastModified(),
+                        priority_score: 0,
+                        watch_dir: f.parent.toString(),
+                        sample_id: file_name.replaceAll(/\.(fastq|fq)(\.gz)?$/, '')
+                    ]
+                }
+
+                return [ batch_meta, file_metas ]
+            }
+
     } else {
         // Static mode - process existing files once
         ch_samples = Channel.empty()
+        ch_batches = Channel.empty()
     }
 
     emit:
     samples  = ch_samples    // channel: [ val(meta), path(reads) ]
+    batches  = ch_batches    // channel: [ val(batch_meta), val(file_metas) ] - structured batch data for REALTIME_STATISTICS
     versions = ch_versions   // channel: [ versions.yml ]
 }

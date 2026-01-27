@@ -544,9 +544,9 @@ process PREDICT_RESOURCE_REQUIREMENTS {
 STUB_EOF
 
     cat <<-END_VERSIONS > versions.yml
-    "${task.process}":
-        python: "3.9"
-        resource_prediction: "1.0"
-    END_VERSIONS
+"${task.process}":
+    python: "3.9"
+    resource_prediction: "1.0"
+END_VERSIONS
     """
 }

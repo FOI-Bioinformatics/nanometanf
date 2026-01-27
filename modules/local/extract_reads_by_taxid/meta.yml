@@ -1,0 +1,57 @@
+name: "extract_reads_by_taxid"
+description: Extract reads classified as a specific taxonomy ID from Kraken2 output
+keywords:
+  - kraken2
+  - extraction
+  - taxonomy
+  - validation
+  - reads
+tools:
+  - seqtk:
+      description: Toolkit for processing sequences in FASTA/Q formats
+      homepage: https://github.com/lh3/seqtk
+      documentation: https://github.com/lh3/seqtk
+      tool_dev_url: https://github.com/lh3/seqtk
+      licence: ["MIT"]
+
+input:
+  - meta:
+      type: map
+      description: |
+        Groovy Map containing sample information
+        e.g. [ id:'sample1', single_end:true ]
+  - reads:
+      type: file
+      description: FASTQ file containing classified reads from Kraken2
+      pattern: "*.fastq{,.gz}"
+  - kraken_output:
+      type: file
+      description: |
+        Raw Kraken2 output file with per-read classifications
+        Format: C/U <tab> read_id <tab> taxid <tab> length <tab> kmers
+      pattern: "*.kraken2.output.txt"
+  - taxid:
+      type: integer
+      description: Target taxonomy ID to extract reads for
+
+output:
+  - meta:
+      type: map
+      description: |
+        Groovy Map containing sample information
+        e.g. [ id:'sample1', single_end:true ]
+  - reads:
+      type: file
+      description: FASTQ file containing only reads classified as the target taxid
+      pattern: "*_taxid*.fastq.gz"
+  - stats:
+      type: file
+      description: JSON file containing extraction statistics
+      pattern: "*_extraction_stats.json"
+  - versions:
+      type: file
+      description: File containing software versions
+      pattern: "versions.yml"
+
+authors:
+  - "@andreassjodin"

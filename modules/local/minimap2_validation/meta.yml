@@ -1,0 +1,54 @@
+name: "minimap2_validation"
+description: Fast validation of extracted reads against reference genome using minimap2
+keywords:
+  - minimap2
+  - validation
+  - pathogen
+  - alignment
+  - nanopore
+  - long_reads
+tools:
+  - minimap2:
+      description: A versatile pairwise aligner for genomic and spliced nucleotide sequences
+      homepage: https://github.com/lh3/minimap2
+      documentation: https://lh3.github.io/minimap2/minimap2.html
+      tool_dev_url: https://github.com/lh3/minimap2
+      doi: "10.1093/bioinformatics/bty191"
+      licence: ["MIT"]
+
+input:
+  - meta:
+      type: map
+      description: |
+        Groovy Map containing sample information
+        e.g. [ id:'sample1', taxid:562 ]
+  - reads:
+      type: file
+      description: FASTQ file containing reads to validate
+      pattern: "*.fastq{,.gz}"
+  - reference:
+      type: file
+      description: Reference genome FASTA file
+      pattern: "*.{fa,fasta,fna}{,.gz}"
+
+output:
+  - meta:
+      type: map
+      description: |
+        Groovy Map containing sample information
+        e.g. [ id:'sample1', taxid:562 ]
+  - alignments:
+      type: file
+      description: Minimap2 output in PAF format
+      pattern: "*.paf"
+  - stats:
+      type: file
+      description: JSON file containing validation statistics
+      pattern: "*.minimap2_stats.json"
+  - versions:
+      type: file
+      description: File containing software versions
+      pattern: "versions.yml"
+
+authors:
+  - "@andreassjodin"

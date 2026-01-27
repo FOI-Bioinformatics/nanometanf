@@ -13,14 +13,15 @@
 
 ## Introduction
 
-**nanometanf** is a comprehensive bioinformatics pipeline for Oxford Nanopore long-read sequencing data analysis with real-time processing capabilities. It serves as the computational backend for Nanometa Live, supporting POD5 basecalling (Dorado), quality control (Chopper, FASTP, NanoPlot), taxonomic classification (Kraken2), and validation workflows (BLAST) optimized for metagenomics and genomics applications.
+**nanometanf** is a bioinformatics pipeline for Oxford Nanopore long-read sequencing data analysis with real-time processing capabilities. It serves as the computational backend for Nanometa Live, supporting POD5 basecalling (Dorado), quality control (Chopper, FASTP, NanoPlot), taxonomic classification (Kraken2), and validation workflows (BLAST/minimap2).
 
 **Key Features:**
 - Real-time POD5/FASTQ monitoring during active sequencing
+- Scalable streaming architecture for high-throughput runs (v1.5+)
 - Seven execution modes supporting diverse laboratory workflows
 - Dual POD5 folder structure support (flat or pre-demultiplexed barcodes)
 - Metal GPU acceleration support for Apple Silicon (macOS)
-- Intelligent resource optimization (experimental)
+- Intelligent resource optimization and backpressure control
 - Production-ready with 94 nf-tests and full nf-core compliance (96/100)
 
 ## Quick Start
@@ -43,21 +44,50 @@ nextflow run foi-bioinformatics/nanometanf \
   --dorado_model dna_r10.4.1_e4.3_400bps_hac \
   --outdir results \
   -profile docker
+
+# High-throughput real-time with scalable streaming (v1.5+)
+nextflow run foi-bioinformatics/nanometanf \
+  --realtime_mode \
+  --kraken2_enable_incremental true \
+  --max_classification_forks 8 \
+  --nanopore_output_dir /path/to/fastq \
+  --kraken2_db /path/to/db \
+  --outdir results \
+  -profile docker
+```
+
+## Scalable Streaming Architecture (v1.5+)
+
+For high-throughput sequencing runs with many barcodes (>10), the pipeline now uses a scalable streaming architecture:
+
+- **Per-sample parallelism**: No global serialization bottlenecks
+- **Append-only storage**: O(1) per batch instead of O(n) cumulative rewrites
+- **Incremental taxid counting**: No full file re-reads for report generation
+- **Backpressure control**: Configurable concurrency limits
+
+**Performance improvement:** 4-5x throughput increase for runs with 12+ barcodes.
+
+```bash
+# Enable scalable streaming
+nextflow run foi-bioinformatics/nanometanf \
+  --realtime_mode \
+  --kraken2_enable_incremental true \
+  --max_concurrent_batches 4 \
+  --max_classification_forks 8 \
+  ...
 ```
 
 ## Documentation
 
-📚 **[Complete Documentation](docs/README.md)** - Main documentation hub
+**[Complete Documentation](docs/README.md)** - Main documentation hub
 
 ### For Users
 - **[Usage Guide](docs/user/usage.md)** - Complete parameter reference and execution modes
 - **[Quick Start Tutorial](docs/user/quickstart.md)** - 5-minute scenario-based walkthrough
 - **[Output Files](docs/user/output.md)** - Output directory structure and file descriptions
-- **[QC Guide](docs/user/qc_guide.md)** - Quality control metrics interpretation
-- **[Best Practices](docs/user/best_practices.md)** - Workflow recommendations
+- **[Real-time Processing](docs/user/realtime_processing.md)** - Advanced real-time monitoring guide
 - **[Performance Tuning](docs/user/performance_tuning.md)** - Resource optimization and benchmarks
 - **[Troubleshooting](docs/user/troubleshooting.md)** - Common issues and solutions
-- **[Real-time Processing](docs/user/realtime_processing.md)** - Advanced real-time monitoring guide
 
 ### For Developers
 - **[Development Guide](docs/development/README.md)** - Development documentation index
@@ -72,11 +102,11 @@ nextflow run foi-bioinformatics/nanometanf \
 ## Pipeline Summary
 
 ```
-Input → Basecalling → QC → Classification → Validation → Reports
-  ↓        ↓          ↓        ↓              ↓            ↓
-POD5    Dorado    Chopper  Kraken2         BLAST       MultiQC
-FASTQ              FASTP     Taxpasta                    JSON
-Barcodes         NanoPlot                              HTML
+Input -> Basecalling -> QC -> Classification -> Validation -> Reports
+  |          |          |         |               |            |
+POD5      Dorado     Chopper   Kraken2         BLAST       MultiQC
+FASTQ                FASTP     (scalable)                   JSON
+Barcodes            NanoPlot   Taxpasta                    HTML
 ```
 
 **Supported Input Types:**

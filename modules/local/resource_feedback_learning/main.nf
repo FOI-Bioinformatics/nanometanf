@@ -469,10 +469,10 @@ EOF
 EOF
 
     cat <<-END_VERSIONS > versions.yml
-    "${task.process}":
-        python: "3.9"
-        performance_feedback: "1.0"
-    END_VERSIONS
+"${task.process}":
+    python: "3.9"
+    performance_feedback: "1.0"
+END_VERSIONS
     """
 }
 
@@ -745,9 +745,9 @@ process UPDATE_LEARNING_MODEL {
     echo '{"learning_summary": {"total_feedback_samples": 0}}' > learning_statistics.json
     
     cat <<-END_VERSIONS > versions.yml
-    "${task.process}":
-        python: "3.9"
-        learning_model: "1.0"
-    END_VERSIONS
+"${task.process}":
+    python: "3.9"
+    learning_model: "1.0"
+END_VERSIONS
     """
 }

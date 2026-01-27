@@ -39,6 +39,12 @@ process UPDATE_CUMULATIVE_STATS {
         try:
             with open('${previous_cumulative}', 'r') as f:
                 cumulative = json.load(f)
+            # Convert lists back to sets for proper .update() calls
+            if 'source_summary' in cumulative:
+                if 'unique_directories' in cumulative['source_summary']:
+                    cumulative['source_summary']['unique_directories'] = set(cumulative['source_summary']['unique_directories'])
+                if 'unique_samples' in cumulative['source_summary']:
+                    cumulative['source_summary']['unique_samples'] = set(cumulative['source_summary']['unique_samples'])
         except:
             cumulative = {}
     
@@ -330,9 +336,9 @@ EOF
     cp cumulative_stats.json cumulative_state.json
 
     cat <<-END_VERSIONS > versions.yml
-    "${task.process}":
-        python: "3.9"
-        statistics_framework: "1.0"
-    END_VERSIONS
+"${task.process}":
+    python: "3.9"
+    statistics_framework: "1.0"
+END_VERSIONS
     """
 }

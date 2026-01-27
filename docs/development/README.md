@@ -13,6 +13,7 @@ This directory contains comprehensive documentation for developers working on th
 - [incremental_kraken2_implementation.md](incremental_kraken2_implementation.md) - Kraken2 incremental classification
 - [PHASE_1.1_STATUS.md](PHASE_1.1_STATUS.md) - Incremental Kraken2 feature status
 - [dynamic_resource_allocation.md](dynamic_resource_allocation.md) - Dynamic resource allocation system
+- **Scalable Streaming (v1.5+)** - See [CLAUDE.md](../../CLAUDE.md) for architecture details
 
 ### Deployment & Operations
 - [production_deployment.md](production_deployment.md) - Production deployment guide
@@ -176,6 +177,22 @@ Key features:
 
 See [PROMETHION_OPTIMIZATIONS.md](PROMETHION_OPTIMIZATIONS.md) for details.
 
+### Scalable Streaming Architecture (v1.5+)
+
+For high-throughput runs with many barcodes (>10):
+- **Per-sample parallelism** - No global `maxForks 1` serialization
+- **Append-only batch storage** - O(1) per batch instead of O(n) rewrites
+- **Incremental taxid counting** - State file updated without re-reading outputs
+- **Atomic index updates** - Prevents race conditions in parallel execution
+- **End-of-session aggregation** - Final cumulative files generated when stream closes
+
+Key modules:
+- `kraken2_output_merger/` - Append-only batch storage
+- `kraken2_report_generator/` - Incremental taxid counting
+- `kraken2_final_aggregator/` - End-of-session concatenation
+
+See [CLAUDE.md](../../CLAUDE.md) for detailed architecture documentation.
+
 ## Troubleshooting Development Issues
 
 ### Test Failures
@@ -233,6 +250,6 @@ These documents are preserved for historical reference but are not actively main
 
 ---
 
-**Last Updated:** 2025-11-09
+**Last Updated:** 2025-01-26
 **Maintainer:** Andreas Sjodin (@andreassjodin)
-**Version:** 1.4.1dev
+**Version:** 1.5.0dev

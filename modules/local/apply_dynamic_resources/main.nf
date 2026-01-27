@@ -95,10 +95,10 @@ process APPLY_DYNAMIC_RESOURCES {
 EOF
 
     cat <<-END_VERSIONS > versions.yml
-    "${task.process}":
-        python: "3.9"
-        dynamic_resources: "1.0"
-    END_VERSIONS
+"${task.process}":
+    python: "3.9"
+    dynamic_resources: "1.0"
+END_VERSIONS
     """
 }
 

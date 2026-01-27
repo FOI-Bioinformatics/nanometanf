@@ -1,0 +1,67 @@
+name: kraken2_final_aggregator
+description: Concatenates batch Kraken2 output files into cumulative files at end-of-session
+keywords:
+  - kraken2
+  - aggregation
+  - taxonomic classification
+  - streaming
+tools:
+  - python:
+      description: Python scripting language
+      homepage: https://www.python.org/
+      documentation: https://docs.python.org/3/
+      licence: ["PSF-2.0"]
+      identifier: ""
+
+input:
+  - - meta:
+        type: map
+        description: |
+          Groovy Map containing sample information
+          e.g. `[ id:'sample1', batch_id:0 ]`
+    - batch_dir:
+        type: directory
+        description: Directory containing batch files and index
+        pattern: "*"
+
+output:
+  - cumulative_output:
+      - meta:
+          type: map
+          description: |
+            Groovy Map containing sample information
+            e.g. `[ id:'sample1' ]`
+      - "*.cumulative.kraken2.output.txt":
+          type: file
+          description: Concatenated Kraken2 output from all batches
+          pattern: "*.cumulative.kraken2.output.txt"
+  - cumulative_report:
+      - meta:
+          type: map
+          description: |
+            Groovy Map containing sample information
+            e.g. `[ id:'sample1' ]`
+      - "*.cumulative.kraken2.report.txt":
+          type: file
+          description: Merged Kraken2 report from all batches
+          pattern: "*.cumulative.kraken2.report.txt"
+  - stats:
+      - meta:
+          type: map
+          description: |
+            Groovy Map containing sample information
+            e.g. `[ id:'sample1' ]`
+      - aggregation_stats.json:
+          type: file
+          description: JSON file with aggregation statistics
+          pattern: "aggregation_stats.json"
+  - versions:
+      - versions.yml:
+          type: file
+          description: File containing software versions
+          pattern: "versions.yml"
+
+authors:
+  - "@andreassjodin"
+maintainers:
+  - "@andreassjodin"

@@ -58,9 +58,9 @@ process DORADO_DEMUX {
     echo "Demultiplexing completed for ${meta.id}" >> demux_output/demux_summary.txt
 
     cat <<-END_VERSIONS > versions.yml
-    "${task.process}":
-        dorado: \$(dorado --version | head -n1 | sed 's/.*dorado //g')
-    END_VERSIONS
+"${task.process}":
+    dorado: \$(dorado --version | head -n1 | sed 's/.*dorado //g')
+END_VERSIONS
     """
 
     stub:
@@ -112,8 +112,8 @@ Demultiplexing completed: \$(date "+%Y-%m-%d %H:%M:%S")
 EOF
 
     cat <<-END_VERSIONS > versions.yml
-    "${task.process}":
-        dorado: 1.1.1
-    END_VERSIONS
+"${task.process}":
+    dorado: 1.1.1
+END_VERSIONS
     """
 }

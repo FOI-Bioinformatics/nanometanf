@@ -1,0 +1,205 @@
+// Test pathogen validation workflow against reference genomes
+// This tests the run_validation parameter with BLAST and minimap2 methods
+// The validation subworkflow extracts classified reads and validates against reference genomes
+nextflow_pipeline {
+
+    name "Test pathogen validation workflow"
+    script "../main.nf"
+
+    // Test Level & Component
+    tag "pipeline"
+    tag "integration"
+
+    // Feature Area (use standard tags from TAGGING_GUIDE.md)
+    // Note: blast and minimap2 are implementation details, not feature tags
+    tag "validation"
+    tag "classification"
+
+    // Execution Speed & Criticality
+    tag "slow"
+    tag "extended"
+
+    test("Should run BLAST validation on classified reads") {
+
+        when {
+            params {
+                // Use test samplesheet with validation fixtures
+                input = "$projectDir/tests/fixtures/samplesheets/single_fastq.csv"
+                outdir = "$outputDir"
+
+                // Enable validation
+                run_validation = true
+                validation_method = "blast"
+                pathogen_genomes = "$projectDir/tests/fixtures/validation/test_genomes.json"
+                taxids_to_validate = "auto"
+                save_reads_assignment = true
+
+                // Skip other features for focused testing
+                skip_kraken2 = false
+                kraken2_db = "$projectDir/tests/fixtures/kraken2_db"
+                skip_krona = true
+                skip_nanoplot = true
+
+                // Resource limits
+                max_cpus = 2
+                max_memory = '4.GB'
+                max_time = '1.h'
+            }
+        }
+
+        then {
+            assert workflow.success
+
+            // Check validation outputs exist
+            assert path("${outputDir}/validation/validation_results.json").exists()
+            assert path("${outputDir}/validation/validation_summary.tsv").exists()
+
+            // Validate JSON structure with deeper assertions
+            def validation_json = new groovy.json.JsonSlurper().parse(path("${outputDir}/validation/validation_results.json").toFile())
+            assert validation_json.validation_method == "blast"
+            assert validation_json.results != null
+            assert validation_json.summary != null
+
+            // Verify summary structure contains required fields
+            assert validation_json.summary.containsKey('total_samples')
+            assert validation_json.summary.containsKey('total_taxids_validated')
+            assert validation_json.summary.containsKey('confirmed')
+            assert validation_json.summary.containsKey('uncertain')
+            assert validation_json.summary.containsKey('rejected')
+
+            // Verify thresholds are present
+            assert validation_json.thresholds != null
+            assert validation_json.thresholds.containsKey('hit_rate')
+            assert validation_json.thresholds.containsKey('identity')
+        }
+    }
+
+    test("Should run minimap2 validation on classified reads") {
+
+        when {
+            params {
+                input = "$projectDir/tests/fixtures/samplesheets/single_fastq.csv"
+                outdir = "$outputDir"
+
+                // Enable minimap2 validation
+                run_validation = true
+                validation_method = "minimap2"
+                pathogen_genomes = "$projectDir/tests/fixtures/validation/test_genomes.json"
+                taxids_to_validate = "auto"
+                save_reads_assignment = true
+
+                // Skip other features
+                skip_kraken2 = false
+                kraken2_db = "$projectDir/tests/fixtures/kraken2_db"
+                skip_krona = true
+                skip_nanoplot = true
+
+                max_cpus = 2
+                max_memory = '4.GB'
+                max_time = '1.h'
+            }
+        }
+
+        then {
+            assert workflow.success
+            assert path("${outputDir}/validation/validation_results.json").exists()
+
+            def validation_json = new groovy.json.JsonSlurper().parse(path("${outputDir}/validation/validation_results.json").toFile())
+            assert validation_json.validation_method == "minimap2"
+        }
+    }
+
+    test("Should run both BLAST and minimap2 validation") {
+
+        when {
+            params {
+                input = "$projectDir/tests/fixtures/samplesheets/single_fastq.csv"
+                outdir = "$outputDir"
+
+                // Enable both validation methods
+                run_validation = true
+                validation_method = "both"
+                pathogen_genomes = "$projectDir/tests/fixtures/validation/test_genomes.json"
+                taxids_to_validate = "auto"
+                save_reads_assignment = true
+
+                skip_kraken2 = false
+                kraken2_db = "$projectDir/tests/fixtures/kraken2_db"
+                skip_krona = true
+                skip_nanoplot = true
+
+                max_cpus = 2
+                max_memory = '4.GB'
+                max_time = '1.h'
+            }
+        }
+
+        then {
+            assert workflow.success
+            assert path("${outputDir}/validation/validation_results.json").exists()
+            assert path("${outputDir}/validation/blast").exists()
+
+            def validation_json = new groovy.json.JsonSlurper().parse(path("${outputDir}/validation/validation_results.json").toFile())
+            assert validation_json.validation_method == "both"
+        }
+    }
+
+    test("Should fail gracefully when save_reads_assignment is false") {
+
+        when {
+            params {
+                input = "$projectDir/tests/fixtures/samplesheets/single_fastq.csv"
+                outdir = "$outputDir"
+
+                // Enable validation but disable required parameter
+                run_validation = true
+                validation_method = "blast"
+                pathogen_genomes = "$projectDir/tests/fixtures/validation/test_genomes.json"
+                save_reads_assignment = false  // This should cause an error
+
+                skip_kraken2 = false
+                kraken2_db = "$projectDir/tests/fixtures/kraken2_db"
+                skip_krona = true
+
+                max_cpus = 2
+                max_memory = '4.GB'
+                max_time = '1.h'
+            }
+        }
+
+        then {
+            // Should fail with clear error message
+            assert workflow.failed
+            assert workflow.stderr.contains("save_reads_assignment") || workflow.stdout.contains("save_reads_assignment")
+        }
+    }
+
+    test("Should skip validation when run_validation is false") {
+
+        when {
+            params {
+                input = "$projectDir/tests/fixtures/samplesheets/single_fastq.csv"
+                outdir = "$outputDir"
+
+                // Disable validation
+                run_validation = false
+                pathogen_genomes = "$projectDir/tests/fixtures/validation/test_genomes.json"
+
+                skip_kraken2 = false
+                kraken2_db = "$projectDir/tests/fixtures/kraken2_db"
+                skip_krona = true
+                skip_nanoplot = true
+
+                max_cpus = 2
+                max_memory = '4.GB'
+                max_time = '1.h'
+            }
+        }
+
+        then {
+            assert workflow.success
+            // Validation directory should not exist
+            assert !path("${outputDir}/validation/validation_results.json").exists()
+        }
+    }
+}

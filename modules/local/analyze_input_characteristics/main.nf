@@ -313,9 +313,9 @@ process ANALYZE_INPUT_CHARACTERISTICS {
     echo '{"sample_id": "${meta.id}", "stub": true}' > ${meta.id}_characteristics.json
     
     cat <<-END_VERSIONS > versions.yml
-    "${task.process}":
-        python: "3.9"
-        resource_analysis: "1.0"
-    END_VERSIONS
+"${task.process}":
+    python: "3.9"
+    resource_analysis: "1.0"
+END_VERSIONS
     """
 }

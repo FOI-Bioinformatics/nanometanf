@@ -241,8 +241,8 @@ process KRAKEN2_DB_CHUNKER {
     echo '{"sample_id": "${prefix}", "chunking_configuration": {"num_chunks": 1}}' > ${prefix}.chunking_performance.json
 
     cat <<-END_VERSIONS > versions.yml
-    "${task.process}":
-        python: \$(python3 --version | sed 's/Python //g')
-    END_VERSIONS
+"${task.process}":
+    python: \$(python3 --version | sed 's/Python //g')
+END_VERSIONS
     """
 }

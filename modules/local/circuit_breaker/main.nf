@@ -146,8 +146,8 @@ process CIRCUIT_BREAKER {
     echo '{"timestamp": "2025-01-01T00:00:00", "circuit_state": "CLOSED", "metrics": {"total_failures": 0}}' > circuit_breaker_report.json
 
     cat <<-END_VERSIONS > versions.yml
-    "${task.process}":
-        python: \$(python3 --version | sed 's/Python //g')
-    END_VERSIONS
+"${task.process}":
+    python: \$(python3 --version | sed 's/Python //g')
+END_VERSIONS
     """
 }

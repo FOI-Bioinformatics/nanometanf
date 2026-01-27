@@ -1,0 +1,85 @@
+// Test batch mode with flat FASTQ files (non-barcoded, single or multi-sample)
+// This tests standard samplesheet-based input with FASTQ files
+// Uses input samplesheet CSV pointing directly to FASTQ files
+nextflow_pipeline {
+
+    name "Test batch mode with flat FASTQ files"
+    script "../main.nf"
+
+    // Test Level & Component
+    tag "pipeline"
+    tag "integration"
+    tag "batch"
+
+    // Feature Area (use standard tags from TAGGING_GUIDE.md)
+    tag "qc"
+
+    // Execution Speed & Criticality
+    tag "fast"
+    tag "core"
+
+    test("Should process single sample with flat FASTQ file") {
+
+        when {
+            params {
+                // Use flat FASTQ single sample samplesheet
+                input = "$projectDir/tests/fixtures/samplesheets/single_fastq_single_sample.csv"
+                outdir = "$outputDir"
+
+                // Disable advanced features
+                realtime_mode = false
+                use_dorado = false
+                kraken2_db = null
+                blast_validation = false
+                skip_nanoplot = true
+
+                // Resource limits
+                max_cpus = 2
+                max_memory = '4.GB'
+                max_time = '15.min'
+            }
+        }
+
+        then {
+            assert workflow.success
+            assert workflow.trace.tasks().size() > 0
+
+            // Check that single sample was processed
+            assert workflow.trace.tasks().any { it.name.contains('CHOPPER') }
+            assert path("${outputDir}/chopper").exists()
+        }
+    }
+
+    test("Should process multiple samples from flat FASTQ files") {
+
+        when {
+            params {
+                // Use flat FASTQ multi-sample samplesheet
+                input = "$projectDir/tests/fixtures/samplesheets/single_fastq_multi_sample.csv"
+                outdir = "$outputDir"
+
+                // Disable advanced features
+                realtime_mode = false
+                use_dorado = false
+                kraken2_db = null
+                blast_validation = false
+                skip_nanoplot = true
+
+                // Resource limits
+                max_cpus = 2
+                max_memory = '4.GB'
+                max_time = '15.min'
+            }
+        }
+
+        then {
+            assert workflow.success
+
+            // Should have processed multiple samples
+            def chopperTasks = workflow.trace.tasks().findAll { it.name.contains('CHOPPER') }
+            assert chopperTasks.size() >= 2
+
+            assert path("${outputDir}/chopper").exists()
+        }
+    }
+}

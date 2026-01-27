@@ -186,8 +186,8 @@ process KRAKEN2_BATCH_PROCESSOR {
     echo '{"efficiency_metrics": {"total_samples": 0}}' > batching_statistics.json
 
     cat <<-END_VERSIONS > versions.yml
-    "${task.process}":
-        python: \$(python3 --version | sed 's/Python //g')
-    END_VERSIONS
+"${task.process}":
+    python: \$(python3 --version | sed 's/Python //g')
+END_VERSIONS
     """
 }

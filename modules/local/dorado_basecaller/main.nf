@@ -203,8 +203,8 @@ EOF
 
     # Version information
     cat <<-END_VERSIONS > versions.yml
-    "${task.process}":
-        dorado: \$(\$DORADO_CMD --version 2>&1 | head -n 1 | sed 's/.*dorado //g')
+"${task.process}":
+    dorado: \$(\$DORADO_CMD --version 2>&1 | head -n 1 | sed 's/.*dorado //g')
 END_VERSIONS
     """
 
@@ -246,8 +246,8 @@ Memory: ${task.memory}
 EOF
 
     cat <<-END_VERSIONS > versions.yml
-    "${task.process}":
-        dorado: 1.1.1
+"${task.process}":
+    dorado: 1.1.1
 END_VERSIONS
     """
 }

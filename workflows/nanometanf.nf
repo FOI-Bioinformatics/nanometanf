@@ -24,6 +24,12 @@ include { VALIDATION                 } from '../subworkflows/local/validation'
 include { DYNAMIC_RESOURCE_ALLOCATION } from '../subworkflows/local/dynamic_resource_allocation'
 include { NANOPLOT_COMPARE           } from '../modules/local/nanoplot_compare/main'
 
+// Experimental feature imports (v1.5 planned)
+include { QC_BENCHMARK               } from '../subworkflows/local/qc_benchmark'
+include { REALTIME_STATISTICS        } from '../subworkflows/local/realtime_statistics'
+include { KRONA_KRAKEN2              } from '../modules/local/krona_kraken2/main'
+include { MULTIQC_NANOPORE_STATS     } from '../modules/local/multiqc_nanopore_stats/main'
+
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     HELPER FUNCTIONS
@@ -67,7 +73,24 @@ workflow NANOMETANF {
     main:
     ch_versions = Channel.empty()
     ch_multiqc_files = Channel.empty()
-    
+
+    //
+    // BACKWARD COMPATIBILITY: Handle deprecated parameters
+    // Map old parameter names to new ones with deprecation warnings
+    //
+    def run_validation_effective = params.run_validation
+    if (params.blast_validation && !params.run_validation) {
+        log.warn "DEPRECATED: Parameter 'blast_validation' is deprecated. Please use 'run_validation' instead."
+        log.warn "  Enabling validation due to blast_validation=true"
+        run_validation_effective = true
+    }
+    if (params.blast_db && !params.pathogen_genomes) {
+        log.warn "DEPRECATED: Parameter 'blast_db' is deprecated. Please use 'pathogen_genomes' instead."
+    }
+    if (params.validation_taxa && !params.taxids_to_validate) {
+        log.warn "DEPRECATED: Parameter 'validation_taxa' is deprecated. Please use 'taxids_to_validate' instead."
+    }
+
     //
     // WORKFLOW ROUTING: Determine if this is POD5 or FASTQ workflow
     //
@@ -90,7 +113,28 @@ workflow NANOMETANF {
             )
             ch_processed_samples = REALTIME_POD5_MONITORING.out.samples
             ch_versions = ch_versions.mix(REALTIME_POD5_MONITORING.out.versions.ifEmpty([]))
-            
+
+            // Real-time statistics generation (optional)
+            if (params.enable_realtime_stats) {
+                def stats_config = [
+                    enable_quality_indicators: true,
+                    enable_source_analysis: true,
+                    enable_timing_analysis: true,
+                    quality_threshold_warnings: true,
+                    stats_interval: params.realtime_report_interval ?: 30000,
+                    report_format: 'html,json'
+                ]
+
+                REALTIME_STATISTICS (
+                    REALTIME_POD5_MONITORING.out.batches,
+                    stats_config
+                )
+                ch_versions = ch_versions.mix(REALTIME_STATISTICS.out.versions)
+                ch_realtime_stats = REALTIME_STATISTICS.out.realtime_reports
+            } else {
+                ch_realtime_stats = Channel.empty()
+            }
+
         } else {
             // Static POD5 basecalling
             if (!params.pod5_input_dir) {
@@ -173,6 +217,27 @@ workflow NANOMETANF {
                 params.batch_interval ?: "5min"
             )
             ch_processed_samples = REALTIME_MONITORING.out.samples
+
+            // Real-time statistics generation (optional)
+            if (params.enable_realtime_stats) {
+                def stats_config = [
+                    enable_quality_indicators: true,
+                    enable_source_analysis: true,
+                    enable_timing_analysis: true,
+                    quality_threshold_warnings: true,
+                    stats_interval: params.realtime_report_interval ?: 30000,
+                    report_format: 'html,json'
+                ]
+
+                REALTIME_STATISTICS (
+                    REALTIME_MONITORING.out.batches,
+                    stats_config
+                )
+                ch_versions = ch_versions.mix(REALTIME_STATISTICS.out.versions)
+                ch_realtime_stats = REALTIME_STATISTICS.out.realtime_reports
+            } else {
+                ch_realtime_stats = Channel.empty()
+            }
         } else {
             // Standard samplesheet input - detect and handle POD5 files
             ch_samplesheet
@@ -308,12 +373,29 @@ workflow NANOMETANF {
         } else {
             ch_nanoplot_comparison = Channel.empty()
         }
+
+        //
+        // SUBWORKFLOW: QC tool benchmarking (optional)
+        // Compare performance of FASTP, FILTLONG, CHOPPER on same input
+        //
+        if (params.enable_qc_benchmark) {
+            log.info "=== QC Tool Benchmarking Enabled ==="
+
+            QC_BENCHMARK (
+                DEMULTIPLEXING.out.samples
+            )
+            ch_versions = ch_versions.mix(QC_BENCHMARK.out.versions)
+            ch_qc_benchmark_results = QC_BENCHMARK.out.benchmark_results
+        } else {
+            ch_qc_benchmark_results = Channel.empty()
+        }
     } else {
         // If QC is skipped, pass through original reads
         log.info "Skipping QC analysis - using original reads"
         ch_qc_reads = DEMULTIPLEXING.out.samples
         ch_qc_reports = Channel.empty()
         ch_nanoplot_reports = Channel.empty()
+        ch_qc_benchmark_results = Channel.empty()
     }
     
     //
@@ -341,11 +423,17 @@ workflow NANOMETANF {
             // Extract tar.gz archive using UNTAR module
             ch_db_archive = Channel.of([ [id: 'kraken2_db'], file(db_path, checkIfExists: true) ])
             UNTAR ( ch_db_archive )
-            ch_classification_db = UNTAR.out.untar.map { meta, db -> db }
+            // STREAMING-FIX: Use .first() to convert queue channel to value channel
+            // Queue channels are consumed after one emission, breaking streaming workflows
+            // Value channels can be reused across multiple emissions (required for watchPath)
+            ch_classification_db = UNTAR.out.untar.map { meta, db -> db }.first()
             ch_versions = ch_versions.mix(UNTAR.out.versions)
         } else {
             // Use directory path directly
-            ch_classification_db = Channel.fromPath(db_path, checkIfExists: true)
+            // STREAMING-FIX: Use .first() to convert queue channel to value channel
+            // This ensures the database path can be reused for each streaming batch
+            // Without .first(), only the first batch would receive the database
+            ch_classification_db = Channel.fromPath(db_path, checkIfExists: true).first()
         }
 
         TAXONOMIC_CLASSIFICATION (
@@ -354,23 +442,74 @@ workflow NANOMETANF {
         )
         ch_versions = ch_versions.mix(TAXONOMIC_CLASSIFICATION.out.versions)
         ch_multiqc_files = ch_multiqc_files.mix(TAXONOMIC_CLASSIFICATION.out.report.collect{it[1]})
-        
-        //
-        // SUBWORKFLOW: Optional BLAST validation
-        // Note: Nextflow handles empty channels gracefully - VALIDATION won't run if no sequences match
-        //
-        if (params.blast_validation && params.blast_db) {
-            // Extract sequences for validation from Kraken2 classified reads
-            ch_validation_seqs = TAXONOMIC_CLASSIFICATION.out.classified_reads
-                .filter { meta, reads -> params.validation_taxa?.any { taxa -> meta.id.contains(taxa) } }
 
-            ch_blast_db = Channel.fromPath(params.blast_db, checkIfExists: true)
+        //
+        // MODULE: Krona interactive visualization of taxonomic results
+        // Note: skip_krona parameter for ARM Mac compatibility (Krona container has permission issues)
+        //
+        if (params.enable_krona_plots && !params.skip_krona) {
+            log.info "Generating Krona interactive visualization"
+
+            KRONA_KRAKEN2 (
+                TAXONOMIC_CLASSIFICATION.out.report
+            )
+            ch_versions = ch_versions.mix(KRONA_KRAKEN2.out.versions)
+            ch_krona_reports = KRONA_KRAKEN2.out.html
+        } else {
+            ch_krona_reports = Channel.empty()
+        }
+
+        //
+        // SUBWORKFLOW: Pathogen validation via BLAST and/or minimap2
+        // Validates Kraken2 classifications against reference genomes
+        // Output: validation_results.json for Nanometa Live dashboard
+        //
+        // REQUIREMENT: save_reads_assignment must be true for validation to work
+        // The Kraken2 output file (per-read classifications) is needed to extract reads by taxid
+        //
+        if (run_validation_effective && params.pathogen_genomes) {
+            // Check that save_reads_assignment is enabled
+            if (!params.save_reads_assignment) {
+                error """
+                    ===============================================================================
+                    ERROR: Pathogen validation requires --save_reads_assignment true
+
+                    The validation workflow needs the Kraken2 per-read classification output
+                    to extract reads for specific taxids. Please add this parameter:
+
+                        --save_reads_assignment true
+
+                    Or disable validation:
+
+                        --run_validation false (or --blast_validation false for legacy)
+                    ===============================================================================
+                    """.stripIndent()
+            }
+
+            // Check that pathogen_genomes file exists and is JSON
+            def genomes_file = file(params.pathogen_genomes, checkIfExists: true)
+            if (!genomes_file.name.endsWith('.json')) {
+                log.warn "WARNING: pathogen_genomes file '${params.pathogen_genomes}' does not have .json extension"
+            }
+
+            log.info "Running pathogen validation using ${params.validation_method} method"
+            log.info "  Genomes file: ${params.pathogen_genomes}"
+            log.info "  Taxids to validate: ${params.taxids_to_validate}"
 
             VALIDATION (
-                ch_validation_seqs,
-                ch_blast_db
+                TAXONOMIC_CLASSIFICATION.out.classified_reads,
+                TAXONOMIC_CLASSIFICATION.out.reads_assignment,
+                TAXONOMIC_CLASSIFICATION.out.report,
+                params.pathogen_genomes,
+                params.taxids_to_validate,
+                params.validation_method
             )
             ch_versions = ch_versions.mix(VALIDATION.out.versions)
+
+            // Log validation completion
+            VALIDATION.out.validation_json.subscribe {
+                log.info "Validation results written to: ${params.outdir}/validation/validation_results.json"
+            }
         }
     }
 
@@ -385,6 +524,28 @@ workflow NANOMETANF {
             newLine: true
         ).set { ch_collated_versions }
 
+    //
+    // MODULE: Generate nanopore-specific MultiQC custom content (optional)
+    //
+    if (params.enable_nanopore_stats_mqc) {
+        // Collect sample statistics from QC outputs
+        ch_sample_stats = ch_qc_reports
+            .map { meta, report ->
+                [
+                    sample_id: meta.id,
+                    barcode: meta.barcode ?: 'unclassified',
+                    report_path: report.toString()
+                ]
+            }
+            .collect()
+
+        MULTIQC_NANOPORE_STATS (
+            ch_sample_stats,
+            'nanometanf'
+        )
+        ch_versions = ch_versions.mix(MULTIQC_NANOPORE_STATS.out.versions)
+        ch_multiqc_files = ch_multiqc_files.mix(MULTIQC_NANOPORE_STATS.out.multiqc_files)
+    }
 
     //
     // MODULE: MultiQC - Comprehensive quality control report
@@ -455,7 +616,7 @@ workflow NANOMETANF {
     classification_reports = params.kraken2_db ? TAXONOMIC_CLASSIFICATION.out.report : Channel.empty() // channel: [ val(meta), path(txt) ] - Original format
     standardized_reports   = params.kraken2_db ? TAXONOMIC_CLASSIFICATION.out.standardized_report : Channel.empty() // channel: [ val(meta), path(tsv/csv/etc) ] - Taxpasta format
     classifier_used        = params.kraken2_db ? TAXONOMIC_CLASSIFICATION.out.classifier_used : Channel.empty() // channel: val(classifier_name)
-    blast_results          = params.blast_validation ? VALIDATION.out.txt : Channel.empty()           // channel: [ val(meta), path(txt) ]
+    blast_results          = run_validation_effective ? VALIDATION.out.blast_results : Channel.empty()  // channel: [ val(meta), path(txt) ]
     versions               = ch_versions                                     // channel: [ path(versions.yml) ]
 
 }

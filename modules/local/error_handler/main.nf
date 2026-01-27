@@ -43,10 +43,10 @@ process ERROR_HANDLER {
         $args
 
     cat <<-END_VERSIONS > versions.yml
-    "${task.process}":
-        python: \$(python --version | sed 's/Python //g')
-        error_handler: 1.0.0
-    END_VERSIONS
+"${task.process}":
+    python: \$(python --version | sed 's/Python //g')
+    error_handler: 1.0.0
+END_VERSIONS
     """
 
     stub:
@@ -150,9 +150,9 @@ EOF
 EOF
 
     cat <<-END_VERSIONS > versions.yml
-    "${task.process}":
-        python: \$(python --version | sed 's/Python //g')
-        error_handler: 1.0.0
-    END_VERSIONS
+"${task.process}":
+    python: \$(python --version | sed 's/Python //g')
+    error_handler: 1.0.0
+END_VERSIONS
     """
 }

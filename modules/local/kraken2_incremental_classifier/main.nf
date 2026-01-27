@@ -17,6 +17,8 @@ process KRAKEN2_INCREMENTAL_CLASSIFIER {
     tuple val(meta), path('*.kraken2.output.txt')       , emit: raw_kraken2_output
     tuple val(meta), path('*.kraken2.report.txt')       , emit: report
     tuple val(meta), path('batch_metadata.json')        , emit: batch_metadata
+    // STREAMING-FIX: Combined output for streaming-compatible workflow (no joins needed)
+    tuple val(meta), path('*.kraken2.output.txt'), path('batch_metadata.json'), path('*.kraken2.report.txt'), emit: classifier_output
     tuple val(meta), path('*.classified{,_*}.fastq.gz') , optional:true, emit: classified_reads_fastq
     tuple val(meta), path('*.unclassified{,_*}.fastq.gz'), optional:true, emit: unclassified_reads_fastq
     tuple val(meta), path('*classifiedreads.txt')       , optional:true, emit: classified_reads_assignment
@@ -70,9 +72,10 @@ process KRAKEN2_INCREMENTAL_CLASSIFIER {
     DURATION=\$((END_TIME - START_TIME))
 
     # Extract classification statistics from report
-    TOTAL_SEQS=\$(awk '{total+=\$3} END {print total}' ${prefix}.kraken2.report.txt)
-    CLASSIFIED_SEQS=\$(awk '\$1!="U" {total+=\$3} END {print total}' ${prefix}.kraken2.report.txt)
-    UNCLASSIFIED_SEQS=\$(awk '\$1=="U" {print \$3}' ${prefix}.kraken2.report.txt)
+    # Use default value of 0 for any empty results to ensure valid JSON
+    TOTAL_SEQS=\$(awk '{total+=\$3} END {print total+0}' ${prefix}.kraken2.report.txt)
+    CLASSIFIED_SEQS=\$(awk '\$4!="U" {total+=\$3} END {print total+0}' ${prefix}.kraken2.report.txt)
+    UNCLASSIFIED_SEQS=\$(awk '\$4=="U" {print \$3; found=1} END {if(!found) print 0}' ${prefix}.kraken2.report.txt)
 
     # Create batch metadata JSON
     cat > batch_metadata.json <<EOF
@@ -86,9 +89,9 @@ process KRAKEN2_INCREMENTAL_CLASSIFIER {
   "kraken2_output": "${prefix}.kraken2.output.txt",
   "kraken2_report": "${prefix}.kraken2.report.txt",
   "classification_statistics": {
-    "total_sequences": \$TOTAL_SEQS,
-    "classified_sequences": \$CLASSIFIED_SEQS,
-    "unclassified_sequences": \$UNCLASSIFIED_SEQS
+    "total_sequences": \${TOTAL_SEQS:-0},
+    "classified_sequences": \${CLASSIFIED_SEQS:-0},
+    "unclassified_sequences": \${UNCLASSIFIED_SEQS:-0}
   }
 }
 EOF
@@ -98,11 +101,11 @@ EOF
     echo "Batch ${meta.batch_id ?: 0} completed in \${DURATION}s" >&2
     echo "Classified: \$CLASSIFIED_SEQS / \$TOTAL_SEQS reads" >&2
 
-    cat <<-END_VERSIONS > versions.yml
-    "${task.process}":
-        kraken2: \$(echo \$(kraken2 --version 2>&1) | sed 's/^.*Kraken version //; s/ .*\$//')
-        pigz: \$( pigz --version 2>&1 | sed 's/pigz //g' )
-    END_VERSIONS
+cat <<-END_VERSIONS > versions.yml
+"${task.process}":
+    kraken2: \$(echo \$(kraken2 --version 2>&1) | sed 's/^.*Kraken version //; s/ .*\$//')
+    pigz: \$( pigz --version 2>&1 | sed 's/pigz //g' )
+END_VERSIONS
     """
 
     stub:
@@ -123,10 +126,10 @@ EOF
         touch ${prefix}.kraken2.classifiedreads.txt
     fi
 
-    cat <<-END_VERSIONS > versions.yml
-    "${task.process}":
-        kraken2: \$(echo \$(kraken2 --version 2>&1) | sed 's/^.*Kraken version //; s/ .*\$//')
-        pigz: \$( pigz --version 2>&1 | sed 's/pigz //g' )
-    END_VERSIONS
+cat <<-END_VERSIONS > versions.yml
+"${task.process}":
+    kraken2: \$(echo \$(kraken2 --version 2>&1) | sed 's/^.*Kraken version //; s/ .*\$//')
+    pigz: \$( pigz --version 2>&1 | sed 's/pigz //g' )
+END_VERSIONS
     """
 }

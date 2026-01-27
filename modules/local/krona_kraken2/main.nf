@@ -39,9 +39,9 @@ process KRONA_KRAKEN2 {
         ${prefix}.krona.txt
 
     cat <<-END_VERSIONS > versions.yml
-    "${task.process}":
-        krona: \$( ktImportTaxonomy 2>&1 | sed -n 's/^.*KronaTools //p' | sed 's/ - .*\$//' )
-    END_VERSIONS
+"${task.process}":
+    krona: \$( ktImportTaxonomy 2>&1 | sed -n 's/^.*KronaTools //p' | sed 's/ - .*\$//' )
+END_VERSIONS
     """
 
     stub:
@@ -50,8 +50,8 @@ process KRONA_KRAKEN2 {
     touch ${prefix}.krona.html
 
     cat <<-END_VERSIONS > versions.yml
-    "${task.process}":
-        krona: 2.8.1
-    END_VERSIONS
+"${task.process}":
+    krona: 2.8.1
+END_VERSIONS
     """
 }

@@ -138,6 +138,13 @@ docs/
 6. Real-time POD5 processing (live basecalling + analysis)
 7. Dynamic resource optimization (any mode with intelligent allocation)
 
+**Scalable Streaming Architecture (v1.5+):**
+- Per-sample parallelism for high-throughput runs (>10 barcodes)
+- Append-only batch storage (O(1) per batch instead of O(n))
+- Incremental taxid counting without cumulative file re-reads
+- Backpressure control with configurable concurrency limits
+- 4-5x throughput improvement for multi-barcode runs
+
 **See [Usage Guide](user/usage.md) for complete details and examples.**
 
 ---
@@ -203,8 +210,8 @@ Found documentation issues? [Report them](https://github.com/foi-bioinformatics/
 
 ---
 
-**Version:** 1.4.1dev
-**Last Updated:** 2025-11-09
+**Version:** 1.5.0dev
+**Last Updated:** 2025-01-26
 **Maintainer:** foi-bioinformatics team (@andreassjodin)
 
 **This is the main documentation hub. Use the Quick Links above to navigate to specific topics.**

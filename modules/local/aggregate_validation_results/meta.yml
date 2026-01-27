@@ -1,0 +1,58 @@
+name: "aggregate_validation_results"
+description: Aggregate validation results from BLAST and minimap2 into Nanometa Live JSON format
+keywords:
+  - validation
+  - aggregation
+  - blast
+  - minimap2
+  - dashboard
+  - json
+tools:
+  - python:
+      description: Python programming language
+      homepage: https://www.python.org/
+      documentation: https://docs.python.org/3/
+      tool_dev_url: https://github.com/python/cpython
+      licence: ["PSF"]
+
+input:
+  - blast_stats:
+      type: file
+      description: |
+        Collection of BLAST validation stats JSON files.
+        Can be empty if only minimap2 was used.
+      pattern: "*.blast_stats.json"
+  - minimap2_stats:
+      type: file
+      description: |
+        Collection of minimap2 validation stats JSON files.
+        Can be empty if only BLAST was used.
+      pattern: "*.minimap2_stats.json"
+  - extraction_stats:
+      type: file
+      description: |
+        Collection of read extraction stats JSON files.
+        Contains kraken_reads counts per sample/taxid.
+      pattern: "*_extraction_stats.json"
+  - validation_method:
+      type: string
+      description: Validation method used (blast, minimap2, or both)
+
+output:
+  - json:
+      type: file
+      description: |
+        Aggregated validation results in Nanometa Live JSON format.
+        Contains per-sample, per-taxid validation statistics.
+      pattern: "validation_results.json"
+  - summary:
+      type: file
+      description: Human-readable TSV summary of validation results
+      pattern: "validation_summary.tsv"
+  - versions:
+      type: file
+      description: File containing software versions
+      pattern: "versions.yml"
+
+authors:
+  - "@andreassjodin"

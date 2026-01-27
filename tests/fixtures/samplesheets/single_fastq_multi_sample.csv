@@ -1,0 +1,4 @@
+sample,fastq,barcode
+sample_01,tests/fixtures/fastq/barcode01.fastq.gz,
+sample_02,tests/fixtures/fastq/barcode02.fastq.gz,
+test_sample,tests/fixtures/fastq/test_sample.fastq.gz,

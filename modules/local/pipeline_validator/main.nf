@@ -46,10 +46,10 @@ process PIPELINE_VALIDATOR {
         $args
 
     cat <<-END_VERSIONS > versions.yml
-    "${task.process}":
-        python: \$(python --version | sed 's/Python //g')
-        pipeline_validator: 1.0.0
-    END_VERSIONS
+"${task.process}":
+    python: \$(python --version | sed 's/Python //g')
+    pipeline_validator: 1.0.0
+END_VERSIONS
     """
 
     stub:
@@ -254,9 +254,9 @@ Validation completed: \$(date "+%Y-%m-%d %H:%M:%S")
 EOF
 
     cat <<-END_VERSIONS > versions.yml
-    "${task.process}":
-        python: \$(python --version | sed 's/Python //g')
-        pipeline_validator: 1.0.0
-    END_VERSIONS
+"${task.process}":
+    python: \$(python --version | sed 's/Python //g')
+    pipeline_validator: 1.0.0
+END_VERSIONS
     """
 }

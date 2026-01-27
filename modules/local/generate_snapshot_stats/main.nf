@@ -1,7 +1,8 @@
 process GENERATE_SNAPSHOT_STATS {
     tag "$batch_meta.batch_id"
     label 'process_single'
-    publishDir "${params.outdir}/realtime_stats/snapshots", mode: 'copy'
+    // Standardized output path for Nanometa Live integration
+    publishDir "${params.outdir}/realtime_batch_stats", mode: 'copy'
 
     input:
     tuple val(batch_meta), val(file_metas)
@@ -35,6 +36,7 @@ process GENERATE_SNAPSHOT_STATS {
         'batch_info': {
             'batch_id': batch_meta['batch_id'],
             'batch_timestamp': batch_meta['batch_timestamp'],
+            'batch_time': batch_meta['batch_time'],
             'batch_time_formatted': batch_meta['batch_time'],
             'processing_timestamp': batch_meta['batch_timestamp'],
             'processing_time_formatted': batch_meta['batch_time']
@@ -106,10 +108,10 @@ process GENERATE_SNAPSHOT_STATS {
     """
     echo '{"batch_id": "${batch_meta.batch_id}", "stub": true}' > ${batch_meta.batch_id}_snapshot.json
 
-    cat <<-END_VERSIONS > versions.yml
-    "${task.process}":
-        python: "3.9"
-        statistics_framework: "1.0"
-    END_VERSIONS
+cat <<-END_VERSIONS > versions.yml
+"${task.process}":
+    python: "3.9"
+    statistics_framework: "1.0"
+END_VERSIONS
     """
 }
