@@ -274,7 +274,7 @@ workflow TAXONOMIC_CLASSIFICATION {
                 ch_aggregator_input = ch_sample_outputs
                     .join(ch_sample_reports, by: 0)
                     .map { sample_id, outputs, reports ->
-                        return tuple([id: sample_id], outputs, reports)
+                        return tuple([id: sample_id, batch_count: outputs.size()], outputs, reports)
                     }
 
                 KRAKEN2_FINAL_AGGREGATOR (

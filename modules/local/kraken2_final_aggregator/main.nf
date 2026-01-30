@@ -33,6 +33,7 @@ process KRAKEN2_FINAL_AGGREGATOR {
     from pathlib import Path
 
     sample_id = '${meta.id}'
+    expected_batches = ${meta.batch_count ?: 0}
 
     print(f"Final aggregation for sample {sample_id}", file=sys.stderr)
 
@@ -42,6 +43,12 @@ process KRAKEN2_FINAL_AGGREGATOR {
     batch_report_files = sorted(glob.glob('batch_*.kraken2.report.txt'))
 
     print(f"  Found {len(batch_output_files)} output files, {len(batch_report_files)} report files", file=sys.stderr)
+
+    if expected_batches > 0:
+        if len(batch_output_files) != expected_batches:
+            print(f"  WARNING: Expected {expected_batches} output files, found {len(batch_output_files)}", file=sys.stderr)
+        if len(batch_report_files) != expected_batches:
+            print(f"  WARNING: Expected {expected_batches} report files, found {len(batch_report_files)}", file=sys.stderr)
 
     # Concatenate all batch output files
     cumulative_output_file = f'{sample_id}.cumulative.kraken2.output.txt'
@@ -102,7 +109,9 @@ process KRAKEN2_FINAL_AGGREGATOR {
     # Generate aggregation statistics
     stats = {
         'sample_id': sample_id,
+        'expected_batches': expected_batches,
         'total_batches': len(batch_output_files),
+        'batches_complete': len(batch_output_files) == expected_batches if expected_batches > 0 else True,
         'total_reads': total_reads,
         'classified_reads': classified_reads,
         'unclassified_reads': total_reads - classified_reads,
