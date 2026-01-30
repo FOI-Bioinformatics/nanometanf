@@ -184,9 +184,9 @@ workflow TAXONOMIC_CLASSIFICATION {
                     .subscribe { meta, taxid_file ->
                         try {
                             def sample_id = meta.id
-                            def batch_counts = new groovy.json.JsonSlurper().parseText(taxid_file.text)
 
                             synchronized(cumulative_taxa_state) {
+                                def batch_counts = new groovy.json.JsonSlurper().parseText(taxid_file.text)
                                 def state = cumulative_taxa_state[sample_id]
 
                                 // Merge batch taxa into cumulative state
