@@ -46,6 +46,7 @@ workflow QC_ANALYSIS {
     // Set QC tool and validate parameters
     def qc_tool = params.qc_tool ?: 'fastp'
     def enable_adapter_trimming = params.enable_adapter_trimming ?: false
+    def run_fastqc = !(params.realtime_mode && params.skip_fastqc_realtime)
     
     //
     // OPTIONAL: Adapter trimming with PORECHOP (nanopore-specific)
@@ -107,13 +108,15 @@ workflow QC_ANALYSIS {
             //
             
             // MODULE: Run FastQC on filtered reads for comprehensive HTML reporting
-            FASTQC (
-                FILTLONG.out.reads
-            )
-            ch_versions = ch_versions.mix(FASTQC.out.versions)
-            ch_fastqc_html = FASTQC.out.html
-            
-            // MODULE: Run SeqKit stats for detailed sequence statistics  
+            if (run_fastqc) {
+                FASTQC (
+                    FILTLONG.out.reads
+                )
+                ch_versions = ch_versions.mix(FASTQC.out.versions)
+                ch_fastqc_html = FASTQC.out.html
+            }
+
+            // MODULE: Run SeqKit stats for detailed sequence statistics
             SEQKIT_STATS (
                 FILTLONG.out.reads
             )
@@ -143,11 +146,13 @@ workflow QC_ANALYSIS {
             //
 
             // MODULE: Run FastQC on filtered reads for comprehensive HTML reporting
-            FASTQC (
-                CHOPPER.out.fastq
-            )
-            ch_versions = ch_versions.mix(FASTQC.out.versions)
-            ch_fastqc_html = FASTQC.out.html
+            if (run_fastqc) {
+                FASTQC (
+                    CHOPPER.out.fastq
+                )
+                ch_versions = ch_versions.mix(FASTQC.out.versions)
+                ch_fastqc_html = FASTQC.out.html
+            }
 
             // MODULE: Run SeqKit stats for detailed sequence statistics
             SEQKIT_STATS (
