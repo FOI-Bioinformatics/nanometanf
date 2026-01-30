@@ -161,10 +161,56 @@ workflow VALIDATION {
     //
     ch_extraction_stats = EXTRACT_READS_BY_TAXID.out.stats.map { meta, stats -> stats }
 
+    // Collect Kraken2 reports for species name lookup
+    ch_kraken_report_files = ch_kraken_reports.map { meta, report -> report }
+
+    //
+    // INTERMEDIATE VALIDATION: Progressive aggregation for real-time dashboard
+    // Uses .tap() to fork channels and .subscribe to accumulate validation stats
+    // in JVM memory, writing periodic intermediate JSON to outdir for dashboard polling.
+    //
+    def val_interval = params.validation_aggregate_interval ?: 0
+    if (val_interval > 0) {
+        // Fork channels for intermediate aggregation
+        def ch_blast_for_intermediate = Channel.create()
+        def ch_minimap2_for_intermediate = Channel.create()
+
+        ch_blast_stats = ch_blast_stats.tap(ch_blast_for_intermediate)
+        ch_minimap2_stats = ch_minimap2_stats.tap(ch_minimap2_for_intermediate)
+
+        def intermediate_results = [].asSynchronized()
+        def val_counter = new java.util.concurrent.atomic.AtomicInteger(0)
+
+        ch_blast_for_intermediate.mix(ch_minimap2_for_intermediate).subscribe { stats_file ->
+            try {
+                def data = new groovy.json.JsonSlurper().parseText(stats_file.text)
+                intermediate_results.add(data)
+                def count = val_counter.incrementAndGet()
+
+                if (count % val_interval == 0) {
+                    def outdir = new File("${params.outdir}/validation")
+                    outdir.mkdirs()
+                    def json_text = new groovy.json.JsonBuilder(intermediate_results.collect()).toPrettyString()
+                    def temp = new File(outdir, "intermediate_validation.json.tmp")
+                    temp.text = json_text
+                    def target = new File(outdir, "intermediate_validation.json")
+                    if (!temp.renameTo(target)) {
+                        target.text = temp.text
+                        temp.delete()
+                    }
+                    log.debug "Intermediate validation updated: ${intermediate_results.size()} results"
+                }
+            } catch (Exception e) {
+                log.warn "Intermediate validation aggregation failed: ${e.message}"
+            }
+        }
+    }
+
     AGGREGATE_VALIDATION_RESULTS(
         ch_blast_stats.collect().ifEmpty([]),
         ch_minimap2_stats.collect().ifEmpty([]),
         ch_extraction_stats.collect().ifEmpty([]),
+        ch_kraken_report_files.collect().ifEmpty([]),
         validation_method
     )
     ch_versions = ch_versions.mix(AGGREGATE_VALIDATION_RESULTS.out.versions)
