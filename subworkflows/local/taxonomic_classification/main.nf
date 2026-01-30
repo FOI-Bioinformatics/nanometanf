@@ -179,6 +179,8 @@ workflow TAXONOMIC_CLASSIFICATION {
                 def cumulative_taxa_state = [:].withDefault { ->
                     [total_reads: 0, classified_reads: 0, unclassified_reads: 0, taxa: [:]]
                 }
+                def batch_write_counter = [:].withDefault { 0 }
+                def write_interval = params.report_write_interval ?: 5
 
                 KRAKEN2_REPORT_GENERATOR.out.taxid_counts
                     .subscribe { meta, taxid_file ->
@@ -204,31 +206,39 @@ workflow TAXONOMIC_CLASSIFICATION {
                                 state.classified_reads += (batch_counts.classified_reads as int)
                                 state.unclassified_reads += (batch_counts.unclassified_reads as int)
 
-                                // Write progressive cumulative kreport for dashboard
-                                def outdir = new File("${params.outdir}/kraken2")
-                                outdir.mkdirs()
-                                def total = state.total_reads ?: 1
+                                batch_write_counter[sample_id]++
 
-                                def sb = new StringBuilder()
-                                state.taxa.sort { a, b ->
-                                    (b.value.cumul as int) <=> (a.value.cumul as int) ?: a.key <=> b.key
-                                }.each { taxid, tdata ->
-                                    def pct = String.format("%.2f", ((tdata.cumul as double) / total) * 100.0)
-                                    sb.append("${pct}\t${tdata.cumul}\t${tdata.reads}\t${tdata.rank}\t${taxid}\t${tdata.name}\n")
-                                }
+                                // Write only every N batches or on final batch
+                                if (write_interval <= 0
+                                    || batch_write_counter[sample_id] % write_interval == 0
+                                    || meta.is_final_batch == true) {
 
-                                // Atomic write: temp file then rename
-                                def temp = new File(outdir, "${sample_id}.cumulative.kraken2.report.txt.tmp")
-                                temp.text = sb.toString()
-                                def target = new File(outdir, "${sample_id}.cumulative.kraken2.report.txt")
-                                if (!temp.renameTo(target)) {
-                                    // renameTo can fail silently; fall back to copy+delete
-                                    target.text = temp.text
-                                    temp.delete()
-                                    log.debug "Progressive report: renameTo failed, used copy fallback for ${sample_id}"
-                                }
+                                    // Write progressive cumulative kreport for dashboard
+                                    def outdir = new File("${params.outdir}/kraken2")
+                                    outdir.mkdirs()
+                                    def total = state.total_reads ?: 1
 
-                                log.debug "Progressive cumulative report updated for ${sample_id}: ${state.total_reads} reads, ${state.taxa.size()} taxa"
+                                    def sb = new StringBuilder()
+                                    state.taxa.sort { a, b ->
+                                        (b.value.cumul as int) <=> (a.value.cumul as int) ?: a.key <=> b.key
+                                    }.each { taxid, tdata ->
+                                        def pct = String.format("%.2f", ((tdata.cumul as double) / total) * 100.0)
+                                        sb.append("${pct}\t${tdata.cumul}\t${tdata.reads}\t${tdata.rank}\t${taxid}\t${tdata.name}\n")
+                                    }
+
+                                    // Atomic write: temp file then rename
+                                    def temp = new File(outdir, "${sample_id}.cumulative.kraken2.report.txt.tmp")
+                                    temp.text = sb.toString()
+                                    def target = new File(outdir, "${sample_id}.cumulative.kraken2.report.txt")
+                                    if (!temp.renameTo(target)) {
+                                        // renameTo can fail silently; fall back to copy+delete
+                                        target.text = temp.text
+                                        temp.delete()
+                                        log.debug "Progressive report: renameTo failed, used copy fallback for ${sample_id}"
+                                    }
+
+                                    log.debug "Progressive cumulative report updated for ${sample_id}: ${state.total_reads} reads, ${state.taxa.size()} taxa"
+                                } // end write interval check
                             }
                         } catch (Exception e) {
                             log.warn "Progressive cumulative report failed for ${meta.id}: ${e.message}"
