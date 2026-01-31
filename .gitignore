@@ -24,6 +24,7 @@ full_test_analysis.log
 *.bak
 *~
 .claude/
+.worktrees/
 
 # Documentation files that should be in docs/ directory
 /RELEASE_NOTES_v*.md
