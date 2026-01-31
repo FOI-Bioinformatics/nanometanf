@@ -193,7 +193,7 @@ workflow REALTIME_MONITORING {
 
                 // Use InputDetector priority chain for sample ID
                 def sample_id = InputDetector.extractSampleId(
-                    file.toPath(),
+                    file,
                     params.sample_regex,
                     params.sample_name
                 )

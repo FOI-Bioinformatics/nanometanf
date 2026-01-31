@@ -8,14 +8,23 @@ class InputDetector {
     static final List POD5_EXTENSIONS = ['.pod5']
 
     /**
+     * Convert any path-like input (String, File, Path) to a java.io.File.
+     */
+    private static File toFile(input) {
+        if (input instanceof File) return input
+        if (input instanceof java.nio.file.Path) return input.toFile()
+        return new File(input.toString())
+    }
+
+    /**
      * Detect whether a directory uses barcode subdirectories or flat layout.
      *
-     * @param dir Path to the input directory
+     * @param dir Path to the input directory (String, File, or Path)
      * @param extensions List of file extensions to look for
      * @return 'barcode_subdirs' or 'flat'
      */
-    static String detectStructure(java.nio.file.Path dir, List extensions = FASTQ_EXTENSIONS) {
-        def dirFile = dir.toFile()
+    static String detectStructure(dir, List extensions = FASTQ_EXTENSIONS) {
+        def dirFile = toFile(dir)
         if (!dirFile.isDirectory()) return 'flat'
 
         def children = dirFile.listFiles()
@@ -37,14 +46,15 @@ class InputDetector {
      * 3. BarcodeUtils extraction from filename
      * 4. Fallback to sample_name or filename stem
      *
-     * @param filePath Path to the file
+     * @param filePath Path to the file (String, File, or Path)
      * @param sampleRegex Optional regex with capture group for sample ID
      * @param sampleName Optional fallback sample name
      * @return Extracted sample ID string
      */
-    static String extractSampleId(java.nio.file.Path filePath, String sampleRegex = null, String sampleName = null) {
-        def parentName = filePath.parent?.fileName?.toString()
-        def filename = filePath.fileName.toString()
+    static String extractSampleId(filePath, String sampleRegex = null, String sampleName = null) {
+        def f = toFile(filePath)
+        def parentName = f.parentFile?.name
+        def filename = f.name
         def stem = filename.replaceAll(/\.(fastq|fq)(\.gz)?$/, '')
 
         // 1. Subdirectory-based: parent is barcode dir

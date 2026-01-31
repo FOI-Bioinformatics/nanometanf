@@ -12,8 +12,7 @@ workflow INPUT_SCANNER {
     main:
     ch_versions = Channel.empty()
 
-    def dir_path = file(input_dir).toPath()
-    def structure = InputDetector.detectStructure(dir_path)
+    def structure = InputDetector.detectStructure(input_dir)
     log.info "Input directory structure detected: ${structure}"
 
     if (structure == 'barcode_subdirs') {
@@ -70,10 +69,10 @@ workflow INPUT_SCANNER {
         //
         // Flat directory mode: group by sample ID
         //
-        ch_all_samples = Channel.fromPath("${input_dir}/**/*.{fastq,fastq.gz,fq,fq.gz}")
+        ch_all_samples = Channel.fromPath(["${input_dir}/*.{fastq,fastq.gz,fq,fq.gz}", "${input_dir}/**/*.{fastq,fastq.gz,fq,fq.gz}"])
             .map { f ->
                 def sample_id = InputDetector.extractSampleId(
-                    f.toPath(),
+                    f,
                     sample_regex,
                     params.sample_name
                 )

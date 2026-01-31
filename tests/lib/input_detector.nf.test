@@ -1,19 +1,19 @@
 nextflow_function {
 
     name "Test InputDetector utility"
-    script "lib/InputDetector.groovy"
+    script "tests/lib/input_detector_functions.nf"
 
     tag "unit"
     tag "fast"
 
     test("detectStructure should return barcode_subdirs for MinKNOW output") {
 
+        function "detectStructure"
+
         when {
             function {
                 """
-                InputDetector.detectStructure(
-                    java.nio.file.Paths.get("$projectDir/tests/fixtures/minknow_output")
-                )
+                input[0] = "$projectDir/tests/fixtures/minknow_output"
                 """
             }
         }
@@ -25,12 +25,12 @@ nextflow_function {
 
     test("detectStructure should return flat for flat directory") {
 
+        function "detectStructure"
+
         when {
             function {
                 """
-                InputDetector.detectStructure(
-                    java.nio.file.Paths.get("$projectDir/tests/fixtures/flat_multisample")
-                )
+                input[0] = "$projectDir/tests/fixtures/flat_multisample"
                 """
             }
         }
@@ -42,12 +42,12 @@ nextflow_function {
 
     test("extractSampleId should use parent dir for barcode subdirs") {
 
+        function "extractSampleId"
+
         when {
             function {
                 """
-                InputDetector.extractSampleId(
-                    java.nio.file.Paths.get("$projectDir/tests/fixtures/minknow_output/barcode01/reads.fastq.gz")
-                )
+                input[0] = "$projectDir/tests/fixtures/minknow_output/barcode01/reads.fastq.gz"
                 """
             }
         }
@@ -59,14 +59,14 @@ nextflow_function {
 
     test("extractSampleId should use regex when provided") {
 
+        function "extractSampleId"
+
         when {
             function {
                 """
-                InputDetector.extractSampleId(
-                    java.nio.file.Paths.get("/tmp/sampleA_001.fastq.gz"),
-                    "(sample[A-Z])_",
-                    null
-                )
+                input[0] = "/tmp/sampleA_001.fastq.gz"
+                input[1] = "(sample[A-Z])_"
+                input[2] = null
                 """
             }
         }
@@ -78,14 +78,14 @@ nextflow_function {
 
     test("extractSampleId should fall back to BarcodeUtils") {
 
+        function "extractSampleId"
+
         when {
             function {
                 """
-                InputDetector.extractSampleId(
-                    java.nio.file.Paths.get("/tmp/reads_barcode05.fastq.gz"),
-                    null,
-                    null
-                )
+                input[0] = "/tmp/reads_barcode05.fastq.gz"
+                input[1] = null
+                input[2] = null
                 """
             }
         }
