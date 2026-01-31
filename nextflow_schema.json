@@ -33,9 +33,16 @@
         "barcode_input_dir": {
           "type": "string",
           "format": "directory-path",
-          "description": "Directory containing pre-demultiplexed barcode subdirectories (alternative to samplesheet input)",
-          "help_text": "Provide a directory path containing barcode subdirectories (e.g., barcode01/, barcode02/, unclassified/). The pipeline will automatically discover and process all barcode directories. Mutually exclusive with --input parameter.",
+          "description": "Deprecated. Use --input_dir instead.",
+          "help_text": "This parameter is deprecated in favor of --input_dir which auto-detects directory structure.",
           "fa_icon": "fas fa-folder"
+        },
+        "input_dir": {
+          "type": "string",
+          "format": "directory-path",
+          "description": "Directory to scan for FASTQ or POD5 files. Auto-detects barcode subdirectories vs flat layout.",
+          "help_text": "Replaces --barcode_input_dir with unified auto-detection. Supports barcode subdirectories (barcode01/, barcode02/), flat directories with barcodes in filenames, and flat directories with custom sample prefixes (use --sample_regex).",
+          "fa_icon": "fas fa-folder-open"
         },
         "email": {
           "type": "string",
@@ -310,6 +317,12 @@
           "fa_icon": "fas fa-tag",
           "help_text": "When processing a single sample without barcodes, use this name for output files instead of the input filename. If not provided, the input filename will be used."
         },
+        "sample_regex": {
+          "type": "string",
+          "description": "Regex with capture group to extract sample ID from filenames.",
+          "fa_icon": "fas fa-filter",
+          "help_text": "Applied when files are in a flat directory without barcode subdirectories. The first capture group becomes the sample ID. Example: '(sample[A-Z]+)_' extracts 'sampleA' from 'sampleA_001.fastq.gz'."
+        },
         "barcode_dirs": {
           "type": "boolean",
           "default": false,
@@ -323,6 +336,14 @@
           "minimum": 1,
           "description": "Number of files to process in each batch.",
           "fa_icon": "fas fa-layer-group"
+        },
+        "batch_timeout": {
+          "type": "integer",
+          "default": 60,
+          "minimum": 0,
+          "description": "Seconds of inactivity before emitting a partial batch in real-time mode.",
+          "fa_icon": "fas fa-clock",
+          "help_text": "In real-time mode, batches are normally emitted when batch_size files accumulate. This parameter adds a timeout: if no new files arrive within this many seconds, the current partial batch is emitted. Set to 0 to disable timeout-based flushing."
         },
         "batch_interval": {
           "type": "string",
