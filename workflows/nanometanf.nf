@@ -15,6 +15,7 @@ include { REALTIME_MONITORING        } from '../subworkflows/local/realtime_moni
 include { REALTIME_POD5_MONITORING   } from '../subworkflows/local/realtime_pod5_monitoring'
 include { DORADO_BASECALLING         } from '../subworkflows/local/dorado_basecalling'
 include { BARCODE_DISCOVERY          } from '../subworkflows/local/barcode_discovery'
+include { INPUT_SCANNER              } from '../subworkflows/local/input_scanner'
 include { POD5_BARCODE_DISCOVERY    } from '../subworkflows/local/pod5_barcode_discovery'
 include { DEMULTIPLEXING             } from '../subworkflows/local/demultiplexing'
 include { QC_ANALYSIS                } from '../subworkflows/local/qc_analysis'
@@ -194,15 +195,20 @@ workflow NANOMETANF {
             }
         }
         
-    } else if (is_barcode_discovery) {
+    } else if (params.input_dir || is_barcode_discovery) {
         //
-        // PRE-DEMULTIPLEXED BARCODE DIRECTORIES
+        // UNIFIED DIRECTORY SCAN (replaces BARCODE_DISCOVERY)
         //
-        BARCODE_DISCOVERY (
-            params.barcode_input_dir
+        def effective_input_dir = params.input_dir ?: params.barcode_input_dir
+        if (params.barcode_input_dir && !params.input_dir) {
+            log.warn "DEPRECATED: --barcode_input_dir is deprecated. Use --input_dir instead."
+        }
+        INPUT_SCANNER (
+            effective_input_dir,
+            params.sample_regex
         )
-        ch_processed_samples = BARCODE_DISCOVERY.out.samples
-        ch_versions = ch_versions.mix(BARCODE_DISCOVERY.out.versions)
+        ch_processed_samples = INPUT_SCANNER.out.samples
+        ch_versions = ch_versions.mix(INPUT_SCANNER.out.versions)
         
     } else {
         //
