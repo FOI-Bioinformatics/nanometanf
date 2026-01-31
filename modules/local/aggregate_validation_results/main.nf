@@ -11,6 +11,7 @@ process AGGREGATE_VALIDATION_RESULTS {
     path(blast_stats)
     path(minimap2_stats)
     path(extraction_stats)
+    path(kraken_reports)
     val(validation_method)
 
     output:
@@ -44,6 +45,24 @@ process AGGREGATE_VALIDATION_RESULTS {
     parse_failures = {'extraction': 0, 'blast': 0, 'minimap2': 0}
     parse_totals = {'extraction': 0, 'blast': 0, 'minimap2': 0}
 
+    # Build taxid -> species name mapping from Kraken2 reports
+    # Kraken2 report format: percent, cumul_reads, reads, rank, taxid, name
+    taxid_to_species = {}
+    for f in Path('.').glob('*.report.txt'):
+        try:
+            with open(f) as fh:
+                for line in fh:
+                    parts = line.strip().split('\\t')
+                    if len(parts) >= 6:
+                        rank = parts[3].strip()
+                        if rank == 'S':  # species level
+                            tid = parts[4].strip()
+                            name = parts[5].strip()
+                            if tid not in taxid_to_species:
+                                taxid_to_species[tid] = name
+        except Exception as e:
+            print(f"Warning: Failed to parse Kraken2 report {f}: {e}", file=sys.stderr)
+
     # Parse extraction stats first (for kraken_reads counts)
     for f in Path('.').glob('*_extraction_stats.json'):
         parse_totals['extraction'] += 1
@@ -74,6 +93,7 @@ process AGGREGATE_VALIDATION_RESULTS {
 
                 results[sample_id][taxid] = {
                     'taxid': int(taxid),
+                    'species': taxid_to_species.get(taxid, ''),
                     'validation_method': 'blast',
                     'kraken_reads': ext_data.get('extracted_reads', data.get('total_reads', 0)),
                     'extracted_reads': ext_data.get('extracted_reads', data.get('total_reads', 0)),
@@ -108,6 +128,7 @@ process AGGREGATE_VALIDATION_RESULTS {
                 else:
                     results[sample_id][taxid] = {
                         'taxid': int(taxid),
+                        'species': taxid_to_species.get(taxid, ''),
                         'validation_method': 'minimap2',
                         'kraken_reads': ext_data.get('extracted_reads', data.get('total_reads', 0)),
                         'extracted_reads': ext_data.get('extracted_reads', data.get('total_reads', 0)),
@@ -116,6 +137,8 @@ process AGGREGATE_VALIDATION_RESULTS {
                         'avg_identity': data.get('avg_identity', 0.0),
                         'avg_coverage': data.get('avg_coverage', 0.0),
                         'avg_mapq': data.get('avg_mapq', 0.0),
+                        'ref_name': data.get('ref_name', ''),
+                        'ref_length': data.get('ref_length', 0),
                         'validation_status': data.get('validation_status', 'unknown')
                     }
         except Exception as e:
@@ -165,9 +188,10 @@ process AGGREGATE_VALIDATION_RESULTS {
 
     # Write TSV summary
     with open('validation_summary.tsv', 'w') as out:
-        out.write('sample_id\\ttaxid\\tmethod\\tkraken_reads\\thits\\thit_rate\\tavg_identity\\tavg_coverage\\tstatus\\n')
+        out.write('sample_id\\ttaxid\\tspecies\\tmethod\\tkraken_reads\\thits\\thit_rate\\tavg_identity\\tavg_coverage\\tstatus\\n')
         for sample_id, taxids in results.items():
             for taxid, data in taxids.items():
+                species = data.get('species', '')
                 method = data.get('validation_method', 'unknown')
                 kraken_reads = data.get('kraken_reads', 0)
                 hits = data.get('blast_hits', data.get('mapped_reads', 0))
@@ -175,7 +199,7 @@ process AGGREGATE_VALIDATION_RESULTS {
                 avg_identity = data.get('avg_identity', 0.0)
                 avg_coverage = data.get('avg_coverage', 0.0)
                 status = data.get('validation_status', 'unknown')
-                out.write(f'{sample_id}\\t{taxid}\\t{method}\\t{kraken_reads}\\t{hits}\\t{hit_rate:.4f}\\t{avg_identity:.2f}\\t{avg_coverage:.4f}\\t{status}\\n')
+                out.write(f'{sample_id}\\t{taxid}\\t{species}\\t{method}\\t{kraken_reads}\\t{hits}\\t{hit_rate:.4f}\\t{avg_identity:.2f}\\t{avg_coverage:.4f}\\t{status}\\n')
 
     print(f"Aggregated validation results: {total_samples} samples, {total_taxids} taxids", file=sys.stderr)
     print(f"  Confirmed: {confirmed}, Uncertain: {uncertain}, Rejected: {rejected}", file=sys.stderr)
@@ -205,7 +229,7 @@ process AGGREGATE_VALIDATION_RESULTS {
 }
 EOF
 
-    echo -e "sample_id\\ttaxid\\tmethod\\tkraken_reads\\thits\\thit_rate\\tavg_identity\\tavg_coverage\\tstatus" > validation_summary.tsv
+    echo -e "sample_id\\ttaxid\\tspecies\\tmethod\\tkraken_reads\\thits\\thit_rate\\tavg_identity\\tavg_coverage\\tstatus" > validation_summary.tsv
 
     cat <<-END_VERSIONS > versions.yml
     "AGGREGATE_VALIDATION_RESULTS":

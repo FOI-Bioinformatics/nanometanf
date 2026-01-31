@@ -67,6 +67,7 @@ mapped_reads = set()
 mapqs = []
 identities = []
 coverages = []
+ref_lengths = {}
 
 with open(paf_file) as f:
     for line_num, line in enumerate(f, 1):
@@ -77,6 +78,8 @@ with open(paf_file) as f:
                 qlen = int(cols[1])
                 qstart = int(cols[2])
                 qend = int(cols[3])
+                tname = cols[5]
+                tlen = int(cols[6])
                 nmatch = int(cols[9])
                 alen = int(cols[10])
                 mapq = int(cols[11])
@@ -84,6 +87,8 @@ with open(paf_file) as f:
                 # Skip malformed lines but continue processing
                 print(f"Warning: Skipping malformed PAF line {line_num}: {e}", file=sys.stderr)
                 continue
+
+            ref_lengths[tname] = tlen
 
             # Only count reads that pass MAPQ threshold
             if mapq >= min_mapq_val:
@@ -115,6 +120,9 @@ elif hit_rate >= hit_threshold * 0.5 or avg_identity >= identity_threshold * 0.9
 else:
     status = "rejected"
 
+# Reference genome info (use the largest/primary reference if multiple)
+primary_ref = max(ref_lengths.items(), key=lambda x: x[1]) if ref_lengths else ("unknown", 0)
+
 stats = {
     "sample_id": "${sample_id}",
     "taxid": ${taxid},
@@ -126,6 +134,8 @@ stats = {
     "avg_identity": round(avg_identity, 2),
     "avg_coverage": round(avg_coverage, 4),
     "validation_status": status,
+    "ref_name": primary_ref[0],
+    "ref_length": primary_ref[1],
     "parameters": {
         "preset": "${preset}",
         "min_mapq": min_mapq_val

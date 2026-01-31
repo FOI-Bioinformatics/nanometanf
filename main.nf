@@ -17,6 +17,7 @@ include { NANOMETANF  } from './workflows/nanometanf'
 include { PIPELINE_INITIALISATION } from './subworkflows/local/utils_nfcore_nanometanf_pipeline'
 include { PIPELINE_COMPLETION     } from './subworkflows/local/utils_nfcore_nanometanf_pipeline'
 include { getGenomeAttribute      } from './subworkflows/local/utils_nfcore_nanometanf_pipeline'
+include { VALIDATION as VALIDATION_ONLY_SUB } from './subworkflows/local/validation'
 
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -63,6 +64,62 @@ workflow FOIBIOINFORMATICS_NANOMETANF {
 }
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    VALIDATION-ONLY WORKFLOW
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+*/
+
+//
+// WORKFLOW: Run validation against existing Kraken2 output (skip classification)
+// Triggered via: nextflow run . --validation_only --kraken2_output_dir <path> --reads_dir <path>
+//
+workflow VALIDATION_ONLY {
+
+    main:
+
+    // Build channels from existing Kraken2 output files
+    // Kraken2 classified reads (FASTQ)
+    ch_classified_reads = Channel.fromFilePairs(
+        "${params.reads_dir}/*.fastq{,.gz}",
+        size: 1,
+        flat: true
+    ).map { sample_id, fastq ->
+        def meta = [id: sample_id]
+        [ meta, fastq ]
+    }
+
+    // Kraken2 raw output (per-read classification)
+    ch_kraken_output = Channel.fromFilePairs(
+        "${params.kraken2_output_dir}/*.kraken2.output.txt",
+        size: 1,
+        flat: true
+    ).map { sample_id, output_file ->
+        def meta = [id: sample_id]
+        [ meta, output_file ]
+    }
+
+    // Kraken2 reports
+    ch_kraken_reports = Channel.fromFilePairs(
+        "${params.kraken2_output_dir}/*.kraken2.report.txt",
+        size: 1,
+        flat: true
+    ).map { sample_id, report ->
+        def meta = [id: sample_id]
+        [ meta, report ]
+    }
+
+    // Run validation subworkflow
+    VALIDATION_ONLY_SUB(
+        ch_classified_reads,
+        ch_kraken_output,
+        ch_kraken_reports,
+        params.pathogen_genomes,
+        params.taxids_to_validate ?: 'auto',
+        params.validation_method ?: 'blast'
+    )
+}
+
+/*
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     RUN MAIN WORKFLOW
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
@@ -70,36 +127,44 @@ workflow FOIBIOINFORMATICS_NANOMETANF {
 workflow {
 
     main:
-    //
-    // SUBWORKFLOW: Run initialisation tasks
-    //
-    PIPELINE_INITIALISATION (
-        params.version,
-        params.validate_params,
-        params.monochrome_logs,
-        args,
-        params.outdir,
-        params.input
-    )
 
-    //
-    // WORKFLOW: Run main workflow
-    //
-    FOIBIOINFORMATICS_NANOMETANF (
-        PIPELINE_INITIALISATION.out.samplesheet
-    )
-    //
-    // SUBWORKFLOW: Run completion tasks
-    //
-    PIPELINE_COMPLETION (
-        params.email,
-        params.email_on_fail,
-        params.plaintext_email,
-        params.outdir,
-        params.monochrome_logs,
-        params.hook_url,
-        FOIBIOINFORMATICS_NANOMETANF.out.multiqc_report
-    )
+    if (params.validation_only) {
+        //
+        // WORKFLOW: Validation-only mode (skip classification)
+        //
+        VALIDATION_ONLY()
+    } else {
+        //
+        // SUBWORKFLOW: Run initialisation tasks
+        //
+        PIPELINE_INITIALISATION (
+            params.version,
+            params.validate_params,
+            params.monochrome_logs,
+            args,
+            params.outdir,
+            params.input
+        )
+
+        //
+        // WORKFLOW: Run main workflow
+        //
+        FOIBIOINFORMATICS_NANOMETANF (
+            PIPELINE_INITIALISATION.out.samplesheet
+        )
+        //
+        // SUBWORKFLOW: Run completion tasks
+        //
+        PIPELINE_COMPLETION (
+            params.email,
+            params.email_on_fail,
+            params.plaintext_email,
+            params.outdir,
+            params.monochrome_logs,
+            params.hook_url,
+            FOIBIOINFORMATICS_NANOMETANF.out.multiqc_report
+        )
+    }
 }
 
 /*

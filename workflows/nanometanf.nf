@@ -468,22 +468,10 @@ workflow NANOMETANF {
         // The Kraken2 output file (per-read classifications) is needed to extract reads by taxid
         //
         if (run_validation_effective && params.pathogen_genomes) {
-            // Check that save_reads_assignment is enabled
+            // Auto-enable save_reads_assignment when validation is active
             if (!params.save_reads_assignment) {
-                error """
-                    ===============================================================================
-                    ERROR: Pathogen validation requires --save_reads_assignment true
-
-                    The validation workflow needs the Kraken2 per-read classification output
-                    to extract reads for specific taxids. Please add this parameter:
-
-                        --save_reads_assignment true
-
-                    Or disable validation:
-
-                        --run_validation false (or --blast_validation false for legacy)
-                    ===============================================================================
-                    """.stripIndent()
+                log.warn "Validation requires per-read Kraken2 output. Automatically enabling save_reads_assignment."
+                params.save_reads_assignment = true
             }
 
             // Check that pathogen_genomes file exists and is JSON

@@ -144,22 +144,23 @@ nextflow_pipeline {
         }
     }
 
-    test("Should fail gracefully when save_reads_assignment is false") {
+    test("Should auto-enable save_reads_assignment when validation is enabled") {
 
         when {
             params {
                 input = "$projectDir/tests/fixtures/samplesheets/single_fastq.csv"
                 outdir = "$outputDir"
 
-                // Enable validation but disable required parameter
+                // Enable validation without explicitly setting save_reads_assignment
                 run_validation = true
                 validation_method = "blast"
                 pathogen_genomes = "$projectDir/tests/fixtures/validation/test_genomes.json"
-                save_reads_assignment = false  // This should cause an error
+                save_reads_assignment = false  // Should be auto-enabled by workflow
 
                 skip_kraken2 = false
                 kraken2_db = "$projectDir/tests/fixtures/kraken2_db"
                 skip_krona = true
+                skip_nanoplot = true
 
                 max_cpus = 2
                 max_memory = '4.GB'
@@ -168,9 +169,12 @@ nextflow_pipeline {
         }
 
         then {
-            // Should fail with clear error message
-            assert workflow.failed
-            assert workflow.stderr.contains("save_reads_assignment") || workflow.stdout.contains("save_reads_assignment")
+            // Should succeed because save_reads_assignment is auto-enabled
+            assert workflow.success
+            assert path("${outputDir}/validation/validation_results.json").exists()
+
+            // Should log warning about auto-enabling
+            assert workflow.stdout.contains("save_reads_assignment") || workflow.stderr.contains("save_reads_assignment")
         }
     }
 
