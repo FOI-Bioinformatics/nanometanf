@@ -38,6 +38,7 @@ workflow REALTIME_MONITORING {
         def max_concurrent = params.max_concurrent_batches ?: 4
         log.info "Backpressure: max ${max_concurrent} concurrent batches per sample"
         log.info "Classification forks: ${params.max_classification_forks ?: 8} parallel Kraken2 jobs"
+        log.info "Batch timeout: ${params.batch_timeout ?: 60} seconds"
 
         // Use file() function directly to find existing files - more reliable than Channel.fromPath
         // The file() function with glob patterns returns a list of matching files
@@ -160,21 +161,24 @@ workflow REALTIME_MONITORING {
                 .set { ch_branched_files }
 
             // Mix priority files first (they will be processed before normal files)
-            // STREAMING-FIX: Use collate instead of buffer for streaming compatibility
-            // buffer(size: N, remainder: true) blocks until channel closes (never with watchPath)
-            // collate(N, false) emits partial batches immediately without blocking
-            ch_batched_files = ch_branched_files.priority
-                .mix(ch_branched_files.normal)
-                .collate(effective_batch_size, false)
+            // Use BatchUtils for count-or-timeout batching (replaces collate)
+            def batch_timeout_val = params.batch_timeout ?: 60
+            ch_batched_files = BatchUtils.batchWithTimeout(
+                ch_branched_files.priority.mix(ch_branched_files.normal),
+                effective_batch_size,
+                batch_timeout_val
+            )
 
             log.info "Priority samples will be processed before normal samples"
         } else {
             // Standard batching without priority
-            // STREAMING-FIX: Use collate instead of buffer for streaming compatibility
-            // buffer(size: N, remainder: true) blocks until channel closes (never with watchPath)
-            // collate(N, false) emits partial batches immediately without blocking
-            ch_batched_files = ch_input_files
-                .collate(effective_batch_size, false)
+            // Use BatchUtils for count-or-timeout batching (replaces collate)
+            def batch_timeout_val = params.batch_timeout ?: 60
+            ch_batched_files = BatchUtils.batchWithTimeout(
+                ch_input_files,
+                effective_batch_size,
+                batch_timeout_val
+            )
         }
 
         log.info "="*80
@@ -186,17 +190,21 @@ workflow REALTIME_MONITORING {
             .flatten()
             .map { file ->
                 def meta = [:]
-                def filename = file.baseName.replaceAll(/\.(fastq|fq)(\.gz)?$/, '')
 
-                // Extract barcode if present in filename using shared utility
-                def barcode = BarcodeUtils.extractBarcodeFromFilename(filename)
-                if (barcode) {
-                    meta.barcode = barcode
+                // Use InputDetector priority chain for sample ID
+                def sample_id = InputDetector.extractSampleId(
+                    file.toPath(),
+                    params.sample_regex,
+                    params.sample_name
+                )
+                meta.id = sample_id
+
+                // Add barcode metadata if applicable
+                if (sample_id =~ /^barcode\d+$/) {
+                    meta.barcode = sample_id
                 }
 
-                // Use params.sample_name for single-sample mode, otherwise use filename
-                meta.id = params.sample_name ?: filename
-                meta.single_end = true // Assume single-end for nanopore
+                meta.single_end = true
                 meta.batch_time = new Date().format('yyyy-MM-dd_HH-mm-ss')
 
                 return [ meta, file ]
