@@ -1,0 +1,68 @@
+nextflow_workflow {
+
+    name "Test INPUT_SCANNER subworkflow"
+    script "../subworkflows/local/input_scanner/main.nf"
+    workflow "INPUT_SCANNER"
+
+    tag "subworkflow"
+    tag "input_scanner"
+    tag "fast"
+
+    test("Should detect barcode subdirectories and create per-barcode samples") {
+
+        when {
+            workflow {
+                """
+                input[0] = "$projectDir/tests/fixtures/minknow_output"
+                input[1] = null
+                """
+            }
+        }
+
+        then {
+            assert workflow.success
+            assert workflow.out.samples.size() >= 2
+            // Check sample IDs include barcode names
+            def sample_ids = workflow.out.samples.collect { it[0].id }
+            assert sample_ids.contains("barcode01")
+            assert sample_ids.contains("barcode02")
+        }
+    }
+
+    test("Should group flat files by sample_regex") {
+
+        when {
+            workflow {
+                """
+                input[0] = "$projectDir/tests/fixtures/flat_multisample"
+                input[1] = "(sample[A-Z])_"
+                """
+            }
+        }
+
+        then {
+            assert workflow.success
+            assert workflow.out.samples.size() >= 2
+            def sample_ids = workflow.out.samples.collect { it[0].id }
+            assert sample_ids.contains("sampleA")
+            assert sample_ids.contains("sampleB")
+        }
+    }
+
+    test("Should handle barcode_input_dir backward compatibility") {
+
+        when {
+            workflow {
+                """
+                input[0] = "$projectDir/tests/fixtures/barcode_structure"
+                input[1] = null
+                """
+            }
+        }
+
+        then {
+            assert workflow.success
+            assert workflow.out.samples.size() >= 2
+        }
+    }
+}

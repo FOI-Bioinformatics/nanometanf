@@ -1,0 +1,97 @@
+nextflow_function {
+
+    name "Test InputDetector utility"
+    script "lib/InputDetector.groovy"
+
+    tag "unit"
+    tag "fast"
+
+    test("detectStructure should return barcode_subdirs for MinKNOW output") {
+
+        when {
+            function {
+                """
+                InputDetector.detectStructure(
+                    java.nio.file.Paths.get("$projectDir/tests/fixtures/minknow_output")
+                )
+                """
+            }
+        }
+
+        then {
+            assert function.result == "barcode_subdirs"
+        }
+    }
+
+    test("detectStructure should return flat for flat directory") {
+
+        when {
+            function {
+                """
+                InputDetector.detectStructure(
+                    java.nio.file.Paths.get("$projectDir/tests/fixtures/flat_multisample")
+                )
+                """
+            }
+        }
+
+        then {
+            assert function.result == "flat"
+        }
+    }
+
+    test("extractSampleId should use parent dir for barcode subdirs") {
+
+        when {
+            function {
+                """
+                InputDetector.extractSampleId(
+                    java.nio.file.Paths.get("$projectDir/tests/fixtures/minknow_output/barcode01/reads.fastq.gz")
+                )
+                """
+            }
+        }
+
+        then {
+            assert function.result == "barcode01"
+        }
+    }
+
+    test("extractSampleId should use regex when provided") {
+
+        when {
+            function {
+                """
+                InputDetector.extractSampleId(
+                    java.nio.file.Paths.get("/tmp/sampleA_001.fastq.gz"),
+                    "(sample[A-Z])_",
+                    null
+                )
+                """
+            }
+        }
+
+        then {
+            assert function.result == "sampleA"
+        }
+    }
+
+    test("extractSampleId should fall back to BarcodeUtils") {
+
+        when {
+            function {
+                """
+                InputDetector.extractSampleId(
+                    java.nio.file.Paths.get("/tmp/reads_barcode05.fastq.gz"),
+                    null,
+                    null
+                )
+                """
+            }
+        }
+
+        then {
+            assert function.result == "barcode05"
+        }
+    }
+}
