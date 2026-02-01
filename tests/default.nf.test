@@ -28,7 +28,7 @@ nextflow_pipeline {
 
                 // Disable heavy features for quick testing
                 use_dorado = false
-                kraken2_db = null
+                skip_kraken2 = true
                 blast_validation = false
                 realtime_mode = false
                 enable_dynamic_resources = false

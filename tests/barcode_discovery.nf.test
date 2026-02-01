@@ -29,7 +29,7 @@ nextflow_pipeline {
                 realtime_mode = false
                 
                 // Disable advanced features for focused testing
-                kraken2_db = null
+                skip_kraken2 = true
                 blast_validation = false
                 
                 // Resource limits

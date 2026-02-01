@@ -39,7 +39,7 @@ nextflow_pipeline {
                 barcode_input_dir = null
                 
                 // Disable advanced features for focused testing
-                kraken2_db = null
+                skip_kraken2 = true
                 blast_validation = false
                 
                 // Resource limits
@@ -91,7 +91,7 @@ nextflow_pipeline {
                 // Disable other modes
                 realtime_mode = false
                 barcode_input_dir = null
-                kraken2_db = null
+                skip_kraken2 = true
                 blast_validation = false
                 
                 // Resource limits

@@ -24,7 +24,7 @@ nextflow_pipeline {
                 // Test all key parameters
                 use_dorado = false
                 realtime_mode = false
-                kraken2_db = null
+                skip_kraken2 = true
                 blast_validation = false
                 
                 // Quick validation test

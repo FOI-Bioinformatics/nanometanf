@@ -27,7 +27,7 @@ nextflow_pipeline {
                 // Disable all container-dependent features
                 use_dorado = false
                 realtime_mode = false
-                kraken2_db = null
+                skip_kraken2 = true
                 blast_validation = false
                 
                 // Skip container-dependent processes
@@ -88,7 +88,7 @@ nextflow_pipeline {
                 // Disable all execution
                 use_dorado = false
                 realtime_mode = false
-                kraken2_db = null
+                skip_kraken2 = true
                 blast_validation = false
                 skip_fastp = true
                 skip_nanoplot = true

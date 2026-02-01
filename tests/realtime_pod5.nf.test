@@ -36,7 +36,7 @@ nextflow_pipeline {
                 batch_size = 2
 
                 // Disable other features
-                kraken2_db = null
+                skip_kraken2 = true
                 blast_validation = false
                 skip_nanoplot = true
                 enable_realtime_stats = false

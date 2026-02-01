@@ -47,7 +47,7 @@ nextflow_pipeline {
                 
                 // Disable heavy features for focused testing
                 use_dorado = false
-                kraken2_db = null
+                skip_kraken2 = true
                 blast_validation = false
                 realtime_mode = false
                 
@@ -113,7 +113,7 @@ nextflow_pipeline {
                 
                 // Disable other features
                 use_dorado = false
-                kraken2_db = null
+                skip_kraken2 = true
                 blast_validation = false
                 realtime_mode = false
                 
@@ -188,7 +188,7 @@ nextflow_pipeline {
                 
                 // Disable other features
                 use_dorado = false
-                kraken2_db = null
+                skip_kraken2 = true
                 blast_validation = false
                 realtime_mode = false
                 
@@ -264,7 +264,7 @@ nextflow_pipeline {
                 
                 // Disable other features
                 use_dorado = false
-                kraken2_db = null
+                skip_kraken2 = true
                 blast_validation = false
                 realtime_mode = false
                 
@@ -337,7 +337,7 @@ nextflow_pipeline {
                 
                 // Disable other features
                 use_dorado = false
-                kraken2_db = null
+                skip_kraken2 = true
                 blast_validation = false
                 realtime_mode = false
                 
@@ -410,7 +410,7 @@ nextflow_pipeline {
                 
                 // Disable actual processing
                 use_dorado = false
-                kraken2_db = null
+                skip_kraken2 = true
                 blast_validation = false
                 realtime_mode = false
                 

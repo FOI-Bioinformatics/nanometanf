@@ -82,7 +82,7 @@ nextflow_pipeline {
                 
                 // Disable heavy processing for faster testing
                 use_dorado = false
-                kraken2_db = null
+                skip_kraken2 = true
                 blast_validation = false
                 
                 // Resource configuration
@@ -191,7 +191,7 @@ nextflow_pipeline {
                 
                 // Disable heavy operations
                 use_dorado = false
-                kraken2_db = null
+                skip_kraken2 = true
                 blast_validation = false
                 
                 // Resource limits
@@ -299,7 +299,7 @@ nextflow_pipeline {
                 
                 // Disable heavy processing for demo
                 use_dorado = false
-                kraken2_db = null
+                skip_kraken2 = true
                 blast_validation = false
                 
                 // Resource configuration

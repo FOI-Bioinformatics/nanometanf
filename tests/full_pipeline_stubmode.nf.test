@@ -352,7 +352,7 @@ nextflow_pipeline {
                 chopper_minlength = 1000
 
                 // Disable classification and validation
-                kraken2_db = null
+                skip_kraken2 = true
                 blast_validation = false
 
                 // Disable heavy features

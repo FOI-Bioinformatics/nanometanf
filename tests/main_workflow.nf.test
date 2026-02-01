@@ -24,7 +24,7 @@ input = "$projectDir/tests/test_samplesheet.csv"
                 // Disable advanced features for basic test
                 use_dorado = false
                 realtime_mode = false
-                kraken2_db = null
+                skip_kraken2 = true
                 blast_validation = false
                 
                 // Enable QC steps
@@ -105,7 +105,7 @@ input = "$projectDir/tests/test_samplesheet.csv"
                 // Disable advanced features
                 use_dorado = false
                 realtime_mode = false
-                kraken2_db = null
+                skip_kraken2 = true
                 blast_validation = false
 
                 // Enable QC steps
@@ -151,7 +151,7 @@ input = "$projectDir/tests/test_samplesheet.csv"
                 // Disable advanced features
                 use_dorado = false
                 realtime_mode = false
-                kraken2_db = null
+                skip_kraken2 = true
                 blast_validation = false
 
                 // Enable QC steps

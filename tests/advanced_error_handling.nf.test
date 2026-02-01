@@ -44,7 +44,7 @@ nextflow_pipeline {
                 skip_fastp = true
                 skip_nanoplot = true
                 skip_multiqc = true
-                kraken2_db = null
+                skip_kraken2 = true
                 blast_validation = false
             }
         }
@@ -79,7 +79,7 @@ nextflow_pipeline {
                 // Skip all heavy processing
                 use_dorado = false
                 realtime_mode = false
-                kraken2_db = null
+                skip_kraken2 = true
                 blast_validation = false
                 skip_fastp = true
                 skip_nanoplot = true
@@ -117,7 +117,7 @@ nextflow_pipeline {
                 // Disable heavy processing to isolate resource handling
                 use_dorado = false
                 realtime_mode = false
-                kraken2_db = null
+                skip_kraken2 = true
                 blast_validation = false
                 skip_fastp = true
                 skip_nanoplot = true
@@ -198,7 +198,7 @@ nextflow_pipeline {
                 // Mix of valid and edge case parameters
                 use_dorado = false
                 realtime_mode = false
-                kraken2_db = null
+                skip_kraken2 = true
                 blast_validation = false
                 
                 // Skip processing to focus on parameter validation
@@ -241,7 +241,7 @@ nextflow_pipeline {
                 // Quick processing
                 use_dorado = false
                 realtime_mode = false
-                kraken2_db = null
+                skip_kraken2 = true
                 blast_validation = false
                 skip_fastp = true
                 skip_nanoplot = true
@@ -286,7 +286,7 @@ nextflow_pipeline {
                 // Quick test execution
                 use_dorado = false
                 realtime_mode = false
-                kraken2_db = null
+                skip_kraken2 = true
                 blast_validation = false
                 skip_fastp = true
                 skip_nanoplot = true

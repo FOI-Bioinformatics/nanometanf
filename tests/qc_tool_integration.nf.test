@@ -34,7 +34,7 @@ nextflow_pipeline {
                 max_time = '10.min'
 
                 // Disable resource-intensive steps
-                kraken2_db = null
+                skip_kraken2 = true
                 blast_validation = false
                 use_dorado = false
                 realtime_mode = false
@@ -83,7 +83,7 @@ nextflow_pipeline {
                 max_time = '10.min'
 
                 // Disable resource-intensive steps
-                kraken2_db = null
+                skip_kraken2 = true
                 blast_validation = false
                 use_dorado = false
                 realtime_mode = false
@@ -133,7 +133,7 @@ nextflow_pipeline {
                 max_time = '10.min'
 
                 // Disable resource-intensive steps
-                kraken2_db = null
+                skip_kraken2 = true
                 blast_validation = false
                 use_dorado = false
                 realtime_mode = false
@@ -180,7 +180,7 @@ nextflow_pipeline {
                 max_time = '10.min'
 
                 // Disable resource-intensive steps
-                kraken2_db = null
+                skip_kraken2 = true
                 blast_validation = false
                 use_dorado = false
                 realtime_mode = false
@@ -225,7 +225,7 @@ nextflow_pipeline {
                 max_time = '10.min'
 
                 // Disable resource-intensive steps
-                kraken2_db = null
+                skip_kraken2 = true
                 blast_validation = false
                 use_dorado = false
                 realtime_mode = false

@@ -32,7 +32,7 @@ nextflow_pipeline {
                 
                 // Disable other features for focused test
                 use_dorado = false
-                kraken2_db = null
+                skip_kraken2 = true
                 blast_validation = false
                 skip_fastp = false
                 

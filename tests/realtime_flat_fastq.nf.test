@@ -34,7 +34,7 @@ nextflow_pipeline {
 
                 // Disable advanced features
                 use_dorado = false
-                kraken2_db = null
+                skip_kraken2 = true
                 blast_validation = false
                 skip_nanoplot = true
                 enable_realtime_stats = false
