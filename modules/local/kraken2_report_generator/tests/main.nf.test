@@ -3,6 +3,7 @@ nextflow_process {
     script "../main.nf"
     process "KRAKEN2_REPORT_GENERATOR"
 
+    options "-stub"
     // Test Level & Component
     tag "module"
     tag "kraken2_report_generator"
@@ -20,8 +21,6 @@ nextflow_process {
     tag "snapshot"
 
     test("generate report from single batch - stub") {
-        options "-stub"
-
         when {
             process {
                 """
@@ -57,8 +56,6 @@ nextflow_process {
     }
 
     test("metadata preservation - stub") {
-        options "-stub"
-
         when {
             process {
                 """

@@ -21,6 +21,7 @@ nextflow_pipeline {
 
         when {
             params {
+                input = false
                 // POD5 basecalling mode
                 use_dorado = true
                 pod5_input_dir = "$projectDir/tests/fixtures/pod5"
@@ -56,6 +57,7 @@ nextflow_pipeline {
 
         when {
             params {
+                input = false
                 // POD5 basecalling with barcode structure
                 use_dorado = true
                 pod5_input_dir = "$projectDir/tests/fixtures/pod5"

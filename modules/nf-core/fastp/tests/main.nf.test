@@ -3,6 +3,8 @@ nextflow_process {
     name "Test Process FASTP"
     script "../main.nf"
     process "FASTP"
+
+    options "-stub"
     tag "modules"
     tag "modules_nfcore"
     tag "fastp"
@@ -360,9 +362,6 @@ nextflow_process {
     }
 
     test("test_fastp_single_end - stub") {
-
-        options "-stub"
-
         when {
 
             process {
@@ -393,9 +392,6 @@ nextflow_process {
     }
 
     test("test_fastp_paired_end - stub") {
-
-        options "-stub"
-
         when {
 
             process {
@@ -427,9 +423,6 @@ nextflow_process {
     }
 
     test("fastp - stub test_fastp_interleaved") {
-
-        options "-stub"
-
         config './nextflow.interleaved.config'
         when {
             process {
@@ -460,9 +453,6 @@ nextflow_process {
     }
 
     test("test_fastp_single_end_trim_fail - stub") {
-
-        options "-stub"
-
         when {
 
             process {
@@ -493,9 +483,6 @@ nextflow_process {
     }
 
     test("test_fastp_paired_end_trim_fail - stub") {
-
-        options "-stub"
-
         config './nextflow.save_failed.config'
         when {
             process {
@@ -527,9 +514,6 @@ nextflow_process {
     }
 
     test("test_fastp_paired_end_merged - stub") {
-
-        options "-stub"
-
         when {
             process {
                 """
@@ -560,9 +544,6 @@ nextflow_process {
     }
 
     test("test_fastp_paired_end_merged_adapterlist - stub") {
-
-        options "-stub"
-
         when {
             process {
                 """
@@ -595,9 +576,6 @@ nextflow_process {
     }
 
     test("test_fastp_single_end_qc_only - stub") {
-
-        options "-stub"
-
         when {
             process {
                 """
@@ -627,9 +605,6 @@ nextflow_process {
     }
 
     test("test_fastp_paired_end_qc_only - stub") {
-
-        options "-stub"
-
         when {
             process {
                 """

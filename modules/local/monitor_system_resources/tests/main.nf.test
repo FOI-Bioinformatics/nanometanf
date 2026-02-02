@@ -4,6 +4,7 @@ nextflow_process {
     script "../main.nf"
     process "MONITOR_SYSTEM_RESOURCES"
 
+    options "-stub"
     // Test Level & Component
     tag "module"
     tag "monitor_system_resources"

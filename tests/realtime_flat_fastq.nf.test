@@ -22,6 +22,7 @@ nextflow_pipeline {
 
         when {
             params {
+                input = false
                 // Real-time mode with flat directory
                 realtime_mode = true
                 nanopore_output_dir = "$projectDir/tests/fixtures/fastq"

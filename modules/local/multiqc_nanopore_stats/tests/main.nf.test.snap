@@ -4,221 +4,197 @@
             {
                 "0": [
                     [
+                        "test_nanopore_multiqc_config_mqc.json:md5,d41d8cd98f00b204e9800998ecf8427e",
                         "test_nanopore_nanopore_stats_mqc.json:md5,d41d8cd98f00b204e9800998ecf8427e",
                         "test_nanopore_quality_mqc.json:md5,d41d8cd98f00b204e9800998ecf8427e",
                         "test_nanopore_read_length_mqc.json:md5,d41d8cd98f00b204e9800998ecf8427e"
                     ]
                 ],
                 "1": [
-                    "test_nanopore_multiqc_config_mqc.yaml:md5,d41d8cd98f00b204e9800998ecf8427e"
-                ],
-                "2": [
-                    "versions.yml:md5,778ee7e467c71f4062c2689367ff8200"
+                    "versions.yml:md5,4d91f1d803eb679682cd4f38fe22a568"
                 ],
                 "multiqc_files": [
                     [
+                        "test_nanopore_multiqc_config_mqc.json:md5,d41d8cd98f00b204e9800998ecf8427e",
                         "test_nanopore_nanopore_stats_mqc.json:md5,d41d8cd98f00b204e9800998ecf8427e",
                         "test_nanopore_quality_mqc.json:md5,d41d8cd98f00b204e9800998ecf8427e",
                         "test_nanopore_read_length_mqc.json:md5,d41d8cd98f00b204e9800998ecf8427e"
                     ]
                 ],
-                "multiqc_yaml": [
-                    "test_nanopore_multiqc_config_mqc.yaml:md5,d41d8cd98f00b204e9800998ecf8427e"
-                ],
                 "versions": [
-                    "versions.yml:md5,778ee7e467c71f4062c2689367ff8200"
+                    "versions.yml:md5,4d91f1d803eb679682cd4f38fe22a568"
                 ]
             }
         ],
         "meta": {
-            "nf-test": "0.9.2",
-            "nextflow": "25.04.7"
+            "nf-test": "0.9.3",
+            "nextflow": "25.10.3"
         },
-        "timestamp": "2025-10-15T16:32:17.475619"
+        "timestamp": "2026-02-01T14:22:23.222333"
     },
     "multiqc_nanopore_stats - with histogram data": {
         "content": [
             {
                 "0": [
                     [
+                        "histogram_test_multiqc_config_mqc.json:md5,d41d8cd98f00b204e9800998ecf8427e",
                         "histogram_test_nanopore_stats_mqc.json:md5,d41d8cd98f00b204e9800998ecf8427e",
                         "histogram_test_quality_mqc.json:md5,d41d8cd98f00b204e9800998ecf8427e",
                         "histogram_test_read_length_mqc.json:md5,d41d8cd98f00b204e9800998ecf8427e"
                     ]
                 ],
                 "1": [
-                    "histogram_test_multiqc_config_mqc.yaml:md5,d41d8cd98f00b204e9800998ecf8427e"
-                ],
-                "2": [
-                    "versions.yml:md5,778ee7e467c71f4062c2689367ff8200"
+                    "versions.yml:md5,4d91f1d803eb679682cd4f38fe22a568"
                 ],
                 "multiqc_files": [
                     [
+                        "histogram_test_multiqc_config_mqc.json:md5,d41d8cd98f00b204e9800998ecf8427e",
                         "histogram_test_nanopore_stats_mqc.json:md5,d41d8cd98f00b204e9800998ecf8427e",
                         "histogram_test_quality_mqc.json:md5,d41d8cd98f00b204e9800998ecf8427e",
                         "histogram_test_read_length_mqc.json:md5,d41d8cd98f00b204e9800998ecf8427e"
                     ]
                 ],
-                "multiqc_yaml": [
-                    "histogram_test_multiqc_config_mqc.yaml:md5,d41d8cd98f00b204e9800998ecf8427e"
-                ],
                 "versions": [
-                    "versions.yml:md5,778ee7e467c71f4062c2689367ff8200"
+                    "versions.yml:md5,4d91f1d803eb679682cd4f38fe22a568"
                 ]
             }
         ],
         "meta": {
-            "nf-test": "0.9.2",
-            "nextflow": "25.04.7"
+            "nf-test": "0.9.3",
+            "nextflow": "25.10.3"
         },
-        "timestamp": "2025-10-15T16:32:25.445554"
+        "timestamp": "2026-02-01T14:22:33.677615"
     },
     "multiqc_nanopore_stats - stub run": {
         "content": [
             {
                 "0": [
                     [
+                        "stub_test_multiqc_config_mqc.json:md5,d41d8cd98f00b204e9800998ecf8427e",
                         "stub_test_nanopore_stats_mqc.json:md5,d41d8cd98f00b204e9800998ecf8427e",
                         "stub_test_quality_mqc.json:md5,d41d8cd98f00b204e9800998ecf8427e",
                         "stub_test_read_length_mqc.json:md5,d41d8cd98f00b204e9800998ecf8427e"
                     ]
                 ],
                 "1": [
-                    "stub_test_multiqc_config_mqc.yaml:md5,d41d8cd98f00b204e9800998ecf8427e"
-                ],
-                "2": [
-                    "versions.yml:md5,778ee7e467c71f4062c2689367ff8200"
+                    "versions.yml:md5,4d91f1d803eb679682cd4f38fe22a568"
                 ],
                 "multiqc_files": [
                     [
+                        "stub_test_multiqc_config_mqc.json:md5,d41d8cd98f00b204e9800998ecf8427e",
                         "stub_test_nanopore_stats_mqc.json:md5,d41d8cd98f00b204e9800998ecf8427e",
                         "stub_test_quality_mqc.json:md5,d41d8cd98f00b204e9800998ecf8427e",
                         "stub_test_read_length_mqc.json:md5,d41d8cd98f00b204e9800998ecf8427e"
                     ]
                 ],
-                "multiqc_yaml": [
-                    "stub_test_multiqc_config_mqc.yaml:md5,d41d8cd98f00b204e9800998ecf8427e"
-                ],
                 "versions": [
-                    "versions.yml:md5,778ee7e467c71f4062c2689367ff8200"
+                    "versions.yml:md5,4d91f1d803eb679682cd4f38fe22a568"
                 ]
             }
         ],
         "meta": {
-            "nf-test": "0.9.2",
-            "nextflow": "25.04.7"
+            "nf-test": "0.9.3",
+            "nextflow": "25.10.3"
         },
-        "timestamp": "2025-10-15T16:32:29.301452"
+        "timestamp": "2026-02-01T14:22:38.850012"
     },
     "multiqc_nanopore_stats - empty stats list": {
         "content": [
             {
                 "0": [
                     [
+                        "empty_test_multiqc_config_mqc.json:md5,d41d8cd98f00b204e9800998ecf8427e",
                         "empty_test_nanopore_stats_mqc.json:md5,d41d8cd98f00b204e9800998ecf8427e",
                         "empty_test_quality_mqc.json:md5,d41d8cd98f00b204e9800998ecf8427e",
                         "empty_test_read_length_mqc.json:md5,d41d8cd98f00b204e9800998ecf8427e"
                     ]
                 ],
                 "1": [
-                    "empty_test_multiqc_config_mqc.yaml:md5,d41d8cd98f00b204e9800998ecf8427e"
-                ],
-                "2": [
-                    "versions.yml:md5,778ee7e467c71f4062c2689367ff8200"
+                    "versions.yml:md5,4d91f1d803eb679682cd4f38fe22a568"
                 ],
                 "multiqc_files": [
                     [
+                        "empty_test_multiqc_config_mqc.json:md5,d41d8cd98f00b204e9800998ecf8427e",
                         "empty_test_nanopore_stats_mqc.json:md5,d41d8cd98f00b204e9800998ecf8427e",
                         "empty_test_quality_mqc.json:md5,d41d8cd98f00b204e9800998ecf8427e",
                         "empty_test_read_length_mqc.json:md5,d41d8cd98f00b204e9800998ecf8427e"
                     ]
                 ],
-                "multiqc_yaml": [
-                    "empty_test_multiqc_config_mqc.yaml:md5,d41d8cd98f00b204e9800998ecf8427e"
-                ],
                 "versions": [
-                    "versions.yml:md5,778ee7e467c71f4062c2689367ff8200"
+                    "versions.yml:md5,4d91f1d803eb679682cd4f38fe22a568"
                 ]
             }
         ],
         "meta": {
-            "nf-test": "0.9.2",
-            "nextflow": "25.04.7"
+            "nf-test": "0.9.3",
+            "nextflow": "25.10.3"
         },
-        "timestamp": "2025-10-15T16:32:33.361646"
+        "timestamp": "2026-02-01T14:22:44.401635"
     },
     "multiqc_nanopore_stats - high quality reads": {
         "content": [
             {
                 "0": [
                     [
+                        "high_quality_test_multiqc_config_mqc.json:md5,d41d8cd98f00b204e9800998ecf8427e",
                         "high_quality_test_nanopore_stats_mqc.json:md5,d41d8cd98f00b204e9800998ecf8427e",
                         "high_quality_test_quality_mqc.json:md5,d41d8cd98f00b204e9800998ecf8427e",
                         "high_quality_test_read_length_mqc.json:md5,d41d8cd98f00b204e9800998ecf8427e"
                     ]
                 ],
                 "1": [
-                    "high_quality_test_multiqc_config_mqc.yaml:md5,d41d8cd98f00b204e9800998ecf8427e"
-                ],
-                "2": [
-                    "versions.yml:md5,778ee7e467c71f4062c2689367ff8200"
+                    "versions.yml:md5,4d91f1d803eb679682cd4f38fe22a568"
                 ],
                 "multiqc_files": [
                     [
+                        "high_quality_test_multiqc_config_mqc.json:md5,d41d8cd98f00b204e9800998ecf8427e",
                         "high_quality_test_nanopore_stats_mqc.json:md5,d41d8cd98f00b204e9800998ecf8427e",
                         "high_quality_test_quality_mqc.json:md5,d41d8cd98f00b204e9800998ecf8427e",
                         "high_quality_test_read_length_mqc.json:md5,d41d8cd98f00b204e9800998ecf8427e"
                     ]
                 ],
-                "multiqc_yaml": [
-                    "high_quality_test_multiqc_config_mqc.yaml:md5,d41d8cd98f00b204e9800998ecf8427e"
-                ],
                 "versions": [
-                    "versions.yml:md5,778ee7e467c71f4062c2689367ff8200"
+                    "versions.yml:md5,4d91f1d803eb679682cd4f38fe22a568"
                 ]
             }
         ],
         "meta": {
-            "nf-test": "0.9.2",
-            "nextflow": "25.04.7"
+            "nf-test": "0.9.3",
+            "nextflow": "25.10.3"
         },
-        "timestamp": "2025-10-15T16:32:37.419241"
+        "timestamp": "2026-02-01T14:22:49.810611"
     },
     "multiqc_nanopore_stats - single sample": {
         "content": [
             {
                 "0": [
                     [
+                        "single_test_multiqc_config_mqc.json:md5,d41d8cd98f00b204e9800998ecf8427e",
                         "single_test_nanopore_stats_mqc.json:md5,d41d8cd98f00b204e9800998ecf8427e",
                         "single_test_quality_mqc.json:md5,d41d8cd98f00b204e9800998ecf8427e",
                         "single_test_read_length_mqc.json:md5,d41d8cd98f00b204e9800998ecf8427e"
                     ]
                 ],
                 "1": [
-                    "single_test_multiqc_config_mqc.yaml:md5,d41d8cd98f00b204e9800998ecf8427e"
-                ],
-                "2": [
-                    "versions.yml:md5,778ee7e467c71f4062c2689367ff8200"
+                    "versions.yml:md5,4d91f1d803eb679682cd4f38fe22a568"
                 ],
                 "multiqc_files": [
                     [
+                        "single_test_multiqc_config_mqc.json:md5,d41d8cd98f00b204e9800998ecf8427e",
                         "single_test_nanopore_stats_mqc.json:md5,d41d8cd98f00b204e9800998ecf8427e",
                         "single_test_quality_mqc.json:md5,d41d8cd98f00b204e9800998ecf8427e",
                         "single_test_read_length_mqc.json:md5,d41d8cd98f00b204e9800998ecf8427e"
                     ]
                 ],
-                "multiqc_yaml": [
-                    "single_test_multiqc_config_mqc.yaml:md5,d41d8cd98f00b204e9800998ecf8427e"
-                ],
                 "versions": [
-                    "versions.yml:md5,778ee7e467c71f4062c2689367ff8200"
+                    "versions.yml:md5,4d91f1d803eb679682cd4f38fe22a568"
                 ]
             }
         ],
         "meta": {
-            "nf-test": "0.9.2",
-            "nextflow": "25.04.7"
+            "nf-test": "0.9.3",
+            "nextflow": "25.10.3"
         },
-        "timestamp": "2025-10-15T16:32:21.367387"
+        "timestamp": "2026-02-01T14:22:28.469163"
     }
 }

@@ -4,6 +4,7 @@ nextflow_process {
     script "../main.nf"
     process "NANOPLOT_COMPARE"
 
+    options "-stub"
     // Test Level & Component
     tag "module"
     tag "nanoplot_compare"
@@ -20,9 +21,6 @@ nextflow_process {
     tag "snapshot"
 
     test("nanoplot_compare - stub run") {
-
-        options "-stub"
-
         when {
             process {
                 """

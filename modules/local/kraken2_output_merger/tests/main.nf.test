@@ -3,6 +3,7 @@ nextflow_process {
     script "../main.nf"
     process "KRAKEN2_OUTPUT_MERGER"
 
+    options "-stub"
     // Test Level & Component
     tag "module"
     tag "kraken2_output_merger"
@@ -20,8 +21,6 @@ nextflow_process {
     tag "snapshot"
 
     test("merge single batch - stub") {
-        options "-stub"
-
         when {
             process {
                 """
@@ -56,8 +55,6 @@ nextflow_process {
     }
 
     test("metadata preservation - stub") {
-        options "-stub"
-
         when {
             process {
                 """

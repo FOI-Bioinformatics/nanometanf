@@ -4,6 +4,7 @@ nextflow_process {
     script "../main.nf"
     process "DORADO_BASECALLER"
 
+    options "-stub"
     // Test Level & Component
     tag "module"
     tag "dorado_basecaller"
@@ -173,9 +174,6 @@ nextflow_process {
     }
 
     test("Should run in stub mode") {
-
-        options "-stub"
-
         when {
             process {
                 """

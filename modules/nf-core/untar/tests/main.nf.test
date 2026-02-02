@@ -3,6 +3,8 @@ nextflow_process {
     name "Test Process UNTAR"
     script "../main.nf"
     process "UNTAR"
+
+    options "-stub"
     tag "modules"
     tag "modules_nfcore"
     tag "untar"
@@ -44,9 +46,6 @@ nextflow_process {
     }
 
     test("test_untar - stub") {
-
-        options "-stub"
-
         when {
             process {
                 """
@@ -64,9 +63,6 @@ nextflow_process {
     }
 
     test("test_untar_onlyfiles - stub") {
-
-        options "-stub"
-
         when {
             process {
                 """

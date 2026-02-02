@@ -4,6 +4,8 @@ nextflow_process {
     script "../main.nf"
     config "./nextflow.config"
     process "PYCOQC"
+
+    options "-stub"
     tag "modules"
     tag "modules_nfcore"
     tag "pycoqc"

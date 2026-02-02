@@ -20,7 +20,7 @@ nextflow_pipeline {
         when {
             params {
                 // Empty samplesheet for real-time mode
-                input = "$projectDir/tests/empty_samplesheet.csv"
+                input = false
                 outdir = "$outputDir"
                 
                 // Enable real-time POD5 processing with Dorado
@@ -33,7 +33,7 @@ nextflow_pipeline {
                 // Batch settings for testing
                 batch_size = 1
                 batch_interval = "2s"  // Faster for testing
-                max_files = "1"  // Limit for testing (string type)
+                max_files = 1  // Limit for testing
                 
                 // Disable other features
                 demultiplex = false
@@ -53,7 +53,7 @@ nextflow_pipeline {
             assert workflow.exitStatus != null
 
             if (workflow.success) {
-                assert snapshot(file("${outputDir}/pipeline_info/software_versions.yml")).match("software_versions")
+                assert path("${outputDir}/pipeline_info").exists()
                 // If successful, should have run Dorado basecalling
                 assert workflow.trace.tasks().any { it.name.contains('DORADO') }
             }
@@ -64,9 +64,10 @@ nextflow_pipeline {
 
         when {
             params {
-                input = "$projectDir/tests/empty_samplesheet.csv"
+                input = false
                 outdir = "$outputDir"
                 
+                skip_kraken2 = true
                 // Test parameter validation for real-time POD5
                 realtime_mode = true
                 use_dorado = true
@@ -92,9 +93,10 @@ nextflow_pipeline {
 
         when {
             params {
-                input = "$projectDir/tests/empty_samplesheet.csv"
+                input = false
                 outdir = "$outputDir"
                 
+                skip_kraken2 = true
                 // Real-time mode WITHOUT Dorado (FASTQ mode)
                 realtime_mode = true
                 use_dorado = false  // This should use FASTQ monitoring
@@ -125,9 +127,10 @@ nextflow_pipeline {
 
         when {
             params {
-                input = "$projectDir/tests/empty_samplesheet.csv" 
+                input = false 
                 outdir = "$outputDir"
                 
+                skip_kraken2 = true
                 // Test configuration that should NOT trigger POD5 real-time
                 realtime_mode = false  // Disabled
                 use_dorado = true

@@ -23,6 +23,7 @@ nextflow_pipeline {
 
         when {
             params {
+                input = false
                 // Real-time POD5 basecalling mode
                 realtime_mode = true
                 use_dorado = true

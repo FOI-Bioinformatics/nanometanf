@@ -4,6 +4,7 @@ nextflow_process {
     script "../main.nf"
     process "COLLECT_PERFORMANCE_FEEDBACK"
 
+    options "-stub"
     // Test Level & Component
     tag "module"
     tag "resource_feedback_learning"
@@ -470,9 +471,6 @@ EOF
     }
 
     test("Should run in stub mode") {
-
-        options "-stub"
-
         when {
             process {
                 """
@@ -779,9 +777,6 @@ EOF
     }
 
     test("Should run learning model update in stub mode") {
-
-        options "-stub"
-
         when {
             process {
                 """

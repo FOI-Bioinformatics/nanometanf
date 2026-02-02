@@ -23,6 +23,7 @@ nextflow_pipeline {
 
         when {
             params {
+                input = false
                 // Real-time mode with existing files
                 realtime_mode = true
                 nanopore_output_dir = "$projectDir/tests/fixtures/barcode_structure"

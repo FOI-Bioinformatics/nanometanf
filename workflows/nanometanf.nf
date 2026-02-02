@@ -610,7 +610,7 @@ workflow NANOMETANF {
     classification_reports = params.kraken2_db ? TAXONOMIC_CLASSIFICATION.out.report : Channel.empty() // channel: [ val(meta), path(txt) ] - Original format
     standardized_reports   = params.kraken2_db ? TAXONOMIC_CLASSIFICATION.out.standardized_report : Channel.empty() // channel: [ val(meta), path(tsv/csv/etc) ] - Taxpasta format
     classifier_used        = params.kraken2_db ? TAXONOMIC_CLASSIFICATION.out.classifier_used : Channel.empty() // channel: val(classifier_name)
-    blast_results          = run_validation_effective ? VALIDATION.out.blast_results : Channel.empty()  // channel: [ val(meta), path(txt) ]
+    blast_results          = (run_validation_effective && params.pathogen_genomes) ? VALIDATION.out.blast_results : Channel.empty()  // channel: [ val(meta), path(txt) ]
     versions               = ch_versions                                     // channel: [ path(versions.yml) ]
 
 }

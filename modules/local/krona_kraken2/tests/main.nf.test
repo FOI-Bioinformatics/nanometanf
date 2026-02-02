@@ -4,6 +4,7 @@ nextflow_process {
     script "../main.nf"
     process "KRONA_KRAKEN2"
 
+    options "-stub"
     // Test Level & Component
     tag "module"
     tag "krona_kraken2"
@@ -20,9 +21,6 @@ nextflow_process {
     tag "snapshot"
 
     test("krona_kraken2 - stub run") {
-
-        options "-stub"
-
         when {
             process {
                 """

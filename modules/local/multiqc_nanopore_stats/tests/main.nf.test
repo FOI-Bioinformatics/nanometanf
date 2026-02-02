@@ -4,6 +4,7 @@ nextflow_process {
     script "../main.nf"
     process "MULTIQC_NANOPORE_STATS"
 
+    options "-stub"
     // Test Level & Component
     tag "module"
     tag "multiqc_nanopore_stats"
@@ -47,9 +48,6 @@ nextflow_process {
                 """
             }
         }
-
-        options "-stub"
-
         then {
             assertAll(
                 { assert process.success },
@@ -79,9 +77,6 @@ nextflow_process {
                 """
             }
         }
-
-        options "-stub"
-
         then {
             assertAll(
                 { assert process.success },
@@ -121,9 +116,6 @@ nextflow_process {
                 """
             }
         }
-
-        options "-stub"
-
         then {
             assertAll(
                 { assert process.success },
@@ -134,9 +126,6 @@ nextflow_process {
     }
 
     test("multiqc_nanopore_stats - stub run") {
-
-        options "-stub"
-
         when {
             process {
                 """
@@ -155,9 +144,6 @@ nextflow_process {
                 """
             }
         }
-
-        options "-stub"
-
         then {
             assertAll(
                 { assert process.success },
@@ -177,9 +163,6 @@ nextflow_process {
                 """
             }
         }
-
-        options "-stub"
-
         then {
             assertAll(
                 { assert process.success },
@@ -209,9 +192,6 @@ nextflow_process {
                 """
             }
         }
-
-        options "-stub"
-
         then {
             assertAll(
                 { assert process.success },

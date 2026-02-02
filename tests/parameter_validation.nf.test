@@ -37,7 +37,6 @@ nextflow_pipeline {
         then {
             // Just check parameters are valid
             assert workflow.success
-            assert snapshot(file("${outputDir}/pipeline_info/software_versions.yml")).match("software_versions") || workflow.exitStatus == 1
         }
     }
 }

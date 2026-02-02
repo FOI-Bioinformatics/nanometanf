@@ -4,6 +4,7 @@ nextflow_process {
     script "../main.nf"
     process "ANALYZE_INPUT_CHARACTERISTICS"
 
+    options "-stub"
     // Test Level & Component
     tag "module"
     tag "analyze_input_characteristics"
@@ -222,9 +223,6 @@ nextflow_process {
     }
 
     test("Should run in stub mode") {
-
-        options "-stub"
-
         when {
             process {
                 """

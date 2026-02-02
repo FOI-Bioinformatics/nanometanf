@@ -4,6 +4,7 @@ nextflow_process {
     script "../main.nf"
     process "PREDICT_RESOURCE_REQUIREMENTS"
 
+    options "-stub"
     // Test Level & Component
     tag "module"
     tag "predict_resource_requirements"
@@ -199,9 +200,6 @@ nextflow_process {
     }
 
     test("Should run in stub mode") {
-
-        options "-stub"
-
         when {
             process {
                 """

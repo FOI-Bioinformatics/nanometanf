@@ -38,6 +38,7 @@ nextflow_process {
                 trim_adapters = true
                 trim_barcodes = false
                 demultiplex = false
+                skip_kraken2 = true
             }
         }
 
@@ -65,6 +66,7 @@ nextflow_process {
                 outdir = "$outputDir"
                 dorado_path = 'dorado'  // Default
                 min_qscore = 9
+                skip_kraken2 = true
             }
         }
 
@@ -92,6 +94,7 @@ nextflow_process {
                 outdir = "$outputDir"
                 dorado_path = null  // Should fall back to 'dorado'
                 min_qscore = 12
+                skip_kraken2 = true
             }
         }
 
@@ -120,6 +123,7 @@ nextflow_process {
             params {
                 outdir = "$outputDir"
                 dorado_path = '/usr/local/dorado-1.2.0/bin/dorado'
+                skip_kraken2 = true
             }
         }
 
@@ -149,6 +153,7 @@ nextflow_process {
                 outdir = "$outputDir"
                 dorado_path = '/opt/dorado/dorado'
                 demultiplex = false
+                skip_kraken2 = true
             }
         }
 
