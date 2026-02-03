@@ -30,7 +30,7 @@
             "nf-test": "0.9.3",
             "nextflow": "25.10.3"
         },
-        "timestamp": "2026-02-01T14:22:23.222333"
+        "timestamp": "2026-02-03T09:19:00.107033"
     },
     "multiqc_nanopore_stats - with histogram data": {
         "content": [
@@ -63,7 +63,7 @@
             "nf-test": "0.9.3",
             "nextflow": "25.10.3"
         },
-        "timestamp": "2026-02-01T14:22:33.677615"
+        "timestamp": "2026-02-03T09:19:12.771569"
     },
     "multiqc_nanopore_stats - stub run": {
         "content": [
@@ -96,7 +96,7 @@
             "nf-test": "0.9.3",
             "nextflow": "25.10.3"
         },
-        "timestamp": "2026-02-01T14:22:38.850012"
+        "timestamp": "2026-02-03T09:19:18.583241"
     },
     "multiqc_nanopore_stats - empty stats list": {
         "content": [
@@ -129,7 +129,7 @@
             "nf-test": "0.9.3",
             "nextflow": "25.10.3"
         },
-        "timestamp": "2026-02-01T14:22:44.401635"
+        "timestamp": "2026-02-03T09:19:24.081522"
     },
     "multiqc_nanopore_stats - high quality reads": {
         "content": [
@@ -162,7 +162,7 @@
             "nf-test": "0.9.3",
             "nextflow": "25.10.3"
         },
-        "timestamp": "2026-02-01T14:22:49.810611"
+        "timestamp": "2026-02-03T09:19:29.670747"
     },
     "multiqc_nanopore_stats - single sample": {
         "content": [
@@ -195,6 +195,6 @@
             "nf-test": "0.9.3",
             "nextflow": "25.10.3"
         },
-        "timestamp": "2026-02-01T14:22:28.469163"
+        "timestamp": "2026-02-03T09:19:06.960263"
     }
 }

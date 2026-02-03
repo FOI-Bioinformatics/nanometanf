@@ -52,16 +52,16 @@ END_VERSIONS
     stub:
     def prefix = task.ext.prefix ?: "${meta.id}"
     """
-    # Create comprehensive error analysis JSON
-    cat > ${prefix}.error_analysis.json << 'EOF'
+    # Create comprehensive error analysis JSON with proper variable expansion
+    cat > ${prefix}.error_analysis.json << EOF
 {
     "sample_id": "${meta.id}",
     "error_context": "${error_context}",
-    "analysis_timestamp": "\$(date -Iseconds)",
+    "analysis_timestamp": "2024-01-01T00:00:00+00:00",
     "error_classification": {
-        "error_type": "stub_test_error",
-        "severity": "low",
-        "category": "validation",
+        "error_type": "memory_error",
+        "severity": "critical",
+        "category": "memory",
         "is_recoverable": true
     },
     "error_details": {
@@ -90,10 +90,10 @@ END_VERSIONS
 EOF
 
     # Create comprehensive recovery plan JSON
-    cat > ${prefix}.recovery_plan.json << 'EOF'
+    cat > ${prefix}.recovery_plan.json << EOF
 {
     "sample_id": "${meta.id}",
-    "recovery_timestamp": "\$(date -Iseconds)",
+    "recovery_timestamp": "2024-01-01T00:00:00+00:00",
     "recovery_strategy": {
         "strategy_type": "automatic_retry",
         "confidence_score": 0.95,
@@ -102,8 +102,8 @@ EOF
     "recovery_steps": [
         {
             "step_number": 1,
-            "action": "validate_input_files",
-            "description": "Verify all input files are accessible and valid",
+            "action": "clean_and_escalate",
+            "description": "Clean temporary files and escalate immediately to resolve disk or memory issues",
             "estimated_duration_seconds": 30,
             "required_resources": {"cpu": 1, "memory_mb": 512}
         },
@@ -151,7 +151,7 @@ EOF
 
     cat <<-END_VERSIONS > versions.yml
 "${task.process}":
-    python: \$(python --version | sed 's/Python //g')
+    python: 3.9.0
     error_handler: 1.0.0
 END_VERSIONS
     """

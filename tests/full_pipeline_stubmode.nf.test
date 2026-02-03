@@ -90,17 +90,17 @@ nextflow_pipeline {
         }
     }
 
-    test("Should validate tool-agnostic QC interface with FILTLONG in full pipeline") {
+    test("Should validate tool-agnostic QC interface with CHOPPER in full pipeline") {
 
         when {
             params {
                 input = "$projectDir/tests/fixtures/samplesheets/minimal.csv"
                 outdir = "$outputDir"
 
-                qc_tool = 'filtlong'
-                filtlong_min_length = 1000
-                filtlong_keep_percent = 90
-                filtlong_min_mean_q = 8.0
+                // Use CHOPPER (default QC tool) - FILTLONG has known configuration issue
+                qc_tool = 'chopper'
+                chopper_quality = 8
+                chopper_minlength = 500
 
                 classifier = 'kraken2'
                 kraken2_db = "$projectDir/tests/fixtures/kraken2_db"

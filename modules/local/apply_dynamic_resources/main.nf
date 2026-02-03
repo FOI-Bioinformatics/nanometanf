@@ -49,11 +49,11 @@ process APPLY_DYNAMIC_RESOURCES {
     stub:
     """
     # Create comprehensive dynamic resource configuration matching real output structure
-    cat > ${meta.id}_dynamic_config.json << 'EOF'
+    cat > dynamic_config.json << EOF
 {
     "sample_id": "${meta.id}",
     "target_process": "${target_process_name}",
-    "configuration_timestamp": "\$(date -Iseconds)",
+    "configuration_timestamp": "2024-01-01T00:00:00+00:00",
     "nextflow_process_config": {
         "cpus": 4,
         "memory": "8.GB",

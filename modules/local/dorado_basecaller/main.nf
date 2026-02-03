@@ -238,9 +238,9 @@ Demultiplex: ${params.demultiplex ?: false}
 Barcode Kit: ${params.barcode_kit ?: 'none'}
 Input files: stub_input.pod5
 Input file count: 1
-Basecalling started: \$(date "+%Y-%m-%d %H:%M:%S")
-Basecalling completed: \$(date "+%Y-%m-%d %H:%M:%S")
-Host: \$(hostname)
+Basecalling started: 2024-01-01 00:00:00
+Basecalling completed: 2024-01-01 00:00:00
+Host: stub-host
 CPUs: ${task.cpus}
 Memory: ${task.memory}
 EOF

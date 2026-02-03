@@ -3,16 +3,28 @@
         "content": [
             {
                 "0": [
-                    
+                    [
+                        {
+                            "id": "aggressive_scaling_test",
+                            "single_end": true
+                        },
+                        "dynamic_config.json:md5,044dc3c28737823a2609e6ecf04ec11c"
+                    ]
                 ],
                 "1": [
-                    
+                    "versions.yml:md5,54b9306beb6c317df84d19286454ad21"
                 ],
                 "config": [
-                    
+                    [
+                        {
+                            "id": "aggressive_scaling_test",
+                            "single_end": true
+                        },
+                        "dynamic_config.json:md5,044dc3c28737823a2609e6ecf04ec11c"
+                    ]
                 ],
                 "versions": [
-                    
+                    "versions.yml:md5,54b9306beb6c317df84d19286454ad21"
                 ]
             }
         ],
@@ -20,22 +32,34 @@
             "nf-test": "0.9.3",
             "nextflow": "25.10.3"
         },
-        "timestamp": "2026-02-01T14:19:00.505277"
+        "timestamp": "2026-02-03T14:35:31.493695"
     },
     "Should handle GPU resource allocation": {
         "content": [
             {
                 "0": [
-                    
+                    [
+                        {
+                            "id": "gpu_allocation_test",
+                            "single_end": true
+                        },
+                        "dynamic_config.json:md5,294124326da8a851c798d4d300e1ebac"
+                    ]
                 ],
                 "1": [
-                    
+                    "versions.yml:md5,54b9306beb6c317df84d19286454ad21"
                 ],
                 "config": [
-                    
+                    [
+                        {
+                            "id": "gpu_allocation_test",
+                            "single_end": true
+                        },
+                        "dynamic_config.json:md5,294124326da8a851c798d4d300e1ebac"
+                    ]
                 ],
                 "versions": [
-                    
+                    "versions.yml:md5,54b9306beb6c317df84d19286454ad21"
                 ]
             }
         ],
@@ -43,22 +67,34 @@
             "nf-test": "0.9.3",
             "nextflow": "25.10.3"
         },
-        "timestamp": "2026-02-01T14:19:09.308493"
+        "timestamp": "2026-02-03T14:35:43.588827"
     },
     "Should generate conservative resource allocation": {
         "content": [
             {
                 "0": [
-                    
+                    [
+                        {
+                            "id": "conservative_allocation_test",
+                            "single_end": true
+                        },
+                        "dynamic_config.json:md5,ae34938bf2d9db35e7126061a3bf550d"
+                    ]
                 ],
                 "1": [
-                    
+                    "versions.yml:md5,54b9306beb6c317df84d19286454ad21"
                 ],
                 "config": [
-                    
+                    [
+                        {
+                            "id": "conservative_allocation_test",
+                            "single_end": true
+                        },
+                        "dynamic_config.json:md5,ae34938bf2d9db35e7126061a3bf550d"
+                    ]
                 ],
                 "versions": [
-                    
+                    "versions.yml:md5,54b9306beb6c317df84d19286454ad21"
                 ]
             }
         ],
@@ -66,22 +102,34 @@
             "nf-test": "0.9.3",
             "nextflow": "25.10.3"
         },
-        "timestamp": "2026-02-01T14:19:13.714887"
+        "timestamp": "2026-02-03T14:35:49.660553"
     },
     "Should apply basic resource adjustments": {
         "content": [
             {
                 "0": [
-                    
+                    [
+                        {
+                            "id": "basic_adjustment_test",
+                            "single_end": true
+                        },
+                        "dynamic_config.json:md5,dbd6aed74c45832c196f33c230ec19c6"
+                    ]
                 ],
                 "1": [
-                    
+                    "versions.yml:md5,54b9306beb6c317df84d19286454ad21"
                 ],
                 "config": [
-                    
+                    [
+                        {
+                            "id": "basic_adjustment_test",
+                            "single_end": true
+                        },
+                        "dynamic_config.json:md5,dbd6aed74c45832c196f33c230ec19c6"
+                    ]
                 ],
                 "versions": [
-                    
+                    "versions.yml:md5,54b9306beb6c317df84d19286454ad21"
                 ]
             }
         ],
@@ -89,22 +137,34 @@
             "nf-test": "0.9.3",
             "nextflow": "25.10.3"
         },
-        "timestamp": "2026-02-01T14:18:56.099144"
+        "timestamp": "2026-02-03T14:35:25.850553"
     },
     "Should respect system resource limits": {
         "content": [
             {
                 "0": [
-                    
+                    [
+                        {
+                            "id": "constrained_system_test",
+                            "single_end": true
+                        },
+                        "dynamic_config.json:md5,7fa14d003ba63fc18d98cd753b8ebd7f"
+                    ]
                 ],
                 "1": [
-                    
+                    "versions.yml:md5,54b9306beb6c317df84d19286454ad21"
                 ],
                 "config": [
-                    
+                    [
+                        {
+                            "id": "constrained_system_test",
+                            "single_end": true
+                        },
+                        "dynamic_config.json:md5,7fa14d003ba63fc18d98cd753b8ebd7f"
+                    ]
                 ],
                 "versions": [
-                    
+                    "versions.yml:md5,54b9306beb6c317df84d19286454ad21"
                 ]
             }
         ],
@@ -112,22 +172,34 @@
             "nf-test": "0.9.3",
             "nextflow": "25.10.3"
         },
-        "timestamp": "2026-02-01T14:19:04.866947"
+        "timestamp": "2026-02-03T14:35:37.489607"
     },
     "Should handle invalid or malformed recommendations": {
         "content": [
             {
                 "0": [
-                    
+                    [
+                        {
+                            "id": "invalid_input_test",
+                            "single_end": true
+                        },
+                        "dynamic_config.json:md5,bcbcb69d750668e312dcbe432ad05c1d"
+                    ]
                 ],
                 "1": [
-                    
+                    "versions.yml:md5,54b9306beb6c317df84d19286454ad21"
                 ],
                 "config": [
-                    
+                    [
+                        {
+                            "id": "invalid_input_test",
+                            "single_end": true
+                        },
+                        "dynamic_config.json:md5,bcbcb69d750668e312dcbe432ad05c1d"
+                    ]
                 ],
                 "versions": [
-                    
+                    "versions.yml:md5,54b9306beb6c317df84d19286454ad21"
                 ]
             }
         ],
@@ -135,6 +207,6 @@
             "nf-test": "0.9.3",
             "nextflow": "25.10.3"
         },
-        "timestamp": "2026-02-01T14:19:18.205758"
+        "timestamp": "2026-02-03T14:35:56.600723"
     }
 }

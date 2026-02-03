@@ -56,6 +56,7 @@ nextflow_pipeline {
                 outdir = "$outputDir"
                 
                 skip_kraken2 = true
+                blast_validation = false
                 // Test empty samplesheet behavior - MUST be used with real-time mode
                 realtime_mode = true  // This is required for empty samplesheets
                 nanopore_output_dir = "/tmp/empty_test_dir" // Non-existent dir for testing
@@ -98,6 +99,7 @@ nextflow_pipeline {
                 outdir = "$outputDir"
                 
                 skip_kraken2 = true
+                blast_validation = false
                 // Real-time mode with existing files
                 realtime_mode = true
                 nanopore_output_dir = "$projectDir/tests/realtime_existing_files"

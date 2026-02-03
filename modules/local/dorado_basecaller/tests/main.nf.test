@@ -89,10 +89,10 @@ nextflow_process {
 
         then {
             assert process.success
-            assert process.out.reads.size() == 1
-            
+            assert process.out.fastq.size() == 1
+
             // Check output structure with demultiplexing
-            def (meta, reads) = process.out.reads[0]
+            def (meta, reads) = process.out.fastq[0]
             assert meta.id == 'test_demux_sample'
             
             // Should have versions
@@ -127,9 +127,9 @@ nextflow_process {
 
         then {
             assert process.success
-            assert process.out.reads.size() == 1
-            
-            def (meta, reads) = process.out.reads[0]
+            assert process.out.fastq.size() == 1
+
+            def (meta, reads) = process.out.fastq[0]
             assert meta.basecalling_model == 'dna_r9.4.1_e8_fast@v3.4'
             
             assert process.out.versions.size() == 1
@@ -167,7 +167,7 @@ nextflow_process {
             
             if (process.success) {
                 // If successful, should still produce minimal output
-                assert process.out.reads.size() >= 0
+                assert process.out.fastq.size() >= 0
                 assert process.out.versions.size() == 1
             }
         }
@@ -192,11 +192,11 @@ nextflow_process {
 
         then {
             assert process.success
-            assert process.out.reads.size() == 1
+            assert process.out.fastq.size() == 1
             assert process.out.versions.size() == 1
-            
+
             // In stub mode, should produce placeholder files
-            def (meta, reads) = process.out.reads[0]
+            def (meta, reads) = process.out.fastq[0]
             assert meta.id == 'test_stub'
         }
     }

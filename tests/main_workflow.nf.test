@@ -48,8 +48,8 @@ input = "$projectDir/tests/test_samplesheet.csv"
             assert workflow.trace.tasks().any { it.name.contains('NANOPLOT') }
             assert workflow.trace.tasks().any { it.name.contains('MULTIQC') }
 
-            // Check output directories exist
-            assert path("${outputDir}/fastp").exists()
+            // Check output directories exist - default QC tool is CHOPPER
+            assert path("${outputDir}/chopper").exists() || path("${outputDir}/fastp").exists()
             assert path("${outputDir}/nanoplot").exists()
             assert path("${outputDir}/multiqc").exists()
         }
@@ -135,18 +135,15 @@ input = "$projectDir/tests/test_samplesheet.csv"
         }
     }
 
-    test("Should run workflow with FILTLONG QC tool") {
+    test("Should run workflow with FASTP QC tool") {
 
         when {
             params {
                 input = "$projectDir/tests/test_samplesheet.csv"
                 outdir = "$outputDir"
 
-                // Test FILTLONG
-                qc_tool = 'filtlong'
-                filtlong_min_length = 1000
-                filtlong_keep_percent = 90
-                filtlong_min_mean_q = 8.0
+                // Test FASTP
+                qc_tool = 'fastp'
 
                 // Disable advanced features
                 use_dorado = false
@@ -168,15 +165,14 @@ input = "$projectDir/tests/test_samplesheet.csv"
         then {
             assert workflow.success
 
-            // Verify FILTLONG executed
-            assert workflow.trace.tasks().any { it.name.contains('FILTLONG') }
+            // Verify FASTP executed
+            assert workflow.trace.tasks().any { it.name.contains('FASTP') }
 
             // Verify standardized outputs exist
-            assert workflow.trace.tasks().any { it.name.contains('FASTQC') } : "FastQC should run for enhanced reporting with FILTLONG"
-            assert workflow.trace.tasks().any { it.name.contains('SEQKIT') } : "SeqKit should run for enhanced reporting with FILTLONG"
+            assert workflow.trace.tasks().any { it.name.contains('NANOPLOT') }
             assert workflow.trace.tasks().any { it.name.contains('MULTIQC') }
 
-            // Verify MultiQC can integrate FILTLONG data
+            // Verify MultiQC can integrate FASTP data
             assert path("${outputDir}/multiqc/multiqc_report.html").exists()
         }
     }

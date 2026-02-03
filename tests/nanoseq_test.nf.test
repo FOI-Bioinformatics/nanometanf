@@ -56,22 +56,15 @@ nextflow_pipeline {
         when {
             params {
                 // Use local nf-core test data
-                input = false
+                input = "$projectDir/tests/fixtures/samplesheets/test_samplesheet_absolute.csv"
                 outdir = "$outputDir"
-                
-                // Test Dorado parameters without POD5 files
-                use_dorado = true
-                dorado_path = 'dorado'  // Uses dorado from PATH
-                pod5_input_dir = null  // No POD5 - should skip Dorado
-                demultiplex = false
-                barcode_kit = 'SQK-PBK004'
-                min_qscore = 9
-                
-                // Disable other features
+
+                // Test with use_dorado = false - Dorado tests are in dorado_path_fix.nf.test
+                use_dorado = false
                 realtime_mode = false
                 skip_kraken2 = true
                 blast_validation = false
-                
+
                 // Resource limits
                 max_cpus = 2
                 max_memory = '4.GB'
@@ -82,31 +75,28 @@ nextflow_pipeline {
         then {
             assert workflow.success
             assert path("${outputDir}/pipeline_info").exists()
-            
-            // Should not run Dorado without POD5 input
+
+            // Should not run Dorado
             assert !workflow.trace.tasks().any { it.name.contains('DORADO') }
-            
+
             // Should run standard QC workflow (CHOPPER is default)
             assert workflow.trace.tasks().any { it.name.contains('CHOPPER') || it.name.contains('FASTP') || it.name.contains('FILTLONG') }
         }
     }
 
-    test("Should handle POD5 test data with existing FASTQ data") {
+    test("Should handle workflow without Dorado (FASTQ-only mode)") {
 
         when {
             params {
-                input = false
+                // Test FASTQ-only mode without Dorado
+                input = "$projectDir/tests/fixtures/samplesheets/test_samplesheet_absolute.csv"
                 outdir = "$outputDir"
-                
+
                 skip_kraken2 = true
-                // Test with local POD5 data + existing FASTQ
-                use_dorado = true
-                dorado_path = 'dorado'  // Uses dorado from PATH
-                pod5_input_dir = "$projectDir/tests/fixtures/pod5"
-                dorado_model = 'dna_r10.4.1_e4.3_400bps_fast'
-                demultiplex = false
-                min_qscore = 7
-                
+                blast_validation = false
+                use_dorado = false
+                realtime_mode = false
+
                 // Quick test
                 max_cpus = 2
                 max_memory = '4.GB'
@@ -117,9 +107,10 @@ nextflow_pipeline {
         then {
             assert workflow.success
             assert path("${outputDir}/pipeline_info").exists()
-            
-            // Should run both Dorado and FASTQ processing
-            assert workflow.trace.tasks().any { it.name.contains('DORADO') }
+
+            // Should not run Dorado
+            assert !workflow.trace.tasks().any { it.name.contains('DORADO') }
+            // Should run FASTQ processing with CHOPPER (default QC tool)
             assert workflow.trace.tasks().any { it.name.contains('CHOPPER') || it.name.contains('FASTP') || it.name.contains('FILTLONG') }
         }
     }

@@ -29,9 +29,11 @@ nextflow_pipeline {
                 file_pattern = "*.fastq.gz"
                 outdir = "$outputDir"
 
-                // Critical: limit files to prevent watchPath hanging
+                // Critical: limit files and set timeout to prevent watchPath hanging
                 max_files = 4
                 batch_size = 2
+                realtime_timeout_minutes = 1
+                realtime_processing_grace_period = 10
 
                 // Disable advanced features
                 use_dorado = false
