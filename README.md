@@ -22,7 +22,7 @@
 - Dual POD5 folder structure support (flat or pre-demultiplexed barcodes)
 - Metal GPU acceleration support for Apple Silicon (macOS)
 - Intelligent resource optimization and backpressure control
-- Production-ready with 94 nf-tests and full nf-core compliance (96/100)
+- Production-ready with 55 nf-tests and full nf-core compliance (96/100)
 
 ## Quick Start
 

@@ -107,9 +107,19 @@ See [CODE_QUALITY_EVALUATION_2025-11-04.md](archive/sessions/CODE_QUALITY_EVALUA
 | `workflows/nanometanf.nf` | Main workflow orchestration |
 | `subworkflows/local/` | Custom subworkflows |
 | `modules/local/` | Custom modules |
+| `lib/` | Groovy utility classes |
 | `nextflow.config` | Pipeline configuration |
 | `nextflow_schema.json` | Parameter validation |
 | `conf/modules.config` | Module-specific configs |
+
+### Library Utilities (lib/)
+
+| File | Purpose |
+|------|---------|
+| `InputDetector.groovy` | Type-agnostic input detection (POD5/FASTQ/directory) |
+| `BatchUtils.groovy` | Batching utilities using `buffer()` operator |
+| `WorkflowMain.groovy` | Main workflow initialization |
+| `Utils.groovy` | General utility functions |
 
 ### Testing Guidelines
 
@@ -250,6 +260,6 @@ These documents are preserved for historical reference but are not actively main
 
 ---
 
-**Last Updated:** 2025-01-26
+**Last Updated:** 2026-02-03
 **Maintainer:** Andreas Sjodin (@andreassjodin)
 **Version:** 1.5.0dev

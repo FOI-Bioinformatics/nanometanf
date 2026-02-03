@@ -106,8 +106,13 @@ max_classification_forks = 8    // Max parallel Kraken2 jobs
 
 ### Critical Subworkflows (subworkflows/local/)
 
+- **`input_scanner/main.nf`** - Unified input directory scanning (v1.5+)
+  - Replaces separate barcode_input_dir handling
+  - Supports MinKNOW-style and flat directory structures
+  - Uses InputDetector for type-agnostic path handling
+
 - **`realtime_monitoring/main.nf`** - Real-time FASTQ monitoring with watchPath
-  - Adaptive batching, priority routing, barcode extraction
+  - Adaptive batching via BatchUtils, priority routing, barcode extraction
   - Backpressure configuration logging
 
 - **`realtime_pod5_monitoring/main.nf`** - Real-time POD5 monitoring + basecalling
@@ -133,6 +138,16 @@ max_classification_forks = 8    // Max parallel Kraken2 jobs
 | `extract_reads_by_taxid/` | Extract reads for validation |
 | `blastn_validation/` | BLAST validation |
 | `minimap2_validation/` | Fast minimap2 validation |
+
+### Library Utilities (lib/)
+
+| File | Purpose |
+|------|---------|
+| `InputDetector.groovy` | Type-agnostic input detection (POD5/FASTQ/directory) |
+| `BatchUtils.groovy` | Batching utilities using `buffer()` operator |
+| `WorkflowMain.groovy` | Main workflow initialization |
+| `Utils.groovy` | General utility functions |
+| `NfcoreSchema.groovy` | Schema validation helpers |
 
 ---
 
@@ -237,6 +252,16 @@ nf-core modules update
 
 ### 5. Testing Workflow
 
+The test suite is designed to run in stub mode without Docker or external tools.
+
+**Test structure:**
+- **17 pipeline/subworkflow/lib tests** (`tests/`) - smoke tests and parameter validation
+- **38 module tests** (`modules/local/*/tests/`, `modules/nf-core/*/tests/`) - stub-mode unit tests
+
+**Required skip flags for pipeline tests:** All pipeline-level tests must include
+`skip_kraken2 = true`, `use_dorado = false`, and `blast_validation = false` in their
+params blocks unless the test specifically exercises that feature in stub mode.
+
 ```bash
 # Quick validation
 nf-test test --tag core --tag fast
@@ -246,6 +271,9 @@ nf-test test
 
 # Specific test
 nf-test test tests/nanoseq_test.nf.test --verbose
+
+# Update snapshots after test changes
+nf-test test --update-snapshot
 ```
 
 ---
@@ -254,7 +282,8 @@ nf-test test tests/nanoseq_test.nf.test --verbose
 
 ### Input Modes (Mutually Exclusive)
 - `--input` - Samplesheet CSV
-- `--barcode_input_dir` - Pre-demultiplexed barcode directories
+- `--input_dir` - Unified directory scanning (v1.5+, replaces barcode_input_dir)
+- `--barcode_input_dir` - Pre-demultiplexed barcode directories (deprecated, use input_dir)
 - `--pod5_input_dir` + `--use_dorado` - POD5 basecalling mode
 
 ### Real-time Processing
@@ -341,7 +370,7 @@ gh pr create --title "Title" --body "Description"
 
 ---
 
-**Last Updated:** 2025-01-26
+**Last Updated:** 2026-02-03
 **Version:** 1.5.0dev
 **Maintainer:** foi-bioinformatics team (@andreassjodin)
 
@@ -352,3 +381,6 @@ gh pr create --title "Title" --body "Description"
 - End-of-session aggregation module
 - Backpressure control parameters
 - Expected 4-5x throughput improvement for high-barcode runs
+- Unified input handling: INPUT_SCANNER subworkflow with InputDetector
+- BatchUtils refactoring: replaced deprecated `Channel.create()` with `buffer()`
+- Test suite fixes: 55 active tests (17 pipeline + 38 module) with stub mode compatibility
