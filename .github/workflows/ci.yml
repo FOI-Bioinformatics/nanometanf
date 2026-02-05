@@ -1,0 +1,29 @@
+name: CI
+
+on:
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Verify Pipeline
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Nextflow
+        uses: nf-core/setup-nextflow@v2
+        with:
+          version: '25.10.0'
+
+      - name: Verify syntax
+        run: nextflow run main.nf -preview
+
+      - name: Verify help output
+        run: nextflow run main.nf --help
+
+      - name: Verify version
+        run: nextflow run main.nf --version
