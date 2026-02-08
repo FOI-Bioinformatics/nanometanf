@@ -44,7 +44,7 @@ nextflow_workflow {
                 ]
                 """
             }
-            
+
             params {
                 realtime_mode = true
                 max_cpus = 2
@@ -58,11 +58,11 @@ nextflow_workflow {
             assert snapshot(workflow.out.versions).match()
             assert workflow.out.processed_files
             assert workflow.out.batch_stats
-            
+
             // Check that files were detected and processed
             def processed_files = workflow.out.processed_files.toList()
             assert processed_files.size() >= 1
-            
+
             // Check statistics generation
             def batch_stats = workflow.out.batch_stats.toList()
             assert batch_stats.size() >= 1
@@ -77,15 +77,15 @@ nextflow_workflow {
             mkdir -p $outputDir/high_priority_dir
             mkdir -p $outputDir/normal_priority_dir
             mkdir -p $outputDir/low_priority_dir
-            
+
             # High priority files
             cp $projectDir/tests/test_sample.fastq.gz $outputDir/high_priority_dir/urgent_sample1.fastq.gz
             cp $projectDir/tests/test_sample.fastq.gz $outputDir/high_priority_dir/urgent_sample2.fastq.gz
-            
+
             # Normal priority files
             cp $projectDir/tests/test_sample.fastq.gz $outputDir/normal_priority_dir/normal_sample1.fastq.gz
             cp $projectDir/tests/test_sample.fastq.gz $outputDir/normal_priority_dir/normal_sample2.fastq.gz
-            
+
             # Low priority files
             cp $projectDir/tests/test_sample.fastq.gz $outputDir/low_priority_dir/batch_sample1.fastq.gz
             """
@@ -96,7 +96,7 @@ nextflow_workflow {
                 """
                 input[0] = [
                     '$outputDir/high_priority_dir',
-                    '$outputDir/normal_priority_dir', 
+                    '$outputDir/normal_priority_dir',
                     '$outputDir/low_priority_dir'
                 ]
                 input[1] = '**/*.{fastq,fastq.gz,fq,fq.gz}'
@@ -116,7 +116,7 @@ nextflow_workflow {
                 ]
                 """
             }
-            
+
             params {
                 realtime_mode = true
                 enable_file_prioritization = true
@@ -132,11 +132,11 @@ nextflow_workflow {
             assert workflow.out.processed_files
             assert workflow.out.batch_stats
             assert workflow.out.priority_stats
-            
+
             // Verify multi-directory processing
             def processed_files = workflow.out.processed_files.toList()
             assert processed_files.size() >= 3
-            
+
             // Check priority handling
             if (workflow.out.priority_stats) {
                 def priority_stats = workflow.out.priority_stats.toList()
@@ -151,12 +151,12 @@ nextflow_workflow {
             """
             # Create directory with varying file sizes
             mkdir -p $outputDir/adaptive_test
-            
+
             # Small files
             for i in {1..8}; do
                 cp $projectDir/tests/test_sample.fastq.gz $outputDir/adaptive_test/small_sample_\${i}.fastq.gz
             done
-            
+
             # Create a larger file (simulate heavy load)
             cat $projectDir/tests/test_sample.fastq.gz $projectDir/tests/test_sample.fastq.gz > $outputDir/adaptive_test/large_sample.fastq.gz
             """
@@ -185,7 +185,7 @@ nextflow_workflow {
                 ]
                 """
             }
-            
+
             params {
                 realtime_mode = true
                 enable_adaptive_batching = true
@@ -201,11 +201,11 @@ nextflow_workflow {
             assert snapshot(workflow.out.versions).match()
             assert workflow.out.processed_files
             assert workflow.out.batch_stats
-            
+
             // Verify adaptive batching occurred
             def processed_files = workflow.out.processed_files.toList()
             assert processed_files.size() >= 5
-            
+
             // Check adaptive statistics
             if (workflow.out.adaptive_stats) {
                 def adaptive_stats = workflow.out.adaptive_stats.toList()
@@ -222,7 +222,7 @@ nextflow_workflow {
             mkdir -p $outputDir/stats_test/barcode01
             mkdir -p $outputDir/stats_test/barcode02
             mkdir -p $outputDir/stats_test/unclassified
-            
+
             # Generate files with realistic nanopore naming
             cp $projectDir/tests/test_sample.fastq.gz $outputDir/stats_test/barcode01/PAW12345_pass_barcode01_001.fastq.gz
             cp $projectDir/tests/test_sample.fastq.gz $outputDir/stats_test/barcode01/PAW12345_pass_barcode01_002.fastq.gz
@@ -253,7 +253,7 @@ nextflow_workflow {
                 ]
                 """
             }
-            
+
             params {
                 realtime_mode = true
                 enable_realtime_stats = true
@@ -271,14 +271,14 @@ nextflow_workflow {
             assert workflow.out.processed_files
             assert workflow.out.batch_stats
             assert workflow.out.cumulative_stats
-            
+
             // Verify comprehensive statistics
             def batch_stats = workflow.out.batch_stats.toList()
             assert batch_stats.size() >= 1
-            
+
             def cumulative_stats = workflow.out.cumulative_stats.toList()
             assert cumulative_stats.size() >= 1
-            
+
             // Check source analysis
             if (workflow.out.source_stats) {
                 def source_stats = workflow.out.source_stats.toList()
@@ -293,15 +293,15 @@ nextflow_workflow {
             """
             # Create mixed file types
             mkdir -p $outputDir/pattern_test
-            
+
             # Valid files
             cp $projectDir/tests/test_sample.fastq.gz $outputDir/pattern_test/valid_sample.fastq.gz
             cp $projectDir/tests/test_sample.fastq.gz $outputDir/pattern_test/valid_sample.fq.gz
-            
+
             # Invalid files (should be filtered out)
             echo "not a fastq file" > $outputDir/pattern_test/invalid.txt
             echo "also not fastq" > $outputDir/pattern_test/readme.md
-            
+
             # Uncompressed valid file
             gzip -dc $projectDir/tests/test_sample.fastq.gz > $outputDir/pattern_test/uncompressed.fastq
             """
@@ -326,7 +326,7 @@ nextflow_workflow {
                 ]
                 """
             }
-            
+
             params {
                 realtime_mode = true
                 enable_file_filtering = true
@@ -340,7 +340,7 @@ nextflow_workflow {
             assert workflow.success
             assert snapshot(workflow.out.versions).match()
             assert workflow.out.processed_files
-            
+
             // Should only process valid FASTQ files
             def processed_files = workflow.out.processed_files.toList()
             assert processed_files.size() >= 2  // Only valid fastq files
@@ -356,7 +356,7 @@ nextflow_workflow {
             mkdir -p $outputDir/empty_dir1
             mkdir -p $outputDir/empty_dir2
             mkdir -p $outputDir/no_match_dir
-            
+
             # Add non-matching files
             echo "not a match" > $outputDir/no_match_dir/file.txt
             echo "also not a match" > $outputDir/no_match_dir/data.csv
@@ -386,7 +386,7 @@ nextflow_workflow {
                 ]
                 """
             }
-            
+
             params {
                 realtime_mode = true
                 handle_empty_directories = true
@@ -400,7 +400,7 @@ nextflow_workflow {
             // Should handle empty scenarios gracefully
             assert workflow.success
             assert snapshot(workflow.out.versions).match()
-            
+
             if (workflow.success) {
                 // May have empty outputs
                 if (workflow.out.processed_files) {
@@ -417,7 +417,7 @@ nextflow_workflow {
             """
             # Create many small files to simulate high-frequency monitoring
             mkdir -p $outputDir/stress_test
-            
+
             # Generate many small files
             for i in {1..20}; do
                 cp $projectDir/tests/test_sample.fastq.gz $outputDir/stress_test/stress_sample_\${i}.fastq.gz
@@ -447,7 +447,7 @@ nextflow_workflow {
                 ]
                 """
             }
-            
+
             params {
                 realtime_mode = true
                 enable_performance_monitoring = true
@@ -463,11 +463,11 @@ nextflow_workflow {
             assert snapshot(workflow.out.versions).match()
             assert workflow.out.processed_files
             assert workflow.out.batch_stats
-            
+
             // Should process many files efficiently
             def processed_files = workflow.out.processed_files.toList()
             assert processed_files.size() >= 15  // Most files should be processed
-            
+
             // Performance monitoring should be active
             if (workflow.out.performance_stats) {
                 def performance_stats = workflow.out.performance_stats.toList()
@@ -495,7 +495,7 @@ nextflow_workflow {
                 input[3] = [:]  // Empty/minimal stats config
                 """
             }
-            
+
             params {
                 realtime_mode = true
                 max_cpus = 1
@@ -508,7 +508,7 @@ nextflow_workflow {
             assert workflow.success
             assert snapshot(workflow.out.versions).match()
             assert workflow.out.processed_files
-            
+
             // Should work with minimal configuration
             def processed_files = workflow.out.processed_files.toList()
             assert processed_files.size() >= 1

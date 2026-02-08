@@ -22,6 +22,7 @@ nextflow run ... --optimization_profile auto
 ## Quick Wins (5-minute optimizations)
 
 ### 1. Enable Dynamic Resource Allocation
+
 **Impact**: 20-40% faster execution, 30% better resource utilization
 
 ```bash
@@ -31,6 +32,7 @@ nextflow run ... \
 ```
 
 ### 2. Use Local Disk for Work Directory
+
 **Impact**: 2-3x faster I/O, especially on network filesystems
 
 ```bash
@@ -40,6 +42,7 @@ nextflow run ... \
 ```
 
 ### 3. Enable Process Caching
+
 **Impact**: Instant resume of failed runs
 
 ```bash
@@ -60,6 +63,7 @@ process.cache = 'deep'  # Hash inputs deeply
 **Default behavior**: Pipeline auto-detects available CPUs
 
 **Fine-tuning**:
+
 ```bash
 # Limit total concurrent processes
 nextflow run ... -c <(cat << 'EOF'
@@ -85,6 +89,7 @@ EOF
 ```
 
 **Benchmarks** (typical runtimes):
+
 - Kraken2 (10GB database, 1M reads): 4 CPUs = 10min, 16 CPUs = 3min
 - FASTP (1M reads): 4 CPUs = 2min, 16 CPUs = 1.5min
 
@@ -93,6 +98,7 @@ EOF
 ### Memory Optimization
 
 **Memory profiles**:
+
 ```bash
 # Conservative (8GB total)
 nextflow run ... --optimization_profile resource_conservative
@@ -105,6 +111,7 @@ nextflow run ... --optimization_profile high_throughput
 ```
 
 **Per-process memory**:
+
 ```bash
 nextflow run ... -c <(cat << 'EOF'
 process {
@@ -120,6 +127,7 @@ EOF
 ```
 
 **Memory tips**:
+
 - Kraken2: `database_size × 1.2` (e.g., 50GB DB needs 60GB RAM)
 - Dorado GPU: 8GB+ GPU RAM for HAC models
 - MultiQC: 2GB per 100 samples
@@ -129,11 +137,13 @@ EOF
 ### Disk I/O Optimization
 
 **Storage hierarchy** (fastest to slowest):
+
 1. Local NVMe/SSD (`-w /local/nvme/work`)
 2. Local HDD (`-w /local/hdd/work`)
 3. Network storage (`-w /nfs/work`)
 
 **Reduce I/O**:
+
 ```bash
 # Publish only final results (not intermediate)
 nextflow run ... -c <(cat << 'EOF'
@@ -162,6 +172,7 @@ nextflow run ... --outdir results --publish_dir_mode symlink
 ### Dorado Basecalling
 
 **GPU acceleration**:
+
 ```bash
 # Automatic GPU detection and optimization
 nextflow run ... \
@@ -183,6 +194,7 @@ EOF
 ```
 
 **Batch size recommendations**:
+
 - NVIDIA A100 (80GB): `--batchsize 512`
 - NVIDIA V100 (32GB): `--batchsize 384`
 - NVIDIA T4 (16GB): `--batchsize 192`
@@ -190,6 +202,7 @@ EOF
 - CPU only: `--batchsize 128`
 
 **Performance** (HAC model, POD5 → FASTQ):
+
 - A100: ~40-50M bases/sec
 - V100: ~25-30M bases/sec
 - CPU (32-core): ~2-3M bases/sec
@@ -199,6 +212,7 @@ EOF
 ### Kraken2 Classification
 
 **Database optimization**:
+
 ```bash
 # Option 1: Use memory-mapped I/O (faster startup)
 nextflow run ... \
@@ -212,6 +226,7 @@ nextflow run ... --kraken2_db /dev/shm/kraken2_db/
 ```
 
 **Confidence filtering** (reduce false positives):
+
 ```bash
 nextflow run ... \
     --kraken2_use_optimizations \
@@ -231,6 +246,7 @@ nextflow run ... \
 ### Real-time Monitoring
 
 **Latency optimization**:
+
 ```bash
 nextflow run ... \
     --realtime_mode \
@@ -240,6 +256,7 @@ nextflow run ... \
 ```
 
 **Throughput vs latency**:
+
 - **Low latency** (real-time alerts): `batch_size=5, interval=2min`
 - **High throughput** (overnight runs): `batch_size=50, interval=30min`
 
@@ -294,6 +311,7 @@ nextflow run ... \
 ```
 
 **Cost optimization**:
+
 - Use spot instances (`ec2.instanceType = 'r5.4xlarge' ec2.spotPrice = '0.50'`)
 - Auto-terminate idle instances
 - Store databases on EFS (mounted once)
@@ -345,6 +363,7 @@ nextflow run ... \
 ### Analyze Results
 
 **Key metrics**:
+
 ```bash
 # Check trace file
 cat trace.txt | column -t | less -S
@@ -430,6 +449,7 @@ EOF
 ### Pipeline slower than expected
 
 **Check**:
+
 ```bash
 # Generate timeline
 nextflow run ... -with-timeline timeline.html
@@ -441,6 +461,7 @@ nextflow run ... -with-timeline timeline.html
 ```
 
 **Common fixes**:
+
 1. Increase `executor.queueSize`
 2. Use local disk for work directory
 3. Enable dynamic resources
@@ -451,6 +472,7 @@ nextflow run ... -with-timeline timeline.html
 ### High memory usage
 
 **Monitor**:
+
 ```bash
 # Watch memory during execution
 watch -n 5 'free -h'
@@ -460,6 +482,7 @@ cat trace.txt | awk '{print $1, $6, $10}' | sort -k2 -n
 ```
 
 **Solutions**:
+
 - Use `--optimization_profile resource_conservative`
 - Reduce `kraken2_batch_size`
 - Enable `kraken2_memory_mapping`
@@ -470,6 +493,7 @@ cat trace.txt | awk '{print $1, $6, $10}' | sort -k2 -n
 ## Performance Metrics (Reference)
 
 **Typical throughput** (balanced profile, 16 CPU, 64GB RAM):
+
 - FASTQ QC (NanoPlot): ~500K reads/min
 - Kraken2 classification: ~200K reads/min (50GB DB)
 - Dorado basecalling (CPU): ~50K bases/sec
@@ -477,6 +501,7 @@ cat trace.txt | awk '{print $1, $6, $10}' | sort -k2 -n
 - FASTP filtering: ~1M reads/min
 
 **Resource requirements** (per 1M reads):
+
 - Disk space: ~2-5GB (FASTQ), ~10-15GB (POD5)
 - Memory: 8-16GB (QC), 50-100GB (Kraken2)
 - Time: ~10-30 minutes (full pipeline with classification)

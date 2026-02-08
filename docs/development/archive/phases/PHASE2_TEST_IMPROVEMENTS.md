@@ -16,12 +16,14 @@ Phase 2 focused on eliminating external dependency requirements in tests through
 **Root Cause**: BLAST requires binary-formatted databases created with `makeblastdb`, not text files
 
 **Solution**:
+
 - Created real BLAST database fixture (172 KB, 8 files)
 - Location: `tests/fixtures/blast_db/`
 - Source FASTA: 5 bacterial test sequences (240 bp each)
 - Database files: test_db.{ndb,nhr,nin,njs,not,nsq,ntf,nto}
 
 **Files Changed**:
+
 - `tests/fixtures/blast_db/test_sequences.fasta` (new)
 - `tests/fixtures/blast_db/*.{ndb,nhr,nin,njs,not,nsq,ntf,nto}` (generated)
 - `tests/fixtures/blast_db/README.md` (documentation)
@@ -37,7 +39,9 @@ Phase 2 focused on eliminating external dependency requirements in tests through
 **Root Cause**: Tests calling real Kraken2 binary for version detection even in stub mode
 
 **Solution**:
+
 1. **Fixed Kraken2 module stub block** (`modules/nf-core/kraken2/kraken2/main.nf`):
+
    ```groovy
    # OLD (calls binaries):
    kraken2: $(echo $(kraken2 --version 2>&1) | sed 's/^.*Kraken version //; s/ .*$//')
@@ -56,6 +60,7 @@ Phase 2 focused on eliminating external dependency requirements in tests through
      - Conditional `classified_reads` assertion
 
 3. **Test pattern**:
+
    ```groovy
    test("Should perform basic Kraken2 taxonomic classification") {
        when {
@@ -86,6 +91,7 @@ Phase 2 focused on eliminating external dependency requirements in tests through
    ```
 
 **Results**:
+
 - 5/7 tests PASSING ✅ (71% pass rate)
 - 2 tests failing due to test input structure issues (not stub mode problems)
 - **Zero dependency on real Kraken2 database**
@@ -102,6 +108,7 @@ Phase 2 focused on eliminating external dependency requirements in tests through
 **Error**: `Cannot get property 'generic' on null object`
 
 **Solution**: Replaced params reference with real fixture path
+
 ```groovy
 # OLD:
 file(params.test_data['generic']['txt']['kraken2_report'], checkIfExists: true)
@@ -118,6 +125,7 @@ file('$projectDir/tests/fixtures/outputs/classification/kraken2_report.txt')
 **Root Cause**: Container `biocontainers/python:3.11` missing PyYAML dependency
 
 **Solution Attempts**:
+
 1. ❌ **Attempt 1**: Changed container to `quay.io/biocontainers/pyyaml:6.0`
    - **Result**: Failed with "unauthorized: access to the requested resource is not authorized"
 
@@ -127,6 +135,7 @@ file('$projectDir/tests/fixtures/outputs/classification/kraken2_report.txt')
    - **Result**: All 6 tests PASSING ✅
 
 **Python Script Used**:
+
 ```python
 import re
 
@@ -163,18 +172,19 @@ with open('modules/local/multiqc_nanopore_stats/tests/main.nf.test', 'w') as f:
 
 **Failure Analysis**:
 
-| Test | Error Type | Root Cause | Priority |
-|------|-----------|------------|----------|
-| "Should handle FILTLONG..." | `Missing process or function map(...)` | ArrayList vs Channel incompatibility | LOW |
-| "Should generate comprehensive statistics" | Snapshot mismatch | version.yml MD5 changed | TRIVIAL |
-| "Should handle multiple samples..." | Input tuple mismatch | Array of tuples instead of individual | MEDIUM |
-| "Should handle FastQC analysis..." | `Missing process or function map(...)` | ArrayList vs Channel incompatibility | LOW |
-| "Should handle edge cases..." | Input tuple mismatch | Array of tuples instead of individual | MEDIUM |
-| "Should validate QC workflow..." | Input tuple mismatch | Array of tuples instead of individual | MEDIUM |
+| Test                                       | Error Type                             | Root Cause                            | Priority |
+| ------------------------------------------ | -------------------------------------- | ------------------------------------- | -------- |
+| "Should handle FILTLONG..."                | `Missing process or function map(...)` | ArrayList vs Channel incompatibility  | LOW      |
+| "Should generate comprehensive statistics" | Snapshot mismatch                      | version.yml MD5 changed               | TRIVIAL  |
+| "Should handle multiple samples..."        | Input tuple mismatch                   | Array of tuples instead of individual | MEDIUM   |
+| "Should handle FastQC analysis..."         | `Missing process or function map(...)` | ArrayList vs Channel incompatibility  | LOW      |
+| "Should handle edge cases..."              | Input tuple mismatch                   | Array of tuples instead of individual | MEDIUM   |
+| "Should validate QC workflow..."           | Input tuple mismatch                   | Array of tuples instead of individual | MEDIUM   |
 
 **Key Finding**: All failures are **test implementation issues**, NOT production workflow bugs.
 
 **Example - Input Structure Issue**:
+
 ```
 Line 87: Input tuple does not match tuple declaration in process `QC_ANALYSIS:FASTP`
 -- offending value: [[[id:batch_sample1, single_end:true], ...], [[id:batch_sample2, ...]], [[id:batch_sample3, ...]]]
@@ -191,12 +201,12 @@ Received: [[meta, reads], [meta, reads], [meta, reads]]  # Array of tuples
 
 ### Phase 2 Improvements
 
-| Category | Tests Fixed | Method | Commits |
-|----------|-------------|--------|---------|
-| BLAST Validation | 7 (fixture ready) | Real database fixture | 80e682c |
-| Kraken2 Classification | +5 PASSING | Stub mode implementation | 900cfd5 |
-| Module Output Handling | +7 PASSING | Fixture paths + stub mode | b865c19 |
-| **Total Direct Impact** | **+12 tests** | **Dependency-free testing** | **3 commits** |
+| Category                | Tests Fixed       | Method                      | Commits       |
+| ----------------------- | ----------------- | --------------------------- | ------------- |
+| BLAST Validation        | 7 (fixture ready) | Real database fixture       | 80e682c       |
+| Kraken2 Classification  | +5 PASSING        | Stub mode implementation    | 900cfd5       |
+| Module Output Handling  | +7 PASSING        | Fixture paths + stub mode   | b865c19       |
+| **Total Direct Impact** | **+12 tests**     | **Dependency-free testing** | **3 commits** |
 
 ### Test Pass Rate Evolution
 
@@ -215,6 +225,7 @@ Received: [[meta, reads], [meta, reads], [meta, reads]]  # Array of tuples
 **Blocker**: `Missing process or function map([...])` error
 
 **Attempts Made**:
+
 1. ✅ Added missing 3 parameters to BLAST_BLASTN call
 2. ✅ Wrapped database with meta: `ch_db.map { db -> [[id: 'blast_db'], db] }`
 3. ❌ Added Channel.fromList() conversion - still fails
@@ -228,6 +239,7 @@ Received: [[meta, reads], [meta, reads], [meta, reads]]  # Array of tuples
 **Impact**: Core workflow functionality verified by 5 passing tests
 
 **Refactoring Needed**:
+
 ```groovy
 # Current (fails):
 input[0] = [
@@ -253,6 +265,7 @@ input[0] = Channel.fromList([
 **When to use**: Module requires external tools/databases not available in test environment
 
 **Implementation**:
+
 ```groovy
 test("Module test with stub mode") {
     when {
@@ -271,6 +284,7 @@ test("Module test with stub mode") {
 ```
 
 **Module stub block requirements**:
+
 ```groovy
 stub:
     // Use hardcoded mock versions (DO NOT call binaries)
@@ -289,6 +303,7 @@ stub:
 **When to use**: Tests need realistic reference data (databases, reports, etc.)
 
 **Implementation**:
+
 ```groovy
 test("Module test with fixture") {
     when {
@@ -302,6 +317,7 @@ test("Module test with fixture") {
 ```
 
 **Fixture organization**:
+
 ```
 tests/fixtures/
 ├── README.md
@@ -322,6 +338,7 @@ tests/fixtures/
 **When to use**: Workflow expects Channel but nf-test provides ArrayList
 
 **Implementation** (when it works - architectural limitation in some cases):
+
 ```groovy
 workflow MY_WORKFLOW {
     take:
@@ -344,21 +361,25 @@ workflow MY_WORKFLOW {
 ## Recommendations for Future Test Development
 
 ### Priority 1: Use Stub Mode for External Dependencies
+
 - **Kraken2**: ✅ Implemented (5/7 tests passing)
 - **BLAST**: ⏸️ Deferred (workflow architecture issue)
 - **Dorado**: 📋 Future work (requires Docker integration)
 - **MULTIQC**: ✅ Implemented (6/6 tests passing)
 
 ### Priority 2: Create Minimal Fixtures
+
 - **BLAST DB**: ✅ Created (172 KB, 8 files)
 - **Kraken2 DB**: ⏸️ Optional (stub mode sufficient)
 - **Reference Genomes**: 📋 Future (if validation tests expand)
 
 ### Priority 3: Fix Test Input Structures
+
 - **QC batch tests**: 📋 Refactor to use Channel.fromList()
 - **VALIDATION workflow**: 📋 Requires architectural redesign
 
 ### Priority 4: Snapshot Management
+
 - Always run `--update-snapshot` after stub mode changes
 - Document when snapshots are version-dependent
 - Use `--wipe-snapshot` to clean obsolete snapshots
@@ -368,18 +389,23 @@ workflow MY_WORKFLOW {
 ## Lessons Learned
 
 ### 1. Stub Mode > Mock Fixtures for Large Dependencies
+
 **Why**: Kraken2 databases are 4-100GB. Stub mode provides same test coverage with zero storage.
 
 ### 2. Real Fixtures > Mock Text Files for Binary Formats
+
 **Why**: BLAST rejected text-file mocks. Creating real (but minimal) database fixtures is more robust.
 
 ### 3. Version Detection Must Be Mocked in Stub Blocks
+
 **Why**: Even in stub mode, Nextflow executes version detection commands unless explicitly mocked.
 
 ### 4. nf-test ArrayList ≠ Nextflow Channel
+
 **Why**: Some operations (like `.map()`) fail when nf-test provides ArrayList input to workflow.
 
 ### 5. Test Input Structure Matters
+
 **Why**: Passing `[tuple, tuple, tuple]` is not the same as emitting three tuples. Use `Channel.fromList()` for batch tests.
 
 ---
@@ -387,16 +413,19 @@ workflow MY_WORKFLOW {
 ## Impact on Pipeline
 
 ### Production Readiness: ✅ CONFIRMED
+
 - Core workflows validated by passing tests
 - Test failures are infrastructure issues, not production bugs
 - nf-core compliance: 702/702 tests passing (96.5%)
 
 ### Test Coverage: 📈 IMPROVED
+
 - Dependency-free testing: +12 tests enabled
 - Stub mode pattern: Reusable for future modules
 - Fixture library: Growing systematically
 
 ### Maintenance Burden: 📉 REDUCED
+
 - No large database downloads required
 - Tests run faster (stub mode skips heavy computation)
 - CI/CD friendly (no external dependencies)
@@ -406,16 +435,19 @@ workflow MY_WORKFLOW {
 ## Next Steps (Phase 3)
 
 ### Short Term (High Value)
+
 1. ✅ **Complete Phase 2 module fixes** (DONE: b865c19)
 2. 📋 **Add end-to-end integration test** (Validates full pipeline flow)
 3. 📋 **Document test patterns in TESTING.md** (Onboarding guide)
 
 ### Medium Term (Strategic)
+
 1. **Dorado Docker integration** (~10 tests, requires container work)
 2. **Fix QC batch test structures** (~3 tests, requires Channel refactoring)
 3. **Real Kraken2 DB fixture** (Optional, stub mode sufficient for most cases)
 
 ### Long Term (Nice to Have)
+
 1. **Performance benchmarking suite**
 2. **Cloud execution profiles** (AWS, GCP, Azure)
 3. **Comprehensive edge case library** (Malformed inputs, edge sequences)

@@ -46,7 +46,7 @@ nextflow_workflow {
                 ]
                 """
             }
-            
+
             params {
                 use_dorado = false
                 barcode_kit = null
@@ -60,17 +60,17 @@ nextflow_workflow {
             assert workflow.success
             assert snapshot(workflow.out.versions).match()
             assert workflow.out.samples
-            
+
             // Should pass through pre-demultiplexed samples unchanged
             def samples = workflow.out.samples.toList()
             assert samples.size() == 3
-            
+
             // Verify samples are passed through correctly
             def sample_ids = samples.collect { meta, reads -> meta.id }
             assert sample_ids.contains('sample1_bc01')
             assert sample_ids.contains('sample1_bc02')
             assert sample_ids.contains('sample2_bc01')
-            
+
             // Verify metadata preservation
             def first_sample = samples[0]
             assert first_sample[0].demultiplexed == true
@@ -104,7 +104,7 @@ nextflow_workflow {
                 ]
                 """
             }
-            
+
             params {
                 use_dorado = false  // Disable for branching test
                 barcode_kit = 'SQK-NBD114-24'
@@ -118,7 +118,7 @@ nextflow_workflow {
             assert workflow.success
             assert snapshot(workflow.out.versions).match()
             assert workflow.out.samples
-            
+
             // When use_dorado is false, samples requiring demux should still pass through
             def samples = workflow.out.samples.toList()
             assert samples.size() >= 0  // May be empty or contain original samples
@@ -131,11 +131,11 @@ nextflow_workflow {
             """
             # Create mixed sample types
             mkdir -p $outputDir/mixed_samples
-            
+
             # Pre-demultiplexed samples
             echo "@read1\nATCGATCGATCG\n+\nIIIIIIIIIIII" > $outputDir/mixed_samples/predemux_bc01.fastq
             echo "@read2\nGCTAGCTAGCTA\n+\nIIIIIIIIIIII" > $outputDir/mixed_samples/predemux_bc02.fastq
-            
+
             # Multiplexed samples
             echo "@read3\nTAGCTAGCTAGCTAGCTAGC\n+\nIIIIIIIIIIIIIIIIIIII" > $outputDir/mixed_samples/multiplexed.fastq
             """
@@ -160,7 +160,7 @@ nextflow_workflow {
                 ]
                 """
             }
-            
+
             params {
                 use_dorado = false
                 barcode_kit = 'SQK-NBD114-24'
@@ -174,11 +174,11 @@ nextflow_workflow {
             assert workflow.success
             assert snapshot(workflow.out.versions).match()
             assert workflow.out.samples
-            
+
             // Should handle mixed sample types
             def samples = workflow.out.samples.toList()
             assert samples.size() >= 2  // At least the pre-demux samples
-            
+
             // Verify pre-demux samples are preserved
             def sample_ids = samples.collect { meta, reads -> meta.id }
             assert sample_ids.contains('predemux_bc01') || sample_ids.contains('predemux_bc02')
@@ -211,7 +211,7 @@ nextflow_workflow {
                 ]
                 """
             }
-            
+
             params {
                 use_dorado = false
                 barcode_kit = 'SQK-NBD114-24'  // Default kit
@@ -225,7 +225,7 @@ nextflow_workflow {
             assert workflow.success
             assert snapshot(workflow.out.versions).match()
             assert workflow.out.samples
-            
+
             // Should handle different barcode kits
             def samples = workflow.out.samples.toList()
             assert samples.size() >= 0
@@ -263,7 +263,7 @@ nextflow_workflow {
                 ]
                 """
             }
-            
+
             params {
                 use_dorado = false
                 barcode_kit = 'SQK-NBD114-24'
@@ -277,7 +277,7 @@ nextflow_workflow {
             assert workflow.success
             assert snapshot(workflow.out.versions).match()
             assert workflow.out.samples
-            
+
             // Should handle various metadata configurations
             def samples = workflow.out.samples.toList()
             assert samples.size() >= 2  // At least some samples should pass through
@@ -292,7 +292,7 @@ nextflow_workflow {
                 input[0] = []
                 """
             }
-            
+
             params {
                 use_dorado = false
                 barcode_kit = 'SQK-NBD114-24'
@@ -305,13 +305,13 @@ nextflow_workflow {
         then {
             assert workflow.success
             assert snapshot(workflow.out.versions).match()
-            
+
             // Should handle empty input
             if (workflow.out.samples) {
                 def samples = workflow.out.samples.toList()
                 assert samples.size() == 0
             }
-            
+
             // Versions should be empty
             if (workflow.out.versions) {
                 def versions = workflow.out.versions.toList()
@@ -362,7 +362,7 @@ nextflow_workflow {
                 ]
                 """
             }
-            
+
             params {
                 use_dorado = false
                 barcode_kit = 'SQK-NBD114-24'
@@ -376,11 +376,11 @@ nextflow_workflow {
             assert workflow.success
             assert snapshot(workflow.out.versions).match()
             assert workflow.out.samples
-            
+
             // Should preserve complex metadata
             def samples = workflow.out.samples.toList()
             assert samples.size() >= 1
-            
+
             // Verify metadata preservation
             def first_sample = samples[0]
             def meta = first_sample[0]
@@ -420,7 +420,7 @@ nextflow_workflow {
                 input[0] = samples
                 """
             }
-            
+
             params {
                 use_dorado = false
                 barcode_kit = 'SQK-NBD114-24'
@@ -434,7 +434,7 @@ nextflow_workflow {
             assert workflow.success
             assert snapshot(workflow.out.versions).match()
             assert workflow.out.samples
-            
+
             // Should handle large batch of samples
             def samples = workflow.out.samples.toList()
             assert samples.size() >= 10  // At least half should pass through (pre-demux)
@@ -470,7 +470,7 @@ nextflow_workflow {
                 ]
                 """
             }
-            
+
             params {
                 use_dorado = false
                 barcode_kit = 'SQK-RBK110-96'  // Different default kit
@@ -485,7 +485,7 @@ nextflow_workflow {
             assert workflow.success
             assert snapshot(workflow.out.versions).match()
             assert workflow.out.samples
-            
+
             // Should validate different barcode kits
             def samples = workflow.out.samples.toList()
             assert samples.size() >= 0

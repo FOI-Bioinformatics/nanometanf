@@ -29,7 +29,7 @@ nextflow_workflow {
     "total_size": 1500000
 }
 EOF
-            
+
             # Create test files for the batch
             echo "@read1\nATCGATCGATCG\n+\nIIIIIIIIIIII" > $outputDir/batch_input/file1.fastq
             echo "@read2\nGCTAGCTAGCTA\n+\nIIIIIIIIIIII" > $outputDir/batch_input/file2.fastq
@@ -46,13 +46,13 @@ EOF
                     file_count: 3,
                     total_size: 1500000
                 ]
-                
+
                 def file_metas = [
                     [id: 'file1', path: file('$outputDir/batch_input/file1.fastq')],
                     [id: 'file2', path: file('$outputDir/batch_input/file2.fastq')],
                     [id: 'file3', path: file('$outputDir/batch_input/file3.fastq')]
                 ]
-                
+
                 input[0] = [ [batch_meta, file_metas] ]
                 input[1] = [
                     enable_quality_indicators: true,
@@ -63,7 +63,7 @@ EOF
                 ]
                 """
             }
-            
+
             params {
                 outdir = '$outputDir/results'
                 max_cpus = 2
@@ -79,19 +79,19 @@ EOF
             assert workflow.out.cumulative_stats
             assert workflow.out.realtime_reports
             assert workflow.out.versions
-            
+
             // Verify snapshot statistics generation
             def snapshot_stats = workflow.out.snapshot_stats.toList()
             assert snapshot_stats.size() >= 1
-            
+
             // Verify cumulative statistics update
             def cumulative_stats = workflow.out.cumulative_stats.toList()
             assert cumulative_stats.size() >= 1
-            
+
             // Verify real-time report generation
             def realtime_reports = workflow.out.realtime_reports.toList()
             assert realtime_reports.size() >= 1
-            
+
             // Verify versions output
             def versions = workflow.out.versions.toList()
             assert versions.size() >= 3  // Three modules should contribute versions
@@ -104,7 +104,7 @@ EOF
             """
             # Create multiple test batches
             mkdir -p $outputDir/multi_batch_input
-            
+
             # Batch 1
             cat > $outputDir/multi_batch_input/batch1_meta.json << 'EOF'
 {
@@ -116,7 +116,7 @@ EOF
 EOF
             echo "@read1\nATCGATCGATCG\n+\nIIIIIIIIIIII" > $outputDir/multi_batch_input/batch1_file1.fastq
             echo "@read2\nGCTAGCTAGCTA\n+\nIIIIIIIIIIII" > $outputDir/multi_batch_input/batch1_file2.fastq
-            
+
             # Batch 2
             cat > $outputDir/multi_batch_input/batch2_meta.json << 'EOF'
 {
@@ -129,11 +129,11 @@ EOF
             echo "@read3\nTAGCTAGCTAGC\n+\nIIIIIIIIIIII" > $outputDir/multi_batch_input/batch2_file1.fastq
             echo "@read4\nCGATCGATCGAT\n+\nIIIIIIIIIIII" > $outputDir/multi_batch_input/batch2_file2.fastq
             echo "@read5\nAGTCAGTCAGTC\n+\nIIIIIIIIIIII" > $outputDir/multi_batch_input/batch2_file3.fastq
-            
+
             # Batch 3
             cat > $outputDir/multi_batch_input/batch3_meta.json << 'EOF'
 {
-    "batch_id": "batch_003", 
+    "batch_id": "batch_003",
     "timestamp": "2023-12-01T10:10:00",
     "file_count": 1,
     "total_size": 500000
@@ -169,7 +169,7 @@ EOF
                         ]
                     ]
                 ]
-                
+
                 input[0] = batches
                 input[1] = [
                     enable_quality_indicators: true,
@@ -181,7 +181,7 @@ EOF
                 ]
                 """
             }
-            
+
             params {
                 outdir = '$outputDir/results'
                 max_cpus = 4
@@ -196,17 +196,17 @@ EOF
             assert workflow.out.snapshot_stats
             assert workflow.out.cumulative_stats
             assert workflow.out.realtime_reports
-            
+
             // Verify processing of multiple batches
             def snapshot_stats = workflow.out.snapshot_stats.toList()
             assert snapshot_stats.size() >= 3
-            
+
             def cumulative_stats = workflow.out.cumulative_stats.toList()
             assert cumulative_stats.size() >= 3
-            
+
             def realtime_reports = workflow.out.realtime_reports.toList()
             assert realtime_reports.size() >= 3
-            
+
             // Verify alert notifications if present
             if (workflow.out.alert_notifications) {
                 def alerts = workflow.out.alert_notifications.toList()
@@ -221,7 +221,7 @@ EOF
             """
             # Create test data with quality variation
             mkdir -p $outputDir/quality_test_input
-            
+
             # High-quality batch
             cat > $outputDir/quality_test_input/hq_batch_meta.json << 'EOF'
 {
@@ -233,7 +233,7 @@ EOF
 EOF
             echo "@hq_read1\nATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCG\n+\nIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII" > $outputDir/quality_test_input/hq_file1.fastq
             echo "@hq_read2\nGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTA\n+\nIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII" > $outputDir/quality_test_input/hq_file2.fastq
-            
+
             # Mixed-quality batch
             cat > $outputDir/quality_test_input/mq_batch_meta.json << 'EOF'
 {
@@ -267,7 +267,7 @@ EOF
                         ]
                     ]
                 ]
-                
+
                 input[0] = quality_batches
                 input[1] = [
                     enable_quality_indicators: true,
@@ -281,7 +281,7 @@ EOF
                 ]
                 """
             }
-            
+
             params {
                 outdir = '$outputDir/results'
                 max_cpus = 2
@@ -296,14 +296,14 @@ EOF
             assert workflow.out.snapshot_stats
             assert workflow.out.cumulative_stats
             assert workflow.out.realtime_reports
-            
+
             // Verify quality indicator processing
             def snapshot_stats = workflow.out.snapshot_stats.toList()
             assert snapshot_stats.size() >= 2
-            
+
             def cumulative_stats = workflow.out.cumulative_stats.toList()
             assert cumulative_stats.size() >= 2
-            
+
             // Verify performance metrics in reports
             def realtime_reports = workflow.out.realtime_reports.toList()
             assert realtime_reports.size() >= 2
@@ -316,7 +316,7 @@ EOF
             """
             # Create test data that should trigger alerts
             mkdir -p $outputDir/alert_test_input
-            
+
             # Normal batch
             cat > $outputDir/alert_test_input/normal_batch_meta.json << 'EOF'
 {
@@ -329,7 +329,7 @@ EOF
             echo "@normal_read1\nATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCG\n+\nIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII" > $outputDir/alert_test_input/normal_file1.fastq
             echo "@normal_read2\nGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTA\n+\nIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII" > $outputDir/alert_test_input/normal_file2.fastq
             echo "@normal_read3\nTAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGC\n+\nIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII" > $outputDir/alert_test_input/normal_file3.fastq
-            
+
             # Problematic batch (very few files, small size)
             cat > $outputDir/alert_test_input/problem_batch_meta.json << 'EOF'
 {
@@ -362,7 +362,7 @@ EOF
                         ]
                     ]
                 ]
-                
+
                 input[0] = alert_batches
                 input[1] = [
                     enable_quality_indicators: true,
@@ -379,7 +379,7 @@ EOF
                 ]
                 """
             }
-            
+
             params {
                 outdir = '$outputDir/results'
                 max_cpus = 2
@@ -394,14 +394,14 @@ EOF
             assert workflow.out.snapshot_stats
             assert workflow.out.cumulative_stats
             assert workflow.out.realtime_reports
-            
+
             // Verify alert processing
             def snapshot_stats = workflow.out.snapshot_stats.toList()
             assert snapshot_stats.size() >= 2
-            
+
             def cumulative_stats = workflow.out.cumulative_stats.toList()
             assert cumulative_stats.size() >= 2
-            
+
             // Check for alert notifications if configured
             if (workflow.out.alert_notifications) {
                 def alerts = workflow.out.alert_notifications.toList()
@@ -441,7 +441,7 @@ EOF
                         ]
                     ]
                 ]
-                
+
                 input[0] = config_batch
                 input[1] = [
                     enable_quality_indicators: false,  // Disabled
@@ -455,7 +455,7 @@ EOF
                 ]
                 """
             }
-            
+
             params {
                 outdir = '$outputDir/results'
                 max_cpus = 2
@@ -470,14 +470,14 @@ EOF
             assert workflow.out.snapshot_stats
             assert workflow.out.cumulative_stats
             assert workflow.out.realtime_reports
-            
+
             // Verify configuration-specific processing
             def snapshot_stats = workflow.out.snapshot_stats.toList()
             assert snapshot_stats.size() >= 1
-            
+
             def cumulative_stats = workflow.out.cumulative_stats.toList()
             assert cumulative_stats.size() >= 1
-            
+
             def realtime_reports = workflow.out.realtime_reports.toList()
             assert realtime_reports.size() >= 1
         }
@@ -498,7 +498,7 @@ EOF
                 ]
                 """
             }
-            
+
             params {
                 outdir = '$outputDir/results'
                 max_cpus = 1
@@ -510,18 +510,18 @@ EOF
         then {
             assert workflow.success
             assert snapshot(workflow.out.versions).match()
-            
+
             // Should handle empty input gracefully
             if (workflow.out.snapshot_stats) {
                 def snapshot_stats = workflow.out.snapshot_stats.toList()
                 assert snapshot_stats.size() == 0
             }
-            
+
             if (workflow.out.cumulative_stats) {
                 def cumulative_stats = workflow.out.cumulative_stats.toList()
                 assert cumulative_stats.size() == 0
             }
-            
+
             if (workflow.out.realtime_reports) {
                 def realtime_reports = workflow.out.realtime_reports.toList()
                 assert realtime_reports.size() == 0
@@ -535,7 +535,7 @@ EOF
             """
             # Create large batch test data
             mkdir -p $outputDir/large_batch_input
-            
+
             cat > $outputDir/large_batch_input/large_batch_meta.json << 'EOF'
 {
     "batch_id": "large_batch_001",
@@ -544,7 +544,7 @@ EOF
     "total_size": 50000000
 }
 EOF
-            
+
             # Create multiple test files
             for i in {1..20}; do
                 echo "@large_read_$i\nATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCG\n+\nIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII" > $outputDir/large_batch_input/large_file_$i.fastq
@@ -559,14 +559,14 @@ EOF
                 for (int i = 1; i <= 20; i++) {
                     files.add([id: "large_file_" + i, path: file('$outputDir/large_batch_input/large_file_' + i + '.fastq')])
                 }
-                
+
                 def large_batch = [
                     [
                         [batch_id: 'large_batch_001', timestamp: '2023-12-01T18:00:00', file_count: 20, total_size: 50000000],
                         files
                     ]
                 ]
-                
+
                 input[0] = large_batch
                 input[1] = [
                     enable_quality_indicators: true,
@@ -578,7 +578,7 @@ EOF
                 ]
                 """
             }
-            
+
             params {
                 outdir = '$outputDir/results'
                 max_cpus = 4
@@ -593,14 +593,14 @@ EOF
             assert workflow.out.snapshot_stats
             assert workflow.out.cumulative_stats
             assert workflow.out.realtime_reports
-            
+
             // Verify large batch processing
             def snapshot_stats = workflow.out.snapshot_stats.toList()
             assert snapshot_stats.size() >= 1
-            
+
             def cumulative_stats = workflow.out.cumulative_stats.toList()
             assert cumulative_stats.size() >= 1
-            
+
             // Should handle large batches efficiently
             assert workflow.duration.toMillis() < 360000 // Less than 6 minutes
         }

@@ -56,16 +56,16 @@ nextflow_pipeline {
             params {
 input = false
                 outdir = "$outputDir"
-                
+
                 // Enable real-time but with non-existent directory
                 realtime_mode = true
                 nanopore_output_dir = "/non/existent/path"
-                
+
                 // Disable other features
                 use_dorado = false
                 skip_kraken2 = true
                 blast_validation = false
-                
+
                 // Resource limits
                 max_cpus = 2
                 max_memory = '4.GB'
@@ -77,7 +77,7 @@ input = false
             // May fail due to missing directory, which is expected behavior
             // We're testing that it fails gracefully rather than hanging
             assert workflow.failed || workflow.success
-            
+
             if (workflow.failed) {
                 // Should fail quickly due to missing directory
                 // REMOVED: workflow.duration property not available in nf-test

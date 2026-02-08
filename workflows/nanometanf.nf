@@ -70,7 +70,7 @@ workflow NANOMETANF {
 
     take:
     ch_samplesheet // channel: samplesheet read in from --input
-    
+
     main:
     ch_versions = Channel.empty()
     ch_multiqc_files = Channel.empty()
@@ -125,10 +125,10 @@ workflow NANOMETANF {
     //
     // WORKFLOW ROUTING: Determine if this is POD5 or FASTQ workflow
     //
-    def is_pod5_workflow = (params.pod5_input_dir && params.use_dorado) || 
+    def is_pod5_workflow = (params.pod5_input_dir && params.use_dorado) ||
                           (params.realtime_mode && params.file_pattern?.contains('.pod5'))
     def is_barcode_discovery = params.barcode_input_dir
-    
+
     if (is_pod5_workflow) {
         //
         // POD5 WORKFLOW PATH
@@ -224,7 +224,7 @@ workflow NANOMETANF {
                 ch_versions = ch_versions.mix(DORADO_BASECALLING.out.versions)
             }
         }
-        
+
     } else if (params.input_dir || is_barcode_discovery) {
         //
         // UNIFIED DIRECTORY SCAN (replaces BARCODE_DISCOVERY)
@@ -239,7 +239,7 @@ workflow NANOMETANF {
         )
         ch_processed_samples = INPUT_SCANNER.out.samples
         ch_versions = ch_versions.mix(INPUT_SCANNER.out.versions)
-        
+
     } else {
         //
         // FASTQ WORKFLOW PATH
@@ -310,13 +310,13 @@ workflow NANOMETANF {
             }
         }
     }
-    
+
     //
     // SUBWORKFLOW: Dynamic resource allocation for optimal performance
     //
     if (params.enable_dynamic_resources) {
         log.info "=== Enabling Dynamic Resource Allocation ==="
-        
+
         // Prepare resource configuration
         def resource_config = [
             'optimization_profile': params.optimization_profile ?: 'auto',
@@ -326,13 +326,13 @@ workflow NANOMETANF {
             'enable_gpu_optimization': params.enable_gpu_optimization ?: true,
             'realtime_mode': params.realtime_mode ?: false
         ]
-        
+
         // System configuration
         def system_config = [
             'monitoring_interval': params.resource_monitoring_interval ?: 30,
             'enable_performance_logging': params.enable_performance_logging ?: true
         ]
-        
+
         // Create input for resource allocation - combine samples with tool context
         ch_resource_inputs = ch_processed_samples
             .map { meta, files ->
@@ -342,7 +342,7 @@ workflow NANOMETANF {
                 ]
                 [ meta, files, tool_context ]
             }
-        
+
         DYNAMIC_RESOURCE_ALLOCATION (
             ch_resource_inputs,
             resource_config,
@@ -353,13 +353,13 @@ workflow NANOMETANF {
         // Extract resource configurations for later use
         ch_resource_configs = DYNAMIC_RESOURCE_ALLOCATION.out.resource_configs
         ch_optimal_allocations = DYNAMIC_RESOURCE_ALLOCATION.out.optimal_allocations
-        
+
         log.info "Dynamic resource allocation configured successfully"
     } else {
         ch_resource_configs = Channel.empty()
         ch_optimal_allocations = Channel.empty()
     }
-    
+
     //
     // SUBWORKFLOW: Demultiplexing (handle multiplexed samples)
     //
@@ -367,7 +367,7 @@ workflow NANOMETANF {
         ch_processed_samples
     )
     ch_versions = ch_versions.mix(DEMULTIPLEXING.out.versions)
-    
+
     //
     // SUBWORKFLOW: Quality control analysis
     //
@@ -433,7 +433,7 @@ workflow NANOMETANF {
         ch_nanoplot_reports = Channel.empty()
         ch_qc_benchmark_results = Channel.empty()
     }
-    
+
     //
     // SUBWORKFLOW: Multi-tool genome assembly for long-read data
     //
@@ -443,7 +443,7 @@ workflow NANOMETANF {
         )
         ch_versions = ch_versions.mix(ASSEMBLY.out.versions)
     }
-    
+
     //
     // SUBWORKFLOW: Multi-tool taxonomic classification with taxpasta standardization
     //

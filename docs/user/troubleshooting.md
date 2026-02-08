@@ -26,6 +26,7 @@ nextflow run ... -with-trace -with-report -with-timeline
 **Problem**: Pipeline requires Nextflow >= 25.10.0
 
 **Solution**:
+
 ```bash
 # Update Nextflow
 nextflow self-update
@@ -42,6 +43,7 @@ curl -s https://get.nextflow.io | bash
 **Problem**: Java environment not configured (common with Conda)
 
 **Solution**:
+
 ```bash
 # For Conda users
 export JAVA_HOME=$CONDA_PREFIX/lib/jvm
@@ -61,6 +63,7 @@ echo 'export PATH=$JAVA_HOME/bin:$PATH' >> ~/.bashrc
 **Problem**: File paths in samplesheet don't exist
 
 **Check**:
+
 ```bash
 # Verify file exists
 ls -lh /path/to/file.fastq.gz
@@ -72,6 +75,7 @@ cat samplesheet.csv
 ```
 
 **Solutions**:
+
 - Use absolute paths (not relative)
 - Check file permissions (`chmod 644 file.fastq.gz`)
 - Verify file isn't empty (`du -h file.fastq.gz`)
@@ -83,6 +87,7 @@ cat samplesheet.csv
 **Problem**: No write permission to output directory
 
 **Solution**:
+
 ```bash
 # Check permissions
 ls -ld /path/to/outdir
@@ -103,6 +108,7 @@ nextflow run ... --outdir $HOME/nanometanf_results
 **Problem**: Pipeline can't locate Dorado binary
 
 **Solution**:
+
 ```bash
 # Option 1: Set dorado_path parameter
 nextflow run ... --dorado_path /full/path/to/dorado
@@ -122,6 +128,7 @@ dorado --version
 **Problem**: POD5 files created with incompatible version
 
 **Solution**:
+
 ```bash
 # Check POD5 file
 python3 << EOF
@@ -141,6 +148,7 @@ EOF
 **Problem**: GPU memory exhausted during basecalling
 
 **Solutions**:
+
 ```bash
 # Option 1: Reduce batch size
 nextflow run ... \
@@ -163,6 +171,7 @@ split -l 1000 --numeric-suffixes input.pod5 chunk_
 **Problem**: Nextflow JVM out of memory
 
 **Solution**:
+
 ```bash
 # Increase Nextflow memory
 export NXF_OPTS='-Xms2g -Xmx8g'
@@ -178,6 +187,7 @@ nextflow run ...
 **Problem**: Individual process needs more memory
 
 **Solutions**:
+
 ```bash
 # Option 1: Use resource-conservative profile
 nextflow run ... --optimization_profile resource_conservative
@@ -197,6 +207,7 @@ nextflow run ... --enable_dynamic_resources
 **Problem**: Disk full
 
 **Check**:
+
 ```bash
 # Check disk space
 df -h
@@ -206,6 +217,7 @@ du -sh work/* | sort -h | tail -10
 ```
 
 **Solutions**:
+
 ```bash
 # Option 1: Clean work directory
 nextflow clean -f -k
@@ -228,6 +240,7 @@ nextflow clean -after <run-name> -f
 **Problem**: Database path incorrect or database not downloaded
 
 **Solution**:
+
 ```bash
 # Download standard database
 wget https://genome-idx.s3.amazonaws.com/kraken/k2_standard_20240904.tar.gz
@@ -249,6 +262,7 @@ nextflow run ... --kraken2_db $(pwd)/kraken2_db/
 **Problem**: Database too large for available memory
 
 **Solutions**:
+
 ```bash
 # Option 1: Use smaller database
 # Download MiniKraken: https://ccb.jhu.edu/software/kraken/
@@ -271,6 +285,7 @@ nextflow run ... --kraken2_batch_size 5
 **Problem**: Docker service not started
 
 **Solution**:
+
 ```bash
 # macOS
 open -a Docker
@@ -289,6 +304,7 @@ docker ps
 **Problem**: User not in docker group (Linux)
 
 **Solution**:
+
 ```bash
 # Add user to docker group
 sudo usermod -aG docker $USER
@@ -307,6 +323,7 @@ docker run hello-world
 **Problem**: Container image URL incorrect or unreachable
 
 **Solution**:
+
 ```bash
 # Test singularity
 singularity --version
@@ -327,6 +344,7 @@ nextflow run ... -profile docker
 **Problem**: Files not matching pattern or permissions issue
 
 **Debug**:
+
 ```bash
 # Test file pattern
 find /nanopore/output -name "*.fastq.gz" -type f
@@ -342,6 +360,7 @@ nextflow run ... \
 ```
 
 **Solutions**:
+
 - Use absolute path for `nanopore_output_dir`
 - Ensure sufficient permissions on directory
 - Check file isn't being written (wait for complete files)
@@ -355,6 +374,7 @@ nextflow run ... \
 **Problem**: Process killed by OS (usually out of memory)
 
 **Solution**:
+
 ```bash
 # Check system memory
 free -h
@@ -376,6 +396,7 @@ nextflow run ... --optimization_profile resource_conservative
 **Problem**: Various causes - check detailed logs
 
 **Debug**:
+
 ```bash
 # Find work directory for failed task
 nextflow log <run-name> -f "workdir,exit,name"
@@ -396,6 +417,7 @@ cat .exitcode
 ### Pipeline very slow
 
 **Check**:
+
 ```bash
 # Generate execution report
 nextflow run ... -with-report report.html -with-timeline timeline.html
@@ -426,6 +448,7 @@ nextflow run ... \
 **Problem**: `-resume` flag not resuming cached tasks
 
 **Check**:
+
 ```bash
 # List cached runs
 nextflow log
@@ -435,6 +458,7 @@ nextflow log <run-name>
 ```
 
 **Solutions**:
+
 ```bash
 # Option 1: Use explicit run name
 nextflow run ... -resume <run-name>
@@ -454,6 +478,7 @@ nextflow run ... -resume -w /path/to/work
 ### Tests failing
 
 **Run diagnostic tests**:
+
 ```bash
 # Quick validation
 nextflow run ... -profile test,docker -stub
@@ -502,7 +527,7 @@ cat .nextflow.log
 
 When creating an issue, include:
 
-```
+````
 **Environment**:
 - Nextflow version:
 - Profile: (docker/singularity/conda)
@@ -511,17 +536,20 @@ When creating an issue, include:
 **Command**:
 ```bash
 nextflow run ...
-```
+````
 
 **Error message**:
+
 ```
 [paste error]
 ```
 
 **Logs**:
+
 - Attach .nextflow.log
 - Attach trace.txt
 - Attach .command.log from failed task
+
 ```
 
 ---
@@ -546,3 +574,4 @@ For additional help, see:
 - [Performance Tuning](performance_tuning.md)
 - [Best Practices](best_practices.md)
 - [Developer Documentation](../development/)
+```

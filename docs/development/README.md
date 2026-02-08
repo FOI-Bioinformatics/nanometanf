@@ -5,10 +5,12 @@ This directory contains comprehensive documentation for developers working on th
 ## Quick Links
 
 ### Testing & Quality Assurance
+
 - [TESTING.md](TESTING.md) - Comprehensive testing guide with nf-test (includes quick reference)
 - [CODE_QUALITY_EVALUATION_2025-11-04.md](archive/sessions/CODE_QUALITY_EVALUATION_2025-11-04.md) - Latest code quality assessment
 
 ### Architecture & Implementation
+
 - [PROMETHION_OPTIMIZATIONS.md](PROMETHION_OPTIMIZATIONS.md) - Platform-specific performance optimizations
 - [incremental_kraken2_implementation.md](incremental_kraken2_implementation.md) - Kraken2 incremental classification
 - [PHASE_1.1_STATUS.md](PHASE_1.1_STATUS.md) - Incremental Kraken2 feature status
@@ -16,10 +18,12 @@ This directory contains comprehensive documentation for developers working on th
 - **Scalable Streaming (v1.5+)** - See [CLAUDE.md](../../CLAUDE.md) for architecture details
 
 ### Deployment & Operations
+
 - [production_deployment.md](production_deployment.md) - Production deployment guide
 - [developer_api.md](developer_api.md) - Developer API reference
 
 ### Project Organization
+
 - [test_organization.md](test_organization.md) - Test suite organization
 - [v1_0_roadmap.md](v1_0_roadmap.md) - Version 1.0 roadmap
 
@@ -101,25 +105,25 @@ See [CODE_QUALITY_EVALUATION_2025-11-04.md](archive/sessions/CODE_QUALITY_EVALUA
 
 ### Key Development Files
 
-| File | Purpose |
-|------|---------|
-| `main.nf` | Pipeline entry point |
+| File                      | Purpose                     |
+| ------------------------- | --------------------------- |
+| `main.nf`                 | Pipeline entry point        |
 | `workflows/nanometanf.nf` | Main workflow orchestration |
-| `subworkflows/local/` | Custom subworkflows |
-| `modules/local/` | Custom modules |
-| `lib/` | Groovy utility classes |
-| `nextflow.config` | Pipeline configuration |
-| `nextflow_schema.json` | Parameter validation |
-| `conf/modules.config` | Module-specific configs |
+| `subworkflows/local/`     | Custom subworkflows         |
+| `modules/local/`          | Custom modules              |
+| `lib/`                    | Groovy utility classes      |
+| `nextflow.config`         | Pipeline configuration      |
+| `nextflow_schema.json`    | Parameter validation        |
+| `conf/modules.config`     | Module-specific configs     |
 
 ### Library Utilities (lib/)
 
-| File | Purpose |
-|------|---------|
+| File                   | Purpose                                              |
+| ---------------------- | ---------------------------------------------------- |
 | `InputDetector.groovy` | Type-agnostic input detection (POD5/FASTQ/directory) |
-| `BatchUtils.groovy` | Batching utilities using `buffer()` operator |
-| `WorkflowMain.groovy` | Main workflow initialization |
-| `Utils.groovy` | General utility functions |
+| `BatchUtils.groovy`    | Batching utilities using `buffer()` operator         |
+| `WorkflowMain.groovy`  | Main workflow initialization                         |
+| `Utils.groovy`         | General utility functions                            |
 
 ### Testing Guidelines
 
@@ -179,6 +183,7 @@ Input Detection → Basecalling → QC → Classification → Validation → Rep
 ### Real-time Processing
 
 Key features:
+
 - **watchPath monitoring** with timeout handling
 - **Adaptive batching** with min/max constraints
 - **Priority routing** for urgent samples
@@ -190,6 +195,7 @@ See [PROMETHION_OPTIMIZATIONS.md](PROMETHION_OPTIMIZATIONS.md) for details.
 ### Scalable Streaming Architecture (v1.5+)
 
 For high-throughput runs with many barcodes (>10):
+
 - **Per-sample parallelism** - No global `maxForks 1` serialization
 - **Append-only batch storage** - O(1) per batch instead of O(n) rewrites
 - **Incremental taxid counting** - State file updated without re-reading outputs
@@ -197,6 +203,7 @@ For high-throughput runs with many barcodes (>10):
 - **End-of-session aggregation** - Final cumulative files generated when stream closes
 
 Key modules:
+
 - `kraken2_output_merger/` - Append-only batch storage
 - `kraken2_report_generator/` - Incremental taxid counting
 - `kraken2_final_aggregator/` - End-of-session concatenation

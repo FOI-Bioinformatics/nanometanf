@@ -13,6 +13,7 @@
 ### Task 1: Reduce KRAKEN2_REPORT_GENERATOR memory allocation
 
 **Files:**
+
 - Modify: `conf/modules.config:137-142`
 
 **Step 1: Change memory and CPU allocation**
@@ -51,6 +52,7 @@ headroom across 16 concurrent forks."
 ### Task 2: Fix race condition in progressive reporting
 
 **Files:**
+
 - Modify: `subworkflows/local/taxonomic_classification/main.nf:183-236`
 
 **Step 1: Move file read inside synchronized block**
@@ -101,6 +103,7 @@ sample emit near-simultaneously."
 ### Task 3: Add buffered writes to progressive reporting
 
 **Files:**
+
 - Modify: `subworkflows/local/taxonomic_classification/main.nf:179-236`
 - Modify: `nextflow.config:99-103`
 
@@ -179,6 +182,7 @@ write_interval=0 restores per-batch behavior."
 ### Task 4: Add batch count validation to final aggregator
 
 **Files:**
+
 - Modify: `modules/local/kraken2_final_aggregator/main.nf:25-126`
 - Modify: `subworkflows/local/taxonomic_classification/main.nf` (groupTuple section ~247-270)
 
@@ -239,6 +243,7 @@ don't match. Adds batches_complete flag to aggregation stats."
 ### Task 5: Remove FastQC redundancy in real-time mode
 
 **Files:**
+
 - Modify: `subworkflows/local/qc_analysis/main.nf` (lines ~110-157)
 - Modify: `nextflow.config` (add `skip_fastqc_realtime` param)
 
@@ -296,6 +301,7 @@ FastQC remains available in batch mode and via skip_fastqc_realtime=false."
 This is the largest change. It requires a new module or reuse of the existing aggregation module with periodic input.
 
 **Files:**
+
 - Modify: `subworkflows/local/validation/main.nf:162-173`
 - Modify: `nextflow.config` (add `validation_aggregate_interval` param)
 

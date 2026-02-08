@@ -25,7 +25,7 @@ workflow DEMULTIPLEXING {
             already_demuxed: !meta.barcode_kit || meta.demultiplexed
         }
         .set { ch_branched }
-    
+
     //
     // PROCESS: Dorado demultiplexing for multiplexed samples
     //

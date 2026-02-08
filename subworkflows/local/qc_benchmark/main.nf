@@ -3,15 +3,15 @@
     SUBWORKFLOW: QC_BENCHMARK
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     Performance benchmarking framework for QC tools comparison
-    
+
     This subworkflow runs multiple QC tools on the same input data and compares:
     - Processing time and memory usage
     - Quality filtering effectiveness
     - Output read statistics and quality metrics
     - Resource efficiency
-    
+
     Usage: Enable benchmarking by setting params.enable_qc_benchmark = true
-    
+
     Supported comparisons:
     - FASTP vs FILTLONG vs CHOPPER
     - Different FILTLONG parameter sets
@@ -38,33 +38,33 @@ workflow QC_BENCHMARK {
     main:
     ch_versions = Channel.empty()
     ch_benchmark_results = Channel.empty()
-    
+
     //
     // BENCHMARK 1: FASTP (General-purpose QC)
     //
-    
+
     // Run FASTP with standard parameters
     FASTP (
         ch_reads,
         [],           // adapter_fasta
-        false,        // discard_trimmed_pass  
+        false,        // discard_trimmed_pass
         false,        // save_trimmed_fail
         false         // save_merged
     )
     ch_versions = ch_versions.mix(FASTP.out.versions)
-    
+
     // Run FastQC on FASTP output for comparison
     FASTQC (
         FASTP.out.reads
     )
     ch_versions = ch_versions.mix(FASTQC.out.versions.first())
-    
+
     // Run SeqKit stats on FASTP output
     SEQKIT_STATS (
         FASTP.out.reads
     )
     ch_versions = ch_versions.mix(SEQKIT_STATS.out.versions.first())
-    
+
     // Create FASTP benchmark record
     ch_fastp_benchmark = FASTP.out.reads
         .join(FASTP.out.json)
@@ -76,34 +76,34 @@ workflow QC_BENCHMARK {
             ]
             return [new_meta, reads, json, stats]
         }
-    
+
     //
-    // BENCHMARK 2: FILTLONG (Nanopore-optimized QC) 
+    // BENCHMARK 2: FILTLONG (Nanopore-optimized QC)
     //
-    
+
     // Prepare FILTLONG input (shortreads=empty, longreads=reads)
     ch_filtlong_input = ch_reads.map { meta, reads ->
         [meta, null, reads]  // [meta, shortreads=empty, longreads=reads]
     }
-    
+
     // Run FILTLONG with standard parameters
     FILTLONG (
         ch_filtlong_input
     )
     ch_versions = ch_versions.mix(FILTLONG.out.versions.first())
-    
+
     // Run FastQC on FILTLONG output for comparison
     FASTQC (
         FILTLONG.out.reads
     )
     ch_versions = ch_versions.mix(FASTQC.out.versions.first())
-    
-    // Run SeqKit stats on FILTLONG output  
+
+    // Run SeqKit stats on FILTLONG output
     SEQKIT_STATS (
         FILTLONG.out.reads
     )
     ch_versions = ch_versions.mix(SEQKIT_STATS.out.versions.first())
-    
+
     // Create FILTLONG benchmark record
     ch_filtlong_benchmark = FILTLONG.out.reads
         .join(FILTLONG.out.log)
@@ -115,29 +115,29 @@ workflow QC_BENCHMARK {
             ]
             return [new_meta, reads, log, stats]
         }
-    
+
     //
     // BENCHMARK 3: FILTLONG with PORECHOP (Enhanced nanopore QC)
     //
-    
+
     // Run PORECHOP for adapter trimming
     PORECHOP_PORECHOP (
         ch_reads
     )
     ch_versions = ch_versions.mix(PORECHOP_PORECHOP.out.versions.first())
-    
+
     // Prepare PORECHOP+FILTLONG input
     ch_porechop_filtlong_input = PORECHOP_PORECHOP.out.reads.map { meta, reads ->
         [meta, null, reads]  // [meta, shortreads=empty, longreads=reads]
     }
-    
+
     // Run FILTLONG on adapter-trimmed reads (simplified for now)
     // TODO: Re-implement with proper module aliasing or separate workflows
     // FILTLONG_PORECHOP would go here
-    
+
     // For now, skip the PORECHOP+FILTLONG combination to avoid aliasing issues
     // This maintains basic benchmarking functionality while avoiding compilation errors
-    
+
     // Create PORECHOP+FILTLONG benchmark record (simplified - using PORECHOP output directly)
     ch_porechop_filtlong_benchmark = PORECHOP_PORECHOP.out.reads
         .map { meta, reads ->
@@ -185,7 +185,7 @@ workflow QC_BENCHMARK {
     //
     // Run NanoPlot on all QC outputs for visualization comparison
     //
-    
+
     // Combine all QC outputs for NanoPlot comparison
     ch_all_qc_outputs = ch_fastp_benchmark
         .map { meta, reads, json, stats -> [meta, reads] }
@@ -194,12 +194,12 @@ workflow QC_BENCHMARK {
             ch_porechop_filtlong_benchmark.map { meta, reads, log, stats -> [meta, reads] },
             ch_chopper_benchmark.map { meta, reads, log, stats -> [meta, reads] }
         )
-    
+
     NANOPLOT (
         ch_all_qc_outputs
     )
     ch_versions = ch_versions.mix(NANOPLOT.out.versions.first())
-    
+
     //
     // Combine all benchmark results
     //
@@ -226,7 +226,7 @@ workflow QC_BENCHMARK {
 def extractPerformanceMetrics(qc_tool, meta, stats_file) {
     // Parse stats files and extract key QC metrics
     def metrics = [:]
-    
+
     // Parse stats based on tool type
     if (qc_tool == 'fastp') {
         // Parse FastP JSON output
@@ -272,7 +272,7 @@ def extractPerformanceMetrics(qc_tool, meta, stats_file) {
             metrics = [num_seqs: 0, sum_len: 0, avg_len: 0, avg_qual: 0]
         }
     }
-    
+
     return [
         tool: qc_tool,
         sample: meta.id,

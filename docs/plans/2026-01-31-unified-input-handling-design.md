@@ -32,6 +32,7 @@ A shared utility (`lib/InputDetector.groovy`) detects folder structure and extra
 sample IDs. Used by both real-time and scan modes.
 
 **Detection priority:**
+
 1. If input directory contains `barcode*/` subdirectories with target files -->
    multiplexed, subdirectory-based grouping
 2. If `--sample_regex` is provided --> apply regex to filename, use first capture group
@@ -69,6 +70,7 @@ Replace `collate(batch_size)` in the real-time monitor with a custom Groovy oper
 that emits a batch when either the count threshold or a timeout is reached.
 
 **Parameters:**
+
 - `--batch_size` (default: 10) -- existing, emit when N files accumulate
 - `--batch_timeout` (default: 60) -- new, emit partial batch after N seconds of inactivity
 
@@ -142,6 +144,7 @@ INPUT_SCANNER(input_dir, sample_regex)
 ```
 
 **Parameter changes:**
+
 - New `--input_dir` -- unified scan mode entry point
 - `--barcode_input_dir` becomes alias for `--input_dir` (deprecation warning)
 - New `--sample_regex` -- optional, regex with capture group for sample ID extraction
@@ -149,6 +152,7 @@ INPUT_SCANNER(input_dir, sample_regex)
 ### 4. Updated Real-Time Monitoring
 
 Changes to `subworkflows/local/realtime_monitoring/main.nf`:
+
 - Default `file_pattern` changes to `**/*.fastq{,.gz}` (recursive)
 - Replace `collate(batch_size)` with `BatchUtils.batchWithTimeout()`
 - Sample ID extraction uses `InputDetector.extractSampleId()`
@@ -179,44 +183,41 @@ Updated decision tree in `workflows/nanometanf.nf`:
 
 ## New Parameters
 
-| Parameter | Default | Description |
-|-----------|---------|-------------|
-| `--input_dir` | null | Directory to scan for FASTQ/POD5 files (auto-detects structure) |
-| `--sample_regex` | null | Regex with capture group to extract sample ID from filename |
-| `--batch_timeout` | 60 | Seconds before emitting partial batch in real-time mode |
+| Parameter         | Default | Description                                                     |
+| ----------------- | ------- | --------------------------------------------------------------- |
+| `--input_dir`     | null    | Directory to scan for FASTQ/POD5 files (auto-detects structure) |
+| `--sample_regex`  | null    | Regex with capture group to extract sample ID from filename     |
+| `--batch_timeout` | 60      | Seconds before emitting partial batch in real-time mode         |
 
 ## New Files
 
-| File | Purpose |
-|------|---------|
-| `lib/InputDetector.groovy` | Shared folder structure detection and sample ID extraction |
-| `lib/BatchUtils.groovy` | Timeout-based batch flushing operator |
-| `subworkflows/local/input_scanner/main.nf` | Unified scan mode subworkflow |
-| `tests/fixtures/minknow_output/` | Barcode subdirectory test fixture |
-| `tests/fixtures/flat_multisample/` | Flat multi-sample test fixture |
+| File                                       | Purpose                                                    |
+| ------------------------------------------ | ---------------------------------------------------------- |
+| `lib/InputDetector.groovy`                 | Shared folder structure detection and sample ID extraction |
+| `lib/BatchUtils.groovy`                    | Timeout-based batch flushing operator                      |
+| `subworkflows/local/input_scanner/main.nf` | Unified scan mode subworkflow                              |
+| `tests/fixtures/minknow_output/`           | Barcode subdirectory test fixture                          |
+| `tests/fixtures/flat_multisample/`         | Flat multi-sample test fixture                             |
 
 ## Modified Files
 
-| File | Change |
-|------|--------|
-| `subworkflows/local/realtime_monitoring/main.nf` | Recursive pattern, batchWithTimeout, InputDetector |
-| `workflows/nanometanf.nf` | Updated input mode detection, INPUT_SCANNER integration |
-| `nextflow.config` | New parameters, default file_pattern change |
-| `nextflow_schema.json` | Schema for new parameters |
+| File                                             | Change                                                  |
+| ------------------------------------------------ | ------------------------------------------------------- |
+| `subworkflows/local/realtime_monitoring/main.nf` | Recursive pattern, batchWithTimeout, InputDetector      |
+| `workflows/nanometanf.nf`                        | Updated input mode detection, INPUT_SCANNER integration |
+| `nextflow.config`                                | New parameters, default file_pattern change             |
+| `nextflow_schema.json`                           | Schema for new parameters                               |
 
 ## Testing
 
 **Unit tests:**
+
 1. InputDetector.detectStructure() -- barcode subdirs, flat dir
 2. InputDetector.extractSampleId() -- all four priority levels
 3. batchWithTimeout() -- count emit, timeout emit, channel completion
 4. INPUT_SCANNER subworkflow -- all structure types
 
-**Integration tests:**
-5. Real-time with barcode subdirectories
-6. Real-time with flat directory + sample_regex
-7. Scan mode with MinKNOW-style output
-8. Backward compatibility: --barcode_input_dir alias
+**Integration tests:** 5. Real-time with barcode subdirectories 6. Real-time with flat directory + sample_regex 7. Scan mode with MinKNOW-style output 8. Backward compatibility: --barcode_input_dir alias
 
 ## References
 

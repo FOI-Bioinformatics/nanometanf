@@ -41,11 +41,11 @@ nextflow_process {
             assert process.out.feedback.size() == 1
             assert process.out.learning_update.size() == 1
             assert process.out.versions.size() == 1
-            
+
             def (meta, feedback_file) = process.out.feedback[0]
             assert meta.id == 'stub_test'
             assert path(feedback_file).exists()
-            
+
             def learning_file = process.out.learning_update[0]
             assert path(learning_file).exists()
         }
@@ -79,17 +79,17 @@ nextflow_process {
             assert process.success
             assert process.out.model.size() == 1
             assert process.out.statistics.size() == 1
-            
+
             def model_file = process.out.model[0]
             assert path(model_file).exists()
-            
+
             def stats_file = process.out.statistics[0]
             assert path(stats_file).exists()
-            
+
             // Should generate default model and stats
             def stats_content = path(stats_file).text
             assert stats_content.contains('total_feedback_samples') && stats_content.contains('0')
-            
+
             assert process.out.versions.size() == 1
         }
     }
@@ -112,10 +112,10 @@ nextflow_process {
             assert process.out.model.size() == 1
             assert process.out.statistics.size() == 1
             assert process.out.versions.size() == 1
-            
+
             def model_file = process.out.model[0]
             assert path(model_file).exists()
-            
+
             def stats_file = process.out.statistics[0]
             assert path(stats_file).exists()
         }

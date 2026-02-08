@@ -11,7 +11,7 @@ tools:
       description: Python programming language
       homepage: https://www.python.org/
       documentation: https://docs.python.org/3/
-      licence: ['PSF']
+      licence: ["PSF"]
 
 input:
   - error_classification:

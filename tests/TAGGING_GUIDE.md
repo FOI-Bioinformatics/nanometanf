@@ -16,12 +16,12 @@ nextflow_pipeline {
 
 ## Required Tags
 
-| Tag | Purpose | CI Usage |
-|-----|---------|----------|
-| `core` | Must-pass tests | `--tag core` |
-| `extended` | Nice-to-pass tests | Release only |
-| `fast` | < 1 minute | `--tag core --tag fast` |
-| `slow` | > 1 minute | Full suite |
+| Tag        | Purpose            | CI Usage                |
+| ---------- | ------------------ | ----------------------- |
+| `core`     | Must-pass tests    | `--tag core`            |
+| `extended` | Nice-to-pass tests | Release only            |
+| `fast`     | < 1 minute         | `--tag core --tag fast` |
+| `slow`     | > 1 minute         | Full suite              |
 
 ## Optional Feature Tags
 

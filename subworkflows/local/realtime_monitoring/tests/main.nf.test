@@ -26,7 +26,7 @@ nextflow_workflow {
                 input[3] = '2.min'                         // batch_interval
                 """
             }
-            
+
             params {
                 realtime_mode = false
                 max_files = null
@@ -39,7 +39,7 @@ nextflow_workflow {
         then {
             assert workflow.success
             assert snapshot(workflow.out.versions).match()
-            
+
             // When realtime_mode is false, should return empty channels
             if (workflow.out.samples) {
                 def samples = workflow.out.samples.toList()
@@ -56,7 +56,7 @@ nextflow_workflow {
             mkdir -p $outputDir/fastq_watch_dir
             mkdir -p $outputDir/fastq_watch_dir/subdir1
             mkdir -p $outputDir/fastq_watch_dir/subdir2
-            
+
             # Create mock FASTQ files to simulate real structure
             echo "@read1\nATCGATCGATCG\n+\nIIIIIIIIIIII" > $outputDir/fastq_watch_dir/sample1.fastq
             echo "@read2\nGCTAGCTAGCTA\n+\nIIIIIIIIIIII" > $outputDir/fastq_watch_dir/sample2.fastq.gz
@@ -73,7 +73,7 @@ nextflow_workflow {
                 input[3] = '1.min'                         // batch_interval
                 """
             }
-            
+
             params {
                 realtime_mode = true
                 max_files = "5" // Limit for testing
@@ -119,7 +119,7 @@ nextflow_workflow {
                 input[3] = '30.sec'                        // batch_interval
                 """
             }
-            
+
             params {
                 realtime_mode = false  // Disable for static testing
                 max_cpus = 1
@@ -131,7 +131,7 @@ nextflow_workflow {
         then {
             assert workflow.success
             assert snapshot(workflow.out.versions).match()
-            
+
             // When disabled, should return empty channels
             if (workflow.out.samples) {
                 def samples = workflow.out.samples.toList()
@@ -168,7 +168,7 @@ nextflow_workflow {
                 input[3] = '10.sec'                        // batch_interval
                 """
             }
-            
+
             params {
                 realtime_mode = false  // Static mode for testing
                 max_cpus = 1
@@ -180,7 +180,7 @@ nextflow_workflow {
         then {
             assert workflow.success
             assert snapshot(workflow.out.versions).match()
-            
+
             // Verify batch configuration is handled
             if (workflow.out.samples) {
                 def samples = workflow.out.samples.toList()
@@ -227,7 +227,7 @@ nextflow_workflow {
                 input[3] = '5.min'                         // batch_interval
                 """
             }
-            
+
             params {
                 realtime_mode = false
                 max_files = "100" // High limit
@@ -240,7 +240,7 @@ nextflow_workflow {
         then {
             assert workflow.success
             assert snapshot(workflow.out.versions).match()
-            
+
             // Verify large batch handling
             if (workflow.out.samples) {
                 def samples = workflow.out.samples.toList()
@@ -270,7 +270,7 @@ nextflow_workflow {
                 input[3] = '30.sec'                        // batch_interval - short interval
                 """
             }
-            
+
             params {
                 realtime_mode = false
                 max_files = "1"
@@ -283,7 +283,7 @@ nextflow_workflow {
         then {
             assert workflow.success
             assert snapshot(workflow.out.versions).match()
-            
+
             // Interval configuration validation
             if (workflow.out.samples) {
                 def samples = workflow.out.samples.toList()
@@ -299,7 +299,7 @@ nextflow_workflow {
             # Create complex nested directory structure
             mkdir -p $outputDir/nested_test/level1/level2/level3
             mkdir -p $outputDir/nested_test/another_branch/subbranch
-            
+
             # Place FASTQ files at different levels
             echo "@read1\nATCG\n+\nIIII" > $outputDir/nested_test/root.fastq
             echo "@read2\nGCTA\n+\nIIII" > $outputDir/nested_test/level1/level1.fastq
@@ -319,7 +319,7 @@ nextflow_workflow {
                 input[3] = '2.min'                         // batch_interval
                 """
             }
-            
+
             params {
                 realtime_mode = false
                 max_files = "2"
@@ -332,7 +332,7 @@ nextflow_workflow {
         then {
             assert workflow.success
             assert snapshot(workflow.out.versions).match()
-            
+
             // Nested directory handling validation
             if (workflow.out.samples) {
                 def samples = workflow.out.samples.toList()
@@ -349,7 +349,7 @@ nextflow_workflow {
             mkdir -p $outputDir/empty_watch_dir
             mkdir -p $outputDir/empty_watch_dir/subdir1
             mkdir -p $outputDir/empty_watch_dir/subdir2
-            
+
             # No FASTQ files - only create other file types
             echo "Not a FASTQ file" > $outputDir/empty_watch_dir/readme.txt
             echo "Also not FASTQ" > $outputDir/empty_watch_dir/data.csv
@@ -365,7 +365,7 @@ nextflow_workflow {
                 input[3] = '1.min'                         // batch_interval
                 """
             }
-            
+
             params {
                 realtime_mode = false
                 max_files = "0" // No files expected
@@ -378,7 +378,7 @@ nextflow_workflow {
         then {
             assert workflow.success
             assert snapshot(workflow.out.versions).match()
-            
+
             // Empty directory handling
             if (workflow.out.samples) {
                 def samples = workflow.out.samples.toList()
@@ -393,16 +393,16 @@ nextflow_workflow {
             """
             # Create FASTQ files with different formats and compressions
             mkdir -p $outputDir/format_test_dir
-            
+
             # Standard FASTQ
             echo "@read1\nATCGATCGATCG\n+\nIIIIIIIIIIII" > $outputDir/format_test_dir/standard.fastq
-            
+
             # Compressed FASTQ
             echo "@read2\nGCTAGCTAGCTA\n+\nIIIIIIIIIIII" | gzip > $outputDir/format_test_dir/compressed.fastq.gz
-            
+
             # FQ extension
             echo "@read3\nTAGCTAGCTAGC\n+\nIIIIIIIIIIII" > $outputDir/format_test_dir/alternative.fq
-            
+
             # Compressed FQ
             echo "@read4\nCGATCGATCGAT\n+\nIIIIIIIIIIII" | gzip > $outputDir/format_test_dir/compressed_alt.fq.gz
             """
@@ -417,7 +417,7 @@ nextflow_workflow {
                 input[3] = '1.min'                         // batch_interval
                 """
             }
-            
+
             params {
                 realtime_mode = false
                 max_files = "1"
@@ -430,7 +430,7 @@ nextflow_workflow {
         then {
             assert workflow.success
             assert snapshot(workflow.out.versions).match()
-            
+
             // Format handling validation
             if (workflow.out.samples) {
                 def samples = workflow.out.samples.toList()
@@ -477,7 +477,7 @@ nextflow_workflow {
                 input[3] = '10.min'                        // batch_interval - long interval
                 """
             }
-            
+
             params {
                 realtime_mode = false
                 max_files = "20"
@@ -524,7 +524,7 @@ nextflow_workflow {
                 input[3] = '1.min'                         // batch_interval
                 """
             }
-            
+
             params {
                 realtime_mode = false
                 max_files = "1"
@@ -537,7 +537,7 @@ nextflow_workflow {
         then {
             assert workflow.success
             assert snapshot(workflow.out.versions).match()
-            
+
             // Special character handling
             if (workflow.out.samples) {
                 def samples = workflow.out.samples.toList()
@@ -566,7 +566,7 @@ nextflow_workflow {
                 input[3] = '1.min'                         // batch_interval
                 """
             }
-            
+
             params {
                 realtime_mode = false
                 max_files = 5
@@ -579,7 +579,7 @@ nextflow_workflow {
         then {
             assert workflow.success
             assert snapshot(workflow.out.versions).match()
-            
+
             // Long path handling
             if (workflow.out.samples) {
                 def samples = workflow.out.samples.toList()
@@ -594,11 +594,11 @@ nextflow_workflow {
             """
             # Create files that should and shouldn't match patterns
             mkdir -p $outputDir/pattern_precision_dir
-            
+
             # Should match
             echo "@read1\nATCG\n+\nIIII" > $outputDir/pattern_precision_dir/sample1.fastq
             echo "@read2\nGCTA\n+\nIIII" > $outputDir/pattern_precision_dir/sample2.fq
-            
+
             # Should not match
             echo "Not FASTQ" > $outputDir/pattern_precision_dir/sample1.fastq.bak
             echo "Not FASTQ" > $outputDir/pattern_precision_dir/sample2.fq.old
@@ -616,7 +616,7 @@ nextflow_workflow {
                 input[3] = '1.min'                             // batch_interval
                 """
             }
-            
+
             params {
                 realtime_mode = false
                 max_files = "1"
@@ -629,7 +629,7 @@ nextflow_workflow {
         then {
             assert workflow.success
             assert snapshot(workflow.out.versions).match()
-            
+
             // Pattern precision validation
             if (workflow.out.samples) {
                 def samples = workflow.out.samples.toList()

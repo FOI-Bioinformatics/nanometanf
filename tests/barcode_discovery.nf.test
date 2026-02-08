@@ -21,17 +21,17 @@ nextflow_pipeline {
                 // Use barcode directory input
                 barcode_input_dir = "$projectDir/tests/fixtures/barcode_structure"
                 outdir = "$outputDir"
-                
+
                 // Provide required input parameter (empty samplesheet for barcode mode)
                 input = false
                 pod5_input_dir = null
                 use_dorado = false
                 realtime_mode = false
-                
+
                 // Disable advanced features for focused testing
                 skip_kraken2 = true
                 blast_validation = false
-                
+
                 // Resource limits
                 max_cpus = 2
                 max_memory = '4.GB'

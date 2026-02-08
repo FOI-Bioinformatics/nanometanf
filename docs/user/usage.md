@@ -83,6 +83,7 @@ SAMPLE_3,/path/to/sample3.fastq.gz,BC02
 ```
 
 **Columns:**
+
 - `sample` (required): Unique sample identifier
 - `fastq` (required): Absolute or relative path to FASTQ file
 - `barcode` (optional): Barcode identifier (leave empty for non-barcoded samples)
@@ -146,6 +147,7 @@ nextflow run foi-bioinformatics/nanometanf \
 ```
 
 **Features:**
+
 - Quality filtering with FASTP
 - Nanopore-specific QC with NanoPlot
 - Taxonomic classification with Kraken2
@@ -153,6 +155,7 @@ nextflow run foi-bioinformatics/nanometanf \
 - MultiQC comprehensive report
 
 **When to use:**
+
 - Laboratory has already performed basecalling
 - FASTQ files are ready for analysis
 - Standard batch processing workflow
@@ -170,12 +173,14 @@ nextflow run foi-bioinformatics/nanometanf \
 ```
 
 **Features:**
+
 - Automatic barcode directory discovery
 - Processes barcode01/, barcode02/, unclassified/
 - Sample names derived from barcode IDs
 - Same analysis as Mode 1
 
 **When to use:**
+
 - MinKNOW or Guppy created barcode folders
 - Laboratory preprocessing separated barcodes
 - Want automatic sample detection
@@ -195,12 +200,14 @@ nextflow run foi-bioinformatics/nanometanf \
 ```
 
 **Dorado models:**
+
 - `dna_r10.4.1_e4.3_400bps_hac@v5.0.0` - High accuracy (recommended)
 - `dna_r10.4.1_e4.3_400bps_sup@v5.0.0` - Super accurate (slower)
 - `dna_r10.4.1_e4.3_400bps_fast@v4.1.0` - Fast (lower accuracy)
 - `dna_r9.4.1_e8_hac@v3.3` - R9.4.1 flowcell
 
 **When to use:**
+
 - Starting from raw POD5 files
 - Single sample without barcoding
 - Want to control basecalling parameters
@@ -221,6 +228,7 @@ nextflow run foi-bioinformatics/nanometanf \
 ```
 
 **Barcode kits:**
+
 - `SQK-NBD114-24` - Native Barcoding Kit 24 (V14)
 - `SQK-RBK114-24` - Rapid Barcoding Kit 24 (V14)
 - `SQK-NBD114-96` - Native Barcoding Kit 96 (V14)
@@ -228,6 +236,7 @@ nextflow run foi-bioinformatics/nanometanf \
 - `SQK-RAB204` - Rapid Barcoding Kit 1-24 (R10)
 
 **When to use:**
+
 - Multiplexed sequencing with barcodes
 - Want Dorado to perform demultiplexing
 - Starting from POD5 files
@@ -249,12 +258,14 @@ nextflow run foi-bioinformatics/nanometanf \
 ```
 
 **Real-time parameters:**
+
 - `--batch_size`: Number of files per batch (default: 10)
 - `--batch_interval`: Time between batches (default: 5min)
 - `--max_files`: Maximum files to process (optional, for testing)
 - `--adaptive_batching`: Enable dynamic batch sizing
 
 **When to use:**
+
 - Active sequencing in progress
 - Need results before run completes
 - Pathogen detection or quality monitoring
@@ -277,12 +288,14 @@ nextflow run foi-bioinformatics/nanometanf \
 ```
 
 **Recommendations:**
+
 - Use `fast` model for real-time (faster basecalling)
 - Smaller batch_size for POD5 (5-10 files)
 - Longer batch_interval for POD5 (10-15min)
 - GPU acceleration highly recommended
 
 **When to use:**
+
 - Active sequencing producing POD5 files
 - Want real-time basecalling + analysis
 - Need immediate pathogen detection
@@ -302,17 +315,18 @@ nextflow run foi-bioinformatics/nanometanf \
 
 **Optimization profiles:**
 
-| Profile | CPU | Memory | Use Case |
-|---------|-----|--------|----------|
-| `auto` | Adaptive | Adaptive | Unknown workload (recommended) |
-| `high_throughput` | High (80%) | High (80%) | Batch processing, many samples |
-| `balanced` | Medium (60%) | Medium (60%) | General use, mixed workloads |
-| `resource_conservative` | Low (40%) | Low (40%) | Shared systems, limited resources |
-| `gpu_optimized` | High + GPU | High | Dorado basecalling with GPU |
-| `realtime_optimized` | Medium | Medium | Low-latency real-time analysis |
-| `development_testing` | Low | Low | Development, quick tests |
+| Profile                 | CPU          | Memory       | Use Case                          |
+| ----------------------- | ------------ | ------------ | --------------------------------- |
+| `auto`                  | Adaptive     | Adaptive     | Unknown workload (recommended)    |
+| `high_throughput`       | High (80%)   | High (80%)   | Batch processing, many samples    |
+| `balanced`              | Medium (60%) | Medium (60%) | General use, mixed workloads      |
+| `resource_conservative` | Low (40%)    | Low (40%)    | Shared systems, limited resources |
+| `gpu_optimized`         | High + GPU   | High         | Dorado basecalling with GPU       |
+| `realtime_optimized`    | Medium       | Medium       | Low-latency real-time analysis    |
+| `development_testing`   | Low          | Low          | Development, quick tests          |
 
 **When to use:**
+
 - Uncertain about optimal resource allocation
 - Want automatic performance tuning
 - Processing varies between runs
@@ -322,6 +336,7 @@ nextflow run foi-bioinformatics/nanometanf \
 ### Core Parameters
 
 #### Input/Output
+
 ```bash
 --input <file>              # Samplesheet CSV (required unless --input_dir)
 --input_dir <dir>           # Pre-demultiplexed barcode folders (auto-detects structure)
@@ -329,6 +344,7 @@ nextflow run foi-bioinformatics/nanometanf \
 ```
 
 #### Dorado Basecalling
+
 ```bash
 --use_dorado                # Enable POD5 basecalling
 --pod5_input_dir <dir>      # POD5 files directory
@@ -340,6 +356,7 @@ nextflow run foi-bioinformatics/nanometanf \
 ```
 
 #### Real-time Processing
+
 ```bash
 --realtime_mode             # Enable file monitoring
 --nanopore_output_dir <dir> # Directory to monitor
@@ -351,6 +368,7 @@ nextflow run foi-bioinformatics/nanometanf \
 ```
 
 #### Quality Control
+
 ```bash
 --skip_fastp                # Skip FASTP quality filtering
 --skip_nanoplot             # Skip NanoPlot QC
@@ -360,6 +378,7 @@ nextflow run foi-bioinformatics/nanometanf \
 ```
 
 #### Taxonomic Classification
+
 ```bash
 --kraken2_db <path>         # Kraken2 database path
 --skip_kraken2              # Skip Kraken2 classification
@@ -374,16 +393,17 @@ Kraken2 requires a pre-built database for taxonomic classification. You have sev
 **Option 1: Download pre-built databases (recommended)**
 
 Pre-built databases are available from Ben Langmead's AWS mirror:
+
 - https://benlangmead.github.io/aws-indexes/k2
 
 Common databases:
 
-| Database | Size | Contents |
-|----------|------|----------|
-| `k2_standard` | ~70 GB | Archaea, bacteria, viral, plasmid, human, vectors |
-| `k2_pluspf` | ~100 GB | Standard + protozoa and fungi |
-| `k2_minusb` | ~9 GB | Standard minus bacteria (faster, less comprehensive) |
-| `k2_viral` | ~500 MB | Viral genomes only |
+| Database      | Size    | Contents                                             |
+| ------------- | ------- | ---------------------------------------------------- |
+| `k2_standard` | ~70 GB  | Archaea, bacteria, viral, plasmid, human, vectors    |
+| `k2_pluspf`   | ~100 GB | Standard + protozoa and fungi                        |
+| `k2_minusb`   | ~9 GB   | Standard minus bacteria (faster, less comprehensive) |
+| `k2_viral`    | ~500 MB | Viral genomes only                                   |
 
 ```bash
 # Download and extract (example: viral database)
@@ -422,6 +442,7 @@ nextflow run foi-bioinformatics/nanometanf \
 ```
 
 #### Validation
+
 ```bash
 --blast_validation          # Enable BLAST validation
 --blast_db <path>           # BLAST database path
@@ -429,6 +450,7 @@ nextflow run foi-bioinformatics/nanometanf \
 ```
 
 #### Resource Optimization
+
 ```bash
 --optimization_profile <profile>    # auto, high_throughput, balanced, etc.
 --enable_dynamic_resources          # Enable resource optimization
@@ -442,6 +464,7 @@ nextflow run foi-bioinformatics/nanometanf \
 ### Advanced Parameters
 
 #### Assembly (Experimental)
+
 ```bash
 --enable_assembly           # Enable genome assembly
 --assembler <tool>          # flye or miniasm
@@ -449,11 +472,13 @@ nextflow run foi-bioinformatics/nanometanf \
 ```
 
 #### Adapter Trimming
+
 ```bash
 --enable_adapter_trimming   # Enable PORECHOP trimming
 ```
 
 #### QC Benchmarking
+
 ```bash
 --enable_qc_benchmark       # Compare FASTP vs FILTLONG
 ```
@@ -529,6 +554,7 @@ nextflow run foi-bioinformatics/nanometanf \
 ### Common Issues
 
 **1. Docker permission denied**
+
 ```bash
 # Add user to docker group
 sudo usermod -aG docker $USER
@@ -536,6 +562,7 @@ sudo usermod -aG docker $USER
 ```
 
 **2. Kraken2 database not found**
+
 ```bash
 # Check database path
 ls -lh /databases/k2_standard/
@@ -543,6 +570,7 @@ ls -lh /databases/k2_standard/
 ```
 
 **3. Real-time mode not detecting files**
+
 ```bash
 # Verify file pattern with quotes
 --file_pattern "**/*.fastq.gz"
@@ -555,6 +583,7 @@ find /path/to/monitor -name "*.fastq.gz"
 ```
 
 **4. Out of memory**
+
 ```bash
 # Reduce resource allocation
 --optimization_profile resource_conservative \
@@ -563,6 +592,7 @@ find /path/to/monitor -name "*.fastq.gz"
 ```
 
 **5. Dorado model download fails**
+
 ```bash
 # Pre-download models
 dorado download --model dna_r10.4.1_e4.3_400bps_hac
@@ -574,6 +604,7 @@ ls ~/.cache/dorado/models/
 ### Performance Tuning
 
 **For faster processing:**
+
 ```bash
 --optimization_profile high_throughput \
 --max_cpus 16 \
@@ -582,6 +613,7 @@ ls ~/.cache/dorado/models/
 ```
 
 **For limited resources:**
+
 ```bash
 --optimization_profile resource_conservative \
 --max_cpus 4 \
@@ -591,6 +623,7 @@ ls ~/.cache/dorado/models/
 ```
 
 **For real-time analysis:**
+
 ```bash
 --optimization_profile realtime_optimized \
 --batch_size 5 \

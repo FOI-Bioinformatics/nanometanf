@@ -9,6 +9,7 @@ This guide provides step-by-step instructions for migrating between different ve
 ---
 
 ## Table of Contents
+
 - [Quick Migration Matrix](#quick-migration-matrix)
 - [From v1.0.x to v1.2.0](#from-v10x-to-v120)
 - [From v1.2.0 to v1.3.3](#from-v120-to-v133)
@@ -20,19 +21,20 @@ This guide provides step-by-step instructions for migrating between different ve
 
 ## Quick Migration Matrix
 
-| From | To | Difficulty | Breaking Changes | Action Required |
-|------|-----|-----------|------------------|-----------------|
-| v1.0.x | v1.2.0 | **Easy** | None | Optional - Update parameters |
-| v1.2.0 | v1.3.3 | **Medium** | None | Test before production |
-| **v1.3.0** | **v1.3.1+** | **Critical** | None | **Immediate upgrade required** |
-| v1.1.0 | v1.2.0 | **Easy** | None | Recommended |
-| Any | v1.2.0 | **Easy** | None | Safe stable version |
+| From       | To          | Difficulty   | Breaking Changes | Action Required                |
+| ---------- | ----------- | ------------ | ---------------- | ------------------------------ |
+| v1.0.x     | v1.2.0      | **Easy**     | None             | Optional - Update parameters   |
+| v1.2.0     | v1.3.3      | **Medium**   | None             | Test before production         |
+| **v1.3.0** | **v1.3.1+** | **Critical** | None             | **Immediate upgrade required** |
+| v1.1.0     | v1.2.0      | **Easy**     | None             | Recommended                    |
+| Any        | v1.2.0      | **Easy**     | None             | Safe stable version            |
 
 ---
 
 ## From v1.0.x to v1.2.0
 
 ### Overview
+
 - **Difficulty:** Easy
 - **Breaking Changes:** None
 - **Backward Compatibility:** 100%
@@ -42,6 +44,7 @@ This guide provides step-by-step instructions for migrating between different ve
 ### What's New in v1.2.0
 
 **Key Features:**
+
 - Chopper as default QC tool (7x faster than NanoFilt)
 - Multi-tool QC support (chopper, fastp, filtlong)
 - 100% nf-core compliance (707/707 lint tests passing)
@@ -53,12 +56,14 @@ This guide provides step-by-step instructions for migrating between different ve
 #### 1. Update Pipeline Version
 
 **Option A: Pull latest version**
+
 ```bash
 # Update to v1.2.0
 nextflow pull foi-bioinformatics/nanometanf -r v1.2.0
 ```
 
 **Option B: Specify version in command**
+
 ```bash
 nextflow run foi-bioinformatics/nanometanf -r v1.2.0 \
   --input samplesheet.csv \
@@ -86,6 +91,7 @@ nextflow run foi-bioinformatics/nanometanf -r v1.2.0 \
 ```
 
 **To keep using FASTP:**
+
 ```bash
 # Use FASTP instead of Chopper
 --qc_tool fastp
@@ -137,15 +143,18 @@ ls -R test_v1.2.0_output/
 ### Expected Changes
 
 **Performance:**
+
 - QC processing: ~7x faster with Chopper
 - Overall pipeline: 10-15% faster for typical workflows
 
 **Output:**
+
 - QC reports: Different format if using Chopper (JSON instead of HTML)
 - MultiQC: Includes Chopper stats instead of FASTP stats
 - All other outputs: Identical
 
 **No Changes:**
+
 - Directory structure: Same
 - File naming: Same
 - Classification results: Identical
@@ -156,6 +165,7 @@ ls -R test_v1.2.0_output/
 ## From v1.2.0 to v1.3.3
 
 ### Overview
+
 - **Difficulty:** Medium
 - **Breaking Changes:** None
 - **Backward Compatibility:** 100%
@@ -165,6 +175,7 @@ ls -R test_v1.2.0_output/
 ### What's New in v1.3.3
 
 **Key Features:**
+
 - Advanced real-time monitoring (2-stage timeout with grace period)
 - Adaptive batching (dynamic sizing between min/max)
 - Priority sample routing
@@ -223,6 +234,7 @@ Use platform-specific profiles for better performance:
 #### 4. Test Real-time Features
 
 **Test new timeout behavior:**
+
 ```bash
 # Create test scenario
 nextflow run foi-bioinformatics/nanometanf -r v1.3.3 \
@@ -239,6 +251,7 @@ nextflow run foi-bioinformatics/nanometanf -r v1.3.3 \
 #### 5. Optional: Enable Experimental Features
 
 **Incremental Kraken2 (experimental):**
+
 ```bash
 --kraken2_enable_incremental true
 ```
@@ -264,11 +277,13 @@ diff -r results_v1.2.0/kraken2 results_v1.3.3/kraken2
 ### Expected Changes
 
 **If NOT using real-time mode:**
+
 - Behavior: Identical to v1.2.0
 - Performance: Similar or slightly improved
 - Results: Identical
 
 **If using real-time mode:**
+
 - Behavior: More intelligent timeout handling
 - Performance: Potentially better with platform profiles
 - Results: Identical (processing is same, just orchestration improved)
@@ -280,6 +295,7 @@ diff -r results_v1.2.0/kraken2 results_v1.3.3/kraken2
 
 **Issue:** Batch sizes too large/small
 **Solution:** Configure adaptive batching:
+
 ```bash
 --adaptive_batching true \
 --min_batch_size 5 \
@@ -296,6 +312,7 @@ diff -r results_v1.2.0/kraken2 results_v1.3.3/kraken2
 **Status:** v1.3.0 has a parse-time error and is completely unusable.
 
 **Error:**
+
 ```
 ERROR ~ No such variable: KRAKEN2_INCREMENTAL_CLASSIFIER
 ```
@@ -305,6 +322,7 @@ ERROR ~ No such variable: KRAKEN2_INCREMENTAL_CLASSIFIER
 ### Immediate Action Required
 
 **Do NOT use v1.3.0. Upgrade immediately to:**
+
 - **v1.2.0** (stable, recommended for production)
 - **v1.3.1** (hotfix, fixed the parse error)
 - **v1.3.3** (latest, includes all v1.3 features)
@@ -350,27 +368,33 @@ Since v1.3.0 doesn't run, no output files exist that need migration.
 ## Breaking Changes History
 
 ### v1.3.3 (2025-10-25)
+
 - **Breaking Changes:** None
 - **Deprecations:** None
 
 ### v1.3.1 (2025-10-20)
+
 - **Breaking Changes:** None (hotfix for v1.3.0)
 - **Fixes:** Removed broken Kraken2 incremental classifier
 
 ### v1.3.0 (2025-10-19)
+
 - **Status:** 🚫 BROKEN - Do not use
 - **Issue:** Parse-time error
 
 ### v1.2.0 (2025-10-16)
+
 - **Breaking Changes:** None
 - **Deprecations:** None
 - **New Defaults:** Chopper is now default QC tool
 
 ### v1.1.0 (2025-10-10)
+
 - **Breaking Changes:** None
 - **Deprecations:** None
 
 ### v1.0.0 (2025-09-15)
+
 - **Initial Release**
 
 ---
@@ -380,11 +404,13 @@ Since v1.3.0 doesn't run, no output files exist that need migration.
 ### Issue: Pipeline version not updating
 
 **Symptom:**
+
 ```
 Pipeline version still shows old version after pull
 ```
 
 **Solution:**
+
 ```bash
 # Force re-download
 rm -rf ~/.nextflow/assets/foi-bioinformatics/nanometanf
@@ -448,17 +474,20 @@ assert workflow.trace.tasks().any {
 ## Need Help?
 
 ### Documentation
+
 - [Current Version Status](CURRENT_VERSION.md) - Which version to use
 - [Usage Guide](../user/usage.md) - Complete parameter reference
 - [Troubleshooting](../user/troubleshooting.md) - Common issues
 
 ### Support
+
 - **GitHub Issues:** https://github.com/foi-bioinformatics/nanometanf/issues
 - **Label:** Use `migration` label for migration-related issues
 
 ### Reporting Migration Issues
 
 Include this information:
+
 ```
 From version: v1.x.x
 To version: v1.y.y

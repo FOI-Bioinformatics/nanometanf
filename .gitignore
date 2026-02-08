@@ -2,6 +2,7 @@
 work/
 data/
 results/
+results_*/
 .DS_Store
 testing/
 testing*
@@ -32,6 +33,7 @@ full_test_analysis.log
 /*_REPORT.md
 /VERIFICATION_*.md
 /IMPLEMENTATION_*.md
+/PLAN_*.md
 
 # Temporary test files and samplesheets
 /*.csv

@@ -94,7 +94,7 @@ nextflow_process {
             // Check output structure with demultiplexing
             def (meta, reads) = process.out.fastq[0]
             assert meta.id == 'test_demux_sample'
-            
+
             // Should have versions
             assert process.out.versions.size() == 1
         }
@@ -131,7 +131,7 @@ nextflow_process {
 
             def (meta, reads) = process.out.fastq[0]
             assert meta.basecalling_model == 'dna_r9.4.1_e8_fast@v3.4'
-            
+
             assert process.out.versions.size() == 1
         }
     }
@@ -164,7 +164,7 @@ nextflow_process {
         then {
             // Should handle empty directory gracefully
             assert process.success || process.failed
-            
+
             if (process.success) {
                 // If successful, should still produce minimal output
                 assert process.out.fastq.size() >= 0

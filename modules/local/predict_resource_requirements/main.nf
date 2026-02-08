@@ -16,32 +16,32 @@ process PREDICT_RESOURCE_REQUIREMENTS {
 
     script:
     def args = task.ext.args ?: ''
-    
+
     """
     #!/usr/bin/env python3
-    
+
     import json
     import os
     import math
     import numpy as np
     from datetime import datetime
     from pathlib import Path
-    
+
     # Load input data
     meta = json.loads('${new groovy.json.JsonBuilder(meta).toString()}')
     resource_config = json.loads('${new groovy.json.JsonBuilder(resource_config).toString()}')
-    
+
     # Load characteristics and system metrics
     with open('${characteristics}', 'r') as f:
         characteristics = json.load(f)
-    
+
     with open('${system_metrics}', 'r') as f:
         system_metrics = json.load(f)
-    
+
     def predict_cpu_requirements(characteristics, tool_context):
         \"\"\"Predict optimal CPU requirements based on input characteristics\"\"\"
         tool_name = tool_context.get('tool_name', 'unknown')
-        
+
         # Base CPU requirements per tool
         base_cpu_requirements = {
             'dorado_basecaller': {
@@ -81,33 +81,33 @@ process PREDICT_RESOURCE_REQUIREMENTS {
                 'cpu_intensive': True
             }
         }
-        
+
         profile = base_cpu_requirements.get(tool_name, base_cpu_requirements.get('filtlong'))
-        
+
         # Calculate based on data size
         base_cores = profile['base_cores']
         data_size_gb = characteristics.get('total_size_gb', 1)
         estimated_reads_millions = characteristics.get('total_estimated_reads', 1000000) / 1000000
-        
+
         if tool_name in ['kraken2', 'fastp']:
             scaling_input = estimated_reads_millions
         else:
             scaling_input = data_size_gb
-        
+
         predicted_cores = base_cores + (scaling_input * profile['scaling_factor'])
-        
+
         # Apply complexity adjustment
         complexity_score = characteristics.get('complexity_metrics', {}).get('overall_complexity', 1.0)
         predicted_cores *= complexity_score
-        
+
         # GPU adjustment for basecalling
         if tool_name == 'dorado_basecaller' and system_metrics.get('gpu', {}).get('gpu_available'):
             predicted_cores *= profile['gpu_factor']
-        
+
         # Cap at maximum
         predicted_cores = min(predicted_cores, profile['max_cores'])
         predicted_cores = max(1, int(predicted_cores))
-        
+
         return {
             'predicted_cores': predicted_cores,
             'base_cores': base_cores,
@@ -115,11 +115,11 @@ process PREDICT_RESOURCE_REQUIREMENTS {
             'complexity_adjustment': complexity_score,
             'tool_profile': profile
         }
-    
+
     def predict_memory_requirements(characteristics, tool_context):
         \"\"\"Predict optimal memory requirements\"\"\"
         tool_name = tool_context.get('tool_name', 'unknown')
-        
+
         # Base memory requirements per tool (GB)
         base_memory_requirements = {
             'dorado_basecaller': {
@@ -159,13 +159,13 @@ process PREDICT_RESOURCE_REQUIREMENTS {
                 'overlap_memory': 1.5
             }
         }
-        
+
         profile = base_memory_requirements.get(tool_name, base_memory_requirements.get('filtlong'))
-        
+
         base_memory = profile['base_memory_gb']
         data_size_gb = characteristics.get('total_size_gb', 1)
         estimated_reads_millions = characteristics.get('total_estimated_reads', 1000000) / 1000000
-        
+
         # Tool-specific memory calculation
         if tool_name == 'kraken2':
             memory_scaling = estimated_reads_millions * profile['memory_per_million_reads']
@@ -178,23 +178,23 @@ process PREDICT_RESOURCE_REQUIREMENTS {
             predicted_memory = base_memory + (estimated_coverage * profile.get('memory_per_gb_coverage', 4))
         else:
             predicted_memory = base_memory + (data_size_gb * profile.get('memory_per_gb_input', 1))
-        
+
         # Apply complexity and quality adjustments
         complexity_score = characteristics.get('complexity_metrics', {}).get('overall_complexity', 1.0)
         predicted_memory *= complexity_score
-        
+
         # GPU memory adjustment for basecalling
         if tool_name == 'dorado_basecaller' and system_metrics.get('gpu', {}).get('gpu_available'):
             predicted_memory *= profile.get('gpu_memory_factor', 0.7)
-        
+
         # Apply overhead factors
         overhead_factor = profile.get('assembly_overhead', 1.0)
         predicted_memory *= overhead_factor
-        
+
         # Cap at maximum
         predicted_memory = min(predicted_memory, profile['max_memory_gb'])
         predicted_memory = max(2, predicted_memory)  # Minimum 2GB
-        
+
         return {
             'predicted_memory_gb': round(predicted_memory, 1),
             'base_memory_gb': base_memory,
@@ -202,11 +202,11 @@ process PREDICT_RESOURCE_REQUIREMENTS {
             'complexity_adjustment': complexity_score,
             'tool_profile': profile
         }
-    
+
     def predict_runtime_requirements(characteristics, cpu_prediction, memory_prediction, tool_context):
         \"\"\"Predict processing time and resource duration\"\"\"
         tool_name = tool_context.get('tool_name', 'unknown')
-        
+
         # Base processing times (seconds per million reads/GB)
         processing_rates = {
             'dorado_basecaller': {
@@ -236,12 +236,12 @@ process PREDICT_RESOURCE_REQUIREMENTS {
                 'startup_time': 60
             }
         }
-        
+
         profile = processing_rates.get(tool_name, processing_rates.get('filtlong'))
-        
+
         data_size_gb = characteristics.get('total_size_gb', 1)
         estimated_reads_millions = characteristics.get('total_estimated_reads', 1000000) / 1000000
-        
+
         # Calculate base processing time
         if tool_name == 'kraken2':
             processing_input = estimated_reads_millions
@@ -250,31 +250,31 @@ process PREDICT_RESOURCE_REQUIREMENTS {
             processing_input = estimated_coverage
         else:
             processing_input = data_size_gb
-        
+
         # Choose rate based on GPU availability
         if tool_name == 'dorado_basecaller' and system_metrics.get('gpu', {}).get('gpu_available'):
             rate = profile['gpu_rate']
         else:
             rate = profile['cpu_rate']
-        
+
         base_time = processing_input * rate
         startup_time = profile.get('startup_time', 30)
-        
+
         # Apply CPU scaling (more cores = faster processing)
         cpu_cores = cpu_prediction['predicted_cores']
         parallelization_efficiency = min(cpu_cores / 4, 4)  # Efficiency drops after 16 cores
         scaled_time = base_time / parallelization_efficiency
-        
+
         total_time = startup_time + scaled_time
-        
+
         # Add database load time for kraken2
         if tool_name == 'kraken2':
             total_time += profile.get('database_load_time', 120)
-        
+
         # Apply complexity adjustment
         complexity_score = characteristics.get('complexity_metrics', {}).get('overall_complexity', 1.0)
         total_time *= complexity_score
-        
+
         return {
             'predicted_runtime_seconds': int(total_time),
             'predicted_runtime_minutes': round(total_time / 60, 1),
@@ -283,14 +283,14 @@ process PREDICT_RESOURCE_REQUIREMENTS {
             'startup_time': startup_time,
             'parallelization_efficiency': round(parallelization_efficiency, 2)
         }
-    
+
     def predict_io_requirements(characteristics, tool_context):
         \"\"\"Predict I/O requirements and recommendations\"\"\"
         tool_name = tool_context.get('tool_name', 'unknown')
-        
+
         data_size_gb = characteristics.get('total_size_gb', 1)
         file_count = characteristics.get('file_count', 1)
-        
+
         # I/O patterns per tool
         io_patterns = {
             'dorado_basecaller': {
@@ -330,22 +330,22 @@ process PREDICT_RESOURCE_REQUIREMENTS {
                 'temp_space_factor': 1.0
             }
         }
-        
+
         pattern = io_patterns.get(tool_name, io_patterns.get('filtlong'))
-        
+
         # Calculate temp space requirements
         temp_space_gb = data_size_gb * pattern.get('temp_space_factor', 0.5)
-        
+
         # Calculate I/O throughput requirements
         io_throughput = {
             'high': 200,    # MB/s
             'medium': 100,  # MB/s
             'low': 50       # MB/s
         }
-        
+
         read_throughput = io_throughput.get(pattern['read_intensity'], 100)
         write_throughput = io_throughput.get(pattern['write_intensity'], 100)
-        
+
         return {
             'temp_space_gb': round(temp_space_gb, 1),
             'read_throughput_mb_s': read_throughput,
@@ -354,25 +354,25 @@ process PREDICT_RESOURCE_REQUIREMENTS {
             'multiple_files': file_count > 1,
             'concurrent_io': file_count > 4
         }
-    
+
     def generate_resource_confidence_score(characteristics, system_metrics, predictions):
         \"\"\"Generate confidence score for resource predictions\"\"\"
         confidence_factors = []
-        
+
         # Data completeness factor
         required_fields = ['total_size_gb', 'total_estimated_reads', 'file_count']
         completeness = sum(1 for field in required_fields if characteristics.get(field, 0) > 0) / len(required_fields)
         confidence_factors.append(completeness)
-        
+
         # System metrics availability
         system_completeness = 1.0 if system_metrics.get('cpu') and system_metrics.get('memory') else 0.5
         confidence_factors.append(system_completeness)
-        
+
         # File type certainty
         file_types = [f.get('file_type', 'unknown') for f in characteristics.get('file_details', [])]
         type_certainty = sum(1 for ft in file_types if ft != 'unknown') / max(len(file_types), 1)
         confidence_factors.append(type_certainty)
-        
+
         # Size reasonableness (not too small or too large)
         size_gb = characteristics.get('total_size_gb', 1)
         size_factor = 1.0
@@ -381,10 +381,10 @@ process PREDICT_RESOURCE_REQUIREMENTS {
         elif size_gb > 100:  # Very large files
             size_factor = 0.8
         confidence_factors.append(size_factor)
-        
+
         # Calculate overall confidence
         overall_confidence = sum(confidence_factors) / len(confidence_factors)
-        
+
         return {
             'confidence_score': round(overall_confidence, 3),
             'confidence_level': 'high' if overall_confidence > 0.8 else 'medium' if overall_confidence > 0.6 else 'low',
@@ -395,19 +395,19 @@ process PREDICT_RESOURCE_REQUIREMENTS {
                 'size_reasonableness': round(size_factor, 3)
             }
         }
-    
+
     # Generate predictions
     print(f"Predicting resource requirements for {meta['id']}")
-    
+
     tool_context = characteristics.get('tool_context', {})
     print(f"Tool context: {tool_context}")
-    
+
     # Run prediction algorithms
     cpu_prediction = predict_cpu_requirements(characteristics, tool_context)
     memory_prediction = predict_memory_requirements(characteristics, tool_context)
     runtime_prediction = predict_runtime_requirements(characteristics, cpu_prediction, memory_prediction, tool_context)
     io_prediction = predict_io_requirements(characteristics, tool_context)
-    
+
     # Generate confidence metrics
     confidence_metrics = generate_resource_confidence_score(characteristics, system_metrics, {
         'cpu': cpu_prediction,
@@ -415,7 +415,7 @@ process PREDICT_RESOURCE_REQUIREMENTS {
         'runtime': runtime_prediction,
         'io': io_prediction
     })
-    
+
     # Compile final predictions
     resource_predictions = {
         'sample_id': meta['id'],
@@ -449,18 +449,18 @@ process PREDICT_RESOURCE_REQUIREMENTS {
             'priority_level': characteristics.get('processing_hints', {}).get('recommended_priority', 'normal')
         }
     }
-    
+
     # Save predictions
     output_file = f"{meta['id']}_resource_predictions.json"
     with open(output_file, 'w') as f:
         json.dump(resource_predictions, f, indent=2)
-    
+
     print(f"Resource predictions generated for {meta['id']}:")
     print(f"  Predicted CPU cores: {cpu_prediction['predicted_cores']}")
     print(f"  Predicted memory: {memory_prediction['predicted_memory_gb']:.1f} GB")
     print(f"  Estimated runtime: {runtime_prediction['predicted_runtime_hours']:.1f} hours")
     print(f"  Confidence level: {confidence_metrics['confidence_level']} ({confidence_metrics['confidence_score']:.2f})")
-    
+
     # Generate versions file
     with open('versions.yml', 'w') as f:
         f.write('''\"${task.process}\":

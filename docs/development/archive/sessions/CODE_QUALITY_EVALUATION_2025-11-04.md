@@ -13,13 +13,13 @@ The nanometanf pipeline demonstrates **strong adherence to nf-core standards** w
 
 **Overall Grade: B+ (87/100)**
 
-| Category | Score | Status |
-|----------|-------|--------|
-| Workflow Architecture | 95/100 | ✅ Excellent |
-| Testing Coverage | 90/100 | ✅ Excellent |
-| Module Standards | 70/100 | ⚠️ Needs Improvement |
-| Documentation | 75/100 | ⚠️ Needs Organization |
-| Repository Cleanliness | 85/100 | ⚠️ Minor Cleanup |
+| Category               | Score  | Status                |
+| ---------------------- | ------ | --------------------- |
+| Workflow Architecture  | 95/100 | ✅ Excellent          |
+| Testing Coverage       | 90/100 | ✅ Excellent          |
+| Module Standards       | 70/100 | ⚠️ Needs Improvement  |
+| Documentation          | 75/100 | ⚠️ Needs Organization |
+| Repository Cleanliness | 85/100 | ⚠️ Minor Cleanup      |
 
 ---
 
@@ -98,6 +98,7 @@ The nanometanf pipeline demonstrates **strong adherence to nf-core standards** w
    - Would benefit from standardized tagging strategy
 
 **Recommendation:**
+
 - Run audit: `for f in modules/local/*/main.nf; do grep -L "stub:" "$f"; done`
 - Add stub blocks to all processes
 - Create `tags.yml` for all test files
@@ -111,6 +112,7 @@ The nanometanf pipeline demonstrates **strong adherence to nf-core standards** w
 **Only 6 out of 30 local modules (20%) have `meta.yml` files**
 
 This is the **most significant code quality issue** found. Per nf-core standards, every module should have:
+
 - `main.nf` - Process definition
 - `meta.yml` - Metadata and documentation
 - `tests/main.nf.test` - nf-test test suite
@@ -119,6 +121,7 @@ This is the **most significant code quality issue** found. Per nf-core standards
 ### Modules Without meta.yml
 
 Run this command to identify missing metadata:
+
 ```bash
 for module in modules/local/*/; do
     if [ ! -f "${module}meta.yml" ]; then
@@ -130,6 +133,7 @@ done
 ### Required meta.yml Template
 
 Each module needs a `meta.yml` following this structure:
+
 ```yaml
 name: module_name
 description: Brief description of what the module does
@@ -141,7 +145,7 @@ tools:
       description: Tool description
       homepage: https://tool.homepage
       documentation: https://tool.docs
-      licence: ['MIT']
+      licence: ["MIT"]
 input:
   - meta:
       type: map
@@ -173,6 +177,7 @@ maintainers:
 **Action Required:** Verify all modules have stub blocks for fast testing.
 
 Example stub block:
+
 ```groovy
 stub:
 def prefix = task.ext.prefix ?: "${meta.id}"
@@ -186,6 +191,7 @@ END_VERSIONS
 ```
 
 **Recommendation:**
+
 1. **PRIORITY:** Create meta.yml for all 24 missing modules
 2. Add/verify stub blocks in all processes
 3. Run `nf-core modules lint` to verify compliance
@@ -211,12 +217,14 @@ END_VERSIONS
 #### A. Documentation Scatter (23 files in docs/development/)
 
 **Session/Progress Documents** (should be archived or removed):
+
 - `CODE_QUALITY_IMPROVEMENTS_SESSION.md` - Session notes, should be in archive
 - `FUNCTIONAL_REFACTOR_SUMMARY.md` - Point-in-time summary
 - `PROGRESS_SUMMARY.md` - Outdated progress tracking
 - `session_2025-10-04_critical_fixes.md` - Session notes
 
 **Overlapping Status Documents**:
+
 - `PHASE_1.1_STATUS.md`
 - `phase_4_execution_plan.md`
 - `phase_4_readiness.md`
@@ -224,6 +232,7 @@ END_VERSIONS
 - `SYSTEMATIC_FIX_GUIDE.md`
 
 **Multiple v1.3.3 Documents** (should be consolidated):
+
 - `v1.3.3_final_summary.md`
 - `v1.3.3_implementation_summary.md`
 - `v1.3.3_testing_validation.md`
@@ -232,6 +241,7 @@ END_VERSIONS
 #### B. Misplaced Documentation
 
 **Root docs/ directory contains:**
+
 - `EVALUATION_SUMMARY.md` - Should be in `docs/development/`
 - `OPTIMIZATIONS_QUICK_REFERENCE.md` - Should be in `docs/user/` or `docs/development/`
 
@@ -298,6 +308,7 @@ docs/
 ```
 
 **Recommendation:**
+
 1. Create `docs/development/archive/` directory structure
 2. Move outdated session/progress docs to archive
 3. Consolidate v1.3.3 docs into single summary
@@ -345,6 +356,7 @@ docs/development/archive/progress/
 ```
 
 **Recommendation:**
+
 1. Remove `.backup` file: `rm modules/local/multiqc_nanopore_stats/tests/main.nf.test.backup`
 2. Update .gitignore with backup file patterns
 3. Clean up documentation as outlined in section 4
@@ -356,6 +368,7 @@ docs/development/archive/progress/
 ### Lint Status
 
 Run `nf-core lint` to verify current compliance. Based on CLAUDE.md:
+
 - ✅ 707/707 lint tests passing (v1.2.0)
 - ⚠️ 28 advisory warnings (acceptable)
 - ⚠️ v1.3.0 has breaking issues (avoid)
@@ -363,6 +376,7 @@ Run `nf-core lint` to verify current compliance. Based on CLAUDE.md:
 ### Module Compliance
 
 **Action Required:**
+
 ```bash
 # Check local modules
 nf-core modules lint modules/local/
@@ -416,12 +430,14 @@ nf-core modules lint modules/local/
 ## Implementation Checklist
 
 ### Phase 1: Module Metadata (Week 1)
+
 - [ ] Generate `meta.yml` for all 24 local modules
 - [ ] Verify stub blocks exist in all processes
 - [ ] Run `nf-core modules lint` and fix issues
 - [ ] Update CLAUDE.md with new module count
 
 ### Phase 2: Documentation Cleanup (Week 2)
+
 - [ ] Create archive directory structure
 - [ ] Move session notes to `archive/sessions/`
 - [ ] Move progress docs to `archive/progress/`
@@ -431,18 +447,21 @@ nf-core modules lint modules/local/
 - [ ] Move `OPTIMIZATIONS_QUICK_REFERENCE.md` to appropriate location
 
 ### Phase 3: Repository Cleanup (Week 2)
+
 - [ ] Remove `.backup` files
 - [ ] Update `.gitignore` with backup patterns
 - [ ] Verify no untracked temp files
 - [ ] Run `git status` to verify clean state
 
 ### Phase 4: Documentation Updates (Week 3)
+
 - [ ] Update `docs/README.md` with new structure
 - [ ] Create `docs/development/README.md`
 - [ ] Update cross-references in CLAUDE.md
 - [ ] Add links between related docs
 
 ### Phase 5: Testing Enhancements (Week 4)
+
 - [ ] Add `tags.yml` to test files
 - [ ] Standardize test descriptions
 - [ ] Document test patterns in TESTING.md
@@ -463,6 +482,7 @@ These improvements will elevate the pipeline from "very good" to "exemplary" in 
 **Estimated Time to Complete All Improvements:** 3-4 weeks (part-time effort)
 
 **Next Steps:**
+
 1. Review this evaluation with the development team
 2. Prioritize action items based on release schedule
 3. Create GitHub issues for tracking (optional)

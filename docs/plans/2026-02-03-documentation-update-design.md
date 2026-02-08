@@ -34,14 +34,17 @@ This document describes the documentation updates made to align with v1.5.0dev c
 ## Design Principles Applied
 
 ### Single Source of Truth
+
 - CLAUDE.md is the authoritative source for architecture details
 - Other docs reference CLAUDE.md rather than duplicating content
 
 ### Non-Redundancy
+
 - Brief summaries with links to detailed docs
 - Architecture details live in CLAUDE.md only
 
 ### Accuracy
+
 - Test counts reflect actual test files (17 + 38 = 55)
 - Recent refactoring documented (InputDetector, BatchUtils)
 
@@ -55,6 +58,7 @@ This document describes the documentation updates made to align with v1.5.0dev c
 ## Verification
 
 After these changes:
+
 - Test counts match `find . -name "*.nf.test" | wc -l` results
 - Recent commits (InputDetector, BatchUtils) are documented
 - Dates are current (2026-02-03)

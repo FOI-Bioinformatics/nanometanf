@@ -1,7 +1,7 @@
 process DORADO_DEMUX {
     tag "$meta.id"
     label 'process_high'
-    
+
     // Assume dorado is available in PATH
     // conda "${moduleDir}/environment.yml"
 
@@ -22,7 +22,7 @@ process DORADO_DEMUX {
     def args = task.ext.args ?: ''
     def prefix = task.ext.prefix ?: "${meta.id}"
     def trim_barcodes = params.trim_barcodes ? "" : "--no-trim"
-    
+
     """
     mkdir -p demux_output
 

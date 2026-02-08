@@ -31,11 +31,13 @@ Analyzes test files and suggests appropriate tags based on the new hierarchical 
 ### Tag Detection Heuristics
 
 **Level Detection:**
+
 - Path contains `modules/` → `module`
 - Path contains `subworkflows/` → `subworkflow`
 - Path in `tests/` directory → `pipeline`
 
 **Feature Area Detection:**
+
 - Contains `kraken`, `classification` → `classification`
 - Contains `dorado`, `basecall`, `pod5` → `basecalling`
 - Contains `qc`, `fastp`, `chopper`, `nanoplot` → `qc`
@@ -44,6 +46,7 @@ Analyzes test files and suggests appropriate tags based on the new hierarchical 
 - Contains `barcode`, `demux` → `barcode_discovery`
 
 **Speed Detection:**
+
 - Uses `options "-stub"` → `fast`
 - Contains `max_time = '1.min'` → `fast`
 - Contains `max_time = '[2-5].min'` → `medium`
@@ -52,6 +55,7 @@ Analyzes test files and suggests appropriate tags based on the new hierarchical 
 - Default for pipelines → `slow`
 
 **Criticality Detection:**
+
 - Features: qc, classification, basecalling, realtime → `core`
 - Features: validation, barcode_discovery → `extended`
 - Features: resource_allocation, error_handling → `experimental`

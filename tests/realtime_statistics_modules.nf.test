@@ -20,11 +20,11 @@ nextflow_pipeline {
             params {
                 input = "$projectDir/tests/fixtures/samplesheets/test_samplesheet_absolute.csv"
                 outdir = "$outputDir"
-                
+
                 // Enable real-time statistics
                 enable_realtime_stats = true
                 realtime_mode = false
-                
+
                 // Disable heavy processing
                 use_dorado = false
                 skip_kraken2 = true
@@ -32,7 +32,7 @@ nextflow_pipeline {
                 skip_fastp = true
                 skip_nanoplot = true
                 skip_multiqc = true
-                
+
                 // Minimal resources
                 max_cpus = 1
                 max_memory = '2.GB'
@@ -51,7 +51,7 @@ nextflow_pipeline {
             params {
                 input = "$projectDir/tests/fixtures/samplesheets/test_samplesheet_absolute.csv"
                 outdir = "$outputDir"
-                
+
                 // Minimal configuration
                 enable_realtime_stats = false
                 skip_fastp = true

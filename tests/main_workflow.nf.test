@@ -20,17 +20,17 @@ nextflow_pipeline {
             params {
 input = "$projectDir/tests/test_samplesheet.csv"
                 outdir = "$outputDir"
-                
+
                 // Disable advanced features for basic test
                 use_dorado = false
                 realtime_mode = false
                 skip_kraken2 = true
                 blast_validation = false
-                
+
                 // Enable QC steps
                 skip_fastp = false
                 skip_nanoplot = false
-                
+
                 // Resource limits for testing
                 max_cpus = 2
                 max_memory = '4.GB'

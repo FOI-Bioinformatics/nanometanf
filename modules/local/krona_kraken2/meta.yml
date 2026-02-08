@@ -13,7 +13,7 @@ tools:
       documentation: https://github.com/marbl/Krona/wiki
       tool_dev_url: https://github.com/marbl/Krona
       doi: "10.1186/1471-2105-12-385"
-      licence: ['BSD']
+      licence: ["BSD"]
 
 input:
   - meta:

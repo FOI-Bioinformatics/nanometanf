@@ -51,13 +51,13 @@ This guide provides comprehensive instructions for deploying nanometanf in produ
 
 ### Minimum Production Requirements
 
-| Component | Minimum | Recommended | Notes |
-|-----------|---------|-------------|--------|
-| **CPU** | 16 cores | 32+ cores | Intel/AMD x86_64 |
-| **Memory** | 64 GB | 128+ GB | DDR4 recommended |
-| **Storage** | 1 TB SSD | 10+ TB NVMe | High-speed I/O critical |
-| **Network** | 1 Gbps | 10+ Gbps | For large dataset transfer |
-| **GPU** | Optional | NVIDIA V100/A100 | For Dorado basecalling |
+| Component   | Minimum  | Recommended      | Notes                      |
+| ----------- | -------- | ---------------- | -------------------------- |
+| **CPU**     | 16 cores | 32+ cores        | Intel/AMD x86_64           |
+| **Memory**  | 64 GB    | 128+ GB          | DDR4 recommended           |
+| **Storage** | 1 TB SSD | 10+ TB NVMe      | High-speed I/O critical    |
+| **Network** | 1 Gbps   | 10+ Gbps         | For large dataset transfer |
+| **GPU**     | Optional | NVIDIA V100/A100 | For Dorado basecalling     |
 
 ### Storage Architecture
 
@@ -222,6 +222,7 @@ echo "/var/log/nanometanf.log {
 ### Performance Metrics
 
 Key metrics to monitor:
+
 - **CPU utilization** per process
 - **Memory usage** and swap activity
 - **Disk I/O** throughput and latency
@@ -240,7 +241,7 @@ params {
     max_retry_attempts = 3
     retry_exponential_backoff = true
     error_notification_email = "admin@your-domain.com"
-    
+
     // Error-specific recovery strategies
     memory_error_multiplier = 2.0
     disk_error_cleanup = true
@@ -251,28 +252,31 @@ params {
 ### Manual Recovery Procedures
 
 1. **Memory Errors**
+
    ```bash
    # Increase memory allocation
    nextflow run ... --max_memory '512.GB'
-   
+
    # Enable memory optimization
    nextflow run ... --optimization_profile resource_conservative
    ```
 
 2. **Disk Space Issues**
+
    ```bash
    # Clean work directory
    nextflow clean -f
-   
+
    # Enable compression
    nextflow run ... --compress_intermediate_files true
    ```
 
 3. **Network Failures**
+
    ```bash
    # Resume from checkpoint
    nextflow run ... -resume
-   
+
    # Use local cache
    nextflow run ... -offline
    ```
@@ -396,13 +400,13 @@ git tag "production-$(date +%Y%m%d)"
 
 ### Common Issues and Solutions
 
-| Issue | Symptoms | Solution |
-|-------|----------|----------|
-| **Out of Memory** | Process killed, exit code 137 | Increase memory allocation, enable swap |
-| **Disk Full** | Cannot write files, exit code 1 | Clean work directory, increase storage |
-| **Permission Denied** | Exit code 126 | Fix file permissions, check SELinux |
-| **Container Pull Failed** | Network errors | Check firewall, use cached images |
-| **Database Corruption** | Segmentation faults | Rebuild databases, check disk integrity |
+| Issue                     | Symptoms                        | Solution                                |
+| ------------------------- | ------------------------------- | --------------------------------------- |
+| **Out of Memory**         | Process killed, exit code 137   | Increase memory allocation, enable swap |
+| **Disk Full**             | Cannot write files, exit code 1 | Clean work directory, increase storage  |
+| **Permission Denied**     | Exit code 126                   | Fix file permissions, check SELinux     |
+| **Container Pull Failed** | Network errors                  | Check firewall, use cached images       |
+| **Database Corruption**   | Segmentation faults             | Rebuild databases, check disk integrity |
 
 ### Support and Contact
 

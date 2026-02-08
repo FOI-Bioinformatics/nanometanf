@@ -72,7 +72,7 @@ workflow REALTIME_POD5_MONITORING {
         ch_pod5_files = params.max_files
             ? ch_all_files.take(params.max_files.toInteger())
             : ch_all_files
-        
+
         //
         // CHANNEL: Create batches of POD5 files for processing
         // STREAMING-FIX: Use collate instead of buffer for streaming compatibility
@@ -82,7 +82,7 @@ workflow REALTIME_POD5_MONITORING {
         ch_batched_pod5 = ch_pod5_files
             .collate(batch_size, false)
             .unique() // Remove duplicate batches
-        
+
         //
         // CHANNEL: Convert POD5 batches to meta map format for Dorado
         //
@@ -95,7 +95,7 @@ workflow REALTIME_POD5_MONITORING {
                 meta.batch_time = new Date().format('yyyy-MM-dd_HH-mm-ss')
                 return [ meta, files ]
             }
-            
+
         //
         // MODULE: Run Dorado basecalling on POD5 batches
         //
@@ -117,7 +117,7 @@ workflow REALTIME_POD5_MONITORING {
                 new_meta.original_pod5_count = meta.pod5_count
                 return [ new_meta, fastq ]
             }
-            
+
         // Transform batches for REALTIME_STATISTICS
         // GENERATE_SNAPSHOT_STATS expects: tuple val(batch_meta), val(file_metas)
         ch_batches = ch_batched_pod5

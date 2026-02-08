@@ -73,6 +73,7 @@ results/
 **Location**: `results/qc/multiqc/multiqc_data/multiqc_data.json`
 
 **Schema**:
+
 ```json
 {
   "report_general_stats_data": [
@@ -103,6 +104,7 @@ results/
 ```
 
 **Usage Example**:
+
 ```python
 import json
 
@@ -129,6 +131,7 @@ for sample_id, data in quality_plot.items():
 **Location**: `results/qc/fastp/{sample_id}.fastp.json`
 
 **Schema**:
+
 ```json
 {
   "summary": {
@@ -160,6 +163,7 @@ for sample_id, data in quality_plot.items():
 ```
 
 **Usage Example**:
+
 ```python
 import json
 
@@ -207,6 +211,7 @@ Top 5 highest mean basecall quality scores and their read lengths
 ```
 
 **Parsing Example**:
+
 ```python
 def parse_nanostats(filepath):
     """Parse NanoStats.txt into a dictionary."""
@@ -250,6 +255,7 @@ print(f"Mean quality: {nanostats['Mean read quality']}")
 ```
 
 **Columns**:
+
 1. Percentage of reads
 2. Number of reads at this taxon
 3. Number of reads assigned directly to this taxon
@@ -258,6 +264,7 @@ print(f"Mean quality: {nanostats['Mean read quality']}")
 6. Scientific name (indented by rank)
 
 **Parsing Example**:
+
 ```python
 def parse_kraken2_report(filepath, min_reads=100):
     """Parse Kraken2 report and return top taxa."""
@@ -296,6 +303,7 @@ for taxon in top_species[:10]:  # Top 10
 **Location**: `results/realtime/batch_stats/batch_{timestamp}.json`
 
 **Schema**:
+
 ```json
 {
   "batch_id": "batch_20250106_143025",
@@ -319,6 +327,7 @@ for taxon in top_species[:10]:  # Top 10
 ```
 
 **Usage Example**:
+
 ```python
 import json
 from pathlib import Path
@@ -351,6 +360,7 @@ if latest:
 **Location**: `results/realtime/batch_stats/cumulative_stats.json`
 
 **Schema**:
+
 ```json
 {
   "pipeline_start": "2025-01-06T12:00:00Z",
@@ -379,6 +389,7 @@ if latest:
 ```
 
 **Usage Example**:
+
 ```python
 import json
 
@@ -408,6 +419,7 @@ def monitor_cumulative_progress(results_dir="results"):
 ### Pattern 1: Real-time Dashboard Integration
 
 **Polling Strategy**:
+
 ```python
 import time
 from pathlib import Path
@@ -448,6 +460,7 @@ monitor.poll_new_batches(update_dashboard, interval=5)
 ### Pattern 2: File System Watcher
 
 **Using `watchdog` for real-time updates**:
+
 ```python
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
@@ -478,6 +491,7 @@ observer.start()
 ### Pattern 3: RESTful API Wrapper
 
 **Flask API for Nanometa Live**:
+
 ```python
 from flask import Flask, jsonify
 from pathlib import Path
@@ -538,6 +552,7 @@ if __name__ == '__main__':
 **Location**: `results/realtime/monitoring/error_reports.json`
 
 **Schema**:
+
 ```json
 {
   "errors": [
@@ -555,6 +570,7 @@ if __name__ == '__main__':
 ```
 
 **Monitoring Example**:
+
 ```python
 def check_errors(results_dir="results"):
     """Check for unresolved errors."""
@@ -577,12 +593,15 @@ def check_errors(results_dir="results"):
 ## Best Practices
 
 ### 1. Polling Frequency
+
 - **Development**: 1-2 seconds for testing
 - **Production**: 5-10 seconds for real-time monitoring
 - **Archive analysis**: Check completion status every 30-60 seconds
 
 ### 2. Data Validation
+
 Always validate JSON structure before processing:
+
 ```python
 from jsonschema import validate, ValidationError
 
@@ -599,12 +618,14 @@ def safe_load_stats(filepath, schema):
 ```
 
 ### 3. Performance Optimization
+
 - Cache frequently accessed files (e.g., cumulative_stats.json)
 - Use file modification timestamps to detect changes
 - Implement exponential backoff for failed reads
 - Process batch files asynchronously
 
 ### 4. Error Resilience
+
 ```python
 def resilient_file_read(filepath, max_retries=3):
     """Read file with retry logic for incomplete writes."""
@@ -630,6 +651,7 @@ This API is versioned and follows semantic versioning. Breaking changes to JSON 
 **Current API Version**: 1.1.0
 
 **Changelog**:
+
 - **v1.1.0**: Added real-time monitoring JSON outputs
 - **v1.0.0**: Initial stable release
 
@@ -641,6 +663,7 @@ For integration issues or feature requests, please open an issue at:
 https://github.com/foi-bioinformatics/nanometanf/issues
 
 For quick integration questions, see:
+
 - [Quick Start Guide](../user/quickstart.md)
 - [Best Practices](../user/best_practices.md)
 - [Developer API](../development/developer_api.md)

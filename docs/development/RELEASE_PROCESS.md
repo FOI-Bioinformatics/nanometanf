@@ -10,6 +10,7 @@ This document describes the standard release workflow for maintainers creating n
 ---
 
 ## Table of Contents
+
 - [Quick Reference](#quick-reference)
 - [Standard Release Workflow](#standard-release-workflow)
 - [Release Types](#release-types)
@@ -103,6 +104,7 @@ nf-core schema lint
 Edit the following files to remove 'dev' suffix:
 
 **`nextflow.config`:**
+
 ```groovy
 // Before
 version = '1.2.1dev'
@@ -112,6 +114,7 @@ version = '1.2.1'
 ```
 
 **`.nf-core.yml`:**
+
 ```yaml
 # Before
 version: 1.2.1dev
@@ -138,21 +141,26 @@ Add comprehensive release section:
 ## [1.2.1] - 2025-11-04
 
 ### Added
+
 - Feature 1: Description
 - Feature 2: Description
 
 ### Changed
+
 - Change 1: Description
 - Change 2: Description
 
 ### Fixed
+
 - Bug fix 1: Description
 - Bug fix 2: Description
 
 ### Deprecated
+
 - Deprecation 1: Description (if any)
 
 ### Security
+
 - Security fix 1: Description (if any)
 ```
 
@@ -174,12 +182,15 @@ Create `docs/releases/v1.2.1.md`:
 ## Key Changes
 
 ### New Features
+
 - Feature description with usage example
 
 ### Bug Fixes
+
 - Bug fix description with impact
 
 ### Performance Improvements
+
 - Performance improvement with benchmarks
 
 ## Breaking Changes
@@ -199,14 +210,15 @@ See [Migration Guide](MIGRATION_GUIDE.md#from-v120-to-v121) for upgrade instruct
 
 \`\`\`bash
 nextflow run foi-bioinformatics/nanometanf -r v1.2.1 \\
-  --input samplesheet.csv \\
-  --outdir results \\
-  -profile docker
+--input samplesheet.csv \\
+--outdir results \\
+-profile docker
 \`\`\`
 
 ## Credits
 
 Contributors to this release:
+
 - @contributor1
 - @contributor2
 ```
@@ -334,11 +346,13 @@ git push origin dev
 Edit version files:
 
 **`nextflow.config`:**
+
 ```groovy
 version = '1.2.2dev'
 ```
 
 **`.nf-core.yml`:**
+
 ```yaml
 version: 1.2.2dev
 ```
@@ -351,12 +365,15 @@ Add to top of `CHANGELOG.md`:
 ## [Unreleased]
 
 ### Added
+
 -
 
 ### Changed
+
 -
 
 ### Fixed
+
 -
 ```
 
@@ -375,11 +392,13 @@ git push origin dev
 ### Major Release (X.0.0)
 
 **When to use:**
+
 - Breaking changes to API or parameters
 - Major architectural changes
 - Removal of deprecated features
 
 **Requirements:**
+
 - Comprehensive EVALUATION_SUMMARY.md
 - Full test suite validation on production data
 - Extended beta testing period (2-4 weeks)
@@ -390,12 +409,14 @@ git push origin dev
 ### Minor Release (1.X.0)
 
 **When to use:**
+
 - New features
 - Non-breaking improvements
 - Performance enhancements
 - New experimental features
 
 **Requirements:**
+
 - Comprehensive CHANGELOG section
 - Full test suite passing
 - Release notes with usage examples
@@ -405,12 +426,14 @@ git push origin dev
 ### Patch Release (1.2.X)
 
 **When to use:**
+
 - Bug fixes
 - Security patches
 - Documentation improvements
 - Minor performance fixes
 
 **Requirements:**
+
 - Quick turnaround (1-2 days)
 - Minimal testing impact
 - Clear bug fix descriptions
@@ -420,11 +443,13 @@ git push origin dev
 ### Hotfix Release (1.2.X, urgent)
 
 **When to use:**
+
 - Critical bugs affecting production
 - Security vulnerabilities
 - Data corruption issues
 
 **Requirements:**
+
 - Immediate release (same day)
 - Minimal changes (fix only)
 - Clear communication to users
@@ -436,12 +461,14 @@ git push origin dev
 ## Pre-Release Checklist
 
 ### Code Quality
+
 - [ ] All tests passing (`nf-test test --verbose`)
 - [ ] nf-core lint clean (`nf-core lint --release`)
 - [ ] No 'dev' suffix in version strings
 - [ ] All changes committed and pushed
 
 ### Documentation
+
 - [ ] CHANGELOG.md updated
 - [ ] Release notes created (`docs/releases/vX.Y.Z.md`)
 - [ ] CURRENT_VERSION.md updated (if applicable)
@@ -449,12 +476,14 @@ git push origin dev
 - [ ] README.md accurate
 
 ### Testing
+
 - [ ] Test profile passes
 - [ ] Real-time tests verified (if applicable)
 - [ ] Platform profiles tested (if changed)
 - [ ] Integration tests passing
 
 ### Communication
+
 - [ ] Breaking changes documented
 - [ ] Deprecations announced
 - [ ] Contributors acknowledged
@@ -466,11 +495,13 @@ git push origin dev
 ### Immediate (Within 1 hour)
 
 1. **Verify GitHub Release**
+
    ```bash
    gh release view v1.2.1
    ```
 
 2. **Test Installation**
+
    ```bash
    # Fresh install test
    nextflow run foi-bioinformatics/nanometanf -r v1.2.1 -profile test,docker
@@ -502,6 +533,7 @@ git push origin dev
 ### When a Hotfix is Needed
 
 **Indicators:**
+
 - Pipeline completely broken (like v1.3.0)
 - Data corruption or incorrect results
 - Security vulnerability discovered
@@ -586,6 +618,7 @@ git push origin dev
 ### Issue: Tests failing during release
 
 **Solution:**
+
 ```bash
 # Don't release with failing tests
 # Fix tests first, then restart release process
@@ -599,6 +632,7 @@ nf-test test --verbose
 ### Issue: Merge conflict during master merge
 
 **Solution:**
+
 ```bash
 # Resolve conflicts
 git checkout master
@@ -613,6 +647,7 @@ git push origin master
 ### Issue: Tag already exists
 
 **Solution:**
+
 ```bash
 # Delete local and remote tag
 git tag -d v1.2.1
@@ -626,6 +661,7 @@ git push origin v1.2.1
 ### Issue: Forgot to update CHANGELOG
 
 **Solution:**
+
 ```bash
 # Update CHANGELOG
 git checkout master
@@ -670,16 +706,19 @@ git push origin v1.2.1
 ## Resources
 
 ### Documentation
+
 - [Semantic Versioning](https://semver.org/)
 - [Conventional Commits](https://www.conventionalcommits.org/)
 - [GitHub Release Guide](https://docs.github.com/en/repositories/releasing-projects-on-github)
 
 ### Tools
+
 - [gh CLI](https://cli.github.com/) - GitHub CLI
 - [nf-core tools](https://nf-co.re/tools) - nf-core utilities
 - [nf-test](https://www.nf-test.com/) - Testing framework
 
 ### Internal Documentation
+
 - [Testing Guide](TESTING.md) - How to run tests
 - [Migration Guide](../releases/MIGRATION_GUIDE.md) - User upgrade guide
 - [Current Version](../releases/CURRENT_VERSION.md) - Version status

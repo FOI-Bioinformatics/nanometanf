@@ -11,6 +11,7 @@ Eliminating mutable state anti-patterns in real-time monitoring timeout logic. R
 ## Problem Statement
 
 ### Original Anti-pattern
+
 ```groovy
 // MUTABLE STATE (Bad Practice)
 def last_file_time = System.currentTimeMillis()
@@ -28,6 +29,7 @@ ch_input_files = ch_mixed
 ```
 
 **Issues:**
+
 1. Mutable variables violate functional programming principles
 2. Hard to reason about state changes
 3. Difficult to test and debug
@@ -36,6 +38,7 @@ ch_input_files = ch_mixed
 ## Solution: Functional Reactive Pattern
 
 ### Immutable State Object Pattern
+
 ```groovy
 // IMMUTABLE STATE (Best Practice)
 def initialState = [
@@ -70,12 +73,14 @@ ch_input_files = ch_mixed
 ## Files Refactored
 
 ### ✅ 1. `subworkflows/local/realtime_monitoring/main.nf`
+
 - **Lines**: 45-120 → 45-176 (expanded with functional `.scan()` pattern)
 - **Context**: FASTQ file monitoring with intelligent timeout
 - **Pattern**: Timeout state machine using `.scan()` with immutable state objects
 - **Status**: **COMPLETE** ✅
 
 ### ✅ 2. `subworkflows/local/enhanced_realtime_monitoring/main.nf`
+
 - **Lines**: 32-171 → 33-240 (refactored with event sourcing pattern)
 - **Context**: Advanced monitoring with file locking detection and retry logic
 - **Pattern**: Event sourcing with `.inject()` accumulation of tracking events
@@ -87,6 +92,7 @@ ch_input_files = ch_mixed
   - Separated concerns: file processing vs. metrics tracking
 
 ### ⚪ 3. `subworkflows/local/realtime_pod5_monitoring/main.nf`
+
 - **Status**: **NO ACTION NEEDED** - No mutable state anti-pattern present
 - **Context**: POD5 file monitoring + basecalling
 - **Rationale**: This file uses simple `.take(max_files)` limiting without timeout logic or mutable state tracking
@@ -94,16 +100,19 @@ ch_input_files = ch_mixed
 ## Key Improvements
 
 ### 1. **Immutability**
+
 - State never mutated in place
 - Each state transition creates new state object
 - Previous state preserved
 
 ### 2. **Functional Composition**
+
 - Pure function transformations: `state → new_state`
 - No side effects within closures
 - Easier to reason about and test
 
 ### 3. **Explicit State Flow**
+
 ```
 Initial State → [FILE event] → New State (updated time, count++)
               → [CHECK event] → New State (grace period logic)
@@ -111,6 +120,7 @@ Initial State → [FILE event] → New State (updated time, count++)
 ```
 
 ### 4. **Better Code Clarity**
+
 - Comprehensive inline comments explaining pattern
 - Clear state field names
 - Explicit state initialization
@@ -118,6 +128,7 @@ Initial State → [FILE event] → New State (updated time, count++)
 ## Behavioral Equivalence
 
 ### Preserved Functionality
+
 ✅ **Detection timeout tracking**: Last file time updated on FILE events
 ✅ **Grace period state machine**: Entry, progress logging, exit conditions
 ✅ **File counting**: Accurate count with max_files enforcement
@@ -166,6 +177,7 @@ Initial State → [FILE event] → New State (updated time, count++)
 ## Performance Impact
 
 **No performance degradation:**
+
 - `.scan()` overhead negligible (~microseconds per event)
 - State object creation amortized by GC
 - Same number of channel operations
@@ -187,6 +199,7 @@ Initial State → [FILE event] → New State (updated time, count++)
 This refactor eliminates mutable state anti-patterns, replacing them with functional reactive patterns using `.scan()`. Result: more maintainable, testable, and idiomatic Nextflow code with zero behavioral changes.
 
 **Impact:**
+
 - **Code quality**: ✅ Significantly improved
 - **Functionality**: ✅ 100% preserved
 - **Performance**: ✅ No degradation
@@ -199,6 +212,7 @@ This refactor eliminates mutable state anti-patterns, replacing them with functi
 The `enhanced_realtime_monitoring/main.nf` refactor used a different but complementary pattern: **Event Sourcing**.
 
 ### Problem
+
 ```groovy
 // MUTABLE STATE (Bad Practice)
 def tracking_data = [ready: 0, not_ready: 0, processed: 0, ...]
@@ -219,6 +233,7 @@ ch_not_ready_files = ch_checked_files
 ```
 
 ### Solution: Event Sourcing Pattern
+
 ```groovy
 // IMMUTABLE STATE (Best Practice)
 def initialTrackingState = [ready: 0, not_ready: 0, processed: 0, ...]
@@ -248,13 +263,13 @@ ch_tracking_state = ch_tracking_events
 
 ### Key Differences from `.scan()` Pattern
 
-| Aspect | `.scan()` Pattern (File 1) | Event Sourcing (File 2) |
-|--------|---------------------------|-------------------------|
-| **Use Case** | Stateful stream processing with early termination | Metrics aggregation across multiple channels |
-| **State Updates** | Incremental (per event) | Batch (collect all events, then reduce) |
-| **Termination** | Uses `.until()` on state | Processes all events |
-| **Channels** | Single mixed channel | Multiple parallel channels |
-| **Operator** | `.scan()` + `.until()` | `.multiMap()` + `.inject()` |
+| Aspect            | `.scan()` Pattern (File 1)                        | Event Sourcing (File 2)                      |
+| ----------------- | ------------------------------------------------- | -------------------------------------------- |
+| **Use Case**      | Stateful stream processing with early termination | Metrics aggregation across multiple channels |
+| **State Updates** | Incremental (per event)                           | Batch (collect all events, then reduce)      |
+| **Termination**   | Uses `.until()` on state                          | Processes all events                         |
+| **Channels**      | Single mixed channel                              | Multiple parallel channels                   |
+| **Operator**      | `.scan()` + `.until()`                            | `.multiMap()` + `.inject()`                  |
 
 ### Benefits of Event Sourcing Pattern
 
@@ -267,6 +282,7 @@ ch_tracking_state = ch_tracking_events
 ### Behavioral Equivalence
 
 ✅ **All functionality preserved**:
+
 - Ready file counting: `tracking_data.ready++` → event-based accumulation
 - Retry counting: `tracking_data.retries++` → event-based accumulation
 - Failed file tracking: `tracking_data.failed++` → event-based accumulation

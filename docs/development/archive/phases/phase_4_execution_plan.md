@@ -11,6 +11,7 @@ With all critical infrastructure bugs fixed (Channel.timer, max_files schema, te
 ## Current Baseline
 
 **Infrastructure Status**: ✅ ALL GREEN
+
 - Channel.timer() error: ELIMINATED
 - max_files schema validation: FIXED
 - Test fixtures: VALIDATED (10 valid nanopore reads each)
@@ -18,13 +19,15 @@ With all critical infrastructure bugs fixed (Channel.timer, max_files schema, te
 - nf-core compliance: ACHIEVED
 
 **Validated Passing Tests**:
+
 - ✅ `tests/parameter_validation.nf.test` - PASSED (21.2s)
 - ✅ `tests/realtime_processing.nf.test` - 100% PASSED (2/2 tests, 27s)
 
 **Test Inventory**:
-- 20 pipeline tests (tests/*.nf.test + tests/edge_cases/*.nf.test)
-- 31 module tests (modules/*/tests/main.nf.test)
-- 20 subworkflow tests (subworkflows/*/tests/main.nf.test)
+
+- 20 pipeline tests (tests/_.nf.test + tests/edge_cases/_.nf.test)
+- 31 module tests (modules/\*/tests/main.nf.test)
+- 20 subworkflow tests (subworkflows/\*/tests/main.nf.test)
 - **Total: 71 test files** (many contain multiple test cases)
 
 ## Test Prioritization Strategy
@@ -32,40 +35,35 @@ With all critical infrastructure bugs fixed (Channel.timer, max_files schema, te
 ### P0 Tests (MUST PASS - 100% target)
 
 **Core Workflow Tests** (5 tests):
+
 1. `tests/nanoseq_test.nf.test` - Main integration with nf-core data
 2. `tests/parameter_validation.nf.test` - ✅ Already passing!
 3. `tests/barcode_discovery.nf.test` - Barcode directory discovery
 4. `tests/dorado_pod5.nf.test` - POD5 singleplex basecalling
 5. `tests/dorado_multiplex.nf.test` - POD5 demultiplexing
 
-**Edge Cases** (4 test files):
-6. `tests/edge_cases/dorado_basecaller_edge_cases.nf.test`
-7. `tests/edge_cases/malformed_inputs.nf.test`
-8. `tests/edge_cases/real_world_scenarios.nf.test`
-9. `tests/edge_cases/performance_scalability.nf.test`
+**Edge Cases** (4 test files): 6. `tests/edge_cases/dorado_basecaller_edge_cases.nf.test` 7. `tests/edge_cases/malformed_inputs.nf.test` 8. `tests/edge_cases/real_world_scenarios.nf.test` 9. `tests/edge_cases/performance_scalability.nf.test`
 
 **Total P0**: 9 test files (must be 100% passing)
 
 ### P1 Tests (SHOULD PASS - >80% target)
 
 **Real-time Tests** (5 tests):
+
 1. `tests/realtime_processing.nf.test` - ✅ Already 100% passing!
 2. `tests/realtime_pod5_basecalling.nf.test`
 3. `tests/realtime_barcode_integration.nf.test`
 4. `tests/realtime_empty_samplesheet.nf.test`
 5. `tests/realtime_statistics_modules.nf.test`
 
-**Workflow Tests** (4 tests):
-6. `tests/main_workflow.nf.test`
-7. `tests/core_logic_test.nf.test`
-8. `tests/advanced_error_handling.nf.test`
-9. `tests/main_simple.nf.test`
+**Workflow Tests** (4 tests): 6. `tests/main_workflow.nf.test` 7. `tests/core_logic_test.nf.test` 8. `tests/advanced_error_handling.nf.test` 9. `tests/main_simple.nf.test`
 
 **Total P1**: 9 test files (target >7/9 passing = >77%)
 
 ### P2 Tests (CAN FAIL - Experimental)
 
 **Experimental Features** (2 tests):
+
 1. `tests/dynamic_resource_allocation.nf.test`
 2. `tests/resource_allocation_modules.nf.test`
 
@@ -87,6 +85,7 @@ With all critical infrastructure bugs fixed (Channel.timer, max_files schema, te
 **Step-by-step**:
 
 1. **Run P0 tests individually** to identify specific failures:
+
    ```bash
    for test in tests/nanoseq_test.nf.test \
                tests/parameter_validation.nf.test \
@@ -123,6 +122,7 @@ With all critical infrastructure bugs fixed (Channel.timer, max_files schema, te
 **Goal**: >80% of P1 tests passing (>7/9 files)
 
 **Strategy**:
+
 - Focus on real-time tests (already 1/5 passing)
 - Focus on workflow tests
 - Use same systematic approach as P0
@@ -132,6 +132,7 @@ With all critical infrastructure bugs fixed (Channel.timer, max_files schema, te
 **Goal**: >70% of module tests passing (>35/51 files)
 
 **Strategy**:
+
 - Fix after P0/P1 complete
 - Group by common failure patterns
 - Fix in batches
@@ -143,6 +144,7 @@ Based on previous analysis, expect these common issues:
 ### 1. Test Fixture Issues ✅ MOSTLY FIXED
 
 **Symptoms**:
+
 - "No reads found in input"
 - "Fatal: No reads found"
 - Empty output files
@@ -152,6 +154,7 @@ Based on previous analysis, expect these common issues:
 ### 2. Missing Test Data
 
 **Symptoms**:
+
 - File not found errors
 - Missing samplesheets
 - Missing reference files
@@ -161,6 +164,7 @@ Based on previous analysis, expect these common issues:
 ### 3. Stub Implementation Issues
 
 **Symptoms**:
+
 - "stub: not defined"
 - Missing stub output
 
@@ -169,6 +173,7 @@ Based on previous analysis, expect these common issues:
 ### 4. Assertion Mismatches
 
 **Symptoms**:
+
 - "assertion failed"
 - Unexpected output paths
 - Version mismatches
@@ -178,6 +183,7 @@ Based on previous analysis, expect these common issues:
 ### 5. Parameter Issues
 
 **Symptoms**:
+
 - "parameter not defined"
 - Validation errors
 - Type mismatches
@@ -189,20 +195,24 @@ Based on previous analysis, expect these common issues:
 ### Minimum for v1.0 Release:
 
 **Critical** (MUST achieve):
+
 - ✅ P0 tests: 100% pass (9/9 files)
 - ✅ Infrastructure: All critical bugs fixed
 
 **Important** (SHOULD achieve):
+
 - ✅ P1 tests: >80% pass (>7/9 files)
 - ✅ Overall: >80% pass (>57/71 files)
 
 **Nice to have**:
+
 - Module tests: >70% pass (>35/51 files)
 - P2 experimental: >50% pass (>1/2 files)
 
 ### Tracking Progress:
 
 After each batch of fixes, run:
+
 ```bash
 nf-test test --verbose 2>&1 | tee /tmp/test-progress-$(date +%Y%m%d-%H%M%S).log
 grep -E "(PASSED|FAILED)" /tmp/test-progress-*.log | tail -1
@@ -213,6 +223,7 @@ grep -E "(PASSED|FAILED)" /tmp/test-progress-*.log | tail -1
 ### For Each Failing Test:
 
 1. **Understand the failure**:
+
    ```bash
    nf-test test <test-file> --verbose > /tmp/debug.log 2>&1
    cat /tmp/debug.log | less
@@ -232,12 +243,14 @@ grep -E "(PASSED|FAILED)" /tmp/test-progress-*.log | tail -1
    - Fix parameters
 
 4. **Validate fix**:
+
    ```bash
    nf-test test <test-file> --verbose
    # Should see: PASSED
    ```
 
 5. **Commit fix**:
+
    ```bash
    git add <changed-files>
    git commit -m "Fix <test-name>: <brief description>
@@ -272,15 +285,18 @@ grep -E "(PASSED|FAILED)" /tmp/test-progress-*.log | tail -1
 ## Timeline Estimate
 
 **Optimistic** (1 day):
+
 - P0 tests: 3-4 hours
 - P1 tests: 2-3 hours
 - Validation: 1 hour
 
 **Realistic** (2 days):
+
 - Day 1: P0 tests + P1 real-time tests
 - Day 2: P1 workflow tests + validation
 
 **Conservative** (3 days):
+
 - Day 1: P0 core + edge cases
 - Day 2: P1 all tests
 - Day 3: Module tests + final validation

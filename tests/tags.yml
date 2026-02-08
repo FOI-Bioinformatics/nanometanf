@@ -60,7 +60,6 @@ structure:
     description: Individual module tests
   integration:
     description: Integration tests
-
 # Usage Example
 # =============
 #

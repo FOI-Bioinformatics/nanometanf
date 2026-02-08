@@ -3,14 +3,14 @@
     SUBWORKFLOW: DYNAMIC_RESOURCE_ALLOCATION
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     Intelligent resource allocation system for nanopore data processing
-    
+
     This subworkflow predicts optimal resource allocation based on:
     - Input file characteristics (size, complexity, read count estimates)
     - System resource availability (CPU, memory, GPU, disk I/O)
     - Historical processing patterns and performance metrics
     - Current system load and concurrent job demands
     - Tool-specific resource requirements and scaling behavior
-    
+
     Features:
     - Predictive resource sizing based on machine learning algorithms
     - Real-time system monitoring and adaptive scaling
@@ -35,39 +35,39 @@ workflow DYNAMIC_RESOURCE_ALLOCATION {
     system_config          // val: system configuration and constraints
 
     main:
-    
+
     ch_versions = Channel.empty()
-    
+
     //
     // STEP 0: Load optimization profiles based on system context
     //
     log.info "=== Dynamic Resource Allocation ==="
     log.info "Loading optimization profiles for intelligent resource allocation"
-    
+
     // Extract system context from system_config
     def profile_name = resource_config.get('optimization_profile', 'auto')
     def system_context_for_profiles = system_config + [
         'realtime_mode': resource_config.get('realtime_mode', false),
         'gpu_available': system_config.get('gpu_available', false)
     ]
-    
+
     LOAD_OPTIMIZATION_PROFILES (
         profile_name,
         system_context_for_profiles
     )
     ch_versions = ch_versions.mix(LOAD_OPTIMIZATION_PROFILES.out.versions)
-    
+
     //
     // STEP 1: Analyze input characteristics for resource prediction
     //
     log.info "Analyzing input characteristics for optimal resource prediction"
-    
+
     ANALYZE_INPUT_CHARACTERISTICS (
         ch_inputs,
         resource_config
     )
     ch_versions = ch_versions.mix(ANALYZE_INPUT_CHARACTERISTICS.out.versions)
-    
+
     //
     // STEP 2: Monitor current system resources and load
     //
@@ -75,7 +75,7 @@ workflow DYNAMIC_RESOURCE_ALLOCATION {
         system_config
     )
     ch_versions = ch_versions.mix(MONITOR_SYSTEM_RESOURCES.out.versions)
-    
+
     //
     // STEP 3: Predict optimal resource requirements
     //
@@ -84,13 +84,13 @@ workflow DYNAMIC_RESOURCE_ALLOCATION {
         .map { input_meta, characteristics, system_metrics ->
             [ input_meta, characteristics, system_metrics ]
         }
-    
+
     PREDICT_RESOURCE_REQUIREMENTS (
         ch_prediction_input,
         resource_config
     )
     ch_versions = ch_versions.mix(PREDICT_RESOURCE_REQUIREMENTS.out.versions)
-    
+
     //
     // STEP 4: Optimize allocation based on system constraints and priorities
     //
@@ -99,7 +99,7 @@ workflow DYNAMIC_RESOURCE_ALLOCATION {
         .map { input_meta, predictions, system_metrics ->
             [ input_meta, predictions, system_metrics ]
         }
-    
+
     OPTIMIZE_RESOURCE_ALLOCATION (
         ch_optimization_input,
         resource_config
@@ -162,7 +162,7 @@ def getResourceProfile(tool_name, data_characteristics) {
             'cpu_efficiency_threshold': 32
         ]
     ]
-    
+
     return profiles.get(tool_name, profiles['default'] ?: [:])
 }
 
@@ -176,7 +176,7 @@ def calculateResourceScaling(base_resources, data_size, complexity_factor) {
         'square_root': { base, size -> base * (1 + Math.sqrt(size / 1000000000)) },
         'complexity_adjusted': { base, size -> base * (1 + (size * complexity_factor) / 1000000000) }
     ]
-    
+
     return scaling_algorithms
 }
 
@@ -188,15 +188,15 @@ def predictProcessingTime(resource_allocation, data_characteristics, historical_
     def cpu_factor = resource_allocation.cpu_cores / 4.0
     def memory_factor = (resource_allocation.memory_gb > 8) ? 1.0 : 0.8
     def data_factor = data_characteristics.estimated_reads / 1000000.0
-    
+
     def predicted_time = (base_time * data_factor) / (cpu_factor * memory_factor)
-    
+
     // Apply historical correction if available
     if (historical_data && historical_data.average_time_per_million_reads) {
         def historical_factor = historical_data.average_time_per_million_reads / 600 // 10 min baseline
         predicted_time *= historical_factor
     }
-    
+
     return Math.max(300, Math.min(predicted_time, 86400)) // 5 min to 24 hours
 }
 
@@ -206,7 +206,7 @@ def optimizeForSystemLoad(ideal_allocation, current_load, system_limits) {
     */
     def load_factor = Math.max(0.1, 1.0 - current_load.cpu_utilization)
     def memory_factor = Math.max(0.1, 1.0 - current_load.memory_utilization)
-    
+
     return [
         cpu_cores: Math.min(
             (ideal_allocation.cpu_cores * load_factor).toInteger(),

@@ -5,9 +5,11 @@
 ### Core Analysis Tools
 
 - **Dorado**: ONT basecalling and demultiplexing
+
   > Oxford Nanopore Technologies. (2023). Dorado. Retrieved from https://github.com/nanoporetech/dorado
 
 - **Kraken2**: Taxonomic classification
+
   > Wood, D.E., Lu, J. & Langmead, B. Improved metagenomic analysis with Kraken 2. Genome Biol 20, 257 (2019). doi: [10.1186/s13059-019-1891-0](https://doi.org/10.1186/s13059-019-1891-0)
 
 - **BLAST**: Sequence validation
@@ -16,12 +18,15 @@
 ### Quality Control
 
 - **FastP**: Read quality control and filtering
+
   > Chen, S., Zhou, Y., Chen, Y., & Gu, J. (2018). fastp: an ultra-fast all-in-one FASTQ preprocessor. Bioinformatics, 34(17), i884-i890. doi: [10.1093/bioinformatics/bty560](https://doi.org/10.1093/bioinformatics/bty560)
 
 - **FastQC**: Quality assessment
+
   > Andrews, S. (2010). FastQC: a quality control tool for high throughput sequence data. Available online at: http://www.bioinformatics.babraham.ac.uk/projects/fastqc
 
 - **NanoPlot**: Nanopore-specific quality plots
+
   > De Coster, W., D'Hert, S., Schultz, D.T., Cruts, M., & Van Broeckhoven, C. (2018). NanoPack: visualizing and processing long-read sequencing data. Bioinformatics, 34(15), 2666-2669. doi: [10.1093/bioinformatics/bty149](https://doi.org/10.1093/bioinformatics/bty149)
 
 - **MultiQC**: Report aggregation
@@ -30,9 +35,11 @@
 ### Assembly Tools
 
 - **Flye**: Long-read genome assembly
+
   > Kolmogorov, M., Yuan, J., Lin, Y., & Pevzner, P.A. (2019). Assembly of long, error-prone reads using repeat graphs. Nature Biotechnology, 37(5), 540-546. doi: [10.1038/s41587-019-0072-8](https://doi.org/10.1038/s41587-019-0072-8)
 
 - **Miniasm**: Lightweight assembly
+
   > Li, H. (2016). Miniasm: fast assembly for noisy long reads. Bioinformatics, 32(14), 2103-2110. doi: [10.1093/bioinformatics/btw152](https://doi.org/10.1093/bioinformatics/btw152)
 
 - **Minimap2**: Read mapping
@@ -41,12 +48,15 @@
 ### Additional Tools
 
 - **Filtlong**: Read length filtering
+
   > Wick, R. (2018). Filtlong. Retrieved from https://github.com/rrwick/Filtlong
 
 - **Porechop**: Adapter trimming
+
   > Wick, R. (2018). Porechop. Retrieved from https://github.com/rrwick/Porechop
 
 - **PycoQC**: Nanopore QC metrics
+
   > Leger, A., & Leonardi, T. (2019). pycoQC, interactive quality control for Oxford Nanopore Sequencing. Journal of Open Source Software, 4(34), 1236. doi: [10.21105/joss.01236](https://doi.org/10.21105/joss.01236)
 
 - **Taxpasta**: Taxonomic profile standardization
@@ -55,6 +65,7 @@
 ## Workflow Framework
 
 - **Nextflow**: Workflow manager
+
   > Di Tommaso, P., Chatzou, M., Floden, E.W., Barja, P.P., Palumbo, E., & Notredame, C. (2017). Nextflow enables reproducible computational workflows. Nature Biotechnology, 35(4), 316-319. doi: [10.1038/nbt.3820](https://doi.org/10.1038/nbt.3820)
 
 - **nf-core**: Community framework
@@ -63,9 +74,11 @@
 ## Software Dependencies
 
 - **Conda**: Package management
+
   > Anaconda Software Distribution. (2020). Anaconda Documentation. Anaconda Inc. Retrieved from https://docs.anaconda.com/
 
 - **Docker**: Containerization
+
   > Merkel, D. (2014). Docker: lightweight linux containers for consistent development and deployment. Linux Journal, 2014(239), 2.
 
 - **Singularity/Apptainer**: HPC containerization

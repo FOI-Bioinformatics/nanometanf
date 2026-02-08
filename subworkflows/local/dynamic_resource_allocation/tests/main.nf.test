@@ -57,15 +57,15 @@ nextflow_workflow {
             assert workflow.out.resource_predictions
             assert workflow.out.optimized_allocations
             assert workflow.out.system_metrics
-            
+
             // Verify resource analysis occurred
             def predictions = workflow.out.resource_predictions.toList()
             assert predictions.size() >= 1
-            
+
             // Verify optimization was applied
             def allocations = workflow.out.optimized_allocations.toList()
             assert allocations.size() >= 1
-            
+
             // Verify system monitoring
             def metrics = workflow.out.system_metrics.toList()
             assert metrics.size() >= 1
@@ -123,11 +123,11 @@ nextflow_workflow {
             assert workflow.out.resource_predictions
             assert workflow.out.optimized_allocations
             assert workflow.out.optimization_profiles
-            
+
             // Verify high-throughput profile was applied
             def profiles = workflow.out.optimization_profiles.toList()
             assert profiles.size() >= 1
-            
+
             // Verify aggressive resource allocation
             def allocations = workflow.out.optimized_allocations.toList()
             assert allocations.size() >= 1
@@ -179,11 +179,11 @@ nextflow_workflow {
             assert workflow.out.resource_predictions
             assert workflow.out.optimized_allocations
             assert workflow.out.gpu_allocations
-            
+
             // Verify GPU optimization
             def gpu_allocations = workflow.out.gpu_allocations.toList()
             assert gpu_allocations.size() >= 1
-            
+
             // Verify GPU-specific predictions
             def predictions = workflow.out.resource_predictions.toList()
             assert predictions.size() >= 1
@@ -233,11 +233,11 @@ nextflow_workflow {
             assert snapshot(workflow.out.versions).match()
             assert workflow.out.resource_predictions
             assert workflow.out.optimized_allocations
-            
+
             // Verify conservative allocation
             def allocations = workflow.out.optimized_allocations.toList()
             assert allocations.size() >= 1
-            
+
             // Should use minimal resources
             def predictions = workflow.out.resource_predictions.toList()
             assert predictions.size() >= 1
@@ -250,7 +250,7 @@ nextflow_workflow {
             """
             # Create scenario with varying file sizes
             cp $projectDir/tests/test_sample.fastq.gz $outputDir/normal_file.fastq.gz
-            
+
             # Create larger file by concatenating
             cat $projectDir/tests/test_sample.fastq.gz $projectDir/tests/test_sample.fastq.gz > $outputDir/large_file.fastq.gz
             """
@@ -291,11 +291,11 @@ nextflow_workflow {
             assert workflow.out.resource_predictions
             assert workflow.out.optimized_allocations
             assert workflow.out.adaptive_metrics
-            
+
             // Verify adaptive scaling
             def adaptive_metrics = workflow.out.adaptive_metrics.toList()
             assert adaptive_metrics.size() >= 1
-            
+
             // Verify real-time optimization
             def allocations = workflow.out.optimized_allocations.toList()
             assert allocations.size() >= 1
@@ -353,11 +353,11 @@ nextflow_workflow {
             assert workflow.out.optimized_allocations
             assert workflow.out.optimization_profiles
             assert workflow.out.auto_selection_metrics
-            
+
             // Verify auto selection occurred
             def auto_metrics = workflow.out.auto_selection_metrics.toList()
             assert auto_metrics.size() >= 1
-            
+
             // Verify profile selection
             def profiles = workflow.out.optimization_profiles.toList()
             assert profiles.size() >= 1
@@ -414,11 +414,11 @@ nextflow_workflow {
             assert workflow.out.optimized_allocations
             assert workflow.out.system_metrics
             assert workflow.out.pressure_adjustments
-            
+
             // Verify pressure monitoring
             def pressure_adjustments = workflow.out.pressure_adjustments.toList()
             assert pressure_adjustments.size() >= 1
-            
+
             // Verify system metrics collection
             def metrics = workflow.out.system_metrics.toList()
             assert metrics.size() >= 1
@@ -467,7 +467,7 @@ nextflow_workflow {
             // Should handle edge cases gracefully
             assert workflow.success
             assert snapshot(workflow.out.versions).match()
-            
+
             if (workflow.success) {
                 // Should generate fallback allocations
                 if (workflow.out.optimized_allocations) {
@@ -500,7 +500,7 @@ nextflow_workflow {
             // Should handle minimal configuration
             assert workflow.success
             assert snapshot(workflow.out.versions).match()
-            
+
             if (workflow.success) {
                 // Should provide default outputs
                 assert workflow.out.resource_predictions || workflow.out.optimized_allocations

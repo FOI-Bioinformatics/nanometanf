@@ -16,6 +16,7 @@
 **nanometanf** is a bioinformatics pipeline for Oxford Nanopore long-read sequencing data analysis with real-time processing capabilities. It serves as the computational backend for Nanometa Live, supporting POD5 basecalling (Dorado), quality control (Chopper, FASTP, NanoPlot), taxonomic classification (Kraken2), and validation workflows (BLAST/minimap2).
 
 **Key Features:**
+
 - Real-time POD5/FASTQ monitoring during active sequencing
 - Scalable streaming architecture for high-throughput runs (v1.5+)
 - Seven execution modes supporting diverse laboratory workflows
@@ -27,6 +28,7 @@
 ## Quick Start
 
 **Minimal command (QC only):**
+
 ```bash
 nextflow run foi-bioinformatics/nanometanf \
   --input samplesheet.csv \
@@ -35,6 +37,7 @@ nextflow run foi-bioinformatics/nanometanf \
 ```
 
 **Full analysis with classification:**
+
 ```bash
 nextflow run foi-bioinformatics/nanometanf \
   --input samplesheet.csv \
@@ -44,6 +47,7 @@ nextflow run foi-bioinformatics/nanometanf \
 ```
 
 **Test the pipeline:**
+
 ```bash
 nextflow run foi-bioinformatics/nanometanf -profile test,docker --outdir test_results
 ```
@@ -78,6 +82,7 @@ nextflow run foi-bioinformatics/nanometanf \
   --outdir results \
   -profile docker
 ```
+
 </details>
 
 ## Scalable Streaming Architecture (v1.5+)
@@ -106,6 +111,7 @@ nextflow run foi-bioinformatics/nanometanf \
 **[Complete Documentation](docs/README.md)** - Main documentation hub
 
 ### For Users
+
 - **[Usage Guide](docs/user/usage.md)** - Complete parameter reference and execution modes
 - **[Quick Start Tutorial](docs/user/quickstart.md)** - 5-minute scenario-based walkthrough
 - **[Output Files](docs/user/output.md)** - Output directory structure and file descriptions
@@ -114,11 +120,13 @@ nextflow run foi-bioinformatics/nanometanf \
 - **[Troubleshooting](docs/user/troubleshooting.md)** - Common issues and solutions
 
 ### For Developers
+
 - **[Development Guide](docs/development/README.md)** - Development documentation index
 - **[Testing Guide](docs/development/TESTING.md)** - Comprehensive nf-test documentation
 - **[CLAUDE.md](CLAUDE.md)** - AI-assisted development guide
 
 ### Release Information
+
 - **[Current Version Status](docs/releases/CURRENT_VERSION.md)** - Recommended versions and known issues
 - **[Release Notes](docs/releases/)** - Version history and changelogs
 - **[Migration Guide](docs/releases/MIGRATION_GUIDE.md)** - Upgrade instructions
@@ -134,6 +142,7 @@ Barcodes            NanoPlot   Taxpasta                    HTML
 ```
 
 **Supported Input Types:**
+
 1. FASTQ samplesheet (standard batch analysis)
 2. Pre-demultiplexed barcode directories (automated discovery)
 3. POD5 files with Dorado basecalling (singleplex or multiplex)

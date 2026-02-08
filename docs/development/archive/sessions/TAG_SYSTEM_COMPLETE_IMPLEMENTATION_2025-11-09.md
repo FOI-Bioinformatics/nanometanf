@@ -24,23 +24,23 @@ Successfully implemented and deployed a comprehensive hierarchical tag system ac
 
 ### Test Migration Statistics
 
-| Category | Files Tagged | Percentage | Time Invested |
-|----------|--------------|------------|---------------|
-| **Module Tests** | 20/20 | 100% | ~2 hours |
-| **Subworkflow Tests** | 15/15 | 100% | ~45 minutes |
-| **Pipeline Tests** | 22/22 | 100% | ~60 minutes |
-| **Total** | **57/57** | **100%** | **~4 hours** |
+| Category              | Files Tagged | Percentage | Time Invested |
+| --------------------- | ------------ | ---------- | ------------- |
+| **Module Tests**      | 20/20        | 100%       | ~2 hours      |
+| **Subworkflow Tests** | 15/15        | 100%       | ~45 minutes   |
+| **Pipeline Tests**    | 22/22        | 100%       | ~60 minutes   |
+| **Total**             | **57/57**    | **100%**   | **~4 hours**  |
 
 ### Module Updates (nf-core)
 
-| Module | Old Version | New Version | Status |
-|--------|-------------|-------------|--------|
-| blast/blastn | 2.16.0 | 2.17.0 | ✅ Updated |
-| blast/makeblastdb | 2.16.0 | 2.17.0 | ✅ Updated |
-| fastp | - | Latest | ✅ Updated |
-| kraken2/kraken2 | 2.1.6 | 2.14 | ✅ Updated |
-| multiqc | 1.31 | 1.32 | ✅ Updated |
-| untar | - | Latest | ✅ Updated |
+| Module            | Old Version | New Version | Status     |
+| ----------------- | ----------- | ----------- | ---------- |
+| blast/blastn      | 2.16.0      | 2.17.0      | ✅ Updated |
+| blast/makeblastdb | 2.16.0      | 2.17.0      | ✅ Updated |
+| fastp             | -           | Latest      | ✅ Updated |
+| kraken2/kraken2   | 2.1.6       | 2.14        | ✅ Updated |
+| multiqc           | 1.31        | 1.32        | ✅ Updated |
+| untar             | -           | Latest      | ✅ Updated |
 
 **Total Modules Updated:** 6
 **Lint Warnings Reduced:** 33 → 26 (21% reduction)
@@ -84,21 +84,25 @@ Successfully implemented and deployed a comprehensive hierarchical tag system ac
 ### Tag Distribution Analysis
 
 **By Level:**
+
 - Module: 20 tests (35%)
 - Subworkflow: 15 tests (26%)
 - Pipeline: 22 tests (39%)
 
 **By Criticality:**
+
 - Core: 42 tests (74%)
 - Extended: 8 tests (14%)
 - Experimental: 7 tests (12%)
 
 **By Speed:**
+
 - Fast: 31 tests (54%)
 - Medium: 18 tests (32%)
 - Slow: 8 tests (14%)
 
 **By Feature Area:**
+
 - QC: 12 tests (21%)
 - Realtime: 11 tests (19%)
 - Classification: 8 tests (14%)
@@ -115,11 +119,13 @@ Successfully implemented and deployed a comprehensive hierarchical tag system ac
 ### Workflow Implementation Summary
 
 #### 1. Quick Test Validation (`test-quick.yml`)
+
 **Purpose:** Fast PR validation
 **Scope:** `--tag core --tag fast`
 **Duration:** ~3-5 minutes
 **Tests:** ~15-20 tests
 **Triggers:**
+
 - Pull requests to dev/master
 - Pushes to dev
 - Manual dispatch
@@ -127,42 +133,50 @@ Successfully implemented and deployed a comprehensive hierarchical tag system ac
 **Time Savings:** 95% (60 min → 5 min)
 
 #### 2. Standard Test Validation (`test-standard.yml`)
+
 **Purpose:** Daily comprehensive validation
 **Scope:** `--tag core`
 **Duration:** ~15 minutes
 **Tests:** ~35-40 tests
 **Triggers:**
+
 - Daily at 2 AM UTC
 - Pushes to master
 - Manual dispatch
 
 **Matrix:**
+
 - Nextflow: 24.10.5, 24.04.4
 - OS: ubuntu-latest
 
 **Time Savings:** 75% (60 min → 15 min)
 
 #### 3. Comprehensive Test Validation (`test-comprehensive.yml`)
+
 **Purpose:** Complete test suite validation
 **Scope:** All tests
 **Duration:** ~45 minutes
 **Tests:** 57 tests
 **Triggers:**
+
 - Weekly (Sundays at 3 AM UTC)
-- Release tags (v*.*.*)
+- Release tags (v*.*.\*)
 - Manual dispatch
 
 **Coverage:** 100% of test suite
 
 #### 4. Feature-Specific Test Validation (`test-feature.yml`)
+
 **Purpose:** Targeted feature testing
 **Scope:** Configurable by feature area
 **Duration:** Variable (5-30 minutes)
 **Tests:** Variable by selection
 **Triggers:**
+
 - Manual dispatch only
 
 **Options:**
+
 - Feature selection (8 options)
 - Speed filter (fast/medium/slow/all)
 - Criticality filter (core/extended/experimental/all)
@@ -224,27 +238,29 @@ Successfully implemented and deployed a comprehensive hierarchical tag system ac
 
 ### Before Tag System
 
-| Scenario | Duration | Tests Run | Efficiency |
-|----------|----------|-----------|------------|
-| PR Validation | 60 min | 57 | Baseline |
-| Daily Build | 60 min | 57 | Baseline |
-| Feature Testing | 60 min | 57 | 0% selective |
+| Scenario        | Duration | Tests Run | Efficiency   |
+| --------------- | -------- | --------- | ------------ |
+| PR Validation   | 60 min   | 57        | Baseline     |
+| Daily Build     | 60 min   | 57        | Baseline     |
+| Feature Testing | 60 min   | 57        | 0% selective |
 
 **Total CI Time (weekly):**
+
 - PR checks: 5 PRs × 60 min = 300 min
 - Daily builds: 7 × 60 min = 420 min
 - Weekly: 720 min (12 hours)
 
 ### After Tag System
 
-| Scenario | Duration | Tests Run | Time Saved |
-|----------|----------|-----------|------------|
-| PR Validation | 5 min | 15-20 | 95% |
-| Daily Build | 15 min | 35-40 | 75% |
-| Feature Testing | 5-30 min | Variable | 60-90% |
-| Release | 45 min | 57 | Baseline |
+| Scenario        | Duration | Tests Run | Time Saved |
+| --------------- | -------- | --------- | ---------- |
+| PR Validation   | 5 min    | 15-20     | 95%        |
+| Daily Build     | 15 min   | 35-40     | 75%        |
+| Feature Testing | 5-30 min | Variable  | 60-90%     |
+| Release         | 45 min   | 57        | Baseline   |
 
 **Total CI Time (weekly):**
+
 - PR checks: 5 PRs × 5 min = 25 min
 - Daily builds: 7 × 15 min = 105 min
 - Weekly comprehensive: 1 × 45 min = 45 min
@@ -259,21 +275,25 @@ Successfully implemented and deployed a comprehensive hierarchical tag system ac
 ### Developer Experience Improvements
 
 ✅ **Faster Feedback Loops**
+
 - Pre-commit validation: 60 min → 5 min (local testing)
 - PR validation: 60 min → 5 min (automated)
 - Feature testing: 60 min → 10-15 min (targeted)
 
 ✅ **Better Test Organization**
+
 - Clear categorization by level, feature, criticality
 - Easy discovery with tag-based search
 - Logical grouping for maintenance
 
 ✅ **Reduced CI Queue Times**
+
 - Shorter jobs = more throughput
 - Better resource utilization
 - Parallel feature testing possible
 
 ✅ **Improved Debugging**
+
 - Targeted test execution for bugs
 - Feature-specific validation
 - Faster iteration cycles
@@ -281,16 +301,19 @@ Successfully implemented and deployed a comprehensive hierarchical tag system ac
 ### Maintenance Benefits
 
 ✅ **Clear Test Ownership**
+
 - Tags indicate feature area
 - Easy to find responsible developers
 - Better issue triage
 
 ✅ **Automated Tag Suggestion**
+
 - Script reduces manual tagging effort
 - Consistent tag application
 - 95% accuracy on standard patterns
 
 ✅ **Professional Infrastructure**
+
 - nf-core compliance maintained
 - Industry-standard practices
 - Scalable for future growth
@@ -348,11 +371,13 @@ Tag Consistency: 100%
 ## Implementation Timeline
 
 ### Phase 1: Module Tests (Complete)
+
 **Duration:** 2 hours
 **Files:** 20 modules
 **Approach:** Systematic tagging with validation
 
 **Modules Tagged:**
+
 - Core processing: kraken2_incremental_classifier, kraken2_output_merger, kraken2_report_generator
 - Real-time: generate_realtime_report, generate_snapshot_stats, update_cumulative_stats
 - Basecalling: dorado_basecaller, dorado_demux
@@ -362,29 +387,35 @@ Tag Consistency: 100%
 - Visualization: krona_kraken2
 
 ### Phase 2: Subworkflow Tests (Complete)
+
 **Duration:** 45 minutes
 **Files:** 15 subworkflows
 **Approach:** Feature-based categorization
 
 **Subworkflows Tagged:**
+
 - Core workflows (9): qc_analysis, taxonomic_classification, dorado_basecalling, barcode_discovery, validation, realtime_monitoring, realtime_pod5_monitoring, enhanced_realtime_monitoring, realtime_statistics
 - Extended (3): demultiplexing, assembly, output_organization
 - Extended/Experimental (3): qc_benchmark, dynamic_resource_allocation, utils_nfcore_nanometanf_pipeline
 
 ### Phase 3: Pipeline Tests (Complete)
+
 **Duration:** 60 minutes
 **Files:** 22 pipeline tests
 **Approach:** Integration test classification
 
 **Categories:**
+
 - Core integration (16 tests): default, core_logic, parameter_validation, full_pipeline_stubmode, main_simple, main_workflow, nanoseq_test, chopper_specific, qc_tool_integration, dorado_pod5, dorado_multiplex, barcode_discovery, realtime_barcode_integration, realtime_empty_samplesheet, realtime_pod5_basecalling, realtime_advanced_features
 - Extended/Experimental (6 tests): advanced_error_handling, dynamic_resource_allocation, realtime_statistics_modules, resource_allocation_modules, dorado_path_fix, realtime_processing
 
 ### Phase 4: CI/CD Deployment (Complete)
+
 **Duration:** 60 minutes
 **Deliverables:** 4 workflows + documentation
 
 **Workflows Created:**
+
 1. test-quick.yml (Quick validation)
 2. test-standard.yml (Daily builds)
 3. test-comprehensive.yml (Release validation)
@@ -392,10 +423,12 @@ Tag Consistency: 100%
 5. workflows/README.md (Complete documentation)
 
 ### Phase 5: Documentation (Complete)
+
 **Duration:** 30 minutes
 **Files:** 5 documentation files
 
 **Documentation:**
+
 1. tests/tags.yml - Tag system specification
 2. tests/TAGGING_GUIDE.md - Developer guide
 3. tests/scripts/apply_tags.sh - Automation script
@@ -409,24 +442,28 @@ Tag Consistency: 100%
 ### Validation Checklist
 
 ✅ **Tag System Design**
+
 - [x] 7-category hierarchical structure defined
 - [x] Required vs optional tags documented
 - [x] Naming conventions established
 - [x] Examples provided for each category
 
 ✅ **Test Migration**
+
 - [x] All 20 module tests tagged
 - [x] All 15 subworkflow tests tagged
 - [x] All 22 pipeline tests tagged
 - [x] Consistency validated across all files
 
 ✅ **Automation Tools**
+
 - [x] Tag suggestion script created
 - [x] Batch processing supported
 - [x] Heuristics documented
 - [x] 95% accuracy validated
 
 ✅ **CI/CD Infrastructure**
+
 - [x] Quick workflow deployed
 - [x] Standard workflow deployed
 - [x] Comprehensive workflow deployed
@@ -434,6 +471,7 @@ Tag Consistency: 100%
 - [x] Workflows tested with workflow_dispatch
 
 ✅ **Documentation**
+
 - [x] Tag system specification complete
 - [x] Developer guide comprehensive
 - [x] Script documentation clear
@@ -441,6 +479,7 @@ Tag Consistency: 100%
 - [x] Best practices documented
 
 ✅ **Testing & Validation**
+
 - [x] nf-test dry-run successful
 - [x] All tests discovered correctly
 - [x] No syntax errors
@@ -454,6 +493,7 @@ Tag Consistency: 100%
 ### Test Files Modified (57 files)
 
 **Modules (20 files):**
+
 ```
 modules/local/analyze_input_characteristics/tests/main.nf.test
 modules/local/apply_dynamic_resources/tests/main.nf.test
@@ -478,6 +518,7 @@ modules/local/update_cumulative_stats/tests/main.nf.test
 ```
 
 **Subworkflows (15 files):**
+
 ```
 subworkflows/local/assembly/tests/main.nf.test
 subworkflows/local/barcode_discovery/tests/main.nf.test
@@ -497,6 +538,7 @@ subworkflows/local/validation/tests/main.nf.test
 ```
 
 **Pipeline Tests (22 files):**
+
 ```
 tests/advanced_error_handling.nf.test
 tests/barcode_discovery.nf.test
@@ -617,21 +659,25 @@ modules/nf-core/untar/
 ### What Worked Well
 
 ✅ **Hierarchical Tag Structure**
+
 - Clear categorization made adoption easy
 - Multiple dimensions enable flexible filtering
 - Required vs optional tags balanced completeness and flexibility
 
 ✅ **Automation Tools**
+
 - Script reduced manual effort significantly
 - 95% accuracy achieved with simple heuristics
 - Batch processing enabled rapid migration
 
 ✅ **Incremental Approach**
+
 - Phased implementation (modules → subworkflows → pipeline) worked well
 - Validation after each phase caught issues early
 - Iterative refinement improved quality
 
 ✅ **Documentation First**
+
 - Creating specification before tagging ensured consistency
 - Developer guide reduced onboarding time
 - Examples accelerated adoption
@@ -639,16 +685,19 @@ modules/nf-core/untar/
 ### Challenges Encountered
 
 ⚠️ **Edge Cases**
+
 - Some tests span multiple feature areas (required multiple feature tags)
 - Speed categorization subjective for medium tests
 - Experimental vs extended distinction sometimes unclear
 
 ⚠️ **Tooling Limitations**
+
 - macOS compatibility issues with bash script (mapfile, set -u)
 - nf-test tag filtering requires exact matches (no wildcards)
 - No built-in tag validation in nf-test
 
 ⚠️ **Migration Effort**
+
 - Manual review still required for 100% accuracy
 - Some old tags needed removal/replacement
 - Consistency validation time-consuming
@@ -656,22 +705,25 @@ modules/nf-core/untar/
 ### Best Practices Identified
 
 ✅ **Tag Application**
+
 1. Start with required tags (level, component, feature, speed, criticality)
 2. Add optional tags only when they provide clear value
 3. Use feature tags liberally for multi-feature tests
 4. Document tag rationale in comments for complex cases
 
 ✅ **CI/CD Design**
+
 1. Start with quick workflow for fast feedback
 2. Layer additional validation progressively
 3. Keep comprehensive tests for release validation
 4. Provide manual feature workflow for debugging
 
 ✅ **Documentation**
+
 1. Create specification before implementation
 2. Provide practical examples for every category
 3. Include anti-patterns to guide developers
-4. Keep documentation close to code (tests/*)
+4. Keep documentation close to code (tests/\*)
 
 ---
 
@@ -679,38 +731,42 @@ modules/nf-core/untar/
 
 ### Quantitative Achievements
 
-| Metric | Target | Achieved | Status |
-|--------|--------|----------|--------|
-| Test Files Tagged | 100% | 57/57 (100%) | ✅ |
-| Tag Categories | 5-7 | 7 | ✅ |
-| Documentation Lines | 1,500+ | 2,700+ | ✅ |
-| CI Time Reduction (Quick) | 90%+ | 95% | ✅ |
-| CI Time Reduction (Standard) | 70%+ | 75% | ✅ |
-| Weekly CI Time Savings | 500+ min | 545 min | ✅ |
-| Automation Accuracy | 90%+ | 95% | ✅ |
-| Workflow Count | 3-4 | 4 | ✅ |
+| Metric                       | Target   | Achieved     | Status |
+| ---------------------------- | -------- | ------------ | ------ |
+| Test Files Tagged            | 100%     | 57/57 (100%) | ✅     |
+| Tag Categories               | 5-7      | 7            | ✅     |
+| Documentation Lines          | 1,500+   | 2,700+       | ✅     |
+| CI Time Reduction (Quick)    | 90%+     | 95%          | ✅     |
+| CI Time Reduction (Standard) | 70%+     | 75%          | ✅     |
+| Weekly CI Time Savings       | 500+ min | 545 min      | ✅     |
+| Automation Accuracy          | 90%+     | 95%          | ✅     |
+| Workflow Count               | 3-4      | 4            | ✅     |
 
 ### Qualitative Achievements
 
 ✅ **Developer Experience**
+
 - Faster feedback loops
 - Better test organization
 - Clearer test purpose
 - Easier maintenance
 
 ✅ **CI/CD Efficiency**
+
 - Multi-stage validation
 - Intelligent test selection
 - Reduced queue times
 - Better resource utilization
 
 ✅ **Code Quality**
+
 - Professional infrastructure
 - nf-core compliance
 - Industry best practices
 - Scalable foundation
 
 ✅ **Project Impact**
+
 - Improved productivity
 - Reduced CI costs
 - Better test coverage visibility
@@ -767,6 +823,7 @@ modules/nf-core/untar/
 The tag system implementation represents a significant advancement in the nanometanf testing infrastructure. With 100% coverage across 57 test files, 4 optimized CI/CD workflows, and comprehensive documentation, the pipeline now has a professional, scalable foundation for continued growth.
 
 **Key Outcomes:**
+
 - ✅ 95% CI time reduction for quick validation
 - ✅ 76% weekly CI time savings (9.1 hours)
 - ✅ Professional documentation (2,700+ lines)
@@ -781,4 +838,3 @@ The system is now ready for production use and provides a solid foundation for f
 **Review Status:** Complete
 **Approval Status:** Ready for Production
 **Next Review Date:** 2025-11-23 (2 weeks)
-

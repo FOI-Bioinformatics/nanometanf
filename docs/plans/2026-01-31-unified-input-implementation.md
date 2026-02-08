@@ -13,6 +13,7 @@
 **Worktree:** `.worktrees/unified-input` (branch: `feature/unified-input-handling`)
 
 **Testing:** nf-test requires conda env `nf-core`:
+
 ```bash
 eval "$(~/miniforge3/bin/conda shell.bash hook)" && conda activate nf-core
 export JAVA_HOME=$CONDA_PREFIX/lib/jvm && export PATH=$JAVA_HOME/bin:$PATH
@@ -23,6 +24,7 @@ export JAVA_HOME=$CONDA_PREFIX/lib/jvm && export PATH=$JAVA_HOME/bin:$PATH
 ### Task 1: Create InputDetector.groovy
 
 **Files:**
+
 - Create: `lib/InputDetector.groovy`
 
 **Step 1: Create the utility class**
@@ -125,6 +127,7 @@ git commit -m "feat: add InputDetector utility for folder structure detection"
 ### Task 2: Create BatchUtils.groovy
 
 **Files:**
+
 - Create: `lib/BatchUtils.groovy`
 
 **Step 1: Create the timeout-based batching utility**
@@ -222,6 +225,7 @@ git commit -m "feat: add BatchUtils with count-or-timeout batching"
 ### Task 3: Add new parameters to nextflow.config
 
 **Files:**
+
 - Modify: `nextflow.config:10-65` (params block)
 
 **Step 1: Add new parameters**
@@ -246,6 +250,7 @@ git commit -m "feat: add input_dir, sample_regex, and batch_timeout parameters"
 ### Task 4: Create INPUT_SCANNER subworkflow
 
 **Files:**
+
 - Create: `subworkflows/local/input_scanner/main.nf`
 
 **Step 1: Create the subworkflow**
@@ -367,6 +372,7 @@ git commit -m "feat: add INPUT_SCANNER subworkflow for unified directory scannin
 ### Task 5: Update REALTIME_MONITORING to use InputDetector and BatchUtils
 
 **Files:**
+
 - Modify: `subworkflows/local/realtime_monitoring/main.nf`
 
 **Step 1: Replace collate with batchWithTimeout**
@@ -482,16 +488,19 @@ git commit -m "feat: use BatchUtils and InputDetector in real-time monitor"
 ### Task 6: Update default file_pattern to recursive
 
 **Files:**
+
 - Modify: `nextflow.config:18`
 
 **Step 1: Change default pattern**
 
 Replace:
+
 ```groovy
     file_pattern               = "*.fastq{,.gz}"  // Match FASTQ files in root directory (most common for nanopore)
 ```
 
 with:
+
 ```groovy
     file_pattern               = "**/*.fastq{,.gz}"  // Match FASTQ files recursively (supports barcode subdirectories)
 ```
@@ -508,6 +517,7 @@ git commit -m "feat: change default file_pattern to recursive for barcode subdir
 ### Task 7: Wire INPUT_SCANNER into workflow orchestration
 
 **Files:**
+
 - Modify: `workflows/nanometanf.nf:1-30` (imports) and `workflows/nanometanf.nf:97-276` (routing)
 
 **Step 1: Add import**
@@ -565,6 +575,7 @@ git commit -m "feat: wire INPUT_SCANNER into workflow, deprecate barcode_input_d
 ### Task 8: Create test fixtures
 
 **Files:**
+
 - Create: `tests/fixtures/minknow_output/barcode01/test_reads_barcode01.fastq.gz`
 - Create: `tests/fixtures/minknow_output/barcode02/test_reads_barcode02.fastq.gz`
 - Create: `tests/fixtures/flat_multisample/sampleA_001.fastq.gz`
@@ -599,6 +610,7 @@ git commit -m "test: add MinKNOW-style and flat multi-sample test fixtures"
 ### Task 9: Write nf-test for INPUT_SCANNER
 
 **Files:**
+
 - Create: `tests/input_scanner.nf.test`
 
 **Step 1: Write tests**
@@ -694,6 +706,7 @@ git commit -m "test: add nf-test suite for INPUT_SCANNER subworkflow"
 ### Task 10: Write nf-test for InputDetector
 
 **Files:**
+
 - Create: `tests/lib/input_detector.nf.test`
 
 **Step 1: Write Groovy unit tests via nf-test**
@@ -818,6 +831,7 @@ git commit -m "test: add unit tests for InputDetector utility"
 ### Task 11: Update nextflow_schema.json
 
 **Files:**
+
 - Modify: `nextflow_schema.json`
 
 **Step 1: Add schema entries for new parameters**

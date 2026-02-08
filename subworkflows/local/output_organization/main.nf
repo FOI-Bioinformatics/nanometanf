@@ -46,7 +46,7 @@ workflow OUTPUT_ORGANIZATION {
             def output_path = "${params.outdir}/qc/fastp/${meta.id}/${html.name}"
             return [ meta, html, output_path ]
         }
-    
+
     ch_nanoplot_organized = nanoplot_channel
         .map { meta, html ->
             def output_path = "${params.outdir}/qc/nanoplot/${meta.id}/${html.name}"

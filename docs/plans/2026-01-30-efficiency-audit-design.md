@@ -12,14 +12,14 @@ The v1.5 scalable streaming architecture is fundamentally sound. It eliminated t
 
 This audit identifies six findings, ranked by impact:
 
-| # | Finding | Severity | Category |
-|---|---------|----------|----------|
-| 1 | No intermediate validation during streaming | Medium | Architecture |
-| 2 | Report generator over-allocated at 6GB | Low | Resources |
-| 3 | FastQC + SeqKit stats redundancy | Low | Resources |
-| 4 | Progressive report rewrites every batch | Low | I/O |
-| 5 | Race condition window in progressive reporting | Low | Correctness |
-| 6 | Final aggregator uses glob without validation | Low | Correctness |
+| #   | Finding                                        | Severity | Category     |
+| --- | ---------------------------------------------- | -------- | ------------ |
+| 1   | No intermediate validation during streaming    | Medium   | Architecture |
+| 2   | Report generator over-allocated at 6GB         | Low      | Resources    |
+| 3   | FastQC + SeqKit stats redundancy               | Low      | Resources    |
+| 4   | Progressive report rewrites every batch        | Low      | I/O          |
+| 5   | Race condition window in progressive reporting | Low      | Correctness  |
+| 6   | Final aggregator uses glob without validation  | Low      | Correctness  |
 
 ---
 
@@ -72,6 +72,7 @@ AGGREGATE_VALIDATION_RESULTS(
 ```
 
 **New parameter in `nextflow.config`:**
+
 ```groovy
 validation_aggregate_interval = 10  // Emit intermediate validation every N samples
 ```
@@ -128,6 +129,7 @@ if (!params.realtime_mode || params.force_fastqc) {
 ```
 
 **New parameter:**
+
 ```groovy
 force_fastqc = false  // Force FastQC even in real-time mode
 ```
@@ -171,6 +173,7 @@ KRAKEN2_REPORT_GENERATOR.out.taxid_counts
 ```
 
 **New parameter:**
+
 ```groovy
 report_write_interval = 5  // Write cumulative report every N batches
 ```
@@ -268,6 +271,7 @@ stats = {
 ```
 
 **Nextflow channel change:**
+
 ```groovy
 ch_aggregator_input = ch_sample_outputs
     .map { meta, output_file -> tuple(meta.id, output_file) }
@@ -284,6 +288,7 @@ ch_aggregator_input = ch_sample_outputs
 The nanometanf v1.5 architecture is an efficient real-time multiplexed nanopore analyzer. The scalable streaming design (append-only storage, incremental counting, per-sample parallelism) is architecturally sound and addresses the correct bottlenecks. The six findings above are refinements, not fundamental issues. The most impactful improvement would be Finding 1 (intermediate validation), as it closes a functional gap in the real-time monitoring use case.
 
 **Recommended implementation order:**
+
 1. Finding 2 (report generator memory) -- immediate, zero-risk config change
 2. Finding 5 (race condition) -- small code change, correctness improvement
 3. Finding 6 (aggregator validation) -- small code change, robustness improvement

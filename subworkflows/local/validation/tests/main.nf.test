@@ -41,7 +41,7 @@ EOF
                 input[1] = file('$projectDir/tests/fixtures/blast_db/test_db')
                 """
             }
-            
+
             params {
                 max_cpus = 2
                 max_memory = '4.GB'
@@ -54,11 +54,11 @@ EOF
             assert snapshot(workflow.out.versions).match()
             assert workflow.out.txt
             assert workflow.out.versions
-            
+
             // Verify BLAST validation output
             def blast_results = workflow.out.txt.toList()
             assert blast_results.size() >= 1
-            
+
             // Check versions output
             def versions = workflow.out.versions.toList()
             assert versions.size() >= 1
@@ -95,7 +95,7 @@ EOF
                 input[1] = file('$projectDir/tests/fixtures/blast_db/test_db')
                 """
             }
-            
+
             params {
                 max_cpus = 2
                 max_memory = '4.GB'
@@ -107,7 +107,7 @@ EOF
             assert workflow.success
             assert snapshot(workflow.out.versions).match()
             assert workflow.out.txt
-            
+
             // Verify processing of multiple sequences
             def blast_results = workflow.out.txt.toList()
             assert blast_results.size() >= 1
@@ -161,7 +161,7 @@ EOF
                 input[1] = file('$projectDir/tests/fixtures/blast_db/test_db')
                 """
             }
-            
+
             params {
                 max_cpus = 2
                 max_memory = '4.GB'
@@ -173,7 +173,7 @@ EOF
             assert workflow.success
             assert snapshot(workflow.out.versions).match()
             assert workflow.out.txt
-            
+
             // Verify batch processing
             def blast_results = workflow.out.txt.toList()
             assert blast_results.size() >= 3
@@ -205,7 +205,7 @@ EOF
                 input[1] = file('$projectDir/tests/fixtures/blast_db/test_db')
                 """
             }
-            
+
             params {
                 blast_outfmt = 6  // Tabular format
                 blast_evalue = 1e-5
@@ -220,7 +220,7 @@ EOF
             assert workflow.success
             assert snapshot(workflow.out.versions).match()
             assert workflow.out.txt
-            
+
             // Verify format-specific output
             def blast_results = workflow.out.txt.toList()
             assert blast_results.size() >= 1
@@ -252,7 +252,7 @@ EOF
                 input[1] = file('$projectDir/tests/fixtures/blast_db/test_db')
                 """
             }
-            
+
             params {
                 blast_evalue = 1e-10       // Very stringent e-value
                 blast_word_size = 28       // Larger word size
@@ -269,7 +269,7 @@ EOF
             assert workflow.success
             assert snapshot(workflow.out.versions).match()
             assert workflow.out.txt
-            
+
             // Verify stringent validation
             def blast_results = workflow.out.txt.toList()
             assert blast_results.size() >= 1
@@ -285,7 +285,7 @@ EOF
                 input[1] = file('$projectDir/tests/fixtures')  // Use any existing directory
                 """
             }
-            
+
             params {
                 max_cpus = 1
                 max_memory = '2.GB'
@@ -297,7 +297,7 @@ EOF
             // Should handle empty input gracefully
             assert workflow.success
             assert snapshot(workflow.out.versions).match()
-            
+
             if (workflow.success) {
                 // Empty outputs expected
                 if (workflow.out.txt) {
@@ -335,7 +335,7 @@ EOF
                 input[1] = file('$projectDir/tests/fixtures/blast_db/test_db')
                 """
             }
-            
+
             params {
                 blast_outfmt = "6 qseqid sseqid pident length mismatch gapopen qstart qend sstart send evalue bitscore"
                 blast_task = "blastn"
@@ -352,7 +352,7 @@ EOF
             assert workflow.success
             assert snapshot(workflow.out.versions).match()
             assert workflow.out.txt
-            
+
             // Verify custom parameter processing
             def blast_results = workflow.out.txt.toList()
             assert blast_results.size() >= 1

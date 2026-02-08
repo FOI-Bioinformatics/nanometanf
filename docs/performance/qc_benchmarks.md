@@ -6,11 +6,11 @@ This document contains performance benchmarking results for the QC tools availab
 
 The pipeline supports three primary QC filtering tools, each optimized for different use cases:
 
-| Tool | Category | Optimization | Language | Best For |
-|------|----------|-------------|----------|----------|
-| **Chopper** | Nanopore-native Rust | Nanopore long reads | Rust | High-throughput nanopore QC (default) |
-| **Filtlong** | Nanopore-optimized | Length-weighted quality | C++ | Length-based nanopore filtering |
-| **FASTP** | General-purpose | Illumina/short reads | C++ | Legacy/mixed read types |
+| Tool         | Category             | Optimization            | Language | Best For                              |
+| ------------ | -------------------- | ----------------------- | -------- | ------------------------------------- |
+| **Chopper**  | Nanopore-native Rust | Nanopore long reads     | Rust     | High-throughput nanopore QC (default) |
+| **Filtlong** | Nanopore-optimized   | Length-weighted quality | C++      | Length-based nanopore filtering       |
+| **FASTP**    | General-purpose      | Illumina/short reads    | C++      | Legacy/mixed read types               |
 
 ## Benchmark Framework
 
@@ -19,12 +19,14 @@ The QC_BENCHMARK subworkflow (`subworkflows/local/qc_benchmark`) provides automa
 ### Metrics Collected
 
 **For all tools:**
+
 - Processing time (wall clock)
 - Memory usage (peak RSS)
 - CPU utilization
 - Reads processed per second
 
 **Tool-specific metrics:**
+
 - **Chopper**: num_seqs, avg_len, avg_qual, Q20%, Q30% (via SeqKit)
 - **Filtlong**: reads_kept, bases_kept, mean_length (via log parsing)
 - **FASTP**: reads_before/after, q30_rate, duplication_rate (via JSON)
@@ -56,18 +58,21 @@ Based on tool design and literature:
 ### Chopper (Nanopore-Native Rust)
 
 **Expected Performance:**
+
 - **Speed**: 7-10x faster than NanoFilt/Python-based tools
 - **Memory**: Low footprint (~50-100 MB for 10K reads)
 - **Throughput**: >50,000 reads/second on modern CPU
 - **Quality**: Optimized for nanopore Q-score distributions
 
 **Strengths:**
+
 - Rust-based: zero-cost abstractions, no GC pauses
 - Streaming processing: constant memory usage
 - Nanopore-aware quality filtering
 - Fast headcrop/tailcrop for adapter removal
 
 **Use Cases:**
+
 - Real-time sequencing analysis
 - High-throughput production pipelines
 - Resource-constrained environments
@@ -76,18 +81,21 @@ Based on tool design and literature:
 ### Filtlong (Length-Weighted Nanopore)
 
 **Expected Performance:**
+
 - **Speed**: 3-5x faster than FASTP on long reads
 - **Memory**: Moderate (200-500 MB for 10K reads)
 - **Throughput**: ~15,000 reads/second
 - **Quality**: Best for length-based quality filtering
 
 **Strengths:**
+
 - Length-weighted quality scoring
 - Excellent for assembly prep (N50 optimization)
 - Keeps longest high-quality reads
 - Good memory efficiency for large datasets
 
 **Use Cases:**
+
 - Genome assembly workflows
 - When read length is critical
 - Quality-length tradeoff optimization
@@ -96,18 +104,21 @@ Based on tool design and literature:
 ### FASTP (General-Purpose/Legacy)
 
 **Expected Performance:**
+
 - **Speed**: Baseline (optimized for short reads)
 - **Memory**: Higher (400-800 MB for 10K reads)
 - **Throughput**: ~8,000 long reads/second
 - **Quality**: Best for Illumina, adequate for nanopore
 
 **Strengths:**
+
 - Rich HTML reporting
 - Mature, well-tested
 - Adapter trimming
 - Duplication detection
 
 **Use Cases:**
+
 - Mixed short/long read datasets
 - When FASTP-specific features needed
 - Backward compatibility
@@ -122,15 +133,15 @@ Based on tool design and literature:
 
 **Test Dataset**: 10,000 nanopore reads, mean length 5kb, Q10-Q15
 
-| Metric | Chopper | Filtlong | FASTP | Winner |
-|--------|---------|----------|-------|--------|
-| **Processing Time** | TBD s | TBD s | TBD s | - |
-| **Peak Memory** | TBD MB | TBD MB | TBD MB | - |
-| **Reads Retained** | TBD | TBD | TBD | - |
-| **Mean Length After** | TBD bp | TBD bp | TBD bp | - |
-| **Mean Quality After** | TBD | TBD | TBD | - |
-| **Q30 Bases %** | TBD% | TBD% | TBD% | - |
-| **Throughput** | TBD reads/s | TBD reads/s | TBD reads/s | - |
+| Metric                 | Chopper     | Filtlong    | FASTP       | Winner |
+| ---------------------- | ----------- | ----------- | ----------- | ------ |
+| **Processing Time**    | TBD s       | TBD s       | TBD s       | -      |
+| **Peak Memory**        | TBD MB      | TBD MB      | TBD MB      | -      |
+| **Reads Retained**     | TBD         | TBD         | TBD         | -      |
+| **Mean Length After**  | TBD bp      | TBD bp      | TBD bp      | -      |
+| **Mean Quality After** | TBD         | TBD         | TBD         | -      |
+| **Q30 Bases %**        | TBD%        | TBD%        | TBD%        | -      |
+| **Throughput**         | TBD reads/s | TBD reads/s | TBD reads/s | -      |
 
 ### Speed Comparison (Relative)
 
@@ -164,14 +175,14 @@ FASTP:      ████████████         High (~600 MB)
 
 ### Recommendation Matrix
 
-| Workflow Type | Recommended Tool | Rationale |
-|---------------|------------------|-----------|
-| **Real-time analysis** | Chopper | Lowest latency, streaming |
-| **Genome assembly** | Filtlong | Length-weighted N50 optimization |
-| **Metagenomics** | Chopper | Speed + nanopore Q-score handling |
-| **Hybrid assembly** | FASTP first, then Filtlong | Remove Illumina contam, then length filter |
-| **Production pipeline** | Chopper | Speed, reliability, resource efficiency |
-| **Legacy workflows** | FASTP | Backward compatibility |
+| Workflow Type           | Recommended Tool           | Rationale                                  |
+| ----------------------- | -------------------------- | ------------------------------------------ |
+| **Real-time analysis**  | Chopper                    | Lowest latency, streaming                  |
+| **Genome assembly**     | Filtlong                   | Length-weighted N50 optimization           |
+| **Metagenomics**        | Chopper                    | Speed + nanopore Q-score handling          |
+| **Hybrid assembly**     | FASTP first, then Filtlong | Remove Illumina contam, then length filter |
+| **Production pipeline** | Chopper                    | Speed, reliability, resource efficiency    |
+| **Legacy workflows**    | FASTP                      | Backward compatibility                     |
 
 ## Configuration Examples
 
@@ -249,6 +260,7 @@ All benchmark results are validated with:
 4. **Comparison Analysis**: Automated tool performance comparison
 
 Output channels include:
+
 - `benchmark_results`: Combined metrics for all tools
 - `chopper_results`: Chopper-specific outputs
 - `filtlong_results`: Filtlong-specific outputs

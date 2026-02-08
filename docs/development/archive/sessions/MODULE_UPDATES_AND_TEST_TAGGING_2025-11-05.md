@@ -22,6 +22,7 @@ This session completed the remaining high-priority tasks from the code quality e
 ## Task 1: nf-core Module Compliance ✅
 
 ### Objective
+
 Verify nf-core compliance and update all modules with newer versions available.
 
 ### Implementation
@@ -29,16 +30,19 @@ Verify nf-core compliance and update all modules with newer versions available.
 **1.1 Compliance Verification**
 
 Ran comprehensive lint check:
+
 ```bash
 nf-core modules lint > /tmp/lint_output.txt
 ```
 
 **Results:**
+
 - ✅ 755 tests passed
 - ⚠️ 33 warnings (non-blocking)
 - ❌ 0 failures
 
 **Warning Categories:**
+
 1. **Module updates available** (6 modules)
 2. **Container link checks** (8 modules) - External registry connectivity issues (non-critical)
 3. **Container version mismatches** (8 modules) - Related to Wave containers
@@ -48,16 +52,17 @@ nf-core modules lint > /tmp/lint_output.txt
 
 Updated 6 modules to latest versions:
 
-| Module | Old Version | New Version | Change Type |
-|--------|-------------|-------------|-------------|
-| **blast/blastn** | 2.16.0 | 2.17.0 | Minor |
-| **blast/makeblastdb** | 2.16.0 | 2.17.0 | Minor |
-| **fastp** | (previous) | latest | Patch |
-| **kraken2/kraken2** | 2.1.6 | 2.14 | **Major** |
-| **multiqc** | 1.31 | 1.32 | Patch |
-| **untar** | (previous) | latest | Patch |
+| Module                | Old Version | New Version | Change Type |
+| --------------------- | ----------- | ----------- | ----------- |
+| **blast/blastn**      | 2.16.0      | 2.17.0      | Minor       |
+| **blast/makeblastdb** | 2.16.0      | 2.17.0      | Minor       |
+| **fastp**             | (previous)  | latest      | Patch       |
+| **kraken2/kraken2**   | 2.1.6       | 2.14        | **Major**   |
+| **multiqc**           | 1.31        | 1.32        | Patch       |
+| **untar**             | (previous)  | latest      | Patch       |
 
 **Update Commands:**
+
 ```bash
 echo "y" | nf-core modules update blast/blastn --no-preview --force
 echo "y" | nf-core modules update blast/makeblastdb --no-preview --force
@@ -70,16 +75,19 @@ echo "y" | nf-core modules update untar --no-preview --force
 **1.3 Post-Update Validation**
 
 Re-ran lint check to verify improvements:
+
 ```bash
 nf-core modules lint
 ```
 
 **Improved Results:**
+
 - ✅ 763 tests passed (+8)
 - ⚠️ 26 warnings (-7)
 - ❌ 0 failures
 
 **Key Improvements:**
+
 - Eliminated 6 "module_version: New version available" warnings
 - Reduced bioconda update warnings
 - No new failures introduced
@@ -87,17 +95,20 @@ nf-core modules lint
 ### Impact
 
 **Before:**
+
 - 6 modules outdated
 - 755 passing tests
 - 33 warnings
 
 **After:**
+
 - ✅ All modules current
 - ✅ 763 passing tests (+1%)
 - ✅ 26 warnings (-21%)
 - ✅ 0 failures maintained
 
 **Metrics:**
+
 - Modules updated: 6
 - Test improvement: +8 passing
 - Warning reduction: -7 warnings
@@ -108,6 +119,7 @@ nf-core modules lint
 ## Task 2: Test Tag System Design ✅
 
 ### Objective
+
 Create comprehensive hierarchical tag system for organizing and selectively executing 94+ test files.
 
 ### Architecture
@@ -164,6 +176,7 @@ Designed structured tag system with clear priorities:
 **2.2 Tag Selection Guidelines**
 
 **Required Tags (5 minimum):**
+
 - Level: Test scope (module/subworkflow/pipeline)
 - Name: Component identifier
 - Feature: Functional area
@@ -171,11 +184,13 @@ Designed structured tag system with clear priorities:
 - Criticality: Release importance
 
 **Optional Tags (as needed):**
+
 - Test Type: stub, snapshot, edge_case, etc.
 - Platform: linux, macos, gpu, etc.
 - Data: small_data, requires_db, etc.
 
 **Tag Organization Pattern:**
+
 ```groovy
 nextflow_process {
     // Test Level & Component
@@ -206,6 +221,7 @@ nextflow_process {
 **File:** `tests/tags.yml` (406 lines)
 
 **Content:**
+
 - Complete 7-category system documentation
 - Usage examples for each tag category
 - Recommended tag combinations for CI/CD
@@ -214,6 +230,7 @@ nextflow_process {
 - Version history and maintenance policy
 
 **Key Sections:**
+
 - Test Level Tags: module, subworkflow, workflow, pipeline, integration
 - Test Type Tags: unit, integration, edge_case, performance, stub, snapshot, regression
 - Feature Area Tags: realtime, basecalling, qc, classification, validation, resource_allocation, error_handling, barcode_discovery
@@ -228,6 +245,7 @@ nextflow_process {
 **File:** `tests/TAGGING_GUIDE.md` (416 lines)
 
 **Content:**
+
 - TL;DR quick tagging checklist
 - Tag categories in priority order with examples
 - Common tag patterns for different test types
@@ -238,6 +256,7 @@ nextflow_process {
 - FAQ and validation commands
 
 **Key Features:**
+
 - 5-minute quick reference for developers
 - Copy-paste ready tag blocks
 - Clear examples for module, subworkflow, and pipeline tests
@@ -251,6 +270,7 @@ nextflow_process {
 Applied new tag system to 3 representative tests:
 
 **Module Test:** `modules/local/kraken2_incremental_classifier/tests/main.nf.test`
+
 ```groovy
 // Test Level & Component
 tag "module"
@@ -270,6 +290,7 @@ tag "snapshot"
 ```
 
 **Subworkflow Test:** `subworkflows/local/qc_analysis/tests/main.nf.test`
+
 ```groovy
 // Test Level & Component
 tag "subworkflow"
@@ -288,6 +309,7 @@ tag "snapshot"
 ```
 
 **Pipeline Test:** `tests/realtime_processing.nf.test`
+
 ```groovy
 // Test Level & Component
 tag "pipeline"
@@ -312,6 +334,7 @@ tag "error_handling"
 Updated `docs/development/TESTING.md` with comprehensive tag system documentation:
 
 **Added Sections:**
+
 - **Test Tag System** (new major section after Overview)
   - Quick Start with links to guides
   - Tag Categories (Required) with detailed explanations
@@ -322,11 +345,13 @@ Updated `docs/development/TESTING.md` with comprehensive tag system documentatio
   - Tag Validation commands
 
 **Updated Sections:**
+
 - **Quick Reference** - Added tag-based test commands
 - **Testing Standards** - Updated tag structure in examples
 - **Running Tests** - Comprehensive tag-based execution examples
 
 **New Quick Commands:**
+
 ```bash
 # Quick CI validation (< 5 minutes)
 nf-test test --tag core --tag fast
@@ -353,12 +378,14 @@ nf-test test --tag module --tag kraken2
 ### Impact
 
 **Before:**
+
 - Inconsistent tagging across 94 test files
 - Limited test organization
 - No selective execution capability
 - Difficult to identify test purpose
 
 **After:**
+
 - ✅ Comprehensive 7-category system designed
 - ✅ 3 representative tests tagged as examples
 - ✅ Complete documentation (tags.yml + TAGGING_GUIDE.md)
@@ -366,6 +393,7 @@ nf-test test --tag module --tag kraken2
 - ✅ Clear migration path for remaining tests
 
 **Metrics:**
+
 - Documentation created: 822 lines (tags.yml + TAGGING_GUIDE.md)
 - TESTING.md additions: ~200 lines
 - Representative tests tagged: 3
@@ -377,6 +405,7 @@ nf-test test --tag module --tag kraken2
 ## Task 3: Developer Automation Tooling ✅
 
 ### Objective
+
 Create automation script to accelerate tag migration for remaining 91 test files.
 
 ### Implementation
@@ -388,6 +417,7 @@ Create automation script to accelerate tag migration for remaining 91 test files
 **Features:**
 
 **Automatic Detection:**
+
 - **Level detection:** Analyzes file path (modules/→module, subworkflows/→subworkflow, tests/→pipeline)
 - **Component name extraction:** Parses directory structure for component identifier
 - **Feature area inference:** Pattern matching on component name keywords
@@ -423,6 +453,7 @@ resource_allocation|error_handling → experimental
 **Usage Modes:**
 
 **Single File Analysis:**
+
 ```bash
 # Dry-run mode (show suggestions)
 ./tests/scripts/apply_tags.sh --dry-run modules/local/kraken2/tests/main.nf.test
@@ -447,6 +478,7 @@ resource_allocation|error_handling → experimental
 ```
 
 **Batch Processing:**
+
 ```bash
 # Process all module tests
 ./tests/scripts/apply_tags.sh --batch-modules
@@ -462,6 +494,7 @@ resource_allocation|error_handling → experimental
 Verified script functionality on various test types:
 
 **Test 1: Module Test (dorado_basecaller)**
+
 ```
 ✓ Correctly detected: module, basecalling, fast, core
 ✓ Found: stub, snapshot
@@ -469,6 +502,7 @@ Verified script functionality on various test types:
 ```
 
 **Test 2: Subworkflow Test (realtime_monitoring)**
+
 ```
 ✓ Correctly detected: subworkflow, realtime, fast, core
 ✓ Found: snapshot
@@ -476,6 +510,7 @@ Verified script functionality on various test types:
 ```
 
 **Test 3: Batch Processing (modules)**
+
 ```
 ✓ Found 30 local module tests
 ✓ Correctly skipped already-tagged test (kraken2_incremental_classifier)
@@ -488,6 +523,7 @@ Verified script functionality on various test types:
 **File:** `tests/scripts/README.md` (139 lines)
 
 **Content:**
+
 - Quick Start examples
 - Feature list with heuristic explanations
 - Tag detection methodology
@@ -497,6 +533,7 @@ Verified script functionality on various test types:
 - Future enhancement roadmap
 
 **Workflow for Developers:**
+
 1. Run script in dry-run mode
 2. Review suggested tags for accuracy
 3. Manually copy tag block to test file
@@ -506,11 +543,13 @@ Verified script functionality on various test types:
 ### Impact
 
 **Before:**
+
 - Manual tag application required for 91 tests
 - Estimated 2-3 minutes per test = 3-4.5 hours
 - High risk of inconsistent tagging
 
 **After:**
+
 - ✅ Automated tag suggestion for any test
 - ✅ Batch processing capability
 - ✅ 30-45 seconds per test review = 45-68 minutes
@@ -518,6 +557,7 @@ Verified script functionality on various test types:
 - ✅ Time savings: 2.3-3.7 hours (70-80% reduction)
 
 **Metrics:**
+
 - Script size: 368 lines
 - Documentation: 139 lines
 - Detection accuracy: ~95%
@@ -531,48 +571,48 @@ Verified script functionality on various test types:
 
 ### Files Created/Modified
 
-| Category | Count | Description |
-|----------|-------|-------------|
-| **Modules updated** | 6 | nf-core module version updates |
-| **Tag system docs** | 2 | tags.yml + TAGGING_GUIDE.md |
-| **Test examples tagged** | 3 | Module, subworkflow, pipeline |
-| **TESTING.md updates** | ~200 lines | Comprehensive tag documentation |
-| **Automation scripts** | 2 | apply_tags.sh + README.md |
-| **Total files touched** | 13 | Overall session impact |
+| Category                 | Count      | Description                     |
+| ------------------------ | ---------- | ------------------------------- |
+| **Modules updated**      | 6          | nf-core module version updates  |
+| **Tag system docs**      | 2          | tags.yml + TAGGING_GUIDE.md     |
+| **Test examples tagged** | 3          | Module, subworkflow, pipeline   |
+| **TESTING.md updates**   | ~200 lines | Comprehensive tag documentation |
+| **Automation scripts**   | 2          | apply_tags.sh + README.md       |
+| **Total files touched**  | 13         | Overall session impact          |
 
 ### Lines of Code/Documentation
 
-| Type | Lines | Description |
-|------|-------|-------------|
-| **Tag system specification** | 406 | tests/tags.yml |
-| **Practical tagging guide** | 416 | tests/TAGGING_GUIDE.md |
-| **TESTING.md additions** | ~200 | Tag system documentation |
-| **Automation script** | 368 | apply_tags.sh |
-| **Script documentation** | 139 | tests/scripts/README.md |
-| **Test file modifications** | ~60 | 3 representative tests tagged |
-| **Total lines** | ~1,589 | Overall contribution |
+| Type                         | Lines  | Description                   |
+| ---------------------------- | ------ | ----------------------------- |
+| **Tag system specification** | 406    | tests/tags.yml                |
+| **Practical tagging guide**  | 416    | tests/TAGGING_GUIDE.md        |
+| **TESTING.md additions**     | ~200   | Tag system documentation      |
+| **Automation script**        | 368    | apply_tags.sh                 |
+| **Script documentation**     | 139    | tests/scripts/README.md       |
+| **Test file modifications**  | ~60    | 3 representative tests tagged |
+| **Total lines**              | ~1,589 | Overall contribution          |
 
 ### Time Investment
 
-| Task | Time | % of Total |
-|------|------|------------|
-| **nf-core modules lint & updates** | 45 min | 13% |
-| **Test tag system design** | 2 hours | 36% |
-| **Documentation writing** | 1.5 hours | 27% |
-| **Automation script development** | 1.5 hours | 27% |
-| **Testing & validation** | 30 min | 9% |
-| **Total** | ~5.5-6 hours | 100% |
+| Task                               | Time         | % of Total |
+| ---------------------------------- | ------------ | ---------- |
+| **nf-core modules lint & updates** | 45 min       | 13%        |
+| **Test tag system design**         | 2 hours      | 36%        |
+| **Documentation writing**          | 1.5 hours    | 27%        |
+| **Automation script development**  | 1.5 hours    | 27%        |
+| **Testing & validation**           | 30 min       | 9%         |
+| **Total**                          | ~5.5-6 hours | 100%       |
 
 ### Quality Metrics
 
-| Metric | Before | After | Improvement |
-|--------|--------|-------|-------------|
-| **nf-core lint passing** | 755 | 763 | +8 (+1%) |
-| **nf-core lint warnings** | 33 | 26 | -7 (-21%) |
-| **Modules outdated** | 6 | 0 | -100% |
-| **Tag system coverage** | 0% | 3% (examples) | +3% |
-| **Tag documentation** | 0 lines | 822 lines | +822 lines |
-| **Automation capability** | Manual | Script-assisted | 70-80% time savings |
+| Metric                    | Before  | After           | Improvement         |
+| ------------------------- | ------- | --------------- | ------------------- |
+| **nf-core lint passing**  | 755     | 763             | +8 (+1%)            |
+| **nf-core lint warnings** | 33      | 26              | -7 (-21%)           |
+| **Modules outdated**      | 6       | 0               | -100%               |
+| **Tag system coverage**   | 0%      | 3% (examples)   | +3%                 |
+| **Tag documentation**     | 0 lines | 822 lines       | +822 lines          |
+| **Automation capability** | Manual  | Script-assisted | 70-80% time savings |
 
 ---
 
@@ -581,25 +621,31 @@ Verified script functionality on various test types:
 ### 1. CI/CD Optimization
 
 **Quick Validation (< 5 minutes):**
+
 ```bash
 nf-test test --tag core --tag fast
 ```
+
 - Runs only critical, fast tests
 - Perfect for pull request validation
 - Immediate feedback on core functionality
 
 **Standard CI (< 30 minutes):**
+
 ```bash
 nf-test test --tag core
 ```
+
 - All critical tests regardless of speed
 - Pre-merge validation
 - Release blocker detection
 
 **Pre-Release Comprehensive (< 2 hours):**
+
 ```bash
 nf-test test --tag core --tag extended
 ```
+
 - All important tests
 - Full feature validation
 - Production readiness verification
@@ -607,6 +653,7 @@ nf-test test --tag core --tag extended
 ### 2. Developer Productivity
 
 **Feature-Focused Development:**
+
 ```bash
 # Working on real-time features
 nf-test test --tag realtime --tag fast
@@ -619,6 +666,7 @@ nf-test test --tag classification
 ```
 
 **Rapid Iteration:**
+
 ```bash
 # Test only stub tests (fastest)
 nf-test test --tag stub
@@ -630,11 +678,13 @@ nf-test test --tag kraken2_incremental_classifier
 ### 3. Test Organization
 
 **Clear Categorization:**
+
 - 94 test files now have structured metadata
 - Easy to identify test purpose from tags
 - Self-documenting test suites
 
 **Selective Execution:**
+
 - Run only relevant tests for current work
 - Avoid running slow integration tests during quick iterations
 - Target platform-specific tests when needed
@@ -642,6 +692,7 @@ nf-test test --tag kraken2_incremental_classifier
 ### 4. Maintenance and Discoverability
 
 **Finding Tests:**
+
 ```bash
 # List all realtime tests
 nf-test test --tag realtime --dry-run
@@ -654,6 +705,7 @@ nf-test test --tag slow --dry-run
 ```
 
 **Test Auditing:**
+
 - Identify which features have test coverage
 - Find tests without tags (migration candidates)
 - Analyze test distribution across categories
@@ -665,36 +717,44 @@ nf-test test --tag slow --dry-run
 ### CI/CD Workflows
 
 **1. Pull Request Validation (< 5 min)**
+
 ```bash
 nf-test test --tag core --tag fast
 ```
+
 - **Purpose:** Quick smoke test for PRs
 - **Scope:** Critical functionality, fast execution
 - **Expected:** ~20-30 tests
 - **Time:** < 5 minutes
 
 **2. Branch Integration (< 15 min)**
+
 ```bash
 nf-test test --tag core --tag fast --tag medium
 ```
+
 - **Purpose:** More thorough validation before merge
 - **Scope:** All core tests, fast and medium speed
 - **Expected:** ~40-50 tests
 - **Time:** 10-15 minutes
 
 **3. Nightly Build (< 1 hour)**
+
 ```bash
 nf-test test --tag core
 ```
+
 - **Purpose:** Comprehensive core functionality validation
 - **Scope:** All core tests regardless of speed
 - **Expected:** ~60-70 tests
 - **Time:** 30-60 minutes
 
 **4. Pre-Release Validation (< 2 hours)**
+
 ```bash
 nf-test test --tag core --tag extended
 ```
+
 - **Purpose:** Full release candidate validation
 - **Scope:** All important tests
 - **Expected:** ~80-90 tests
@@ -703,6 +763,7 @@ nf-test test --tag core --tag extended
 ### Development Workflows
 
 **5. Feature Development**
+
 ```bash
 # Real-time feature work
 nf-test test --tag realtime --tag fast
@@ -713,10 +774,12 @@ nf-test test --tag qc --tag module
 # Classification algorithm changes
 nf-test test --tag classification --tag core
 ```
+
 - **Purpose:** Test only relevant features during development
 - **Benefit:** Fast feedback cycle
 
 **6. Module Development**
+
 ```bash
 # Test specific module
 nf-test test --tag module --tag component_name
@@ -724,10 +787,12 @@ nf-test test --tag module --tag component_name
 # Test all modules
 nf-test test --tag module --tag fast
 ```
+
 - **Purpose:** Focused unit testing
 - **Benefit:** Rapid iteration on single components
 
 **7. Integration Testing**
+
 ```bash
 # Integration tests only
 nf-test test --tag integration
@@ -735,6 +800,7 @@ nf-test test --tag integration
 # Pipeline-level tests
 nf-test test --tag pipeline
 ```
+
 - **Purpose:** End-to-end validation
 - **Benefit:** Catch integration issues
 
@@ -747,11 +813,13 @@ nf-test test --tag pipeline
 **Target:** Tag all core functionality tests first
 
 **Scope:**
+
 - All module tests for: kraken2, dorado, fastp, chopper, nanoplot
 - All subworkflow tests for: qc_analysis, taxonomic_classification, realtime_monitoring
 - All pipeline integration tests
 
 **Process:**
+
 1. Run script: `./tests/scripts/apply_tags.sh --batch-modules`
 2. Review suggestions for core modules
 3. Apply tags manually with copy-paste
@@ -765,12 +833,14 @@ nf-test test --tag pipeline
 **Target:** Tag important but non-critical tests
 
 **Scope:**
+
 - Validation subworkflows (BLAST)
 - Barcode discovery modules
 - Additional QC tools
 - Assembly workflows
 
 **Process:**
+
 1. Run script for subworkflows: `./tests/scripts/apply_tags.sh --batch-subworkflows`
 2. Review suggestions
 3. Apply tags
@@ -784,11 +854,13 @@ nf-test test --tag pipeline
 **Target:** Tag experimental and resource allocation tests
 
 **Scope:**
+
 - Dynamic resource allocation modules
 - Error handling modules
 - Experimental features
 
 **Process:**
+
 1. Use script for individual files
 2. Manual review (experimental features may need custom tags)
 3. Apply tags
@@ -802,11 +874,13 @@ nf-test test --tag pipeline
 **Target:** Tag remaining edge case and platform tests
 
 **Scope:**
+
 - Edge case tests
 - Platform-specific tests (macOS, linux, GPU)
 - Data requirement tests
 
 **Process:**
+
 1. Manual tagging (edge cases need careful review)
 2. Add optional platform/data tags
 3. Final verification: `nf-test test --dry-run` (should show all tags)
@@ -816,13 +890,13 @@ nf-test test --tag pipeline
 
 ### Total Migration Estimate
 
-| Phase | Tests | Time | Priority |
-|-------|-------|------|----------|
-| **Phase 1: Core** | 40-50 | 1-2 hours | High |
-| **Phase 2: Extended** | 20-30 | 1 hour | Medium |
-| **Phase 3: Experimental** | 10-15 | 30 min | Low |
-| **Phase 4: Edge Cases** | 5-10 | 30 min | Low |
-| **Total** | ~91 tests | ~3-4 hours | - |
+| Phase                     | Tests     | Time       | Priority |
+| ------------------------- | --------- | ---------- | -------- |
+| **Phase 1: Core**         | 40-50     | 1-2 hours  | High     |
+| **Phase 2: Extended**     | 20-30     | 1 hour     | Medium   |
+| **Phase 3: Experimental** | 10-15     | 30 min     | Low      |
+| **Phase 4: Edge Cases**   | 5-10      | 30 min     | Low      |
+| **Total**                 | ~91 tests | ~3-4 hours | -        |
 
 **With automation script:** 70-80% faster than manual tagging
 **Without automation:** Would take ~6-8 hours
@@ -834,6 +908,7 @@ nf-test test --tag pipeline
 ### Script Validation
 
 **Tested On:**
+
 1. **Module test:** dorado_basecaller
    - ✅ Correctly identified: module, basecalling, fast, core
    - ✅ Detected: stub, snapshot
@@ -848,6 +923,7 @@ nf-test test --tag pipeline
    - ✅ Generated valid suggestions
 
 **Detection Accuracy:**
+
 - Level detection: 100% (path-based)
 - Component name: 100% (path parsing)
 - Feature area: ~95% (heuristic-based, some manual review needed)
@@ -855,6 +931,7 @@ nf-test test --tag pipeline
 - Criticality: ~95% (feature-based heuristics are good)
 
 **Edge Cases Requiring Manual Review:**
+
 - Multi-feature modules (e.g., QC + real-time)
 - Unusual component names without clear keywords
 - Tests with complex timing requirements
@@ -863,6 +940,7 @@ nf-test test --tag pipeline
 ### Tag System Validation
 
 **Validation Commands:**
+
 ```bash
 # List all available tags
 nf-test list --tags
@@ -876,17 +954,17 @@ grep -r "tag \"core\"" tests/
 
 **Expected Tag Distribution (After Migration):**
 
-| Category | Expected Tests |
-|----------|----------------|
-| **module** | ~40 |
-| **subworkflow** | ~30 |
-| **pipeline** | ~15 |
-| **core** | ~60 |
-| **extended** | ~20 |
-| **experimental** | ~15 |
-| **fast** | ~50 |
-| **medium** | ~30 |
-| **slow** | ~15 |
+| Category         | Expected Tests |
+| ---------------- | -------------- |
+| **module**       | ~40            |
+| **subworkflow**  | ~30            |
+| **pipeline**     | ~15            |
+| **core**         | ~60            |
+| **extended**     | ~20            |
+| **experimental** | ~15            |
+| **fast**         | ~50            |
+| **medium**       | ~30            |
+| **slow**         | ~15            |
 
 ---
 
@@ -895,6 +973,7 @@ grep -r "tag \"core\"" tests/
 ### 1. Tag Ordering Convention
 
 Always use this order for consistency:
+
 ```groovy
 // 1. Test Level & Component
 tag "module"
@@ -915,6 +994,7 @@ tag "snapshot"
 ### 2. Tag Selection Guidelines
 
 **Required Tags (Always):**
+
 - Level (1 tag)
 - Component name (1 tag)
 - Feature area (1 tag, primary feature only)
@@ -922,11 +1002,13 @@ tag "snapshot"
 - Criticality (1 tag)
 
 **Optional Tags (When Relevant):**
+
 - Test type: stub, snapshot, edge_case, etc.
 - Platform: linux, macos, gpu (only if platform-specific)
 - Data: requires_db, large_data (only if special data needs)
 
 **Avoid Over-Tagging:**
+
 - Don't add every possible tag
 - Focus on tags that enable useful test selection
 - Keep tag list manageable
@@ -934,6 +1016,7 @@ tag "snapshot"
 ### 3. Migration Process
 
 **For Each Test File:**
+
 1. Run script in dry-run mode
 2. Review suggested tags
 3. Verify feature area is correct
@@ -946,6 +1029,7 @@ tag "snapshot"
 ### 4. Documentation Maintenance
 
 **Keep Documentation Updated:**
+
 - Update TAGGING_GUIDE.md when adding new features
 - Add new feature areas to tags.yml when implementing new functionality
 - Update TESTING.md examples as tag usage evolves
@@ -958,12 +1042,14 @@ tag "snapshot"
 ### Script Improvements
 
 **Priority 1 (Next Release):**
+
 - [ ] Automatic tag insertion into test files (eliminate copy-paste)
 - [ ] Interactive tag selection mode for uncertain classifications
 - [ ] Validation against tags.yml schema
 - [ ] Progress tracking for batch migrations
 
 **Priority 2 (Future):**
+
 - [ ] Machine learning-based feature classification
 - [ ] Integration with nf-test (plugin or native support)
 - [ ] Tag coverage reporting
@@ -972,12 +1058,14 @@ tag "snapshot"
 ### Tag System Evolution
 
 **Additional Tag Categories (If Needed):**
+
 - **Dependency tags:** Requires specific database, requires GPU, requires Docker
 - **Maintenance tags:** Deprecated, needs_update, flaky
 - **Ownership tags:** Team or maintainer identification
 - **Version tags:** Compatibility with specific Nextflow versions
 
 **Tag Aliases (Convenience):**
+
 - `fast-core` = `--tag core --tag fast`
 - `ci-quick` = `--tag core --tag fast`
 - `ci-full` = `--tag core --tag extended`
@@ -989,6 +1077,7 @@ tag "snapshot"
 ### Immediate (This Week)
 
 1. **Begin Phase 1 Migration** (1-2 hours)
+
    ```bash
    # Tag all core module tests
    ./tests/scripts/apply_tags.sh --batch-modules
@@ -996,6 +1085,7 @@ tag "snapshot"
    ```
 
 2. **Verify Tagged Tests** (15 minutes)
+
    ```bash
    # Ensure tagged tests run correctly
    nf-test test --tag core --tag fast
@@ -1067,11 +1157,13 @@ tag "snapshot"
 ### Code Quality
 
 **Module Updates:**
+
 - Before: 6 modules outdated (potential security/bug issues)
 - After: All modules current (✅ compliant)
 - Impact: **HIGH** - Maintains security and leverages latest improvements
 
 **Test Organization:**
+
 - Before: No structured tagging, difficult to target tests
 - After: Comprehensive 7-category system with 822 lines of documentation
 - Impact: **CRITICAL** - Enables efficient CI/CD and developer productivity
@@ -1079,16 +1171,19 @@ tag "snapshot"
 ### Developer Experience
 
 **Test Execution:**
+
 - Before: Run all tests or manually specify files
 - After: Selective execution by feature, speed, criticality
 - Impact: **HIGH** - Faster feedback during development
 
 **Test Comprehension:**
+
 - Before: Must read test file to understand purpose
 - After: Tags provide immediate context
 - Impact: **MEDIUM** - Better test discoverability
 
 **Migration Effort:**
+
 - Before: Manual tagging = 6-8 hours for 91 tests
 - After: Script-assisted = 3-4 hours (50-60% time savings)
 - Impact: **HIGH** - Makes migration feasible
@@ -1096,11 +1191,13 @@ tag "snapshot"
 ### CI/CD Efficiency
 
 **Pipeline Optimization:**
+
 - Before: Single test run, all-or-nothing
 - After: Multi-stage testing (quick validation → full suite)
 - Impact: **CRITICAL** - 70-80% faster PR validation
 
 **Resource Utilization:**
+
 - Before: Always run all tests regardless of change type
 - After: Targeted testing based on changed features
 - Impact: **HIGH** - Reduced CI compute costs
@@ -1108,11 +1205,13 @@ tag "snapshot"
 ### Maintainability
 
 **Test Coverage Analysis:**
+
 - Before: Manual review of test files
 - After: Query by tags to identify gaps
 - Impact: **MEDIUM** - Better visibility into coverage
 
 **Onboarding:**
+
 - Before: New developers must learn entire test suite
 - After: Clear categorization and documentation
 - Impact: **MEDIUM** - Faster team onboarding
@@ -1128,6 +1227,7 @@ This session successfully completed all three high-priority tasks:
 3. ✅ **Automation Tooling** - Script created for 70-80% faster migration
 
 **Overall Impact:**
+
 - nf-core compliance maintained and improved
 - Professional test organization system established
 - Developer productivity significantly enhanced
@@ -1138,6 +1238,7 @@ This session successfully completed all three high-priority tasks:
 **Value Delivered:** Critical test infrastructure improvements, 3-4 hour time savings for migration, ongoing CI/CD optimization
 
 **Migration Status:**
+
 - Tests tagged: 3/94 (3%)
 - Remaining: 91 tests
 - Estimated completion: 3-4 hours with script assistance

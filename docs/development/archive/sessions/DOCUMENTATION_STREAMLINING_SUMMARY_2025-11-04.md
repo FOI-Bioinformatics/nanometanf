@@ -21,6 +21,7 @@ This session successfully consolidated and streamlined the nanometanf pipeline d
 ### Impact
 
 **Before:**
+
 - 605KB of documentation across 50+ files
 - Version information scattered across 8+ files
 - Testing documentation duplicated (90% overlap)
@@ -29,6 +30,7 @@ This session successfully consolidated and streamlined the nanometanf pipeline d
 - Real-time features fragmented across 20+ files
 
 **After:**
+
 - Clear, organized documentation structure
 - Single sources of truth for all key topics
 - Professional repository organization
@@ -41,13 +43,13 @@ This session successfully consolidated and streamlined the nanometanf pipeline d
 
 ### File Size Reductions
 
-| File | Before | After | Lines Saved | % Reduction |
-|------|--------|-------|-------------|-------------|
-| **README.md** | 672 lines | 120 lines | 552 | 82% |
-| **CLAUDE.md** | 876 lines | 398 lines | 478 | 55% |
-| **docs/README.md** | 458 lines | 210 lines | 248 | 54% |
-| **Testing docs** | 2 files, 1150 lines | 1 file, 1026 lines | 124 | 14% |
-| **Total Eliminated** | - | - | **~1,400 lines** | **29%** |
+| File                 | Before              | After              | Lines Saved      | % Reduction |
+| -------------------- | ------------------- | ------------------ | ---------------- | ----------- |
+| **README.md**        | 672 lines           | 120 lines          | 552              | 82%         |
+| **CLAUDE.md**        | 876 lines           | 398 lines          | 478              | 55%         |
+| **docs/README.md**   | 458 lines           | 210 lines          | 248              | 54%         |
+| **Testing docs**     | 2 files, 1150 lines | 1 file, 1026 lines | 124              | 14%         |
+| **Total Eliminated** | -                   | -                  | **~1,400 lines** | **29%**     |
 
 ### Content Duplication Eliminated
 
@@ -59,12 +61,12 @@ This session successfully consolidated and streamlined the nanometanf pipeline d
 
 ### Repository Organization
 
-| Category | Before | After | Change |
-|----------|--------|-------|--------|
-| **Root Documentation** | 3 files (2,000+ lines) | 3 files (900 lines) | -55% |
-| **Active Development Docs** | 23 files (mixed) | 11 files (organized) | -52% |
-| **Archived Docs** | 0 (scattered) | 13 files (organized) | +13 |
-| **New Comprehensive Guides** | 0 | 4 files | +4 |
+| Category                     | Before                 | After                | Change |
+| ---------------------------- | ---------------------- | -------------------- | ------ |
+| **Root Documentation**       | 3 files (2,000+ lines) | 3 files (900 lines)  | -55%   |
+| **Active Development Docs**  | 23 files (mixed)       | 11 files (organized) | -52%   |
+| **Archived Docs**            | 0 (scattered)          | 13 files (organized) | +13    |
+| **New Comprehensive Guides** | 0                      | 4 files              | +4     |
 
 ---
 
@@ -113,10 +115,14 @@ This session successfully consolidated and streamlined the nanometanf pipeline d
    - **Removed:** Detailed feature descriptions, extensive examples, redundant quick start sections
    - **Kept:** Essential intro, badges, minimal quick start, clear navigation to full docs
    - **Structure:**
+
      ```markdown
      ## Introduction (3 lines)
+
      ## Quick Start (15 lines)
+
      ## Documentation (links to comprehensive guides)
+
      ## Citation (concise)
      ```
 
@@ -137,11 +143,16 @@ This session successfully consolidated and streamlined the nanometanf pipeline d
    - **Removed:** Embedded content, redundant descriptions, verbose introductions
    - **Kept:** Clear navigation tables, documentation structure tree, quick links
    - **New structure:**
+
      ```markdown
      ## Quick Links
+
      ### 👤 For Users
+
      ### 👨‍💻 For Developers
+
      ### 🚀 For Deployers
+
      ### 📋 Release Information
      ```
 
@@ -149,31 +160,39 @@ This session successfully consolidated and streamlined the nanometanf pipeline d
    - **Merged:** testing_guide.md + original TESTING.md
    - **Added:** Quick Reference section at top for fast lookup
    - **Structure:**
+
      ```markdown
      ## Quick Reference (most common commands)
+
      ## Testing Infrastructure
+
      ## Test Types (modules, subworkflows, workflows, pipelines)
+
      ## Writing Tests (comprehensive guide)
      ```
 
 ### Files Archived
 
 **Session Notes** (moved to `docs/development/archive/sessions/`):
+
 - `session_2025-10-26_code_quality.md`
 - `session_2025-10-27_testing_improvements.md`
 
 **Progress Reports** (moved to `docs/development/archive/progress/`):
+
 - `progress_report_2025-10-27.md`
 - `real_time_testing_progress.md`
 - `v1.3.3_progress_report.md`
 
 **Phase Documents** (moved to `docs/development/archive/phases/`):
+
 - `PHASE_1_2_STATUS.md`
 - `PHASE_2_COMPLETION.md`
 - `PHASE_2_STATUS.md`
 - `PHASE_3_COMPLETION.md`
 
 **v1.3.3 History** (moved to `docs/development/archive/v1.3.3/`):
+
 - `v1.3.3_final_summary.md`
 - `v1.3.3_implementation_summary.md`
 - `v1.3.3_testing_validation.md`
@@ -191,42 +210,56 @@ This session successfully consolidated and streamlined the nanometanf pipeline d
 ### README.md Transformation
 
 **Before (672 lines):**
+
 ```markdown
 # nanometanf
+
 [Long introduction paragraph...]
 
 ## Introduction
+
 [Another long introduction...]
 
 ## Pipeline Summary
+
 [Extensive feature list with details...]
 
 ## Quick Start
+
 [Multiple examples, extensive commands...]
 
 ## Usage
+
 [Embedded usage documentation...]
 
 ## Pipeline Output
+
 [Detailed output descriptions...]
 ```
 
 **After (120 lines):**
-```markdown
+
+````markdown
 # nanometanf
+
 [Concise 3-line introduction]
 
 ## Quick Start
+
 ```bash
 nextflow run foi-bioinformatics/nanometanf -profile test,docker
 ```
+````
 
 ## Documentation
+
 📚 **[Complete Documentation](docs/README.md)**
+
 - Quick Start Guide
 - Usage Guide
 - Output Guide
-[Clean links to comprehensive guides...]
+  [Clean links to comprehensive guides...]
+
 ```
 
 ### CLAUDE.md Transformation
@@ -269,51 +302,53 @@ nextflow run foi-bioinformatics/nanometanf -profile test,docker
 ### New Organization
 
 ```
-├── README.md                              # 120 lines (was 672) - Quick intro + navigation
-├── CLAUDE.md                              # 398 lines (was 876) - AI development guide
-├── CHANGELOG.md                           # 477 lines (unchanged) - Complete history
+
+├── README.md # 120 lines (was 672) - Quick intro + navigation
+├── CLAUDE.md # 398 lines (was 876) - AI development guide
+├── CHANGELOG.md # 477 lines (unchanged) - Complete history
 │
 └── docs/
-    ├── README.md                          # 210 lines (was 458) - Documentation hub
-    │
-    ├── user/                              # User-facing documentation
-    │   ├── quickstart.md
-    │   ├── usage.md                       # Complete parameter reference
-    │   ├── output.md
-    │   ├── qc_guide.md
-    │   ├── troubleshooting.md
-    │   ├── best_practices.md
-    │   ├── performance_tuning.md
-    │   └── realtime_processing.md         # NEW - Comprehensive real-time guide
-    │
-    ├── development/                       # Developer documentation
-    │   ├── README.md                      # NEW - Development hub
-    │   ├── TESTING.md                     # 1026 lines (merged from 2 files)
-    │   ├── CODE_QUALITY_EVALUATION_2025-11-04.md  # NEW
-    │   ├── RELEASE_PROCESS.md             # NEW - Complete release workflow
-    │   ├── PROMETHION_OPTIMIZATIONS.md
-    │   ├── PHASE_1.1_STATUS.md
-    │   ├── incremental_kraken2_implementation.md
-    │   ├── dynamic_resource_allocation.md
-    │   ├── production_deployment.md
-    │   └── archive/                       # NEW - Historical documents
-    │       ├── README.md                  # Archive structure explanation
-    │       ├── sessions/                  # Session notes (2 files)
-    │       ├── progress/                  # Progress reports (3 files)
-    │       ├── phases/                    # Phase documents (4 files)
-    │       └── v1.3.3/                    # v1.3.3 history (4 files)
-    │
-    ├── releases/                          # Release documentation
-    │   ├── CURRENT_VERSION.md             # NEW - Single source of truth
-    │   ├── MIGRATION_GUIDE.md             # NEW - Upgrade instructions
-    │   ├── v1.2.0.md
-    │   ├── v1.3.0.md
-    │   ├── v1.3.1.md
-    │   └── v1.3.3.md
-    │
-    ├── validation/                        # Test coverage reports
-    ├── integration/                       # API documentation
-    └── performance/                       # Performance benchmarks
+├── README.md # 210 lines (was 458) - Documentation hub
+│
+├── user/ # User-facing documentation
+│ ├── quickstart.md
+│ ├── usage.md # Complete parameter reference
+│ ├── output.md
+│ ├── qc_guide.md
+│ ├── troubleshooting.md
+│ ├── best_practices.md
+│ ├── performance_tuning.md
+│ └── realtime_processing.md # NEW - Comprehensive real-time guide
+│
+├── development/ # Developer documentation
+│ ├── README.md # NEW - Development hub
+│ ├── TESTING.md # 1026 lines (merged from 2 files)
+│ ├── CODE_QUALITY_EVALUATION_2025-11-04.md # NEW
+│ ├── RELEASE_PROCESS.md # NEW - Complete release workflow
+│ ├── PROMETHION_OPTIMIZATIONS.md
+│ ├── PHASE_1.1_STATUS.md
+│ ├── incremental_kraken2_implementation.md
+│ ├── dynamic_resource_allocation.md
+│ ├── production_deployment.md
+│ └── archive/ # NEW - Historical documents
+│ ├── README.md # Archive structure explanation
+│ ├── sessions/ # Session notes (2 files)
+│ ├── progress/ # Progress reports (3 files)
+│ ├── phases/ # Phase documents (4 files)
+│ └── v1.3.3/ # v1.3.3 history (4 files)
+│
+├── releases/ # Release documentation
+│ ├── CURRENT_VERSION.md # NEW - Single source of truth
+│ ├── MIGRATION_GUIDE.md # NEW - Upgrade instructions
+│ ├── v1.2.0.md
+│ ├── v1.3.0.md
+│ ├── v1.3.1.md
+│ └── v1.3.3.md
+│
+├── validation/ # Test coverage reports
+├── integration/ # API documentation
+└── performance/ # Performance benchmarks
+
 ```
 
 ### Documentation Categories
@@ -567,3 +602,4 @@ The nanometanf pipeline now has a **clean, professional, well-organized document
 **Documentation Reduction:** 29%
 
 **Status:** ✅ **Documentation streamlining complete and successful**
+```

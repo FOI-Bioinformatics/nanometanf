@@ -11,6 +11,7 @@ This file provides guidance for AI assistants working on the nanometanf pipeline
 **nanometanf** is an nf-core compliant Nextflow pipeline for Oxford Nanopore Technologies (ONT) sequencing data analysis, serving as the computational backend for Nanometa Live.
 
 **Core Capabilities:**
+
 - Real-time analysis during active sequencing (POD5 or FASTQ monitoring)
 - POD5 basecalling with Dorado (GPU-accelerated)
 - Pre-demultiplexed barcode directory processing
@@ -28,6 +29,7 @@ This file provides guidance for AI assistants working on the nanometanf pipeline
 ### Problem Solved
 
 The previous architecture had global serialization bottlenecks:
+
 - `maxForks 1` in merger/report modules serialized ALL batches from ALL samples
 - O(n^2) file I/O: each batch re-read entire cumulative file before appending
 - No backpressure: unlimited batch queuing when downstream was slow
@@ -36,26 +38,29 @@ The previous architecture had global serialization bottlenecks:
 
 ### New Architecture
 
-| Component | Before | After |
-|-----------|--------|-------|
-| Merger serialization | `maxForks 1` (global) | Per-sample parallelism |
-| File storage | Single cumulative file (rewritten each batch) | Batch files + index (append-only) |
-| Report generation | Full merge every batch | Incremental taxid counting |
-| I/O per batch | O(cumulative_size) | O(batch_size) |
+| Component            | Before                                        | After                             |
+| -------------------- | --------------------------------------------- | --------------------------------- |
+| Merger serialization | `maxForks 1` (global)                         | Per-sample parallelism            |
+| File storage         | Single cumulative file (rewritten each batch) | Batch files + index (append-only) |
+| Report generation    | Full merge every batch                        | Incremental taxid counting        |
+| I/O per batch        | O(cumulative_size)                            | O(batch_size)                     |
 
 ### Key Modules
 
 **`modules/local/kraken2_output_merger/main.nf`** - Append-only batch storage
+
 - Writes each batch to separate file: `batches/batch_N.kraken2.output.txt`
 - Maintains atomic index file with batch manifest
 - Per-sample parallelism (no maxForks 1)
 
 **`modules/local/kraken2_report_generator/main.nf`** - Incremental taxid counting
+
 - Maintains `taxid_counts.json` state file per sample
 - Accumulates counts without re-reading full output
 - Atomic state updates prevent race conditions
 
 **`modules/local/kraken2_final_aggregator/main.nf`** - End-of-session aggregation
+
 - Concatenates batch files into cumulative outputs
 - Runs once per sample when streaming completes
 - Generates final files for downstream tools
@@ -94,10 +99,12 @@ max_classification_forks = 8    // Max parallel Kraken2 jobs
 ## Critical Files for Development
 
 ### Entry Points
+
 - `main.nf` - Pipeline entry point
 - `workflows/nanometanf.nf` - Main workflow orchestration
 
 ### Core Configuration
+
 - `nextflow.config` - Main configuration (150+ parameters)
 - `nextflow_schema.json` - Parameter validation schema
 - `conf/base.config` - Base process resource configuration
@@ -127,27 +134,27 @@ max_classification_forks = 8    // Max parallel Kraken2 jobs
 
 ### Key Modules (modules/local/)
 
-| Module | Purpose |
-|--------|---------|
-| `kraken2_incremental_classifier/` | Classify only NEW reads per batch |
-| `kraken2_output_merger/` | Append-only batch storage with atomic index |
-| `kraken2_report_generator/` | Incremental taxid counting |
-| `kraken2_final_aggregator/` | End-of-session concatenation |
-| `dorado_basecaller/` | POD5 basecalling |
-| `dorado_demux/` | Dorado demultiplexing |
-| `extract_reads_by_taxid/` | Extract reads for validation |
-| `blastn_validation/` | BLAST validation |
-| `minimap2_validation/` | Fast minimap2 validation |
+| Module                            | Purpose                                     |
+| --------------------------------- | ------------------------------------------- |
+| `kraken2_incremental_classifier/` | Classify only NEW reads per batch           |
+| `kraken2_output_merger/`          | Append-only batch storage with atomic index |
+| `kraken2_report_generator/`       | Incremental taxid counting                  |
+| `kraken2_final_aggregator/`       | End-of-session concatenation                |
+| `dorado_basecaller/`              | POD5 basecalling                            |
+| `dorado_demux/`                   | Dorado demultiplexing                       |
+| `extract_reads_by_taxid/`         | Extract reads for validation                |
+| `blastn_validation/`              | BLAST validation                            |
+| `minimap2_validation/`            | Fast minimap2 validation                    |
 
 ### Library Utilities (lib/)
 
-| File | Purpose |
-|------|---------|
+| File                   | Purpose                                              |
+| ---------------------- | ---------------------------------------------------- |
 | `InputDetector.groovy` | Type-agnostic input detection (POD5/FASTQ/directory) |
-| `BatchUtils.groovy` | Batching utilities using `buffer()` operator |
-| `WorkflowMain.groovy` | Main workflow initialization |
-| `Utils.groovy` | General utility functions |
-| `NfcoreSchema.groovy` | Schema validation helpers |
+| `BatchUtils.groovy`    | Batching utilities using `buffer()` operator         |
+| `WorkflowMain.groovy`  | Main workflow initialization                         |
+| `Utils.groovy`         | General utility functions                            |
+| `NfcoreSchema.groovy`  | Schema validation helpers                            |
 
 ---
 
@@ -172,6 +179,7 @@ export PATH=$JAVA_HOME/bin:$PATH
 ### ARM Mac (Apple Silicon)
 
 **Working Configuration:**
+
 ```bash
 nextflow run main.nf \
   --kraken2_memory_mapping false \
@@ -255,6 +263,7 @@ nf-core modules update
 The test suite is designed to run in stub mode without Docker or external tools.
 
 **Test structure:**
+
 - **17 pipeline/subworkflow/lib tests** (`tests/`) - smoke tests and parameter validation
 - **38 module tests** (`modules/local/*/tests/`, `modules/nf-core/*/tests/`) - stub-mode unit tests
 
@@ -281,12 +290,14 @@ nf-test test --update-snapshot
 ## Important Parameters
 
 ### Input Modes (Mutually Exclusive)
+
 - `--input` - Samplesheet CSV
 - `--input_dir` - Unified directory scanning (v1.5+, replaces barcode_input_dir)
 - `--barcode_input_dir` - Pre-demultiplexed barcode directories (deprecated, use input_dir)
 - `--pod5_input_dir` + `--use_dorado` - POD5 basecalling mode
 
 ### Real-time Processing
+
 - `--realtime_mode` - Enable real-time monitoring
 - `--nanopore_output_dir` - Directory to monitor
 - `--max_files` - **CRITICAL FOR TESTS** - Limit files
@@ -295,16 +306,19 @@ nf-test test --update-snapshot
 - `--realtime_processing_grace_period` - Processing completion wait
 
 ### Scalable Streaming (v1.5+)
+
 - `--max_concurrent_batches` - Backpressure limit per sample (default: 4)
 - `--max_classification_forks` - Max parallel Kraken2 jobs (default: 8)
 - `--kraken2_enable_incremental` - Enable scalable streaming architecture
 
 ### Taxonomic Classification
+
 - `--kraken2_db` - Path to Kraken2 database
 - `--kraken2_memory_mapping` - Memory-mapped loading (set `false` on ARM Mac)
 - `--skip_krona` - Skip Krona (set `true` on ARM Mac)
 
 ### Platform Profiles
+
 - `-profile minion` - MinION/GridION (1-4 samples)
 - `-profile promethion_8` - Balanced (5-12 samples)
 - `-profile promethion` - High throughput (12-24+ samples)
@@ -316,6 +330,7 @@ nf-test test --update-snapshot
 ### Input Type Detection
 
 Auto-detects in `workflows/nanometanf.nf`:
+
 1. **Real-time POD5**: `realtime_mode && use_dorado && pod5_input_dir`
 2. **Real-time FASTQ**: `realtime_mode && !use_dorado && nanopore_output_dir`
 3. **Static POD5**: `!realtime_mode && use_dorado && pod5_input_dir`
@@ -354,6 +369,7 @@ gh pr create --title "Title" --body "Description"
 ```
 
 **Commit Guidelines:**
+
 - Use conventional commits: `feat:`, `fix:`, `docs:`, `test:`, `refactor:`
 - Reference issues: `fix: resolve timeout issue (#123)`
 
@@ -375,6 +391,7 @@ gh pr create --title "Title" --body "Description"
 **Maintainer:** foi-bioinformatics team (@andreassjodin)
 
 **Recent Changes (v1.5.0dev):**
+
 - Scalable streaming architecture with per-sample parallelism
 - Append-only batch storage (O(1) per batch)
 - Incremental taxid counting (no cumulative re-reads)

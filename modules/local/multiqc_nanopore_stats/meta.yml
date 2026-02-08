@@ -11,12 +11,12 @@ tools:
       description: Python programming language
       homepage: https://www.python.org/
       documentation: https://docs.python.org/3/
-      licence: ['PSF']
+      licence: ["PSF"]
   - pyyaml:
       description: YAML parser and emitter for Python
       homepage: https://pyyaml.org/
       documentation: https://pyyaml.org/wiki/PyYAMLDocumentation
-      licence: ['MIT']
+      licence: ["MIT"]
 
 input:
   - sample_stats:

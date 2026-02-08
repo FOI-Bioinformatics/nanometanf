@@ -26,6 +26,7 @@ fixtures/
 ## Usage in Tests
 
 **Before (setup block - causes failures):**
+
 ```groovy
 setup {
     """
@@ -44,6 +45,7 @@ when {
 ```
 
 **After (using fixtures - works):**
+
 ```groovy
 when {
     params {

@@ -51,49 +51,63 @@ The system implements a comprehensive approach combining input analysis, system 
 The system includes six pre-configured optimization profiles designed for specific computational scenarios:
 
 ### Auto (Default)
+
 **Selection criteria:** Automatic profile selection based on system characteristics
+
 - **GPU availability:** Selects `gpu_optimized` when GPU detected
 - **High-resource systems:** Selects `high_throughput` for systems with >32GB RAM and >16 cores
 - **Resource-constrained systems:** Selects `resource_conservative` for systems with <8GB RAM or <4 cores
 - **Standard systems:** Defaults to `balanced` profile
 
 ### High Throughput
+
 **Use case:** Large-scale batch processing with abundant computational resources
+
 - **Resource multipliers:** CPU ×1.2, Memory ×1.5, Parallelization ×1.5
 - **Optimization focus:** Maximum processing speed
 - **Target scenarios:** HPC environments, dedicated analysis servers
 - **Performance targets:** >85% CPU utilization, >70% memory utilization
 
 ### Balanced
+
 **Use case:** Standard processing with moderate system load
+
 - **Resource multipliers:** Baseline scaling factors
 - **Optimization focus:** Balanced performance and efficiency
 - **Target scenarios:** Workstations, shared computing environments
 - **Performance targets:** 60% CPU utilization, 50% memory utilization
 
 ### Resource Conservative
+
 **Use case:** Resource-constrained or shared computing environments
+
 - **Resource multipliers:** CPU ×0.7, Memory ×0.6, Extended runtime ×1.5
 - **Optimization focus:** Minimal resource footprint
 - **Target scenarios:** Cloud instances, laptops, shared clusters
 - **Performance targets:** <40% resource utilization
 
 ### GPU Optimized
+
 **Use case:** GPU-accelerated Dorado basecalling workflows
+
 - **Resource focus:** Maximum GPU utilization with reduced CPU dependency
 - **Hardware support:** NVIDIA CUDA, Apple Silicon Metal
 - **Optimization features:** Batch size optimization, concurrent stream processing
 - **Performance targets:** >90% GPU utilization
 
 ### Real-time Optimized
+
 **Use case:** Low-latency processing for live sequencing analysis
+
 - **Resource multipliers:** CPU ×1.1, Memory ×1.3, Reduced batch sizes
 - **Optimization focus:** Latency minimization
 - **Target scenarios:** Real-time pathogen detection, adaptive sampling
 - **Performance targets:** <30 seconds processing latency
 
 ### Development Testing
+
 **Use case:** Fast processing for development and testing workflows
+
 - **Resource multipliers:** CPU ×0.5, Memory ×0.5, Minimal parallelization
 - **Optimization focus:** Quick iteration and resource conservation
 - **Target scenarios:** Pipeline development, parameter testing
@@ -104,6 +118,7 @@ The system includes six pre-configured optimization profiles designed for specif
 ### Basic Configuration
 
 Enable dynamic resource allocation with automatic profile selection:
+
 ```bash
 nextflow run foi-bioinformatics/nanometanf \
    -profile docker \
@@ -116,6 +131,7 @@ nextflow run foi-bioinformatics/nanometanf \
 ### GPU-Accelerated Basecalling
 
 Optimize for systems with GPU resources:
+
 ```bash
 nextflow run foi-bioinformatics/nanometanf \
    -profile docker \
@@ -129,6 +145,7 @@ nextflow run foi-bioinformatics/nanometanf \
 ### Resource-Constrained Processing
 
 Configure for systems with limited computational resources:
+
 ```bash
 nextflow run foi-bioinformatics/nanometanf \
    -profile docker \
@@ -141,6 +158,7 @@ nextflow run foi-bioinformatics/nanometanf \
 ### High-Throughput Batch Processing
 
 Optimize for maximum processing throughput:
+
 ```bash
 nextflow run foi-bioinformatics/nanometanf \
    -profile docker \
@@ -154,6 +172,7 @@ nextflow run foi-bioinformatics/nanometanf \
 ### Real-time Processing with Latency Optimization
 
 Configure for low-latency real-time analysis:
+
 ```bash
 nextflow run foi-bioinformatics/nanometanf \
    -profile docker \
@@ -167,12 +186,14 @@ nextflow run foi-bioinformatics/nanometanf \
 ## Configuration Parameters
 
 ### Core Parameters
+
 - `--enable_dynamic_resources` (boolean, default: `true`)
   Enable the dynamic resource allocation system
 - `--optimization_profile` (string, default: `auto`)
   Select optimization profile for resource allocation strategy
 
 ### Resource Control
+
 - `--resource_safety_factor` (number, default: `0.8`)
   Safety factor for resource allocation (0.0-1.0), lower values are more conservative
 - `--max_parallel_jobs` (integer, default: `4`)
@@ -181,6 +202,7 @@ nextflow run foi-bioinformatics/nanometanf \
   System monitoring interval in seconds
 
 ### Advanced Options
+
 - `--enable_gpu_optimization` (boolean, default: `true`)
   Enable GPU-specific optimizations for compatible tools
 - `--enable_performance_logging` (boolean, default: `true`)
@@ -193,18 +215,21 @@ nextflow run foi-bioinformatics/nanometanf \
 Independent benchmarking demonstrates significant performance improvements:
 
 ### Processing Time Reduction
+
 - **Standard FASTQ workflows:** 20-35% reduction in total processing time
 - **POD5 basecalling workflows:** 25-40% reduction with GPU optimization
 - **Taxonomic classification:** 15-25% improvement through memory optimization
 - **Real-time processing:** 30-50% reduction in file processing latency
 
 ### Resource Utilization Efficiency
+
 - **CPU utilization improvement:** 15-30% increase in effective CPU usage
 - **Memory efficiency:** 20-35% reduction in memory waste
 - **GPU utilization:** Up to 95% GPU utilization for basecalling workflows
 - **I/O optimization:** 10-20% reduction in disk I/O overhead
 
 ### Cost Optimization
+
 - **Cloud computing costs:** 20-35% reduction in compute instance expenses
 - **Energy consumption:** 15-25% reduction in power usage
 - **Infrastructure utilization:** 25-40% increase in throughput per hardware unit
@@ -214,6 +239,7 @@ Independent benchmarking demonstrates significant performance improvements:
 The system generates comprehensive analysis outputs in the `resource_analysis/` directory:
 
 ### Prediction Accuracy Reports
+
 ```
 resource_analysis/
 ├── sample_characteristics.json     # Input file analysis results
@@ -223,6 +249,7 @@ resource_analysis/
 ```
 
 ### Optimization Profiles
+
 ```
 resource_analysis/profiles/
 ├── optimization_profiles.json      # Available optimization profiles
@@ -230,6 +257,7 @@ resource_analysis/profiles/
 ```
 
 ### Performance Learning
+
 ```
 resource_analysis/feedback/
 ├── sample_feedback_data.json      # Performance feedback analysis

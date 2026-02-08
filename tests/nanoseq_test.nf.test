@@ -21,17 +21,17 @@ nextflow_pipeline {
                 // Use local nf-core test data
                 input = "$projectDir/tests/fixtures/samplesheets/test_samplesheet_absolute.csv"
                 outdir = "$outputDir"
-                
+
                 // Disable advanced features for basic test
                 use_dorado = false
                 realtime_mode = false
                 skip_kraken2 = true
                 blast_validation = false
-                
+
                 // Enable basic QC
                 skip_fastp = false
                 skip_nanoplot = false
-                
+
                 // Resource limits for testing
                 max_cpus = 2
                 max_memory = '4.GB'

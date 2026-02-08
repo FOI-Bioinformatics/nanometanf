@@ -41,13 +41,13 @@ What is your input data?
 
 **Quick reference:**
 
-| I have... | I want... | Use this |
-|-----------|-----------|----------|
-| FASTQ files | QC reports | `--input samplesheet.csv` |
-| FASTQ files | Taxonomic classification | Add `--kraken2_db /path/to/db` |
-| POD5 files | Basecalling + QC | `--use_dorado --pod5_input_dir /path` |
-| Barcoded POD5 | Demultiplexing | Add `--barcode_kit SQK-NBD114-24` |
-| Active sequencing | Live results | Add `--realtime_mode` |
+| I have...         | I want...                | Use this                              |
+| ----------------- | ------------------------ | ------------------------------------- |
+| FASTQ files       | QC reports               | `--input samplesheet.csv`             |
+| FASTQ files       | Taxonomic classification | Add `--kraken2_db /path/to/db`        |
+| POD5 files        | Basecalling + QC         | `--use_dorado --pod5_input_dir /path` |
+| Barcoded POD5     | Demultiplexing           | Add `--barcode_kit SQK-NBD114-24`     |
+| Active sequencing | Live results             | Add `--realtime_mode`                 |
 
 ---
 
@@ -74,6 +74,7 @@ open results/multiqc/multiqc_report.html
 ```
 
 **Expected outputs**:
+
 - `results/qc/` - NanoPlot QC reports
 - `results/multiqc/` - Combined MultiQC report
 - `results/pipeline_info/` - Execution reports
@@ -103,6 +104,7 @@ cat results/dorado/*/summary.txt
 ```
 
 **What happens**:
+
 1. Dorado downloads the specified model
 2. Basecalls all POD5 files to FASTQ
 3. Trims adapters automatically
@@ -130,6 +132,7 @@ ls results/demultiplexing/
 ```
 
 **Automatic features**:
+
 - Detects barcodes using specified kit
 - Demultiplexes into separate FASTQ files
 - Trims barcode sequences
@@ -159,6 +162,7 @@ open results/taxonomy/*/krona.html
 ```
 
 **Outputs**:
+
 - `results/taxonomy/*/kraken2_report.txt` - Text report
 - `results/taxonomy/*/krona.html` - Interactive visualization
 - Integrated into MultiQC report
@@ -186,6 +190,7 @@ tail -f results/realtime_reports/progress.txt
 ```
 
 **How it works**:
+
 - Watches directory for new files
 - Processes files in batches every 5 minutes
 - Generates incremental reports
@@ -242,6 +247,7 @@ nextflow run foi-bioinformatics/nanometanf \
 ## Troubleshooting
 
 **Pipeline won't start**:
+
 ```bash
 # Check Nextflow version
 nextflow -version  # Must be >= 23.04.0
@@ -251,12 +257,14 @@ java -version      # Must be 11+
 ```
 
 **Dorado not found**:
+
 ```bash
 # Set dorado path explicitly
 nextflow run ... --dorado_path /full/path/to/dorado
 ```
 
 **Out of memory**:
+
 ```bash
 # Use resource-conservative profile
 nextflow run ... --optimization_profile resource_conservative

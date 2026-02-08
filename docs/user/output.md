@@ -100,15 +100,16 @@ results/
 
 **Output Standardization**: Regardless of which QC tool you choose, the pipeline produces consistent, standardized outputs:
 
-| Output Type | Location | Format | Available For |
-|-------------|----------|--------|---------------|
-| Filtered Reads | `qc_analysis/` or tool-specific directory | FASTQ.gz | All tools |
-| QC Reports | Tool-specific (FASTP HTML, FastQC HTML) | HTML | All tools |
-| QC Metrics | Tool-specific JSON or SeqKit stats | JSON/TSV | All tools |
-| MultiQC Integration | `multiqc/multiqc_data.json` | JSON | All tools |
-| NanoPlot Visualization | `nanoplot/` | HTML/PNG/TXT | All tools (if enabled) |
+| Output Type            | Location                                  | Format       | Available For          |
+| ---------------------- | ----------------------------------------- | ------------ | ---------------------- |
+| Filtered Reads         | `qc_analysis/` or tool-specific directory | FASTQ.gz     | All tools              |
+| QC Reports             | Tool-specific (FASTP HTML, FastQC HTML)   | HTML         | All tools              |
+| QC Metrics             | Tool-specific JSON or SeqKit stats        | JSON/TSV     | All tools              |
+| MultiQC Integration    | `multiqc/multiqc_data.json`               | JSON         | All tools              |
+| NanoPlot Visualization | `nanoplot/`                               | HTML/PNG/TXT | All tools (if enabled) |
 
 **Tool Selection**:
+
 ```bash
 # Use CHOPPER (default, fastest)
 --qc_tool chopper
@@ -121,6 +122,7 @@ results/
 ```
 
 **Enhanced Reporting**: CHOPPER and FILTLONG automatically include:
+
 - FastQC HTML reports for comprehensive quality visualization
 - SeqKit statistics for detailed sequence metrics
 - All data integrated into MultiQC for unified reporting
@@ -132,6 +134,7 @@ results/
 **Key Files:**
 
 **`<sample>.fastp.html`**
+
 - Interactive HTML report with quality metrics
 - Read length distribution before/after filtering
 - Quality score distribution
@@ -139,6 +142,7 @@ results/
 - Duplication rates
 
 **`<sample>.fastp.json`**
+
 ```json
 {
   "summary": {
@@ -164,11 +168,13 @@ results/
 ```
 
 **`<sample>.fastp.fastq.gz`**
+
 - Filtered reads passing quality thresholds
 - Use for downstream analysis
 - Compatible with all standard tools
 
 **Default Filtering Criteria:**
+
 - Minimum quality score: 15 (Phred)
 - Minimum read length: 1000 bp
 - Sliding window quality: 20
@@ -180,12 +186,14 @@ results/
 **Key Files:**
 
 **`NanoPlot-report.html`**
+
 - Comprehensive interactive report
 - Read length vs. quality scatter plots
 - Temporal quality trends
 - Yield over time analysis
 
 **`NanoStats.txt`**
+
 ```
 General summary:
 Mean read length:              3,245.6
@@ -203,6 +211,7 @@ Number, percentage and megabases of reads above quality cutoffs
 ```
 
 **Key Plots:**
+
 - `LengthvsQualityScatterPlot_dot.png` - Identify quality issues
 - `LengthHistogram.png` - Size selection assessment
 - `Yield_By_Length.png` - Sequencing productivity
@@ -215,6 +224,7 @@ Number, percentage and megabases of reads above quality cutoffs
 **Key Files:**
 
 **`<sample>.kraken2.report.txt`**
+
 ```
 100.00  142000  142000  U       0       unclassified
   0.00  0       0       R       1       root
@@ -228,6 +238,7 @@ Number, percentage and megabases of reads above quality cutoffs
 ```
 
 **Columns:**
+
 1. **Percentage** - % of reads assigned to this taxon
 2. **Clade reads** - Reads assigned to this taxon + descendants
 3. **Taxon reads** - Reads assigned directly to this taxon
@@ -236,11 +247,13 @@ Number, percentage and megabases of reads above quality cutoffs
 6. **Scientific name** - Taxon name
 
 **`<sample>.classified.fastq.gz`**
+
 - Reads with taxonomic assignment
 - Headers contain Kraken2 classification
 - Format: `@read_id|kraken:taxid|taxid:562`
 
 **`<sample>.unclassified.fastq.gz`**
+
 - Reads without taxonomic assignment
 - May indicate novel organisms or contamination
 - Review for quality issues
@@ -248,11 +261,13 @@ Number, percentage and megabases of reads above quality cutoffs
 **Interpretation:**
 
 **High classification rate (>70%):**
+
 - Expected organisms detected
 - Good database coverage
 - High-quality sequencing
 
 **Low classification rate (<30%):**
+
 - Novel organisms
 - Database limitations
 - Quality issues (check NanoPlot)
@@ -265,6 +280,7 @@ Number, percentage and megabases of reads above quality cutoffs
 **Key Files:**
 
 **`taxpasta_standard.tsv`**
+
 ```tsv
 taxonomy_id     sample1     sample2     sample3     taxonomy_name
 562             26200       31450       18900       Escherichia coli
@@ -273,16 +289,19 @@ taxonomy_id     sample1     sample2     sample3     taxonomy_name
 ```
 
 **Columns:**
+
 - `taxonomy_id` - NCBI taxonomy identifier
 - `<sample>` - Read count per sample
 - `taxonomy_name` - Scientific name
 
 **`taxpasta_standard.biom`** (if `--taxpasta_format biom`)
+
 - Binary format for metagenomics tools
 - Compatible with QIIME2, phyloseq
 - Includes taxonomy hierarchy
 
 **Use Cases:**
+
 - Multi-sample comparisons
 - Statistical analysis (DESeq2, edgeR)
 - Visualization (phyloseq, microbiomeSeq)
@@ -297,6 +316,7 @@ taxonomy_id     sample1     sample2     sample3     taxonomy_name
 **Key Files:**
 
 **`<sample>_validation.blastn.txt`**
+
 ```
 Query_id        Subject_id              %identity   length  mismatches  gaps    qstart  qend    sstart  send    evalue      bitscore
 read_001        NC_000913.3_E.coli     98.5        1250    18          1       1       1250    450000  451249  0.0         2145
@@ -304,6 +324,7 @@ read_002        NC_000913.3_E.coli     97.2        980     27          0       1
 ```
 
 **Interpretation:**
+
 - **%identity >95%** - Strong species confirmation
 - **%identity 90-95%** - Genus-level confirmation
 - **%identity <90%** - Distant match, review taxonomy
@@ -318,6 +339,7 @@ read_002        NC_000913.3_E.coli     97.2        980     27          0       1
 **`multiqc_report.html`**
 
 **Sections:**
+
 1. **General Statistics** - Sample overview table
 2. **FASTP** - Quality filtering summary
 3. **NanoPlot** - Read length and quality distributions
@@ -326,12 +348,12 @@ read_002        NC_000913.3_E.coli     97.2        980     27          0       1
 
 **Key Metrics to Check:**
 
-| Metric | Good | Warning | Critical |
-|--------|------|---------|----------|
-| Mean Quality Score | >12 | 10-12 | <10 |
-| % Reads Passing Filter | >90% | 80-90% | <80% |
-| Classification Rate | >70% | 50-70% | <50% |
-| Mean Read Length | >2kb | 1-2kb | <1kb |
+| Metric                 | Good | Warning | Critical |
+| ---------------------- | ---- | ------- | -------- |
+| Mean Quality Score     | >12  | 10-12   | <10      |
+| % Reads Passing Filter | >90% | 80-90%  | <80%     |
+| Classification Rate    | >70% | 50-70%  | <50%     |
+| Mean Read Length       | >2kb | 1-2kb   | <1kb     |
 
 ## Dorado Basecalling Outputs
 
@@ -340,6 +362,7 @@ read_002        NC_000913.3_E.coli     97.2        980     27          0       1
 **`dorado/basecalls/<sample>.fastq.gz`**
 
 Standard FASTQ format with quality scores:
+
 ```
 @read_id runid=abc123 sampleid=sample1 read=123 ch=456 start_time=2024-09-12T14:00:01Z model_version_id=2023-08-01_dna_r10.4.1_e4.3_400bps_hac@v5.0.0
 ACGTACGTACGTACGTACGTACGTACGTACGT...
@@ -348,6 +371,7 @@ ACGTACGTACGTACGTACGTACGTACGTACGT...
 ```
 
 **Header Fields:**
+
 - `runid` - Sequencing run identifier
 - `sampleid` - Sample name
 - `read` - Read number
@@ -356,6 +380,7 @@ ACGTACGTACGTACGTACGTACGTACGTACGT...
 - `model_version_id` - Basecalling model used
 
 **`dorado/sequencing_summary.txt`**
+
 ```tsv
 read_id     channel start_time  duration    num_events  passes_filtering    template_start  template_duration   mean_qscore_template
 read_001    456     140001      2.450       12450       TRUE                0.125           2.325               12.8
@@ -363,6 +388,7 @@ read_002    789     140003      3.120       15890       TRUE                0.09
 ```
 
 **Key Columns:**
+
 - `mean_qscore_template` - Average quality score (filter with `--min_qscore`)
 - `passes_filtering` - Quality filter status
 - `duration` - Sequencing duration (seconds)
@@ -372,19 +398,23 @@ read_002    789     140003      3.120       15890       TRUE                0.09
 **Enabled with:** `--barcode_kit SQK-NBD114-24`
 
 **`dorado_demux/barcode01/reads.fastq.gz`**
+
 - Reads assigned to barcode01
 - Barcode sequences trimmed if `--trim_barcodes`
 - Ready for downstream analysis
 
 **`dorado_demux/barcode02/reads.fastq.gz`**
+
 - Reads assigned to barcode02
 
 **`dorado_demux/unclassified/reads.fastq.gz`**
+
 - Reads without confident barcode assignment
 - Review if >20% of total reads
 - May indicate barcode issues
 
 **`dorado_demux/demux_summary.txt`**
+
 ```tsv
 barcode_id      read_count      total_bases     mean_length     mean_qscore
 barcode01       45230           135690000       3000            12.8
@@ -394,6 +424,7 @@ unclassified    16620           49860000        3000            11.5
 ```
 
 **Expected Results:**
+
 - **Balanced barcode distribution** - Similar read counts per barcode
 - **Low unclassified rate** (<10%) - Good barcode quality
 - **Similar mean quality** - Consistent sequencing across barcodes
@@ -422,8 +453,8 @@ Time-series snapshots captured at each batch interval:
     "classified_reads": 505000,
     "classification_rate": 71.1,
     "top_taxa": [
-      {"taxid": 562, "name": "Escherichia coli", "reads": 185000, "percentage": 26.1},
-      {"taxid": 1280, "name": "Staphylococcus aureus", "reads": 120000, "percentage": 16.9}
+      { "taxid": 562, "name": "Escherichia coli", "reads": 185000, "percentage": 26.1 },
+      { "taxid": 1280, "name": "Staphylococcus aureus", "reads": 120000, "percentage": 16.9 }
     ]
   },
   "performance_metrics": {
@@ -456,9 +487,7 @@ Aggregated statistics across entire run:
     "total_classified": 1820000,
     "classification_rate": 71.2,
     "species_detected": 45,
-    "dominant_taxa": [
-      {"taxid": 562, "name": "Escherichia coli", "reads": 665000, "percentage": 26.0}
-    ]
+    "dominant_taxa": [{ "taxid": 562, "name": "Escherichia coli", "reads": 665000, "percentage": 26.0 }]
   },
   "session_summary": {
     "avg_processing_rate": 14300,
@@ -503,6 +532,7 @@ Processing performance over time:
 **`realtime_reports/realtime_dashboard.html`**
 
 Interactive HTML dashboard with:
+
 - **Live Statistics Panel** - Current batch metrics
 - **Taxonomic Composition** - Real-time species detection
 - **Quality Trends** - Quality score over time
@@ -510,6 +540,7 @@ Interactive HTML dashboard with:
 - **Alert Panel** - Quality or performance warnings
 
 **Use Cases:**
+
 - Monitor sequencing quality during run
 - Early pathogen detection
 - Identify technical issues in real-time
@@ -518,6 +549,7 @@ Interactive HTML dashboard with:
 **`realtime_reports/quality_dashboard.html`**
 
 Quality-focused dashboard:
+
 - Read length distribution over time
 - Quality score trends by barcode
 - Classification rate evolution
@@ -631,12 +663,14 @@ ML-based resource predictions:
 **`pipeline_info/execution_report_*.html`**
 
 Comprehensive execution summary:
+
 - **Summary** - Pipeline completion status
 - **Resources** - CPU/memory usage by process
 - **Tasks** - Individual task execution details
 - **Timeline** - Process execution visualization
 
 **Key Metrics:**
+
 - Total CPU hours consumed
 - Peak memory usage
 - Failed/cached/completed tasks
@@ -645,6 +679,7 @@ Comprehensive execution summary:
 **`pipeline_info/execution_timeline_*.html`**
 
 Interactive Gantt chart:
+
 - Process execution timeline
 - Parallel execution visualization
 - Identify bottlenecks
@@ -660,6 +695,7 @@ task_id hash    native_id   name        status  exit    submit              dura
 ```
 
 **Columns:**
+
 - `duration` - Wall-clock time
 - `realtime` - Actual computation time
 - `%cpu` - CPU efficiency (>90% is good)
@@ -801,6 +837,7 @@ QUALITY_SCORES
 ```
 
 **Quality Score Encoding**: Phred+33 (Sanger format)
+
 - Character `!` = Q0 (lowest quality)
 - Character `~` = Q93 (highest quality)
 - Minimum acceptable quality typically Q7-Q10 for nanopore
@@ -808,12 +845,14 @@ QUALITY_SCORES
 ### TSV Format (Tab-separated values)
 
 Used in:
+
 - `NanoStats.txt`
 - `sequencing_summary.txt`
 - `taxpasta_standard.tsv`
 - `demux_summary.txt`
 
 **Parsing:**
+
 ```bash
 # Extract column 2 from TSV
 cut -f2 file.tsv
@@ -828,12 +867,14 @@ sed 's/\t/,/g' file.tsv > file.csv
 ### JSON Format
 
 Used in:
+
 - Real-time statistics
 - Resource monitoring
 - FASTP metrics
 - Parameter records
 
 **Parsing:**
+
 ```bash
 # Using jq
 jq '.quality_metrics.mean_quality' stats.json
@@ -854,6 +895,7 @@ percentage  clade_reads  taxon_reads  rank  taxid  scientific_name
 ```
 
 **Parsing:**
+
 ```bash
 # Extract species-level classifications
 awk '$4 == "S"' report.txt
@@ -870,16 +912,19 @@ awk '$4 != "U" {sum += $3} END {print sum}' report.txt
 Binary format for metagenomics:
 
 **Convert to JSON:**
+
 ```bash
 biom convert -i taxpasta_standard.biom -o output.json --to-json
 ```
 
 **Convert to TSV:**
+
 ```bash
 biom convert -i taxpasta_standard.biom -o output.tsv --to-tsv
 ```
 
 **Use in R (phyloseq):**
+
 ```r
 library(phyloseq)
 biom_data <- import_biom("taxpasta_standard.biom")
@@ -945,6 +990,7 @@ fi
 ### No Kraken2 Outputs
 
 **Check:**
+
 1. Was `--kraken2_db` specified?
 2. Does database path exist?
 3. Check `pipeline_info/execution_trace_*.txt` for errors
@@ -958,6 +1004,7 @@ ls -lh /path/to/kraken2_db/
 ### Empty Real-time Statistics
 
 **Check:**
+
 1. Was `--realtime_mode` enabled?
 2. Were files detected in monitored directory?
 3. Check batch interval hasn't expired
@@ -970,6 +1017,7 @@ find /monitored/dir -name "*.fastq.gz"
 ### Missing MultiQC Report
 
 **Check:**
+
 1. Were any analysis modules run?
 2. Check `multiqc/multiqc_data/multiqc.log`
 3. Verify module outputs exist
@@ -983,12 +1031,14 @@ ls -l results/kraken2/
 ### Low Classification Rate (<30%)
 
 **Possible causes:**
+
 1. **Wrong database** - Use appropriate database for sample type
 2. **Low quality reads** - Check NanoPlot quality metrics
 3. **Novel organisms** - Expected for environmental samples
 4. **Host contamination** - Use host genome removal
 
 **Solutions:**
+
 ```bash
 # Try different database
 --kraken2_db /databases/k2_pluspf  # Includes protozoa/fungi

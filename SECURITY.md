@@ -129,6 +129,7 @@ Subscribe to the repository to receive notifications about security updates.
 ## Attribution
 
 This security policy is based on best practices from:
+
 - [GitHub Security Policy Guidelines](https://docs.github.com/en/code-security/getting-started/adding-a-security-policy-to-your-repository)
 - [nf-core Security Best Practices](https://nf-co.re/docs/contributing/guidelines)
 

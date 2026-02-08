@@ -42,12 +42,12 @@ workflow QC_ANALYSIS {
     ch_qc_json = Channel.empty()
     ch_fastqc_html = Channel.empty()
     ch_seqkit_stats = Channel.empty()
-    
+
     // Set QC tool and validate parameters
     def qc_tool = params.qc_tool ?: 'fastp'
     def enable_adapter_trimming = params.enable_adapter_trimming ?: false
     def run_fastqc = !(params.realtime_mode && params.skip_fastqc_realtime)
-    
+
     //
     // OPTIONAL: Adapter trimming with PORECHOP (nanopore-specific)
     //
@@ -60,7 +60,7 @@ workflow QC_ANALYSIS {
     } else {
         ch_adapter_trimmed = ch_reads
     }
-    
+
     //
     // BRANCH: Route to appropriate QC tool
     //
@@ -81,14 +81,14 @@ workflow QC_ANALYSIS {
                 false         // save_merged
             )
             ch_versions = ch_versions.mix(FASTP.out.versions)
-            
+
             // Collect standardized outputs
             ch_qc_reads = FASTP.out.reads
             ch_qc_reports = FASTP.out.html
             ch_qc_logs = FASTP.out.log
             ch_qc_json = FASTP.out.json
             break
-            
+
         case 'filtlong':
             //
             // MODULE: Run FILTLONG for nanopore-optimized quality filtering
@@ -97,16 +97,16 @@ workflow QC_ANALYSIS {
             ch_filtlong_input = ch_adapter_trimmed.map { meta, reads ->
                 [meta, [], reads]  // [meta, shortreads=empty, longreads=reads]
             }
-            
+
             FILTLONG (
                 ch_filtlong_input
             )
             ch_versions = ch_versions.mix(FILTLONG.out.versions)
-            
+
             //
             // Enhanced reporting for FILTLONG: Add FastQC and SeqKit stats
             //
-            
+
             // MODULE: Run FastQC on filtered reads for comprehensive HTML reporting
             if (run_fastqc) {
                 FASTQC (
@@ -122,7 +122,7 @@ workflow QC_ANALYSIS {
             )
             ch_versions = ch_versions.mix(SEQKIT_STATS.out.versions)
             ch_seqkit_stats = SEQKIT_STATS.out.stats
-            
+
             // Collect standardized outputs
             ch_qc_reads = FILTLONG.out.reads
             ch_qc_reports = ch_fastqc_html              // Use FastQC HTML reports for FILTLONG

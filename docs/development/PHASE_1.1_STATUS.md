@@ -10,6 +10,7 @@
 Phase 1.1 incremental Kraken2 classification is **fully implemented and production-ready** with complete streaming real-time mode support. The initial architectural incompatibility with `watchPath()` streaming has been **resolved** through streaming-compatible batch tracking.
 
 **Current State:**
+
 - ✅ Core modules implemented and unit tested (17/17 tests passing)
 - ✅ Works correctly with samplesheet input (static file lists)
 - ✅ **Full real-time streaming support** (architectural fix implemented)
@@ -21,6 +22,7 @@ Phase 1.1 incremental Kraken2 classification is **fully implemented and producti
 ### 1. Three New Modules
 
 #### KRAKEN2_INCREMENTAL_CLASSIFIER
+
 - **Location**: `modules/local/kraken2_incremental_classifier/`
 - **Purpose**: Classify reads at batch level with metadata tracking
 - **Tests**: 6 passing tests (stub mode)
@@ -31,6 +33,7 @@ Phase 1.1 incremental Kraken2 classification is **fully implemented and producti
   - Proper file naming with `batch_id`
 
 #### KRAKEN2_OUTPUT_MERGER
+
 - **Location**: `modules/local/kraken2_output_merger/`
 - **Purpose**: Merge batch outputs in chronological order
 - **Tests**: 5 passing tests (stub mode)
@@ -41,6 +44,7 @@ Phase 1.1 incremental Kraken2 classification is **fully implemented and producti
   - Proper error handling
 
 #### KRAKEN2_REPORT_GENERATOR
+
 - **Location**: `modules/local/kraken2_report_generator/`
 - **Purpose**: Generate cumulative Kraken2 reports using KrakenTools
 - **Tests**: 6 passing tests (stub mode)
@@ -54,6 +58,7 @@ Phase 1.1 incremental Kraken2 classification is **fully implemented and producti
 **File**: `subworkflows/local/taxonomic_classification/main.nf`
 
 **Changes Made:**
+
 - Added incremental mode routing (`if (params.kraken2_enable_incremental)`)
 - Batch tracking channel logic (lines 82-115)
 - Output collection with `groupTuple()` for merging (lines 113-119)
@@ -69,6 +74,7 @@ Phase 1.1 incremental Kraken2 classification is **fully implemented and producti
 ### Unit Tests: ✅ 17/17 Passing
 
 **Stub Mode Validation:**
+
 ```bash
 nf-test test modules/local/kraken2_incremental_classifier/tests/main.nf.test
 nf-test test modules/local/kraken2_output_merger/tests/main.nf.test
@@ -76,6 +82,7 @@ nf-test test modules/local/kraken2_report_generator/tests/main.nf.test
 ```
 
 **Test Coverage:**
+
 - Single-end/paired-end reads ✅
 - Multiple batches per sample ✅
 - Batch metadata JSON validation ✅
@@ -85,6 +92,7 @@ nf-test test modules/local/kraken2_report_generator/tests/main.nf.test
 ### Integration Tests: ❌ Blocked
 
 **Test Attempts:**
+
 1. **Samplesheet with 3 files** → Failed (FASTP file grouping issue)
 2. **Real-time mode test** → Blocked by channel architecture
 
@@ -95,6 +103,7 @@ nf-test test modules/local/kraken2_report_generator/tests/main.nf.test
 ### The Problem (Original Implementation)
 
 **Initial incremental mode design** required channel completion:
+
 ```
 File 1 → Classify (batch 0) ┐
 File 2 → Classify (batch 1) ├→ Collect ALL batches → Merge → Report
@@ -102,6 +111,7 @@ File 3 → Classify (batch 2) ┘
 ```
 
 **Real-time mode behavior**:
+
 ```
 watchPath() → File 1 → File 2 → File 3 → ... (channel stays OPEN indefinitely)
 ```
@@ -120,6 +130,7 @@ ch_reads_with_batch = ch_reads
 ```
 
 **Why This Blocked**:
+
 1. Real-time monitoring uses open `watchPath()` channels
 2. `.collect()` waits for channel to close before proceeding
 3. `watchPath()` never closes in streaming mode
@@ -130,6 +141,7 @@ ch_reads_with_batch = ch_reads
 **File**: `subworkflows/local/taxonomic_classification/main.nf` (lines 82-107)
 
 **Implementation**:
+
 ```groovy
 //
 // CHANNEL OPERATION: Add batch_id to metadata for incremental processing
@@ -155,6 +167,7 @@ ch_reads_with_batch = ch_reads
 ```
 
 **Key Features**:
+
 1. **No channel completion required** - assigns batch_id as files arrive
 2. **Stateful counter** - maintains per-sample batch numbering
 3. **Thread-safe** - uses `synchronized()` for concurrent access
@@ -166,6 +179,7 @@ ch_reads_with_batch = ch_reads
 **Test Environment**: Real-time mode with 3 FASTQ files, 20s delay between files
 
 **Evidence of Streaming Fix**:
+
 ```
 [9a/6b75e7] FOI...46c7db7_4eab4af1_1_batch0) | 1 of 1 ✔
 ```
@@ -182,6 +196,7 @@ ch_reads_with_batch = ch_reads
 **File**: `modules/local/kraken2_incremental_classifier/main.nf` (lines 63-66)
 
 **Issue**: Empty bash if block when `save_output_fastqs=false`
+
 ```bash
 # BROKEN - caused syntax error
 if [ "$save_output_fastqs" == "true" ]; then
@@ -192,6 +207,7 @@ fi
 ```
 
 **Fix**: Simplified to single conditional
+
 ```bash
 # FIXED - inline command, single conditional
 if [ "$save_output_fastqs" == "true" ] && ls *.fastq 1> /dev/null 2>&1; then
@@ -202,10 +218,12 @@ fi
 ### Bug 2: YAML Generation Syntax Error
 
 **Files**:
+
 - `modules/local/kraken2_output_merger/main.nf` (lines 87-88)
 - `modules/local/kraken2_report_generator/main.nf` (lines 94-104)
 
 **Issue**: Double backslash `\\n` writes literal "\n" instead of newline
+
 ```python
 # BROKEN - creates invalid YAML
 v.write('"${task.process}":\\n')     # Writes: "PROCESS":\n
@@ -213,6 +231,7 @@ v.write(f'    python: {version}\\n')  # Writes:     python: 3.11\n
 ```
 
 **Fix**: Single backslash for proper newlines
+
 ```python
 # FIXED - creates valid YAML
 v.write('"${task.process}":\n')      # Writes: "PROCESS":
@@ -226,6 +245,7 @@ v.write(f'    python: {version}\n')  # Writes:     python: 3.11
 **Status**: ✅ **FULLY COMPATIBLE** (as of 2025-10-20)
 
 **Supported Scenarios:**
+
 - ✅ Real-time mode with continuous streaming (infinite watchPath)
 - ✅ Real-time mode with `--max_files N` limit
 - ✅ Samplesheet input (all files known upfront)
@@ -250,12 +270,14 @@ v.write(f'    python: {version}\n')  # Writes:     python: 3.11
 ### Theoretical Performance (From Design)
 
 **Standard Kraken2** (O(n²) cumulative):
+
 - Batch 1: 100 reads
 - Batch 2: 200 reads (100 old + 100 new)
 - Batch 30: 3,000 reads
 - **Total**: 46,500 classifications
 
 **Incremental Kraken2** (O(n) batch-level):
+
 - Each batch: 100 reads (only NEW)
 - **Total**: 3,000 classifications
 - **Reduction**: 93% fewer operations
@@ -272,6 +294,7 @@ v.write(f'    python: {version}\n')  # Writes:     python: 3.11
 **Date Resolved**: 2025-10-20
 
 **Fixes Implemented**:
+
 1. ✅ **Streaming-compatible batch tracking** - Stateful counter without `.collect()`
 2. ✅ **Module bash syntax fix** - Eliminated empty if block error
 3. ✅ **YAML generation fix** - Proper newline handling
@@ -295,6 +318,7 @@ While the core streaming functionality is complete, potential future improvement
 #### Performance Optimization
 
 **Potential areas**:
+
 1. Parallel batch processing (if multiple samples)
 2. Streaming report updates
 3. Memory-mapped output files for large datasets
@@ -304,17 +328,20 @@ While the core streaming functionality is complete, potential future improvement
 ## Files Modified
 
 ### Core Implementation
+
 - `modules/local/kraken2_incremental_classifier/main.nf` (new)
 - `modules/local/kraken2_output_merger/main.nf` (new)
 - `modules/local/kraken2_report_generator/main.nf` (new)
 - `subworkflows/local/taxonomic_classification/main.nf` (modified)
 
 ### Tests
+
 - `modules/local/kraken2_incremental_classifier/tests/main.nf.test` (new, 6 tests)
 - `modules/local/kraken2_output_merger/tests/main.nf.test` (new, 5 tests)
 - `modules/local/kraken2_report_generator/tests/main.nf.test` (new, 6 tests)
 
 ### Documentation
+
 - `CHANGELOG.md` (updated, lines 8-129)
 - `docs/development/incremental_kraken2_implementation.md` (new, 600+ lines)
 - `docs/development/PHASE_1.1_STATUS.md` (this file)
@@ -324,6 +351,7 @@ While the core streaming functionality is complete, potential future improvement
 Phase 1.1 incremental Kraken2 is **production-ready for v1.3.0 deployment** with full streaming real-time mode support.
 
 **Achievements**:
+
 - ✅ **3 new modules** implemented with 17/17 unit tests passing
 - ✅ **Streaming architecture** fully compatible with `watchPath()` real-time monitoring
 - ✅ **3 critical bugs** identified and fixed during integration testing
@@ -331,6 +359,7 @@ Phase 1.1 incremental Kraken2 is **production-ready for v1.3.0 deployment** with
 - ✅ **Dual-mode support** - works seamlessly in both real-time and samplesheet modes
 
 **Integration Testing Results**:
+
 - Streaming batch tracking validated with real-time file monitoring
 - Batch ID assignment confirmed working (batch0, batch1, batch2...)
 - No channel blocking observed
@@ -345,6 +374,7 @@ Phase 1.1 incremental Kraken2 is **production-ready for v1.3.0 deployment** with
 **Status**: ✅ **PRODUCTION READY**
 
 **Related Docs**:
+
 - `docs/development/incremental_kraken2_implementation.md` - Design documentation
 - `CHANGELOG.md` - Phase 1.1 section with fix history
 - `subworkflows/local/taxonomic_classification/main.nf` - Streaming fix implementation

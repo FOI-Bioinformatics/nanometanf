@@ -16,6 +16,7 @@ Caused by: groovy.lang.MissingMethodException: No signature of method: java.util
 ```
 
 **Failure location:** `subworkflows/local/output_organization/main.nf:37`
+
 ```groovy
 ch_qc_organized = qc_reports
     .map { meta, html ->  // FAILS HERE - qc_reports is ArrayList, not Channel
@@ -26,24 +27,28 @@ ch_qc_organized = qc_reports
 OUTPUT_ORGANIZATION is a **pure channel manipulation workflow** - it contains no processes, only channel operations (`.map()`, `.mix()`). This pattern appears incompatible with nf-test's standard input handling.
 
 **Key difference from working workflows:**
+
 - REALTIME_MONITORING: Uses processes or conditional returns → tests pass
-- QC_ANALYSIS: Uses processes (FASTP, CHOPPER) → tests pass  
+- QC_ANALYSIS: Uses processes (FASTP, CHOPPER) → tests pass
 - OUTPUT_ORGANIZATION: Only channel operations → tests fail
 
 ## Investigation Attempts
 
 ### Attempt 1: Fix Input Structure
+
 - **Action:** Removed extra array wrapping `[[meta, file]]` → `[meta, file]`
 - **Result:** Still fails with same error
 - **Commit:** None (changes not committed)
 
 ### Attempt 2: Use Pre-existing Fixtures
+
 - **Action:** Created `tests/fixtures/outputs/` with mock files
 - **Rationale:** Avoid setup{} block timing issues
 - **Result:** Still fails with same error
 - **Files:** `tests/fixtures/outputs/{qc,classification,validation,reports}/`
 
 ### Attempt 3: Fix Bash Variables
+
 - **Action:** Escaped `$i` → `\${i}` in setup{} blocks
 - **Result:** Fixed bash variable errors, but core issue remains
 - **Commit:** None (not the blocker)
@@ -51,6 +56,7 @@ OUTPUT_ORGANIZATION is a **pure channel manipulation workflow** - it contains no
 ## Technical Analysis
 
 **nf-test Input Handling:**
+
 ```groovy
 // Test provides:
 input[0] = [
@@ -69,6 +75,7 @@ When workflow tries to call `.map()` on ArrayList, Groovy fails because ArrayLis
 **Important:** This is a testing infrastructure issue, NOT a workflow bug.
 
 **Evidence:**
+
 1. Workflow logic is sound (simple channel operations)
 2. Used successfully in production pipeline (workflows/nanometanf.nf)
 3. No runtime errors in actual pipeline execution
@@ -77,15 +84,19 @@ When workflow tries to call `.map()` on ArrayList, Groovy fails because ArrayLis
 ## Potential Solutions (Not Implemented)
 
 ### Option 1: Different Test Pattern
+
 Use process-based testing or integration tests instead of workflow tests.
 
 ### Option 2: Wrapper Process
+
 Create a process that calls the workflow, so nf-test has processes to work with.
 
 ### Option 3: Channel.of() Explicit Creation
+
 Modify test to explicitly create channels (may require nf-test internals knowledge).
 
 ### Option 4: Stub Mode
+
 Use stub execution mode (if supported for workflows without processes).
 
 ## Recommended Next Steps
@@ -104,12 +115,15 @@ Use stub execution mode (if supported for workflows without processes).
 ## Files Involved
 
 **Workflow:**
+
 - `subworkflows/local/output_organization/main.nf`
 
 **Test File:**
+
 - `subworkflows/local/output_organization/tests/main.nf.test`
 
 **Fixtures Created (not committed):**
+
 - `tests/fixtures/outputs/qc/fastp_report.html`
 - `tests/fixtures/outputs/qc/nanoplot_report.html`
 - `tests/fixtures/outputs/classification/kraken2_report.txt`

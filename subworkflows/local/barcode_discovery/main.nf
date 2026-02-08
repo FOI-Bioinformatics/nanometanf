@@ -6,10 +6,10 @@ workflow BARCODE_DISCOVERY {
 
     take:
     input_dir    // path: directory containing barcode subdirectories
-    
+
     main:
     ch_versions = Channel.empty()
-    
+
     //
     // DISCOVERY: Find barcode directories and FASTQ files
     //
@@ -18,12 +18,12 @@ workflow BARCODE_DISCOVERY {
         .map { barcode_dir ->
             def barcode = barcode_dir.getName()
             def fastq_files = []
-            
+
             // Find FASTQ files in barcode directory
             barcode_dir.eachFileMatch(~/.+\.(fastq|fastq\.gz|fq|fq\.gz)$/) { file ->
                 fastq_files.add(file)
             }
-            
+
             if (fastq_files.size() > 0) {
                 def meta = [
                     id: barcode,
@@ -38,7 +38,7 @@ workflow BARCODE_DISCOVERY {
             }
         }
         .filter { it != null }  // Remove empty directories
-    
+
     //
     // DISCOVERY: Also check for 'unclassified' directory
     //
@@ -46,11 +46,11 @@ workflow BARCODE_DISCOVERY {
         .filter { it.isDirectory() }
         .map { unclass_dir ->
             def fastq_files = []
-            
+
             unclass_dir.eachFileMatch(~/.+\.(fastq|fastq\.gz|fq|fq\.gz)$/) { file ->
                 fastq_files.add(file)
             }
-            
+
             if (fastq_files.size() > 0) {
                 def meta = [
                     id: "unclassified",
@@ -66,7 +66,7 @@ workflow BARCODE_DISCOVERY {
         }
         .filter { it != null }
         // Note: Removed .ifEmpty([]) as it emits an empty list that breaks downstream tuple destructuring
-    
+
     //
     // COMBINE: Mix barcode and unclassified samples
     //

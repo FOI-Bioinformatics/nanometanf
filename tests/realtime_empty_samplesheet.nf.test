@@ -21,7 +21,7 @@ nextflow_pipeline {
                 // Use empty samplesheet for real-time processing
                 input = false
                 outdir = "$outputDir"
-                
+
                 // Set up test directory with FASTQ files for monitoring
                 realtime_mode = true
                 nanopore_output_dir = "$projectDir/tests/realtime_test_data"
@@ -29,13 +29,13 @@ nextflow_pipeline {
                 batch_size = 2
                 batch_interval = "2s"  // Faster for testing
                 max_files = 2  // Limit for testing
-                
+
                 // Disable other features for focused test
                 use_dorado = false
                 skip_kraken2 = true
                 blast_validation = false
                 skip_fastp = false
-                
+
                 // Resource limits
                 max_cpus = 2
                 max_memory = '4.GB'
@@ -54,7 +54,7 @@ nextflow_pipeline {
             params {
                 input = false
                 outdir = "$outputDir"
-                
+
                 skip_kraken2 = true
                 blast_validation = false
                 // Test empty samplesheet behavior - MUST be used with real-time mode
@@ -62,7 +62,7 @@ nextflow_pipeline {
                 nanopore_output_dir = "/tmp/empty_test_dir" // Non-existent dir for testing
                 file_pattern = "*.fastq.gz"
                 use_dorado = false
-                
+
                 // Quick timeout for this test
                 max_cpus = 1
                 max_memory = '1.GB'
@@ -75,7 +75,7 @@ nextflow_pipeline {
             // OR succeed if the real-time monitoring works
             // The key point is that it handles empty samplesheets without hanging
             assert workflow.failed || workflow.success
-            
+
             // Test shows that real-time mode is required for empty samplesheets
             assert workflow.exitStatus != null
         }
@@ -87,7 +87,7 @@ nextflow_pipeline {
             // Create test directory with FASTQ files
             def testDir = file("$projectDir/tests/realtime_existing_files")
             testDir.mkdirs()
-            
+
             // Create small test FASTQ files
             file("${testDir}/test1.fastq.gz").text = ""
             file("${testDir}/test2.fastq.gz").text = ""
@@ -97,7 +97,7 @@ nextflow_pipeline {
             params {
                 input = false
                 outdir = "$outputDir"
-                
+
                 skip_kraken2 = true
                 blast_validation = false
                 // Real-time mode with existing files
@@ -107,12 +107,12 @@ nextflow_pipeline {
                 batch_size = 5
                 batch_interval = "5s"
                 max_files = 2
-                
+
                 // Quick processing
                 use_dorado = false
                 skip_fastp = true  // Skip processing to focus on file detection
                 skip_nanoplot = true
-                
+
                 max_cpus = 1
                 max_memory = '2.GB'
                 max_time = '2.min'

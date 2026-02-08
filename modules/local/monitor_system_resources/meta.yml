@@ -12,13 +12,13 @@ tools:
       description: Python programming language
       homepage: https://www.python.org/
       documentation: https://docs.python.org/3/
-      licence: ['PSF']
+      licence: ["PSF"]
   - psutil:
       description: Cross-platform library for process and system monitoring
       homepage: https://github.com/giampaolo/psutil
       documentation: https://psutil.readthedocs.io/
       tool_dev_url: https://github.com/giampaolo/psutil
-      licence: ['BSD-3-Clause']
+      licence: ["BSD-3-Clause"]
 
 input:
   - system_config:

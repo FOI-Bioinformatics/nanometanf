@@ -37,11 +37,11 @@ nextflow_process {
             assert process.out.report.size() == 1
             assert process.out.summary.size() == 1
             assert process.out.versions.size() == 1
-            
+
             def (meta, report_file) = process.out.report[0]
             assert meta.id == 'stub_test'
             assert path(report_file).exists()
-            
+
             def (meta_sum, summary_file) = process.out.summary[0]
             assert path(summary_file).exists()
         }
