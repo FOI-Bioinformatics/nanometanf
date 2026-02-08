@@ -26,22 +26,45 @@
 
 ## Quick Start
 
+**Minimal command (QC only):**
 ```bash
-# Test the pipeline
-nextflow run foi-bioinformatics/nanometanf -profile test,docker
-
-# Run with your data (samplesheet)
 nextflow run foi-bioinformatics/nanometanf \
   --input samplesheet.csv \
   --outdir results \
   -profile docker
+```
 
-# Real-time POD5 monitoring with basecalling
+**Full analysis with classification:**
+```bash
+nextflow run foi-bioinformatics/nanometanf \
+  --input samplesheet.csv \
+  --kraken2_db /path/to/kraken2_db \
+  --outdir results \
+  -profile docker
+```
+
+**Test the pipeline:**
+```bash
+nextflow run foi-bioinformatics/nanometanf -profile test,docker --outdir test_results
+```
+
+<details>
+<summary>More examples (POD5 basecalling, real-time monitoring)</summary>
+
+```bash
+# POD5 basecalling with Dorado
+nextflow run foi-bioinformatics/nanometanf \
+  --use_dorado \
+  --pod5_input_dir /path/to/pod5 \
+  --dorado_model dna_r10.4.1_e4.3_400bps_hac \
+  --outdir results \
+  -profile docker
+
+# Real-time FASTQ monitoring during sequencing
 nextflow run foi-bioinformatics/nanometanf \
   --realtime_mode \
-  --use_dorado \
-  --nanopore_output_dir /path/to/pod5 \
-  --dorado_model dna_r10.4.1_e4.3_400bps_hac \
+  --nanopore_output_dir /path/to/fastq \
+  --kraken2_db /path/to/db \
   --outdir results \
   -profile docker
 
@@ -55,6 +78,7 @@ nextflow run foi-bioinformatics/nanometanf \
   --outdir results \
   -profile docker
 ```
+</details>
 
 ## Scalable Streaming Architecture (v1.5+)
 

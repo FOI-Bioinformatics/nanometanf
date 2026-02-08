@@ -128,6 +128,22 @@ workflow {
 
     main:
 
+    //
+    // ENVIRONMENT CHECK: Provide helpful guidance on container availability
+    //
+    if (!workflow.containerEngine && !workflow.profile?.contains('conda')) {
+        log.warn "========================================================================="
+        log.warn "  No container engine or conda detected."
+        log.warn ""
+        log.warn "  This pipeline requires containerized dependencies. Please use one of:"
+        log.warn "    -profile docker      (recommended)"
+        log.warn "    -profile singularity (for HPC clusters)"
+        log.warn "    -profile conda       (slower, but works without containers)"
+        log.warn ""
+        log.warn "  Example: nextflow run foi-bioinformatics/nanometanf -profile docker ..."
+        log.warn "========================================================================="
+    }
+
     if (params.validation_only) {
         //
         // WORKFLOW: Validation-only mode (skip classification)

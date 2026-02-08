@@ -93,6 +93,36 @@ workflow NANOMETANF {
     }
 
     //
+    // INPUT VALIDATION: Check for conflicting or missing parameters
+    //
+    def input_modes = []
+    if (params.input) input_modes << '--input'
+    if (params.input_dir) input_modes << '--input_dir'
+    if (params.barcode_input_dir) input_modes << '--barcode_input_dir'
+    if (params.pod5_input_dir && params.use_dorado) input_modes << '--pod5_input_dir'
+    if (params.realtime_mode && params.nanopore_output_dir) input_modes << '--realtime_mode'
+
+    if (input_modes.size() > 1 && !params.realtime_mode) {
+        log.warn "========================================================================="
+        log.warn "  WARNING: Multiple input modes specified: ${input_modes.join(', ')}"
+        log.warn "  Only one input mode should be used. The pipeline will use the first detected."
+        log.warn "========================================================================="
+    }
+
+    if (input_modes.size() == 0 && !params.realtime_mode) {
+        log.error "========================================================================="
+        log.error "  ERROR: No input specified!"
+        log.error ""
+        log.error "  Please provide one of:"
+        log.error "    --input samplesheet.csv"
+        log.error "    --input_dir /path/to/barcode/folders"
+        log.error "    --pod5_input_dir /path/to/pod5 --use_dorado"
+        log.error "    --realtime_mode --nanopore_output_dir /path/to/monitor"
+        log.error "========================================================================="
+        error "No input data specified. See above for options."
+    }
+
+    //
     // WORKFLOW ROUTING: Determine if this is POD5 or FASTQ workflow
     //
     def is_pod5_workflow = (params.pod5_input_dir && params.use_dorado) || 
@@ -417,7 +447,24 @@ workflow NANOMETANF {
     //
     // SUBWORKFLOW: Multi-tool taxonomic classification with taxpasta standardization
     //
-    if (params.kraken2_db) {
+    if (params.skip_kraken2) {
+        log.info "Taxonomic classification skipped (--skip_kraken2 is true)"
+    } else if (!params.kraken2_db) {
+        log.warn "========================================================================="
+        log.warn "  WARNING: No Kraken2 database provided (--kraken2_db)"
+        log.warn "  Taxonomic classification will be SKIPPED."
+        log.warn ""
+        log.warn "  To enable classification, provide a database path:"
+        log.warn "    --kraken2_db /path/to/kraken2_db"
+        log.warn ""
+        log.warn "  Or download a pre-built database from:"
+        log.warn "    https://benlangmead.github.io/aws-indexes/k2"
+        log.warn ""
+        log.warn "  To silence this warning, use: --skip_kraken2 true"
+        log.warn "========================================================================="
+    }
+
+    if (params.kraken2_db && !params.skip_kraken2) {
         //
         // PREPARE DATABASE: Handle both directory and tar.gz inputs
         // Supports: local directories, local tar.gz files, and remote tar.gz URLs

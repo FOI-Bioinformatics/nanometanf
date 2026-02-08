@@ -120,14 +120,16 @@ barcodes/
 │   └── unclass.fastq.gz
 ```
 
-Use `--barcode_input_dir` instead of samplesheet:
+Use `--input_dir` instead of samplesheet:
 
 ```bash
 nextflow run foi-bioinformatics/nanometanf \
-  --barcode_input_dir barcodes/ \
+  --input_dir barcodes/ \
   --outdir results \
   -profile docker
 ```
+
+> **Note**: The parameter `--barcode_input_dir` is deprecated. Use `--input_dir` which auto-detects directory structure.
 
 ## Execution Modes
 
@@ -161,7 +163,7 @@ nextflow run foi-bioinformatics/nanometanf \
 
 ```bash
 nextflow run foi-bioinformatics/nanometanf \
-  --barcode_input_dir /data/barcodes \
+  --input_dir /data/barcodes \
   --outdir results \
   --kraken2_db /databases/k2_standard \
   -profile docker
@@ -321,8 +323,8 @@ nextflow run foi-bioinformatics/nanometanf \
 
 #### Input/Output
 ```bash
---input <file>              # Samplesheet CSV (required unless --barcode_input_dir)
---barcode_input_dir <dir>   # Pre-demultiplexed barcode folders (alternative to --input)
+--input <file>              # Samplesheet CSV (required unless --input_dir)
+--input_dir <dir>           # Pre-demultiplexed barcode folders (auto-detects structure)
 --outdir <dir>              # Output directory (required)
 ```
 
@@ -363,6 +365,60 @@ nextflow run foi-bioinformatics/nanometanf \
 --skip_kraken2              # Skip Kraken2 classification
 --enable_taxpasta_standardization   # Standardize taxonomy format
 --taxpasta_format <format>  # Output format (tsv, csv, biom)
+```
+
+##### Obtaining Kraken2 Databases
+
+Kraken2 requires a pre-built database for taxonomic classification. You have several options:
+
+**Option 1: Download pre-built databases (recommended)**
+
+Pre-built databases are available from Ben Langmead's AWS mirror:
+- https://benlangmead.github.io/aws-indexes/k2
+
+Common databases:
+
+| Database | Size | Contents |
+|----------|------|----------|
+| `k2_standard` | ~70 GB | Archaea, bacteria, viral, plasmid, human, vectors |
+| `k2_pluspf` | ~100 GB | Standard + protozoa and fungi |
+| `k2_minusb` | ~9 GB | Standard minus bacteria (faster, less comprehensive) |
+| `k2_viral` | ~500 MB | Viral genomes only |
+
+```bash
+# Download and extract (example: viral database)
+wget https://genome-idx.s3.amazonaws.com/kraken/k2_viral_20240112.tar.gz
+mkdir k2_viral && tar -xzf k2_viral_20240112.tar.gz -C k2_viral
+
+# Use in pipeline
+nextflow run foi-bioinformatics/nanometanf \
+  --kraken2_db k2_viral \
+  ...
+```
+
+**Option 2: Build custom database**
+
+```bash
+# Install Kraken2
+conda install -c bioconda kraken2
+
+# Build database (requires significant disk space and time)
+kraken2-build --standard --db my_kraken2_db --threads 8
+
+# Or build with specific libraries
+kraken2-build --download-taxonomy --db my_kraken2_db
+kraken2-build --download-library bacteria --db my_kraken2_db
+kraken2-build --build --db my_kraken2_db --threads 8
+```
+
+**Option 3: Use archive URL directly**
+
+The pipeline can download and extract `.tar.gz` archives automatically:
+
+```bash
+nextflow run foi-bioinformatics/nanometanf \
+  --kraken2_db "https://genome-idx.s3.amazonaws.com/kraken/k2_viral_20240112.tar.gz" \
+  ...
 ```
 
 #### Validation

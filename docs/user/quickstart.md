@@ -15,6 +15,42 @@ export JAVA_HOME=$CONDA_PREFIX/lib/jvm
 export PATH=$JAVA_HOME/bin:$PATH
 ```
 
+## Which Mode Should I Use?
+
+Answer these questions to find the right execution mode:
+
+```
+What is your input data?
+|
++-- FASTQ files
+|   |
+|   +-- Already have a samplesheet? --> Scenario 1 (Basic FASTQ)
+|   |
+|   +-- Pre-demultiplexed barcode folders? --> Use --input_dir
+|   |
+|   +-- Need real-time analysis during sequencing? --> Scenario 5 (Real-time)
+|
++-- POD5 files (raw signal data)
+    |
+    +-- Single sample (no barcodes)? --> Scenario 2 (POD5 Basecalling)
+    |
+    +-- Multiple barcoded samples? --> Scenario 3 (Multiplex)
+    |
+    +-- Need real-time basecalling? --> Scenario 5 with --use_dorado
+```
+
+**Quick reference:**
+
+| I have... | I want... | Use this |
+|-----------|-----------|----------|
+| FASTQ files | QC reports | `--input samplesheet.csv` |
+| FASTQ files | Taxonomic classification | Add `--kraken2_db /path/to/db` |
+| POD5 files | Basecalling + QC | `--use_dorado --pod5_input_dir /path` |
+| Barcoded POD5 | Demultiplexing | Add `--barcode_kit SQK-NBD114-24` |
+| Active sequencing | Live results | Add `--realtime_mode` |
+
+---
+
 ## Scenario 1: Basic FASTQ Analysis (3 minutes)
 
 **Use case**: You have FASTQ files from nanopore sequencing and want QC reports.
@@ -163,7 +199,7 @@ tail -f results/realtime_reports/progress.txt
 # Input modes (choose one)
 --input samplesheet.csv                    # Pre-processed FASTQ
 --pod5_input_dir /path/to/pod5/           # POD5 basecalling
---barcode_input_dir /path/to/barcodes/    # Pre-demuxed barcodes
+--input_dir /path/to/barcodes/            # Pre-demuxed barcodes (auto-detects structure)
 --realtime_mode                           # Live monitoring
 
 # Quality control
