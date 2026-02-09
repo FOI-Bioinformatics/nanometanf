@@ -6,7 +6,7 @@ Get started with nanometanf in 5 minutes using real example datasets.
 
 ```bash
 # Required
-- Nextflow >= 23.04.0
+- Nextflow >= 25.10.0
 - Docker or Singularity (or Conda)
 - Java 11+ (for Nextflow)
 
@@ -14,6 +14,42 @@ Get started with nanometanf in 5 minutes using real example datasets.
 export JAVA_HOME=$CONDA_PREFIX/lib/jvm
 export PATH=$JAVA_HOME/bin:$PATH
 ```
+
+## Which Mode Should I Use?
+
+Answer these questions to find the right execution mode:
+
+```
+What is your input data?
+|
++-- FASTQ files
+|   |
+|   +-- Already have a samplesheet? --> Scenario 1 (Basic FASTQ)
+|   |
+|   +-- Pre-demultiplexed barcode folders? --> Use --input_dir
+|   |
+|   +-- Need real-time analysis during sequencing? --> Scenario 5 (Real-time)
+|
++-- POD5 files (raw signal data)
+    |
+    +-- Single sample (no barcodes)? --> Scenario 2 (POD5 Basecalling)
+    |
+    +-- Multiple barcoded samples? --> Scenario 3 (Multiplex)
+    |
+    +-- Need real-time basecalling? --> Scenario 5 with --use_dorado
+```
+
+**Quick reference:**
+
+| I have...         | I want...                | Use this                              |
+| ----------------- | ------------------------ | ------------------------------------- |
+| FASTQ files       | QC reports               | `--input samplesheet.csv`             |
+| FASTQ files       | Taxonomic classification | Add `--kraken2_db /path/to/db`        |
+| POD5 files        | Basecalling + QC         | `--use_dorado --pod5_input_dir /path` |
+| Barcoded POD5     | Demultiplexing           | Add `--barcode_kit SQK-NBD114-24`     |
+| Active sequencing | Live results             | Add `--realtime_mode`                 |
+
+---
 
 ## Scenario 1: Basic FASTQ Analysis (3 minutes)
 
@@ -38,6 +74,7 @@ open results/multiqc/multiqc_report.html
 ```
 
 **Expected outputs**:
+
 - `results/qc/` - NanoPlot QC reports
 - `results/multiqc/` - Combined MultiQC report
 - `results/pipeline_info/` - Execution reports
@@ -67,6 +104,7 @@ cat results/dorado/*/summary.txt
 ```
 
 **What happens**:
+
 1. Dorado downloads the specified model
 2. Basecalls all POD5 files to FASTQ
 3. Trims adapters automatically
@@ -94,6 +132,7 @@ ls results/demultiplexing/
 ```
 
 **Automatic features**:
+
 - Detects barcodes using specified kit
 - Demultiplexes into separate FASTQ files
 - Trims barcode sequences
@@ -123,6 +162,7 @@ open results/taxonomy/*/krona.html
 ```
 
 **Outputs**:
+
 - `results/taxonomy/*/kraken2_report.txt` - Text report
 - `results/taxonomy/*/krona.html` - Interactive visualization
 - Integrated into MultiQC report
@@ -150,6 +190,7 @@ tail -f results/realtime_reports/progress.txt
 ```
 
 **How it works**:
+
 - Watches directory for new files
 - Processes files in batches every 5 minutes
 - Generates incremental reports
@@ -163,7 +204,7 @@ tail -f results/realtime_reports/progress.txt
 # Input modes (choose one)
 --input samplesheet.csv                    # Pre-processed FASTQ
 --pod5_input_dir /path/to/pod5/           # POD5 basecalling
---barcode_input_dir /path/to/barcodes/    # Pre-demuxed barcodes
+--input_dir /path/to/barcodes/            # Pre-demuxed barcodes (auto-detects structure)
 --realtime_mode                           # Live monitoring
 
 # Quality control
@@ -206,6 +247,7 @@ nextflow run foi-bioinformatics/nanometanf \
 ## Troubleshooting
 
 **Pipeline won't start**:
+
 ```bash
 # Check Nextflow version
 nextflow -version  # Must be >= 23.04.0
@@ -215,12 +257,14 @@ java -version      # Must be 11+
 ```
 
 **Dorado not found**:
+
 ```bash
 # Set dorado path explicitly
 nextflow run ... --dorado_path /full/path/to/dorado
 ```
 
 **Out of memory**:
+
 ```bash
 # Use resource-conservative profile
 nextflow run ... --optimization_profile resource_conservative

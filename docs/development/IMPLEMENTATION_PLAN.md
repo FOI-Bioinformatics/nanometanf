@@ -66,8 +66,8 @@ tools:
       homepage: https://tool.homepage.com
       documentation: https://tool.docs.com
       tool_dev_url: https://github.com/tool/repository
-      doi: "10.xxxx/xxxxx"  # If available
-      licence: ['MIT']  # Or appropriate license
+      doi: "10.xxxx/xxxxx" # If available
+      licence: ["MIT"] # Or appropriate license
 
 input:
   - meta:
@@ -78,7 +78,7 @@ input:
   - input_files:
       type: file
       description: Description of input files
-      pattern: "*.{fastq,fastq.gz,bam}"  # Update pattern as needed
+      pattern: "*.{fastq,fastq.gz,bam}" # Update pattern as needed
 
 output:
   - meta:
@@ -88,7 +88,7 @@ output:
   - output_files:
       type: file
       description: Description of output files
-      pattern: "*.{txt,json,html}"  # Update pattern as needed
+      pattern: "*.{txt,json,html}" # Update pattern as needed
   - versions:
       type: file
       description: File containing software versions
@@ -127,6 +127,7 @@ maintainers:
 4. **Utility modules** (remaining modules)
 
 **Workflow:**
+
 ```bash
 # For each module
 cd modules/local/<module_name>/
@@ -155,6 +156,7 @@ done
 ```
 
 **Add stub blocks where missing:**
+
 ```groovy
 stub:
 def prefix = task.ext.prefix ?: "${meta.id}"
@@ -282,50 +284,53 @@ Update all documentation cross-references to reflect new structure and add helpf
 5. Update "Last Updated" date to 2025-11-04
 
 **Example updates:**
+
 ```markdown
 ## Documentation Structure
+```
+
+docs/
+├── README.md # Documentation index
+├── user/ # User-facing documentation
+│ ├── usage.md # Pipeline usage guide
+│ ├── output.md # Output file descriptions
+│ ├── qc_guide.md # Quality control guide
+│ ├── troubleshooting.md # Troubleshooting guide
+│ ├── best_practices.md # Best practices guide
+│ ├── performance_tuning.md # Performance tuning guide
+│ ├── quickstart.md # Quick start guide
+│ └── OPTIMIZATIONS_QUICK_REFERENCE.md # Optimizations reference
+├── development/ # Developer documentation
+│ ├── README.md # Development index
+│ ├── TESTING.md # Comprehensive testing documentation
+│ ├── testing_guide.md # Testing guide
+│ ├── CODE_QUALITY_EVALUATION_2025-11-04.md # Latest quality evaluation
+│ ├── IMPLEMENTATION_PLAN.md # Code quality implementation plan
+│ ├── PROMETHION_OPTIMIZATIONS.md # Platform optimizations
+│ ├── PHASE_1.1_STATUS.md # Incremental Kraken2 status
+│ ├── incremental_kraken2_implementation.md # Kraken2 architecture
+│ ├── dynamic_resource_allocation.md # Dynamic resource docs
+│ ├── production_deployment.md # Production deployment guide
+│ ├── developer_api.md # Developer API
+│ ├── test_organization.md # Test organization
+│ ├── v1_0_roadmap.md # v1.0 roadmap
+│ ├── EVALUATION_SUMMARY.md # Production readiness assessment
+│ └── archive/ # Historical documentation
+│ ├── sessions/ # Development session notes
+│ ├── progress/ # Historical progress reports
+│ ├── phases/ # Completed development phases
+│ └── v1.3.3/ # v1.3.3 development history
+├── releases/ # Release notes
+│ ├── v1.2.0.md
+│ ├── v1.3.0.md
+│ ├── v1.3.1.md
+│ └── v1.3.3.md
+├── validation/ # Test coverage reports
+├── integration/ # API documentation
+└── performance/ # Performance benchmarks
 
 ```
-docs/
-├── README.md                              # Documentation index
-├── user/                                  # User-facing documentation
-│   ├── usage.md                           # Pipeline usage guide
-│   ├── output.md                          # Output file descriptions
-│   ├── qc_guide.md                        # Quality control guide
-│   ├── troubleshooting.md                 # Troubleshooting guide
-│   ├── best_practices.md                  # Best practices guide
-│   ├── performance_tuning.md              # Performance tuning guide
-│   ├── quickstart.md                      # Quick start guide
-│   └── OPTIMIZATIONS_QUICK_REFERENCE.md   # Optimizations reference
-├── development/                           # Developer documentation
-│   ├── README.md                          # Development index
-│   ├── TESTING.md                         # Comprehensive testing documentation
-│   ├── testing_guide.md                   # Testing guide
-│   ├── CODE_QUALITY_EVALUATION_2025-11-04.md  # Latest quality evaluation
-│   ├── IMPLEMENTATION_PLAN.md             # Code quality implementation plan
-│   ├── PROMETHION_OPTIMIZATIONS.md        # Platform optimizations
-│   ├── PHASE_1.1_STATUS.md                # Incremental Kraken2 status
-│   ├── incremental_kraken2_implementation.md  # Kraken2 architecture
-│   ├── dynamic_resource_allocation.md     # Dynamic resource docs
-│   ├── production_deployment.md           # Production deployment guide
-│   ├── developer_api.md                   # Developer API
-│   ├── test_organization.md               # Test organization
-│   ├── v1_0_roadmap.md                    # v1.0 roadmap
-│   ├── EVALUATION_SUMMARY.md              # Production readiness assessment
-│   └── archive/                           # Historical documentation
-│       ├── sessions/                      # Development session notes
-│       ├── progress/                      # Historical progress reports
-│       ├── phases/                        # Completed development phases
-│       └── v1.3.3/                        # v1.3.3 development history
-├── releases/                              # Release notes
-│   ├── v1.2.0.md
-│   ├── v1.3.0.md
-│   ├── v1.3.1.md
-│   └── v1.3.3.md
-├── validation/                            # Test coverage reports
-├── integration/                           # API documentation
-└── performance/                           # Performance benchmarks
-```
+
 ```
 
 #### 4.2 Update Main README.md
@@ -340,6 +345,7 @@ docs/
 4. Add note about code quality improvements
 
 **Example addition:**
+
 ```markdown
 ## Documentation
 
@@ -365,15 +371,19 @@ This directory contains historical documentation that is no longer actively main
 ## Structure
 
 ### `sessions/`
+
 Development session notes and meeting summaries from specific dates. Useful for understanding the evolution of features and decisions made during development.
 
 ### `progress/`
+
 Historical progress reports, summaries, and systematic guides from various development phases. Provides context for past development efforts.
 
 ### `phases/`
+
 Documentation from completed development phases, including test improvements, execution plans, and readiness assessments.
 
 ### `v1.3.3/`
+
 Complete development documentation from the v1.3.3 release cycle, including implementation summaries, testing validation, and verification reports.
 
 ## Note
@@ -489,6 +499,7 @@ Update `docs/development/TESTING.md` with:
 4. Examples of good vs. bad tests
 
 **Add section:**
+
 ```markdown
 ## Test Organization with Tags
 
@@ -498,39 +509,44 @@ Create `tags.yml` in your test directory:
 
 \`\`\`yaml
 tags:
-  - modules
-  - modules_local
-  - realtime
-  - qc_analysis
-\`\`\`
+
+- modules
+- modules_local
+- realtime
+- qc_analysis
+  \`\`\`
 
 ### Running Tests by Tag
 
 \`\`\`bash
+
 # Run all realtime tests
+
 nf-test test --tag realtime
 
 # Run QC analysis tests
+
 nf-test test --tag qc_analysis
 
 # Run all local module tests
+
 nf-test test --tag modules_local
 \`\`\`
 
 ### Recommended Tags
 
-| Tag | Purpose |
-|-----|---------|
-| `modules` | All module tests |
-| `modules_local` | Local module tests |
-| `modules_nfcore` | nf-core module tests |
-| `subworkflows` | All subworkflow tests |
-| `subworkflows_local` | Local subworkflow tests |
-| `workflows` | Workflow tests |
-| `realtime` | Real-time processing tests |
-| `qc_analysis` | Quality control tests |
-| `taxonomic` | Taxonomic classification tests |
-| `basecalling` | Dorado basecalling tests |
+| Tag                  | Purpose                        |
+| -------------------- | ------------------------------ |
+| `modules`            | All module tests               |
+| `modules_local`      | Local module tests             |
+| `modules_nfcore`     | nf-core module tests           |
+| `subworkflows`       | All subworkflow tests          |
+| `subworkflows_local` | Local subworkflow tests        |
+| `workflows`          | Workflow tests                 |
+| `realtime`           | Real-time processing tests     |
+| `qc_analysis`        | Quality control tests          |
+| `taxonomic`          | Taxonomic classification tests |
+| `basecalling`        | Dorado basecalling tests       |
 ```
 
 #### 5.4 Run Full Test Suite
@@ -616,22 +632,26 @@ git diff
 ## Success Metrics
 
 ### Phase 1: Module Metadata
+
 - ✅ 24/24 modules have meta.yml files
 - ✅ 30/30 modules have stub blocks
 - ✅ `nf-core modules lint` passes with 0 critical errors
 
 ### Phase 2-3: Documentation & Cleanup
+
 - ✅ docs/ directory structure follows nf-core standards
 - ✅ No orphaned or outdated documentation in main directories
 - ✅ Clear navigation between related documents
 - ✅ No .backup or temporary files tracked in git
 
 ### Phase 4: Documentation Updates
+
 - ✅ All cross-references updated and working
 - ✅ CLAUDE.md reflects current structure
 - ✅ README.md links to documentation correctly
 
 ### Phase 5: Testing Enhancements
+
 - ✅ All test directories have tags.yml
 - ✅ Test descriptions are clear and consistent
 - ✅ Full test suite passes
@@ -641,30 +661,33 @@ git diff
 
 ## Timeline Summary
 
-| Phase | Duration | Effort | Completion Target |
-|-------|----------|--------|-------------------|
-| 1: Module Metadata | Week 1 | 11-12 hours | 2025-11-11 |
-| 2: Documentation Cleanup | ✅ Done | - | ✅ 2025-11-04 |
-| 3: Repository Cleanup | ✅ Done | - | ✅ 2025-11-04 |
-| 4: Documentation Updates | Week 3 | 4-5 hours | 2025-11-18 |
-| 5: Testing Enhancements | Week 4 | 6-8 hours | 2025-11-25 |
-| **Total** | **4 weeks** | **21-25 hours** | **2025-11-25** |
+| Phase                    | Duration    | Effort          | Completion Target |
+| ------------------------ | ----------- | --------------- | ----------------- |
+| 1: Module Metadata       | Week 1      | 11-12 hours     | 2025-11-11        |
+| 2: Documentation Cleanup | ✅ Done     | -               | ✅ 2025-11-04     |
+| 3: Repository Cleanup    | ✅ Done     | -               | ✅ 2025-11-04     |
+| 4: Documentation Updates | Week 3      | 4-5 hours       | 2025-11-18        |
+| 5: Testing Enhancements  | Week 4      | 6-8 hours       | 2025-11-25        |
+| **Total**                | **4 weeks** | **21-25 hours** | **2025-11-25**    |
 
 ---
 
 ## Risk Assessment
 
 ### Low Risk
+
 - ✅ Documentation cleanup (non-breaking changes)
 - ✅ Repository cleanup (already completed)
 - Creating meta.yml files (documentation only)
 - Adding tags.yml files (test organization)
 
 ### Medium Risk
+
 - Updating cross-references (potential for broken links)
 - Standardizing test descriptions (requires careful review)
 
 ### Mitigation Strategies
+
 1. **Test incrementally** - Run tests after each phase
 2. **Use feature branch** - Don't commit directly to dev
 3. **Peer review** - Have another developer review meta.yml files

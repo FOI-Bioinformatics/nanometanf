@@ -12,7 +12,7 @@ tools:
       homepage: https://www.nextflow.io/
       documentation: https://www.nextflow.io/docs/latest/
       tool_dev_url: https://github.com/nextflow-io/nextflow
-      licence: ['Apache-2.0']
+      licence: ["Apache-2.0"]
 
 input:
   - allocation_plan:

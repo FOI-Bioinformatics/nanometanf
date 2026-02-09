@@ -3,11 +3,11 @@
     SUBWORKFLOW: REALTIME_STATISTICS
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     Real-time statistics generation for nanopore data monitoring
-    
+
     Generates two types of statistics:
     1. SNAPSHOT: Statistics for the current batch only (incremental)
     2. CUMULATIVE: Running totals and trends across all processed batches
-    
+
     Features:
     - Batch-level metrics calculation
     - Cumulative trend analysis
@@ -28,9 +28,9 @@ workflow REALTIME_STATISTICS {
     stats_config    // val: statistics configuration
 
     main:
-    
+
     ch_versions = Channel.empty()
-    
+
     //
     // Generate snapshot statistics for each batch
     //
@@ -39,27 +39,27 @@ workflow REALTIME_STATISTICS {
         stats_config
     )
     ch_versions = ch_versions.mix(GENERATE_SNAPSHOT_STATS.out.versions)
-    
+
     //
     // Update cumulative statistics with each new batch
     //
     ch_cumulative_input = GENERATE_SNAPSHOT_STATS.out.snapshot_stats
         .map { batch_meta, snapshot_stats ->
             // Prepare input for cumulative update
-            [ 
+            [
                 batch_meta,
                 snapshot_stats,
-                file("${params.outdir}/realtime_stats/cumulative_state.json").exists() ? 
+                file("${params.outdir}/realtime_stats/cumulative_state.json").exists() ?
                     file("${params.outdir}/realtime_stats/cumulative_state.json") : []
             ]
         }
-    
+
     UPDATE_CUMULATIVE_STATS (
         ch_cumulative_input,
         stats_config
     )
     ch_versions = ch_versions.mix(UPDATE_CUMULATIVE_STATS.out.versions)
-    
+
     //
     // Generate real-time HTML reports
     //
@@ -68,7 +68,7 @@ workflow REALTIME_STATISTICS {
         .map { batch_meta, snapshot_stats, cumulative_stats ->
             [ batch_meta, snapshot_stats, cumulative_stats ]
         }
-    
+
     GENERATE_REALTIME_REPORT (
         ch_report_input,
         stats_config

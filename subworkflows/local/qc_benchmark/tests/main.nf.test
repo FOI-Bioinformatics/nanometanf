@@ -47,7 +47,7 @@ EOF
                 ])
                 """
             }
-            
+
             params {
                 enable_qc_benchmark = true
                 max_cpus = 2
@@ -96,7 +96,7 @@ EOF
             """
             # Create diverse test data for comprehensive benchmarking
             mkdir -p $outputDir/comparison_input
-            
+
             # High-quality reads
             cat > $outputDir/comparison_input/high_quality.fastq << 'EOF'
 @hq_read1
@@ -108,7 +108,7 @@ GCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTA
 +
 IIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII
 EOF
-            
+
             # Mixed quality reads
             cat > $outputDir/comparison_input/mixed_quality.fastq << 'EOF'
 @mq_read1
@@ -132,13 +132,13 @@ EOF
                         file('$outputDir/comparison_input/high_quality.fastq')
                     ],
                     [
-                        [id: 'comparison_mq', single_end: true], 
+                        [id: 'comparison_mq', single_end: true],
                         file('$outputDir/comparison_input/mixed_quality.fastq')
                     ]
                 ])
                 """
             }
-            
+
             params {
                 enable_qc_benchmark = true
                 max_cpus = 4
@@ -151,7 +151,7 @@ EOF
             assert workflow.success
             assert snapshot(workflow.out.versions).match()
             assert workflow.out.benchmark_results
-            
+
             // Verify benchmarking for both samples
             def benchmark_results = workflow.out.benchmark_results.toList()
             assert benchmark_results.size() >= 8  // 4 tools × 2 samples
@@ -189,7 +189,7 @@ EOF
                 ])
                 """
             }
-            
+
             params {
                 enable_qc_benchmark = true
                 // Custom FASTP parameters for benchmarking
@@ -209,7 +209,7 @@ EOF
             assert workflow.out.benchmark_results
             assert workflow.out.fastp_results
             assert workflow.out.filtlong_results
-            
+
             // Verify configuration-specific benchmarking
             def benchmark_results = workflow.out.benchmark_results.toList()
             assert benchmark_results.size() >= 3
@@ -256,7 +256,7 @@ EOF
                 ])
                 """
             }
-            
+
             params {
                 enable_qc_benchmark = true
                 max_cpus = 2
@@ -271,17 +271,17 @@ EOF
             assert workflow.out.benchmark_results
             assert workflow.out.nanoplot_reports
             assert workflow.out.versions
-            
+
             // Verify performance analysis outputs
             def benchmark_results = workflow.out.benchmark_results.toList()
             assert benchmark_results.size() >= 3
-            
+
             // Verify all benchmarking tools completed
             def tool_names = benchmark_results.collect { it[0].qc_tool }.unique()
             assert tool_names.contains('fastp')
             assert tool_names.contains('filtlong')
             assert tool_names.contains('porechop_filtlong')
-            
+
             // Verify NanoPlot visualization for all tools
             def nanoplot_reports = workflow.out.nanoplot_reports.toList()
             assert nanoplot_reports.size() >= 3
@@ -296,7 +296,7 @@ EOF
                 input[0] = Channel.empty()
                 """
             }
-            
+
             params {
                 enable_qc_benchmark = true
                 max_cpus = 1
@@ -308,18 +308,18 @@ EOF
         then {
             assert workflow.success
             assert snapshot(workflow.out.versions).match()
-            
+
             // Should handle empty input gracefully
             if (workflow.out.benchmark_results) {
                 def benchmark_results = workflow.out.benchmark_results.toList()
                 assert benchmark_results.size() == 0
             }
-            
+
             if (workflow.out.fastp_results) {
                 def fastp_results = workflow.out.fastp_results.toList()
                 assert fastp_results.size() == 0
             }
-            
+
             if (workflow.out.filtlong_results) {
                 def filtlong_results = workflow.out.filtlong_results.toList()
                 assert filtlong_results.size() == 0
@@ -353,7 +353,7 @@ EOF
                 ])
                 """
             }
-            
+
             params {
                 enable_qc_benchmark = true
                 max_cpus = 4
@@ -366,11 +366,11 @@ EOF
             assert workflow.success
             assert snapshot(workflow.out.versions).match()
             assert workflow.out.benchmark_results
-            
+
             // Verify resource-intensive benchmarking
             def benchmark_results = workflow.out.benchmark_results.toList()
             assert benchmark_results.size() >= 3
-            
+
             // Should handle resource-intensive processing efficiently
             assert workflow.duration.toMillis() < 480000 // Less than 8 minutes
         }
@@ -408,7 +408,7 @@ EOF
                 ])
                 """
             }
-            
+
             params {
                 enable_qc_benchmark = true
                 max_cpus = 2
@@ -424,11 +424,11 @@ EOF
             assert workflow.out.fastp_results
             assert workflow.out.filtlong_results
             assert workflow.out.enhanced_results
-            
+
             // Verify accuracy testing completed
             def benchmark_results = workflow.out.benchmark_results.toList()
             assert benchmark_results.size() >= 3
-            
+
             // Verify all QC approaches were tested
             def qc_tools = benchmark_results.collect { it[0].qc_tool }.unique()
             assert qc_tools.size() >= 3

@@ -3,29 +3,57 @@
         "content": [
             {
                 "0": [
-                    
+                    [
+                        {
+                            "id": "test_sample",
+                            "single_end": true,
+                            "basecalling_model": "dna_r10.4.1_e8.2_400bps_hac@v4.2.0"
+                        },
+                        "test_sample.fastq.gz:md5,1a2215c817d4b067d1554f2f2d7a0a27"
+                    ]
                 ],
                 "1": [
-                    
+                    [
+                        {
+                            "id": "test_sample",
+                            "single_end": true,
+                            "basecalling_model": "dna_r10.4.1_e8.2_400bps_hac@v4.2.0"
+                        },
+                        "test_sample_summary.txt:md5,ab152fb1966119ba1de2f12b825acd81"
+                    ]
                 ],
                 "2": [
-                    
+                    "versions.yml:md5,cc8e9c3b7e5401d49168930bc0586472"
                 ],
                 "fastq": [
-                    
+                    [
+                        {
+                            "id": "test_sample",
+                            "single_end": true,
+                            "basecalling_model": "dna_r10.4.1_e8.2_400bps_hac@v4.2.0"
+                        },
+                        "test_sample.fastq.gz:md5,1a2215c817d4b067d1554f2f2d7a0a27"
+                    ]
                 ],
                 "summary": [
-                    
+                    [
+                        {
+                            "id": "test_sample",
+                            "single_end": true,
+                            "basecalling_model": "dna_r10.4.1_e8.2_400bps_hac@v4.2.0"
+                        },
+                        "test_sample_summary.txt:md5,ab152fb1966119ba1de2f12b825acd81"
+                    ]
                 ],
                 "versions": [
-                    
+                    "versions.yml:md5,cc8e9c3b7e5401d49168930bc0586472"
                 ]
             }
         ],
         "meta": {
-            "nf-test": "0.9.2",
-            "nextflow": "25.04.7"
+            "nf-test": "0.9.3",
+            "nextflow": "25.10.3"
         },
-        "timestamp": "2025-10-14T11:56:53.765529"
+        "timestamp": "2026-02-03T14:52:44.031594"
     }
 }

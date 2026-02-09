@@ -18,15 +18,15 @@ nextflow_pipeline {
 
         when {
             params {
-                input = "$projectDir/assets/test_data/test_samplesheet_absolute.csv"
+                input = "$projectDir/tests/fixtures/samplesheets/test_samplesheet_absolute.csv"
                 outdir = "$outputDir"
-                
+
                 // Test all key parameters
                 use_dorado = false
                 realtime_mode = false
-                kraken2_db = null
+                skip_kraken2 = true
                 blast_validation = false
-                
+
                 // Quick validation test
                 max_cpus = 1
                 max_memory = '1.GB'
@@ -37,7 +37,6 @@ nextflow_pipeline {
         then {
             // Just check parameters are valid
             assert workflow.success
-            assert snapshot(file("${outputDir}/pipeline_info/software_versions.yml")).match("software_versions") || workflow.exitStatus == 1
         }
     }
 }

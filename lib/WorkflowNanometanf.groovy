@@ -277,7 +277,7 @@ Example:
         if (!params.kraken2_db) {
             Nextflow.error("""
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-❌ ERROR: Kraken2 database path required
+ERROR: Kraken2 database path required
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 Kraken2 taxonomic classification is enabled but --kraken2_db is not specified.
@@ -286,7 +286,11 @@ Options:
   1. Provide database path:
      --kraken2_db /path/to/kraken2_standard
 
-  2. Disable classification:
+  2. Provide a tar.gz archive (local or URL):
+     --kraken2_db /path/to/kraken2.tar.gz
+     --kraken2_db https://example.com/kraken2.tar.gz
+
+  3. Disable classification:
      --skip_kraken2
 
 For database downloads, see:
@@ -296,15 +300,49 @@ https://benlangmead.github.io/aws-indexes/k2
 """)
         }
 
+        def db_path = params.kraken2_db.toString()
+
+        // Check if this is an archive (tar.gz or tgz) - will be extracted at runtime
+        def is_archive = db_path.endsWith('.tar.gz') || db_path.endsWith('.tgz')
+
+        // Check if this is a URL - cannot validate at parse time
+        def is_url = db_path.startsWith('http://') || db_path.startsWith('https://') || db_path.startsWith('s3://') || db_path.startsWith('gs://')
+
+        if (is_url) {
+            // Skip validation for URLs - will be validated at runtime when downloaded
+            log.info "Kraken2 database validation skipped (remote URL will be fetched at runtime): ${db_path}"
+            return
+        }
+
+        if (is_archive) {
+            // Validate archive file exists
+            def archive_file = new File(db_path)
+            if (!archive_file.exists()) {
+                Nextflow.error("""
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ERROR: Kraken2 database archive does not exist
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Path: ${db_path}
+
+Verify the archive path is correct and accessible.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+""")
+            }
+            log.info "Kraken2 database validation passed (archive will be extracted at runtime): ${db_path}"
+            return
+        }
+
         // Validate database directory exists
-        def db_dir = new File(params.kraken2_db)
+        def db_dir = new File(db_path)
         if (!db_dir.exists()) {
             Nextflow.error("""
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-❌ ERROR: Kraken2 database directory does not exist
+ERROR: Kraken2 database directory does not exist
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-Path: ${params.kraken2_db}
+Path: ${db_path}
 
 Verify the path is correct and accessible.
 
@@ -315,12 +353,13 @@ Verify the path is correct and accessible.
         if (!db_dir.isDirectory()) {
             Nextflow.error("""
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-❌ ERROR: Kraken2 database path is not a directory
+ERROR: Kraken2 database path is not a directory
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-Path: ${params.kraken2_db}
+Path: ${db_path}
 
 Provide a directory containing Kraken2 database files.
+Alternatively, provide a tar.gz archive that will be extracted automatically.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 """)
@@ -333,18 +372,18 @@ Provide a directory containing Kraken2 database files.
         if (missing_files.size() > 0) {
             Nextflow.error("""
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-❌ ERROR: Incomplete Kraken2 database
+ERROR: Incomplete Kraken2 database
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-Database directory: ${params.kraken2_db}
+Database directory: ${db_path}
 
 Missing required files:
-  ${missing_files.collect { "• ${it}" }.join('\n  ')}
+  ${missing_files.collect { "- ${it}" }.join('\n  ')}
 
 A valid Kraken2 database must contain:
-  • hash.k2d - Hash table
-  • opts.k2d - Database options
-  • taxo.k2d - Taxonomy mappings
+  - hash.k2d - Hash table
+  - opts.k2d - Database options
+  - taxo.k2d - Taxonomy mappings
 
 The database may be corrupted or incomplete. Re-download from:
 https://benlangmead.github.io/aws-indexes/k2
@@ -353,6 +392,6 @@ https://benlangmead.github.io/aws-indexes/k2
 """)
         }
 
-        log.info "✓ Kraken2 database validation passed: ${params.kraken2_db}"
+        log.info "Kraken2 database validation passed: ${db_path}"
     }
 }

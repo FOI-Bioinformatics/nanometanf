@@ -1,0 +1,61 @@
+name: "blastn_validation"
+description: Validate extracted reads against reference genome using BLAST
+keywords:
+  - blast
+  - validation
+  - pathogen
+  - alignment
+  - taxonomy
+tools:
+  - blast:
+      description: BLAST+ sequence alignment tool
+      homepage: https://blast.ncbi.nlm.nih.gov/
+      documentation: https://www.ncbi.nlm.nih.gov/books/NBK279690/
+      tool_dev_url: https://github.com/ncbi/blast
+      licence: ["Public Domain"]
+  - seqtk:
+      description: Toolkit for processing sequences in FASTA/Q formats
+      homepage: https://github.com/lh3/seqtk
+      documentation: https://github.com/lh3/seqtk
+      tool_dev_url: https://github.com/lh3/seqtk
+      licence: ["MIT"]
+
+input:
+  - meta:
+      type: map
+      description: |
+        Groovy Map containing sample information
+        e.g. [ id:'sample1', taxid:562 ]
+  - reads:
+      type: file
+      description: FASTQ file containing reads to validate
+      pattern: "*.fastq{,.gz}"
+  - reference:
+      type: file
+      description: |
+        Reference genome for validation. Can be either:
+        - A FASTA file (.fasta, .fa, .fna, or gzipped variants) - will be indexed automatically
+        - A pre-built BLAST database path (without .nhr/.nin/.nsq extensions)
+      pattern: "*.{fasta,fa,fna,fasta.gz,fa.gz}|*"
+
+output:
+  - meta:
+      type: map
+      description: |
+        Groovy Map containing sample information
+        e.g. [ id:'sample1', taxid:562 ]
+  - results:
+      type: file
+      description: BLAST output in tabular format (outfmt 6)
+      pattern: "*.blast.tsv"
+  - stats:
+      type: file
+      description: JSON file containing validation statistics
+      pattern: "*.blast_stats.json"
+  - versions:
+      type: file
+      description: File containing software versions
+      pattern: "versions.yml"
+
+authors:
+  - "@andreassjodin"

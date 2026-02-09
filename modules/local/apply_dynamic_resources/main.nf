@@ -16,18 +16,18 @@ process APPLY_DYNAMIC_RESOURCES {
     script:
     """
     #!/usr/bin/env python3
-    
+
     import json
     import os
     from pathlib import Path
 
     meta = json.loads('${new groovy.json.JsonBuilder(meta).toString()}')
     target_process = "${target_process_name}"
-    
+
     # Load optimal allocation
     with open('${allocation_file}', 'r') as f:
         allocation = json.load(f)
-    
+
     # Extract the Nextflow process configuration
     dynamic_config = allocation.get('nextflow_process_config', {})
 
@@ -49,11 +49,11 @@ process APPLY_DYNAMIC_RESOURCES {
     stub:
     """
     # Create comprehensive dynamic resource configuration matching real output structure
-    cat > ${meta.id}_dynamic_config.json << 'EOF'
+    cat > dynamic_config.json << EOF
 {
     "sample_id": "${meta.id}",
     "target_process": "${target_process_name}",
-    "configuration_timestamp": "\$(date -Iseconds)",
+    "configuration_timestamp": "2024-01-01T00:00:00+00:00",
     "nextflow_process_config": {
         "cpus": 4,
         "memory": "8.GB",
@@ -95,10 +95,10 @@ process APPLY_DYNAMIC_RESOURCES {
 EOF
 
     cat <<-END_VERSIONS > versions.yml
-    "${task.process}":
-        python: "3.9"
-        dynamic_resources: "1.0"
-    END_VERSIONS
+"${task.process}":
+    python: "3.9"
+    dynamic_resources: "1.0"
+END_VERSIONS
     """
 }
 
@@ -113,11 +113,11 @@ def applyDynamicResources(process_config, sample_meta = null, default_config = [
     Apply dynamic resource configuration to a process
     This function merges dynamic configs with default configs and applies them
     */
-    
+
     // Start with default configuration
     def final_config = [:]
     final_config.putAll(default_config)
-    
+
     // Apply dynamic configuration if available
     if (process_config && process_config.size() > 0) {
         final_config.putAll(process_config)
@@ -125,7 +125,7 @@ def applyDynamicResources(process_config, sample_meta = null, default_config = [
     } else {
         log.debug "Using default resource configuration: ${final_config}"
     }
-    
+
     return final_config
 }
 
@@ -133,34 +133,34 @@ def configureDynamicProcess(process_name, resource_configs, sample_meta = null) 
     /*
     Configure a specific process with dynamic resources
     */
-    
+
     def process_configs = [:]
-    
+
     resource_configs.subscribe { meta, config ->
         if (meta.id == sample_meta?.id) {
             process_configs[process_name] = config
-            
+
             // Apply the configuration to the process
             withName:process_name {
                 cpus = config.cpus ?: 1
                 memory = config.memory ?: '4.GB'
                 time = config.time ?: '6.h'
-                
+
                 if (config.accelerator) {
                     accelerator = config.accelerator
                 }
-                
+
                 if (config.errorStrategy) {
                     errorStrategy = config.errorStrategy
                 }
-                
+
                 if (config.maxRetries) {
                     maxRetries = config.maxRetries
                 }
             }
         }
     }
-    
+
     return process_configs
 }
 
@@ -168,16 +168,16 @@ def createResourceSelector(ch_resource_configs) {
     /*
     Create a resource selector that processes can use to get their optimal configuration
     */
-    
+
     def resource_selector = ch_resource_configs
         .map { meta, config_file ->
             // Parse the configuration file to extract the nextflow config
             def config = readJSON(file: config_file)
             def nextflow_config = config.nextflow_process_config ?: [:]
-            
+
             [ meta, nextflow_config ]
         }
-    
+
     return resource_selector
 }
 
@@ -186,13 +186,13 @@ def getOptimalResourceConfig(sample_meta, tool_name, ch_resource_configs, defaul
     Get optimal resource configuration for a specific sample and tool
     Returns a channel with the configuration
     */
-    
+
     def optimal_config = ch_resource_configs
         .filter { meta, config -> meta.id == sample_meta.id }
         .map { meta, config ->
             // Apply tool-specific adjustments if needed
             def adjusted_config = config.clone()
-            
+
             // Tool-specific resource adjustments
             switch(tool_name) {
                 case 'KRAKEN2':
@@ -202,14 +202,14 @@ def getOptimalResourceConfig(sample_meta, tool_name, ch_resource_configs, defaul
                         adjusted_config.memory = '16.GB'
                     }
                     break
-                    
+
                 case 'DORADO_BASECALLER':
                     // Ensure GPU configuration is properly set
                     if (config.accelerator) {
                         adjusted_config.clusterOptions = '--gres=gpu:1'
                     }
                     break
-                    
+
                 case 'FLYE':
                 case 'MINIASM':
                     // Assembly tools need more time
@@ -217,15 +217,15 @@ def getOptimalResourceConfig(sample_meta, tool_name, ch_resource_configs, defaul
                     adjusted_config.time = "${Math.max(time_val, 12)}.h"
                     break
             }
-            
+
             // Merge with defaults
             def final_config = [:]
             final_config.putAll(default_config)
             final_config.putAll(adjusted_config)
-            
+
             [ meta, final_config ]
         }
         .ifEmpty { [ sample_meta, default_config ] }
-    
+
     return optimal_config
 }

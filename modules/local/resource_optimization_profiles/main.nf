@@ -9,7 +9,7 @@ process LOAD_OPTIMIZATION_PROFILES {
 
     output:
     path "optimization_profiles.json", emit: profiles
-    path "active_profile.json", emit: active_profile  
+    path "active_profile.json", emit: active_profile
     path "versions.yml", emit: versions
 
     when:
@@ -18,18 +18,18 @@ process LOAD_OPTIMIZATION_PROFILES {
     script:
     """
     #!/usr/bin/env python3
-    
+
     import json
     import os
     from datetime import datetime
     from pathlib import Path
-    
+
     profile_name = "${profile_name}"
     system_context = json.loads('${new groovy.json.JsonBuilder(system_context).toString()}')
-    
+
     def create_optimization_profiles():
         \"\"\"Create comprehensive resource optimization profiles\"\"\"
-        
+
         profiles = {
             'high_throughput': {
                 'name': 'High Throughput',
@@ -71,7 +71,7 @@ process LOAD_OPTIMIZATION_PROFILES {
                     'max_queue_time_minutes': 2
                 }
             },
-            
+
             'balanced': {
                 'name': 'Balanced Performance',
                 'description': 'Balanced resource usage suitable for most scenarios',
@@ -112,7 +112,7 @@ process LOAD_OPTIMIZATION_PROFILES {
                     'max_queue_time_minutes': 5
                 }
             },
-            
+
             'resource_conservative': {
                 'name': 'Resource Conservative',
                 'description': 'Minimal resource usage for resource-constrained environments',
@@ -153,7 +153,7 @@ process LOAD_OPTIMIZATION_PROFILES {
                     'max_queue_time_minutes': 15
                 }
             },
-            
+
             'gpu_optimized': {
                 'name': 'GPU Optimized',
                 'description': 'Optimized for GPU-accelerated workloads',
@@ -196,7 +196,7 @@ process LOAD_OPTIMIZATION_PROFILES {
                     'max_queue_time_minutes': 1
                 }
             },
-            
+
             'realtime_optimized': {
                 'name': 'Real-time Optimized',
                 'description': 'Optimized for real-time processing with low latency',
@@ -239,7 +239,7 @@ process LOAD_OPTIMIZATION_PROFILES {
                     'max_queue_time_minutes': 0.5
                 }
             },
-            
+
             'development_testing': {
                 'name': 'Development & Testing',
                 'description': 'Fast processing for development and testing workflows',
@@ -278,12 +278,12 @@ process LOAD_OPTIMIZATION_PROFILES {
                 }
             }
         }
-        
+
         return profiles
-    
+
     def select_optimal_profile(profiles, system_context, user_preference=None):
         \"\"\"Select optimal profile based on system context and user preference\"\"\"
-        
+
         if user_preference and user_preference in profiles:
             selected_profile = profiles[user_preference]
             selection_reason = f"User specified profile: {user_preference}"
@@ -293,7 +293,7 @@ process LOAD_OPTIMIZATION_PROFILES {
             memory_gb = system_context.get('total_memory_gb', 8)
             cpu_cores = system_context.get('cpu_cores', 4)
             realtime_mode = system_context.get('realtime_mode', False)
-            
+
             if realtime_mode:
                 selected_key = 'realtime_optimized'
                 selection_reason = "Real-time mode detected"
@@ -309,65 +309,65 @@ process LOAD_OPTIMIZATION_PROFILES {
             else:
                 selected_key = 'balanced'
                 selection_reason = "Standard system configuration"
-            
+
             selected_profile = profiles[selected_key]
             selected_profile['profile_key'] = selected_key
-        
+
         selected_profile['selection_reason'] = selection_reason
         selected_profile['selection_timestamp'] = '2022-01-01T00:00:00'
-        
+
         return selected_profile
-    
+
     def apply_profile_adjustments(profile, system_context):
         \"\"\"Apply system-specific adjustments to the selected profile\"\"\"
-        
+
         adjusted_profile = profile.copy()
-        
+
         # Adjust based on actual system capabilities
         memory_gb = system_context.get('total_memory_gb', 8)
         cpu_cores = system_context.get('cpu_cores', 4)
         current_load = system_context.get('current_load_classification', 'medium')
-        
+
         # Memory-based adjustments
         if memory_gb < 16:
             # Reduce memory factors for low-memory systems
             adjusted_profile['resource_multipliers']['memory_factor'] *= 0.8
             adjusted_profile['optimization_settings']['safety_factor'] *= 0.9
-        
+
         # CPU-based adjustments
         if cpu_cores < 8:
             # Reduce parallelization for low-CPU systems
             adjusted_profile['resource_multipliers']['parallel_job_factor'] *= 0.7
-        
+
         # Load-based adjustments
         if current_load == 'high':
             # Be more conservative under high load
             for factor in ['cpu_factor', 'memory_factor', 'parallel_job_factor']:
                 adjusted_profile['resource_multipliers'][factor] *= 0.8
             adjusted_profile['optimization_settings']['safety_factor'] *= 0.9
-        
+
         adjusted_profile['system_adjustments'] = {
             'memory_adjustment': memory_gb < 16,
             'cpu_adjustment': cpu_cores < 8,
             'load_adjustment': current_load == 'high',
             'adjustment_timestamp': '2022-01-01T00:00:00'
         }
-        
+
         return adjusted_profile
-    
+
     # Generate all optimization profiles
     all_profiles = create_optimization_profiles()
-    
+
     # Select optimal profile for current system
     selected_profile = select_optimal_profile(all_profiles, system_context, profile_name if profile_name != 'auto' else None)
-    
+
     # Apply system-specific adjustments
     optimized_profile = apply_profile_adjustments(selected_profile, system_context)
-    
+
     print(f"Resource optimization profile selected: {optimized_profile.get('name', 'Unknown')}")
     print(f"Selection reason: {optimized_profile.get('selection_reason', 'Not specified')}")
     print(f"Profile description: {optimized_profile.get('description', 'No description')}")
-    
+
     # Save all profiles
     with open('optimization_profiles.json', 'w') as f:
         json.dump({
@@ -378,14 +378,14 @@ process LOAD_OPTIMIZATION_PROFILES {
                 'system_context': system_context
             }
         }, f, indent=2)
-    
+
     # Save active profile
     with open('active_profile.json', 'w') as f:
         json.dump(optimized_profile, f, indent=2)
-    
+
     print(f"Optimization profiles loaded successfully")
     print(f"Active profile: {optimized_profile.get('profile_key', optimized_profile.get('name'))}")
-    
+
     # Generate versions file
     with open('versions.yml', 'w') as f:
         f.write('''\"${task.process}\":
@@ -510,9 +510,9 @@ EOF
 EOF
 
     cat <<-END_VERSIONS > versions.yml
-    "${task.process}":
-        python: "3.9"
-        optimization_profiles: "1.0"
-    END_VERSIONS
+"${task.process}":
+    python: "3.9"
+    optimization_profiles: "1.0"
+END_VERSIONS
     """
 }

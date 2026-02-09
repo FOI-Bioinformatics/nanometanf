@@ -28,7 +28,7 @@ nextflow_workflow {
                 input[4] = 'dna_r10.4.1_e4.3_400bps_hac@v5.0.0'  // dorado_model
                 """
             }
-            
+
             params {
                 realtime_mode = false
                 use_dorado = false
@@ -41,13 +41,13 @@ nextflow_workflow {
         then {
             assert workflow.success
             assert snapshot(workflow.out.versions).match()
-            
+
             // When realtime_mode or use_dorado is false, should return empty channels
             if (workflow.out.samples) {
                 def samples = workflow.out.samples.toList()
                 assert samples.size() == 0
             }
-            
+
             // Versions should be empty when Dorado is not used
             assert workflow.out.versions == null || workflow.out.versions.toList().size() == 0
         }
@@ -61,7 +61,7 @@ nextflow_workflow {
             mkdir -p $outputDir/pod5_watch_dir
             mkdir -p $outputDir/pod5_watch_dir/subdir1
             mkdir -p $outputDir/pod5_watch_dir/subdir2
-            
+
             # Create mock POD5 files to simulate real structure
             echo "Mock POD5 data" > $outputDir/pod5_watch_dir/batch_001.pod5
             echo "Mock POD5 data" > $outputDir/pod5_watch_dir/batch_002.pod5
@@ -79,7 +79,7 @@ nextflow_workflow {
                 input[4] = 'dna_r10.4.1_e4.3_400bps_hac@v5.0.0'  // dorado_model
                 """
             }
-            
+
             params {
                 realtime_mode = true
                 use_dorado = true
@@ -127,7 +127,7 @@ nextflow_workflow {
                 input[4] = 'dna_r10.4.1_e4.3_400bps_hac@v5.0.0'  // dorado_model
                 """
             }
-            
+
             params {
                 realtime_mode = false  // Disable for static testing
                 use_dorado = false
@@ -140,7 +140,7 @@ nextflow_workflow {
         then {
             assert workflow.success
             assert snapshot(workflow.out.versions).match()
-            
+
             // When disabled, should return empty channels
             if (workflow.out.samples) {
                 def samples = workflow.out.samples.toList()
@@ -178,7 +178,7 @@ nextflow_workflow {
                 input[4] = 'dna_r10.4.1_e4.3_400bps_sup@v5.0.0'  // dorado_model - different model
                 """
             }
-            
+
             params {
                 realtime_mode = false  // Static mode for testing
                 use_dorado = false
@@ -191,7 +191,7 @@ nextflow_workflow {
         then {
             assert workflow.success
             assert snapshot(workflow.out.versions).match()
-            
+
             // Verify batch configuration is handled
             if (workflow.out.samples) {
                 def samples = workflow.out.samples.toList()
@@ -239,7 +239,7 @@ nextflow_workflow {
                 input[4] = 'dna_r10.4.1_e4.3_400bps_hac@v5.0.0'  // dorado_model
                 """
             }
-            
+
             params {
                 realtime_mode = false
                 use_dorado = false
@@ -253,7 +253,7 @@ nextflow_workflow {
         then {
             assert workflow.success
             assert snapshot(workflow.out.versions).match()
-            
+
             // Verify large batch handling
             if (workflow.out.samples) {
                 def samples = workflow.out.samples.toList()
@@ -283,7 +283,7 @@ nextflow_workflow {
                 input[4] = 'dna_r9.4.1_e4.1_450bps_hac@v3.6.0'  // dorado_model - different version
                 """
             }
-            
+
             params {
                 realtime_mode = false
                 use_dorado = false
@@ -298,7 +298,7 @@ nextflow_workflow {
         then {
             assert workflow.success
             assert snapshot(workflow.out.versions).match()
-            
+
             // Model parameter validation
             if (workflow.out.samples) {
                 def samples = workflow.out.samples.toList()
@@ -329,7 +329,7 @@ nextflow_workflow {
                 input[4] = 'dna_r10.4.1_e4.3_400bps_fast@v5.0.0'  // dorado_model - fast model
                 """
             }
-            
+
             params {
                 realtime_mode = false
                 use_dorado = false
@@ -343,7 +343,7 @@ nextflow_workflow {
         then {
             assert workflow.success
             assert snapshot(workflow.out.versions).match()
-            
+
             // Interval configuration validation
             if (workflow.out.samples) {
                 def samples = workflow.out.samples.toList()
@@ -359,7 +359,7 @@ nextflow_workflow {
             # Create complex nested directory structure
             mkdir -p $outputDir/nested_test/level1/level2/level3
             mkdir -p $outputDir/nested_test/another_branch/subbranch
-            
+
             # Place POD5 files at different levels
             echo "Root level POD5" > $outputDir/nested_test/root.pod5
             echo "Level 1 POD5" > $outputDir/nested_test/level1/level1.pod5
@@ -380,7 +380,7 @@ nextflow_workflow {
                 input[4] = 'dna_r10.4.1_e4.3_400bps_hac@v5.0.0'  // dorado_model
                 """
             }
-            
+
             params {
                 realtime_mode = false
                 use_dorado = false
@@ -394,7 +394,7 @@ nextflow_workflow {
         then {
             assert workflow.success
             assert snapshot(workflow.out.versions).match()
-            
+
             // Nested directory handling validation
             if (workflow.out.samples) {
                 def samples = workflow.out.samples.toList()
@@ -411,7 +411,7 @@ nextflow_workflow {
             mkdir -p $outputDir/empty_watch_dir
             mkdir -p $outputDir/empty_watch_dir/subdir1
             mkdir -p $outputDir/empty_watch_dir/subdir2
-            
+
             # No POD5 files - only create other file types
             echo "Not a POD5 file" > $outputDir/empty_watch_dir/readme.txt
             echo "Also not POD5" > $outputDir/empty_watch_dir/data.csv
@@ -428,7 +428,7 @@ nextflow_workflow {
                 input[4] = 'dna_r10.4.1_e4.3_400bps_hac@v5.0.0'  // dorado_model
                 """
             }
-            
+
             params {
                 realtime_mode = false
                 use_dorado = false
@@ -442,7 +442,7 @@ nextflow_workflow {
         then {
             assert workflow.success
             assert snapshot(workflow.out.versions).match()
-            
+
             // Empty directory handling
             if (workflow.out.samples) {
                 def samples = workflow.out.samples.toList()
@@ -490,7 +490,7 @@ nextflow_workflow {
                 input[4] = 'dna_r10.4.1_e4.3_400bps_sup@v5.0.0'  // dorado_model - high accuracy
                 """
             }
-            
+
             params {
                 realtime_mode = false
                 use_dorado = false
@@ -506,7 +506,7 @@ nextflow_workflow {
         then {
             assert workflow.success
             assert snapshot(workflow.out.versions).match()
-            
+
             // Resource requirement validation
             if (workflow.out.samples) {
                 def samples = workflow.out.samples.toList()

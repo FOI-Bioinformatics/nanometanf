@@ -7,6 +7,8 @@ nextflow_process {
     name "Test Process FLYE"
     script "../main.nf"
     process "FLYE"
+
+    options "-stub"
     tag "flye"
     tag "modules"
     tag "modules_nfcore"
@@ -148,9 +150,6 @@ nextflow_process {
     }
 
     test("flye_pacbio_raw - stub") {
-
-        options "-stub"
-
         when {
             process {
                 """

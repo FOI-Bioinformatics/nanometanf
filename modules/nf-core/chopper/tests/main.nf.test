@@ -3,6 +3,8 @@ nextflow_process {
     name "Test Process CHOPPER"
     script "../main.nf"
     process "CHOPPER"
+
+    options "-stub"
     tag "chopper"
     tag "modules"
     tag "modules_nfcore"

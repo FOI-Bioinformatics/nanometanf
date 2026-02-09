@@ -76,6 +76,7 @@ file('$projectDir/tests/fixtures/fastq/test_sample.fastq.gz')
 ```
 
 **Available Fixtures:**
+
 - `tests/fixtures/fastq/test_sample.fastq.gz` - Standard FASTQ
 - `tests/fixtures/pod5/` - POD5 files
 - `tests/fixtures/kraken2_db/` - Mock Kraken2 database (needs binary format)
@@ -120,6 +121,7 @@ input[0] = [
 **Fix:** Match workflow `emit{}` block channel names
 
 **How to Find Correct Names:**
+
 ```bash
 # 1. Read the workflow file
 cat subworkflows/local/qc_analysis/main.nf | grep "emit:" -A 20
@@ -151,14 +153,15 @@ emit:
 
 **Feature Matrix:**
 
-| Feature | FASTP | CHOPPER | FILTLONG |
-|---------|-------|---------|----------|
-| Basic QC | ✅ | ✅ | ✅ |
-| `seqkit_stats` | ❌ | ✅ | ✅ |
-| `fastqc_html` | ❌ | ✅ | ✅ |
-| `qc_json` | ✅ (fastp.json) | ✅ (seqkit) | ✅ (seqkit) |
+| Feature        | FASTP           | CHOPPER     | FILTLONG    |
+| -------------- | --------------- | ----------- | ----------- |
+| Basic QC       | ✅              | ✅          | ✅          |
+| `seqkit_stats` | ❌              | ✅          | ✅          |
+| `fastqc_html`  | ❌              | ✅          | ✅          |
+| `qc_json`      | ✅ (fastp.json) | ✅ (seqkit) | ✅ (seqkit) |
 
 **Example Fix:**
+
 ```groovy
 // ❌ BROKEN: FASTP doesn't produce seqkit_stats
 params {
@@ -211,12 +214,14 @@ include { ANOTHER_MOD } from "${projectDir}/modules/nf-core/another_mod/main"
 ### How to Find and Fix
 
 1. **Search for relative includes:**
+
    ```bash
    grep -r "from ['\"]\.\./" subworkflows/local/*/main.nf
    grep -r "from ['\"]\\./" subworkflows/local/*/main.nf
    ```
 
 2. **Replace pattern:**
+
    ```bash
    # For modules:
    sed -i '' "s|from '../../modules/|from \"\${projectDir}/modules/|g" subworkflow.nf
@@ -233,17 +238,18 @@ include { ANOTHER_MOD } from "${projectDir}/modules/nf-core/another_mod/main"
 
 ### Fixed Workflows
 
-| Commit | Workflow | Includes Fixed | Tests Unblocked |
-|--------|----------|----------------|-----------------|
-| `9256e14` | 10 subworkflows | 142 module includes | +142 tests |
-| `cbaa2c1` | DORADO_BASECALLING | 1 subworkflow include | +10 tests |
-| `4cc94e0` | ENHANCED_REALTIME_MONITORING, ERROR_HANDLER | 6 module includes | +tests TBD |
+| Commit    | Workflow                                    | Includes Fixed        | Tests Unblocked |
+| --------- | ------------------------------------------- | --------------------- | --------------- |
+| `9256e14` | 10 subworkflows                             | 142 module includes   | +142 tests      |
+| `cbaa2c1` | DORADO_BASECALLING                          | 1 subworkflow include | +10 tests       |
+| `4cc94e0` | ENHANCED_REALTIME_MONITORING, ERROR_HANDLER | 6 module includes     | +tests TBD      |
 
 **Total Impact:** 13 subworkflows fixed, ~160+ tests unblocked
 
 ### When NOT to Fix
 
 **Exception:** nf-core utility subworkflows may use relative paths correctly:
+
 ```groovy
 // ✅ OK: Relative path within nf-core structure
 // From: subworkflows/local/utils_nfcore_pipeline/main.nf
@@ -291,13 +297,14 @@ echo "   - Tool feature alignment"
 
 ### QC_ANALYSIS (Template Example)
 
-| Metric | Before | After | Improvement |
-|--------|--------|-------|-------------|
-| Pass Rate | 9% (1/11) | **64% (7/11)** | **7x** |
-| Tests Fixed | 1 | 7 | +6 |
-| Lines Removed | 149 | - | Cleaner code |
+| Metric        | Before    | After          | Improvement  |
+| ------------- | --------- | -------------- | ------------ |
+| Pass Rate     | 9% (1/11) | **64% (7/11)** | **7x**       |
+| Tests Fixed   | 1         | 7              | +6           |
+| Lines Removed | 149       | -              | Cleaner code |
 
 **Passing Tests:**
+
 1. ✅ Basic FASTP quality control
 2. ✅ Comprehensive nanopore QC
 3. ✅ Adapter trimming with PORECHOP
@@ -308,16 +315,17 @@ echo "   - Tool feature alignment"
 
 ### Overall Impact
 
-| Component | Status | Tests Fixed | Impact |
-|-----------|--------|-------------|--------|
-| **Module Resolution** | ✅ Complete | +142 tests | Critical unblock |
-| **Stub Syntax** | ✅ Complete | +7 tests | 100% fixed |
-| **Subworkflow Paths** | ✅ Complete | +12 tests | 100% fixed |
-| **QC_ANALYSIS** | ✅ Template | 7/11 passing | 7x improvement |
-| **TAXONOMIC_CLASSIFICATION** | ⚠️ Structural | 0/7 passing | Needs binary DB |
-| **Remaining Tests** | 🔄 Pending | ~230 tests | Ready for pattern |
+| Component                    | Status        | Tests Fixed  | Impact            |
+| ---------------------------- | ------------- | ------------ | ----------------- |
+| **Module Resolution**        | ✅ Complete   | +142 tests   | Critical unblock  |
+| **Stub Syntax**              | ✅ Complete   | +7 tests     | 100% fixed        |
+| **Subworkflow Paths**        | ✅ Complete   | +12 tests    | 100% fixed        |
+| **QC_ANALYSIS**              | ✅ Template   | 7/11 passing | 7x improvement    |
+| **TAXONOMIC_CLASSIFICATION** | ⚠️ Structural | 0/7 passing  | Needs binary DB   |
+| **Remaining Tests**          | 🔄 Pending    | ~230 tests   | Ready for pattern |
 
 **Projected Final:**
+
 - Current: 78/314 (24.8%)
 - After systematic fixes: **~250/314 (~80%)** ← Target!
 
@@ -326,11 +334,13 @@ echo "   - Tool feature alignment"
 ### Tests Requiring Binary Databases
 
 **TAXONOMIC_CLASSIFICATION (7 tests):**
+
 - Needs: Real Kraken2 `.k2d` database files (binary format)
 - Current: Mock text files fail with "malformed taxonomy file"
 - Solution: Either use `kraken2-build` to create fixture OR implement stub mode
 
 **VALIDATION (8 tests):**
+
 - Needs: Real BLAST `.nhr/.nin/.nsq` database files (binary format)
 - Current: Mock text files fail
 - Solution: Either use `makeblastdb` to create fixture OR implement stub mode
@@ -340,40 +350,50 @@ echo "   - Tool feature alignment"
 ## Next Steps
 
 ### Priority 1: Simple Subworkflows (No Binary DBs)
+
 Apply pattern to these subworkflows (~50-70 tests):
+
 - `output_organization` - Simple file organization logic
 - `barcode_discovery` - Directory scanning
 - `demultiplexing` - FASTQ splitting (if using sample data)
 
 ### Priority 2: Module Tests (~130 tests)
+
 Many module tests are simpler and can benefit from:
+
 - Fixture pattern
 - Stub mode testing
 - Output assertion alignment
 
 ### Priority 3: Binary Database Fixtures
+
 Create proper fixtures for:
+
 - Kraken2: Use `kraken2-build --db minikraken`
 - BLAST: Use `makeblastdb -dbtype nucl`
 
 ## Commits Reference
 
 **Module Resolution Fixes:**
+
 - `9256e14` - **CRITICAL** Fixed 10 subworkflows (+142 module includes, +142 tests unblocked)
 - `cbaa2c1` - Fixed DORADO_BASECALLING subworkflow (+1 include, +10 tests)
 - `4cc94e0` - Fixed ENHANCED_REALTIME_MONITORING + ERROR_HANDLER (+6 includes)
 
 **Systematic Test Pattern:**
+
 - `a18c2c4` - QC_ANALYSIS systematic fixes (7/11 passing, **7x improvement**)
 - `b8410eb` - TAXONOMIC_CLASSIFICATION structural fixes (documented limitations)
 
 **Guide Documentation:**
+
 - `578a816` - Created SYSTEMATIC_FIX_GUIDE.md (320 lines)
 - Latest - Added Module Resolution Pattern section
 
 ## Template Checklist
 
 For each test file:
+
 - [ ] Remove `setup{}` blocks
 - [ ] Use fixtures from `tests/fixtures/`
 - [ ] Fix input structure (flat `[meta, file]` for single samples)

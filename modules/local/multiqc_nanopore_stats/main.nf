@@ -4,8 +4,8 @@ process MULTIQC_NANOPORE_STATS {
 
     conda "${moduleDir}/environment.yml"
     container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
-        'https://depot.galaxyproject.org/singularity/python:3.11' :
-        'biocontainers/python:3.11' }"
+        'https://depot.galaxyproject.org/singularity/multiqc:1.21--pyhdfd78af_0' :
+        'quay.io/biocontainers/multiqc:1.21--pyhdfd78af_0' }"
 
     input:
     val(sample_stats)  // List of sample statistics from various sources
@@ -13,7 +13,6 @@ process MULTIQC_NANOPORE_STATS {
 
     output:
     path "*_mqc.json"          , emit: multiqc_files
-    path "*_mqc.yaml"          , emit: multiqc_yaml
     path "versions.yml"        , emit: versions
 
     when:
@@ -23,7 +22,6 @@ process MULTIQC_NANOPORE_STATS {
     """
     #!/usr/bin/env python3
     import json
-    import yaml
     import sys
     from collections import defaultdict
 
@@ -120,8 +118,8 @@ process MULTIQC_NANOPORE_STATS {
         }
     }
 
-    with open('${prefix}_multiqc_config_mqc.yaml', 'w') as f:
-        yaml.dump(multiqc_config, f)
+    with open('${prefix}_multiqc_config_mqc.json', 'w') as f:
+        json.dump(multiqc_config, f, indent=2)
 
     print(f"Generated MultiQC custom content for {len(sample_stats)} samples", file=sys.stderr)
 
@@ -136,11 +134,11 @@ process MULTIQC_NANOPORE_STATS {
     touch ${prefix}_nanopore_stats_mqc.json
     touch ${prefix}_read_length_mqc.json
     touch ${prefix}_quality_mqc.json
-    touch ${prefix}_multiqc_config_mqc.yaml
+    touch ${prefix}_multiqc_config_mqc.json
 
     cat <<-END_VERSIONS > versions.yml
-    "${task.process}":
-        python: \$(python3 --version | sed 's/Python //g')
-    END_VERSIONS
+"${task.process}":
+    python: \$(python3 --version | sed 's/Python //g')
+END_VERSIONS
     """
 }

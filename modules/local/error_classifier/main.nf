@@ -146,8 +146,8 @@ process ERROR_CLASSIFIER {
     echo '{"sample_id": "${meta.id}", "classification": {"category": "unknown", "is_retryable": false}}' > error_report.json
 
     cat <<-END_VERSIONS > versions.yml
-    "${task.process}":
-        python: \$(python3 --version | sed 's/Python //g')
-    END_VERSIONS
+"${task.process}":
+    python: \$(python3 --version | sed 's/Python //g')
+END_VERSIONS
     """
 }

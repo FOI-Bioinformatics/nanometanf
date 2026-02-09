@@ -90,8 +90,8 @@ process FILE_READINESS_CHECKER {
     echo "READY_STATUS=READY" > .command.env
 
     cat <<-END_VERSIONS > versions.yml
-    "${task.process}":
-        python: \$(python3 --version | sed 's/Python //g')
-    END_VERSIONS
+"${task.process}":
+    python: \$(python3 --version | sed 's/Python //g')
+END_VERSIONS
     """
 }

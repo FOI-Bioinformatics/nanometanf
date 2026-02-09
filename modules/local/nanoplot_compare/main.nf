@@ -41,9 +41,9 @@ process NANOPLOT_COMPARE {
         $inputs
 
     cat <<-END_VERSIONS > versions.yml
-    "${task.process}":
-        nanoplot: \$(echo \$(NanoPlot --version 2>&1) | sed 's/^.*NanoPlot //; s/ .*\$//')
-    END_VERSIONS
+"${task.process}":
+    nanoplot: \$(echo \$(NanoPlot --version 2>&1) | sed 's/^.*NanoPlot //; s/ .*\$//')
+END_VERSIONS
     """
 
     stub:
@@ -61,8 +61,8 @@ process NANOPLOT_COMPARE {
     touch ${prefix}_comparison/Yield_By_Length.html
 
     cat <<-END_VERSIONS > versions.yml
-    "${task.process}":
-        nanoplot: \$(echo \$(NanoPlot --version 2>&1) | sed 's/^.*NanoPlot //; s/ .*\$//')
-    END_VERSIONS
+"${task.process}":
+    nanoplot: \$(echo \$(NanoPlot --version 2>&1) | sed 's/^.*NanoPlot //; s/ .*\$//')
+END_VERSIONS
     """
 }

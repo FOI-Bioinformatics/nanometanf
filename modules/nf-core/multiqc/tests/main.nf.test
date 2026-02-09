@@ -4,6 +4,7 @@ nextflow_process {
     script "../main.nf"
     process "MULTIQC"
 
+    options "-stub"
     tag "modules"
     tag "modules_nfcore"
     tag "multiqc"
@@ -62,9 +63,6 @@ nextflow_process {
     }
 
     test("sarscov2 single-end [fastqc] - stub") {
-
-        options "-stub"
-
         when {
             process {
                 """

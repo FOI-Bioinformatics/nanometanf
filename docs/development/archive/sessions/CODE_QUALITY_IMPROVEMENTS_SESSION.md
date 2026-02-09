@@ -13,6 +13,7 @@
 This session focused on systematic code quality improvements following a comprehensive analysis by the nextflow-expert agent. The work identified and resolved 23 concrete issues across 6 categories, prioritized by impact and effort.
 
 **Key Achievements:**
+
 1. ✅ Eliminated mutable state anti-patterns (functional refactor)
 2. ✅ Added comprehensive parameter validation (prevents critical user errors)
 3. ✅ Extracted shared utilities (DRY improvements)
@@ -28,6 +29,7 @@ This session focused on systematic code quality improvements following a compreh
 **Impact**: Organizational, foundation for future work
 
 **Changes:**
+
 - Removed ~7GB of test artifacts and temporary files
 - Moved 8 documentation files to organized structure:
   - `docs/releases/` - Release notes archive
@@ -46,6 +48,7 @@ This session focused on systematic code quality improvements following a compreh
 **Impact**: Code quality, maintainability
 
 **Problem**: Mutable variables in timeout logic violated functional programming principles
+
 ```groovy
 // BEFORE (mutable state anti-pattern)
 def last_file_time = System.currentTimeMillis()
@@ -60,6 +63,7 @@ ch_input_files = ch_mixed
 ```
 
 **Solution**: Implemented immutable state using `.scan()` operator
+
 ```groovy
 // AFTER (functional reactive pattern)
 def initialState = [
@@ -78,10 +82,12 @@ ch_input_files = ch_mixed
 ```
 
 **Files Modified:**
+
 - `subworkflows/local/realtime_monitoring/main.nf` (+100 lines)
 - `docs/development/FUNCTIONAL_REFACTOR_SUMMARY.md` (new, 186 lines)
 
 **Benefits:**
+
 - Zero mutations - all state transitions create new objects
 - Easier to reason about and test
 - Explicit state flow with comprehensive comments
@@ -94,6 +100,7 @@ ch_input_files = ch_mixed
 **Impact**: Code quality, correctness
 
 **Problem**: Mutable `tracking_data` map mutated across parallel channels
+
 ```groovy
 // BEFORE (mutable state with race conditions)
 def tracking_data = [ready: 0, retries: 0, failed: 0]
@@ -106,6 +113,7 @@ ch_ready_files = ch_checked
 ```
 
 **Solution**: Event sourcing pattern with `.inject()` accumulation
+
 ```groovy
 // AFTER (event-driven architecture)
 def initialTrackingState = [ready: 0, retries: 0, failed: 0]
@@ -132,10 +140,12 @@ ch_tracking_state = ch_tracking_events
 ```
 
 **Files Modified:**
+
 - `subworkflows/local/enhanced_realtime_monitoring/main.nf` (+70 lines)
 - `docs/development/FUNCTIONAL_REFACTOR_SUMMARY.md` (updated with event sourcing pattern)
 
 **Benefits:**
+
 - Eliminates race conditions from parallel channel mutations
 - Event stream provides audit trail
 - Separation of concerns (processing vs. metrics)
@@ -143,12 +153,12 @@ ch_tracking_state = ch_tracking_events
 
 **Pattern Comparison:**
 
-| Aspect | `.scan()` Pattern | Event Sourcing |
-|--------|-------------------|----------------|
-| Use Case | Stateful stream with early termination | Metrics aggregation |
-| State Updates | Incremental (per event) | Batch (collect then reduce) |
-| Channels | Single mixed channel | Multiple parallel channels |
-| Termination | `.until()` on state | Processes all events |
+| Aspect        | `.scan()` Pattern                      | Event Sourcing              |
+| ------------- | -------------------------------------- | --------------------------- |
+| Use Case      | Stateful stream with early termination | Metrics aggregation         |
+| State Updates | Incremental (per event)                | Batch (collect then reduce) |
+| Channels      | Single mixed channel                   | Multiple parallel channels  |
+| Termination   | `.until()` on state                    | Processes all events        |
 
 ---
 
@@ -163,26 +173,31 @@ ch_tracking_state = ch_tracking_events
 #### New File: lib/WorkflowNanometanf.groovy (358 lines)
 
 **Validator 1: Input Mode Validation** (Issue 1.1, Priority Score: 18)
+
 - **Prevents**: Conflicting input parameters (e.g., `--input` + `--barcode_input_dir`)
 - **Validates**: 5 mutually exclusive input modes
 - **Impact**: Prevents 70% of user configuration errors
 
 **Validator 2: Real-time Timeout Validation** (Issue 1.2, Priority Score: 12)
+
 - **Prevents**: Invalid timeout configurations (grace > detection timeout)
 - **Validates**: `realtime_timeout_minutes >= 1`, grace period >= 0
 - **Impact**: Prevents confusing timeout behavior
 
 **Validator 3: Batching Parameter Validation** (Issue 1.3, Priority Score: 12)
+
 - **Prevents**: Illogical batch sizes (min > max, zero values)
 - **Validates**: Batch size constraints and ranges
 - **Impact**: Prevents batch processing failures
 
 **Validator 4: QC Tool Validation** (Issue 1.4, Priority Score: 8)
+
 - **Prevents**: Invalid QC tool names
 - **Validates**: Against whitelist (chopper, fastp, filtlong)
 - **Impact**: Better UX with actionable errors
 
 **Validator 5: Kraken2 Database Validation** (Issue 1.5, Priority Score: 20)
+
 - **Prevents**: Missing/invalid database discovered late
 - **Validates**:
   - Database directory exists
@@ -190,6 +205,7 @@ ch_tracking_state = ch_tracking_events
 - **Impact**: **Fails fast, saves hours of wasted QC processing**
 
 **Error Message Design:**
+
 ```
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ❌ ERROR: Multiple input modes detected
@@ -204,18 +220,19 @@ Only ONE input mode can be used per run. Please specify only one of:
 ```
 
 **Files Modified:**
+
 - `lib/WorkflowNanometanf.groovy` (new, 358 lines)
 - `subworkflows/local/utils_nfcore_nanometanf_pipeline/main.nf` (+3 lines)
 
 **ROI Analysis:**
 
-| Validator | Priority Score | Time Saved per Error |
-|-----------|----------------|----------------------|
-| Kraken2 DB | 20 | 2-4 hours |
-| Input Mode | 18 | 1-3 hours |
-| RT Timeout | 12 | 1-2 hours |
-| Batch Size | 12 | 30min-1 hour |
-| QC Tool | 8 | 15-30 minutes |
+| Validator  | Priority Score | Time Saved per Error |
+| ---------- | -------------- | -------------------- |
+| Kraken2 DB | 20             | 2-4 hours            |
+| Input Mode | 18             | 1-3 hours            |
+| RT Timeout | 12             | 1-2 hours            |
+| Batch Size | 12             | 30min-1 hour         |
+| QC Tool    | 8              | 15-30 minutes        |
 
 **Total Implementation**: 2 hours
 **Average Time Saved**: 1-2 hours per prevented error
@@ -269,10 +286,12 @@ if (barcode) {
 ```
 
 **Files Modified:**
+
 - `lib/BarcodeUtils.groovy` (new, 139 lines)
 - `subworkflows/local/realtime_monitoring/main.nf` (-4 lines, +2 lines)
 
 **Benefits:**
+
 - Single source of truth for barcode logic
 - Comprehensive JavaDoc documentation
 - Unit testable
@@ -284,37 +303,41 @@ if (barcode) {
 
 ### Quantitative Improvements
 
-| Metric | Value |
-|--------|-------|
-| **Total Commits** | 5 major improvements |
-| **Lines Added** | +2,216 |
-| **Lines Removed** | -211 |
-| **Net Change** | +2,005 |
-| **Files Modified** | 20 files |
-| **New Utility Classes** | 2 (WorkflowNanometanf, BarcodeUtils) |
-| **Documentation Created** | 1,382 lines |
+| Metric                    | Value                                |
+| ------------------------- | ------------------------------------ |
+| **Total Commits**         | 5 major improvements                 |
+| **Lines Added**           | +2,216                               |
+| **Lines Removed**         | -211                                 |
+| **Net Change**            | +2,005                               |
+| **Files Modified**        | 20 files                             |
+| **New Utility Classes**   | 2 (WorkflowNanometanf, BarcodeUtils) |
+| **Documentation Created** | 1,382 lines                          |
 
 ### Qualitative Improvements
 
 #### 1. Code Quality ⬆️⬆️⬆️
+
 - **Immutability**: Eliminated all mutable state anti-patterns
 - **Functional Programming**: Adopted reactive patterns (.scan(), .inject())
 - **DRY Principle**: Extracted duplicated logic to shared libraries
 - **Documentation**: Comprehensive inline comments and separate docs
 
 #### 2. User Experience ⬆️⬆️⬆️
+
 - **Fail Fast**: Errors caught before workflow execution
 - **Clear Errors**: User-friendly messages with examples
 - **Time Saved**: 1-4 hours per prevented configuration error
 - **Reduced Support**: Self-service error resolution
 
 #### 3. Maintainability ⬆️⬆️
+
 - **Single Source of Truth**: Shared utilities prevent divergence
 - **Testability**: Functional code easier to test
 - **Readability**: Explicit state flow, clear comments
 - **Extensibility**: Easy to add new validators, barcode patterns
 
 #### 4. Repository Organization ⬆️⬆️
+
 - **Clean Root**: 61% reduction in root markdown files
 - **Organized Docs**: Logical structure (releases/, development/)
 - **Artifacts Removed**: ~7GB cleanup
@@ -328,22 +351,22 @@ The session was guided by a comprehensive analysis that identified **23 concrete
 
 ### Issues Addressed (Top 5)
 
-| Issue | Severity | Priority Score | Status |
-|-------|----------|----------------|--------|
-| 1.5 Kraken2 DB Validation | Critical | 20 | ✅ Complete |
-| 1.1 Input Mode Validation | Critical | 18 | ✅ Complete |
-| 1.2 Timeout Validation | High | 12 | ✅ Complete |
-| 1.3 Batch Size Validation | High | 12 | ✅ Complete |
-| 2.1 Barcode Utils Extraction | High | 10 | ✅ Complete |
+| Issue                        | Severity | Priority Score | Status      |
+| ---------------------------- | -------- | -------------- | ----------- |
+| 1.5 Kraken2 DB Validation    | Critical | 20             | ✅ Complete |
+| 1.1 Input Mode Validation    | Critical | 18             | ✅ Complete |
+| 1.2 Timeout Validation       | High     | 12             | ✅ Complete |
+| 1.3 Batch Size Validation    | High     | 12             | ✅ Complete |
+| 2.1 Barcode Utils Extraction | High     | 10             | ✅ Complete |
 
 ### Remaining High-Priority Issues (Future Work)
 
-| Issue | Severity | Priority Score | Effort |
-|-------|----------|----------------|--------|
-| 3.3 Barcode Discovery Error Handling | High | 16 | Low (1 hour) |
-| 3.1 Missing meta.yml Files | High | 8 | Low (2 hours) |
-| 5.1 Grace Period Integration Test | High | 8 | Medium (2 hours) |
-| 5.2 POD5 Real-time Tests | High | 8 | Medium (3 hours) |
+| Issue                                | Severity | Priority Score | Effort           |
+| ------------------------------------ | -------- | -------------- | ---------------- |
+| 3.3 Barcode Discovery Error Handling | High     | 16             | Low (1 hour)     |
+| 3.1 Missing meta.yml Files           | High     | 8              | Low (2 hours)    |
+| 5.1 Grace Period Integration Test    | High     | 8              | Medium (2 hours) |
+| 5.2 POD5 Real-time Tests             | High     | 8              | Medium (3 hours) |
 
 ---
 
@@ -374,6 +397,7 @@ ch_result = ch_input
 ```
 
 **When to Use:**
+
 - Need to maintain state across channel operations
 - Require early termination based on state
 - State changes incrementally with each event
@@ -413,6 +437,7 @@ ch_state = ch_events
 ```
 
 **When to Use:**
+
 - Need to aggregate metrics from multiple channels
 - Want audit trail of state changes
 - Separation of concerns (processing vs. tracking)
@@ -532,6 +557,7 @@ Nextflow.error("""
 ### 1. Deep Analysis First
 
 The nextflow-expert agent's comprehensive analysis (23 issues) provided clear roadmap:
+
 - Identified specific problems with file/line numbers
 - Prioritized by (Severity × Impact) / Effort
 - Provided concrete code solutions
@@ -541,6 +567,7 @@ The nextflow-expert agent's comprehensive analysis (23 issues) provided clear ro
 ### 2. Iterative Improvement
 
 Session progressed through logical phases:
+
 1. Cleanup and organization (foundation)
 2. Functional refactoring (code quality)
 3. Validation layer (user experience)
@@ -551,6 +578,7 @@ Session progressed through logical phases:
 ### 3. Comprehensive Commit Messages
 
 Each commit included:
+
 - Problem statement with code examples
 - Solution with before/after comparisons
 - Impact analysis with metrics
@@ -561,6 +589,7 @@ Each commit included:
 ### 4. Pattern Documentation
 
 Created reusable patterns with:
+
 - When to use guidelines
 - Code examples
 - Comparison tables

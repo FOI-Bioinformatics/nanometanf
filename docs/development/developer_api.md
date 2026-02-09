@@ -23,6 +23,7 @@ nanometanf/
 ### Module Structure
 
 **Standard module template**:
+
 ```groovy
 // modules/local/custom_tool/main.nf
 
@@ -76,6 +77,7 @@ process CUSTOM_TOOL {
 ### Module Testing
 
 **Create test file**:
+
 ```groovy
 // modules/local/custom_tool/tests/main.nf.test
 
@@ -107,6 +109,7 @@ nextflow_process {
 ```
 
 **Run tests**:
+
 ```bash
 nf-test test modules/local/custom_tool/tests/main.nf.test
 ```
@@ -185,6 +188,7 @@ workflow NANOMETANF {
 ### Process Configuration
 
 **Configure resources**:
+
 ```groovy
 // conf/custom.config
 
@@ -207,6 +211,7 @@ process {
 ```
 
 **Use custom config**:
+
 ```bash
 nextflow run ... -c conf/custom.config
 ```
@@ -216,6 +221,7 @@ nextflow run ... -c conf/custom.config
 ### Parameter Schema
 
 **Add new parameters**:
+
 ```json
 // nextflow_schema.json
 
@@ -242,6 +248,7 @@ nextflow run ... -c conf/custom.config
 ```
 
 **Validate schema**:
+
 ```bash
 nf-core schema lint
 nf-core schema validate --params params.json
@@ -290,6 +297,7 @@ ch_input
 ### Meta Map Convention
 
 **Standard meta map structure**:
+
 ```groovy
 meta = [
     id: 'sample001',           // Required: unique identifier
@@ -350,6 +358,7 @@ test("Should produce consistent output") {
 ```
 
 **Generate snapshots**:
+
 ```bash
 nf-test test --update-snapshot
 ```
@@ -361,6 +370,7 @@ nf-test test --update-snapshot
 ### Custom MultiQC Module
 
 **Create custom content**:
+
 ```groovy
 // modules/local/custom_mqc/main.nf
 
@@ -390,14 +400,15 @@ process CUSTOM_MQC {
 ```
 
 **MultiQC config**:
+
 ```yaml
 # assets/multiqc_config.yml
 
 custom_data:
   custom_stats:
-    file_format: 'json'
-    section_name: 'Custom Analysis'
-    plot_type: 'table'
+    file_format: "json"
+    section_name: "Custom Analysis"
+    plot_type: "table"
 
 sp:
   custom_stats:
@@ -495,6 +506,7 @@ validation {
 ### Dynamic Resource Allocation
 
 **Implement resource functions**:
+
 ```groovy
 // lib/WorkflowNanometanf.groovy
 
@@ -515,6 +527,7 @@ class WorkflowNanometanf {
 ```
 
 **Use in process**:
+
 ```groovy
 process ADAPTIVE_PROCESS {
     cpus { WorkflowNanometanf.calculateCPUs(meta, 4) }
@@ -586,6 +599,7 @@ When creating a new module:
 ### Core Functions
 
 **Available in workflows**:
+
 ```groovy
 // Get pipeline version
 WorkflowMain.initialise(workflow, params, log)
@@ -632,10 +646,12 @@ Channel
 ## Example: Complete Custom Module
 
 See `modules/local/` for real examples:
+
 - `dorado_basecaller/` - Complex GPU-aware module
 - `multiqc_nanopore_stats/` - Python-based analysis
 - `krona_kraken2/` - Data transformation module
 
 For questions or contributions:
+
 - Open an issue: https://github.com/foi-bioinformatics/nanometanf/issues
 - Join nf-core Slack: https://nf-co.re/join

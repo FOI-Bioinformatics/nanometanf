@@ -16,7 +16,8 @@ include { completionSummary         } from '../../nf-core/utils_nfcore_pipeline'
 include { imNotification            } from '../../nf-core/utils_nfcore_pipeline'
 include { UTILS_NFCORE_PIPELINE     } from '../../nf-core/utils_nfcore_pipeline'
 include { UTILS_NEXTFLOW_PIPELINE   } from '../../nf-core/utils_nextflow_pipeline'
-include { WorkflowNanometanf        } from '../../../lib/WorkflowNanometanf'
+
+// Note: WorkflowNanometanf class is auto-loaded from lib/ in Nextflow 25.x+
 
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -77,31 +78,37 @@ workflow PIPELINE_INITIALISATION {
 
     //
     // Create channel from input file provided through params.input
+    // Only parse samplesheet if params.input is provided (not for barcode_discovery or POD5 modes)
     //
 
-    Channel
-        .fromList(samplesheetToList(params.input, "${projectDir}/assets/schema_input.json"))
-        .map {
-            meta, fastq, barcode ->
-                // Nanopore data is always single-end
-                def new_meta = meta + [ single_end: true ]
-                
-                // Add barcode information if provided
-                if (barcode && barcode.trim() != "") {
-                    new_meta = new_meta + [ barcode: barcode.trim() ]
-                }
-                
-                return [ meta.id, new_meta, [ fastq ] ]
-        }
-        .groupTuple()
-        .map { samplesheet ->
-            validateInputSamplesheet(samplesheet)
-        }
-        .map {
-            meta, fastqs ->
-                return [ meta, fastqs.flatten() ]
-        }
-        .set { ch_samplesheet }
+    if (params.input) {
+        Channel
+            .fromList(samplesheetToList(params.input, "${projectDir}/assets/schema_input.json"))
+            .map {
+                meta, fastq, barcode ->
+                    // Nanopore data is always single-end
+                    def new_meta = meta + [ single_end: true ]
+
+                    // Add barcode information if provided
+                    if (barcode && barcode.trim() != "") {
+                        new_meta = new_meta + [ barcode: barcode.trim() ]
+                    }
+
+                    return [ meta.id, new_meta, [ fastq ] ]
+            }
+            .groupTuple()
+            .map { samplesheet ->
+                validateInputSamplesheet(samplesheet)
+            }
+            .map {
+                meta, fastqs ->
+                    return [ meta, fastqs.flatten() ]
+            }
+            .set { ch_samplesheet }
+    } else {
+        // Empty channel for non-samplesheet input modes (barcode_discovery, POD5, real-time)
+        ch_samplesheet = Channel.empty()
+    }
 
     emit:
     samplesheet = ch_samplesheet

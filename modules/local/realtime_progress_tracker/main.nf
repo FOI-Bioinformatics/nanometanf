@@ -239,8 +239,8 @@ process REALTIME_PROGRESS_TRACKER {
     echo '<html><body>Dashboard Stub</body></html>' > progress_dashboard.html
 
     cat <<-END_VERSIONS > versions.yml
-    "${task.process}":
-        python: \$(python3 --version | sed 's/Python //g')
-    END_VERSIONS
+"${task.process}":
+    python: \$(python3 --version | sed 's/Python //g')
+END_VERSIONS
     """
 }

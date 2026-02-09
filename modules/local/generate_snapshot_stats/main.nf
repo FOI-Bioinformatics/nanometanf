@@ -1,7 +1,8 @@
 process GENERATE_SNAPSHOT_STATS {
     tag "$batch_meta.batch_id"
     label 'process_single'
-    publishDir "${params.outdir}/realtime_stats/snapshots", mode: 'copy'
+    // Standardized output path for Nanometa Live integration
+    publishDir "${params.outdir}/realtime_batch_stats", mode: 'copy'
 
     input:
     tuple val(batch_meta), val(file_metas)
@@ -16,25 +17,26 @@ process GENERATE_SNAPSHOT_STATS {
 
     script:
     def args = task.ext.args ?: ''
-    
+
     """
     #!/usr/bin/env python3
-    
+
     import json
     import time
     from datetime import datetime
     from pathlib import Path
-    
+
     # Batch metadata
     batch_meta = json.loads('${new groovy.json.JsonBuilder(batch_meta).toString()}')
     file_metas = json.loads('${new groovy.json.JsonBuilder(file_metas).toString()}')
     stats_config = json.loads('${new groovy.json.JsonBuilder(stats_config).toString()}')
-    
+
     # Calculate snapshot statistics
     snapshot_stats = {
         'batch_info': {
             'batch_id': batch_meta['batch_id'],
             'batch_timestamp': batch_meta['batch_timestamp'],
+            'batch_time': batch_meta['batch_time'],
             'batch_time_formatted': batch_meta['batch_time'],
             'processing_timestamp': batch_meta['batch_timestamp'],
             'processing_time_formatted': batch_meta['batch_time']
@@ -70,31 +72,31 @@ process GENERATE_SNAPSHOT_STATS {
             'reads_per_second': 0   # Will be calculated in cumulative stats
         }
     }
-    
+
     # Calculate directory-specific file counts
     for file_meta in file_metas:
         watch_dir = file_meta.get('watch_dir', 'unknown')
         if watch_dir not in snapshot_stats['source_analysis']['directory_file_counts']:
             snapshot_stats['source_analysis']['directory_file_counts'][watch_dir] = 0
         snapshot_stats['source_analysis']['directory_file_counts'][watch_dir] += 1
-    
+
     # Add quality indicators
     snapshot_stats['quality_indicators'] = {
         'large_files_ratio': sum(1 for f in file_metas if f.get('file_size', 0) > 50_000_000) / len(file_metas) if file_metas else 0,
         'compressed_ratio': snapshot_stats['file_statistics']['compressed_files'] / len(file_metas) if file_metas else 0,
         'high_priority_ratio': snapshot_stats['priority_analysis']['high_priority_files'] / len(file_metas) if file_metas else 0
     }
-    
+
     # Save snapshot statistics
     output_file = "${batch_meta.batch_id}_snapshot.json"
     with open(output_file, 'w') as f:
         json.dump(snapshot_stats, f, indent=2)
-    
+
     print(f"Generated snapshot statistics for batch {batch_meta['batch_id']}")
     print(f"Files processed: {len(file_metas)}")
     print(f"Total size: {snapshot_stats['file_statistics']['total_size_mb']} MB")
     print(f"Estimated reads: {snapshot_stats['file_statistics']['estimated_total_reads']:,}")
-    
+
     # Generate versions file
     with open('versions.yml', 'w') as f:
         f.write('''"${task.process}":
@@ -106,10 +108,10 @@ process GENERATE_SNAPSHOT_STATS {
     """
     echo '{"batch_id": "${batch_meta.batch_id}", "stub": true}' > ${batch_meta.batch_id}_snapshot.json
 
-    cat <<-END_VERSIONS > versions.yml
-    "${task.process}":
-        python: "3.9"
-        statistics_framework: "1.0"
-    END_VERSIONS
+cat <<-END_VERSIONS > versions.yml
+"${task.process}":
+    python: "3.9"
+    statistics_framework: "1.0"
+END_VERSIONS
     """
 }

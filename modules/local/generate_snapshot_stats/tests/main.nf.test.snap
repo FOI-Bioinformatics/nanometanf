@@ -9,11 +9,11 @@
                             "batch_timestamp": 1640995800000,
                             "batch_time": "2022-01-01T00:10:00Z"
                         },
-                        "batch_multi_snapshot.json:md5,26d9060a1b0b4f9060845b0fe3c20f04"
+                        "batch_multi_snapshot.json:md5,86d35ca2108055a251cdde9e7d5abf54"
                     ]
                 ],
                 "1": [
-                    "versions.yml:md5,c25402591477fbd4e217997985bd994f"
+                    "versions.yml:md5,3369f5fa764333ad943f34b735ce08b2"
                 ],
                 "snapshot_stats": [
                     [
@@ -22,19 +22,19 @@
                             "batch_timestamp": 1640995800000,
                             "batch_time": "2022-01-01T00:10:00Z"
                         },
-                        "batch_multi_snapshot.json:md5,26d9060a1b0b4f9060845b0fe3c20f04"
+                        "batch_multi_snapshot.json:md5,86d35ca2108055a251cdde9e7d5abf54"
                     ]
                 ],
                 "versions": [
-                    "versions.yml:md5,c25402591477fbd4e217997985bd994f"
+                    "versions.yml:md5,3369f5fa764333ad943f34b735ce08b2"
                 ]
             }
         ],
         "meta": {
-            "nf-test": "0.9.2",
-            "nextflow": "25.04.7"
+            "nf-test": "0.9.3",
+            "nextflow": "25.10.3"
         },
-        "timestamp": "2025-10-03T09:21:37.386107"
+        "timestamp": "2026-02-01T14:21:00.84964"
     },
     "Should generate basic snapshot statistics": {
         "content": [
@@ -46,11 +46,11 @@
                             "batch_timestamp": 1640995200000,
                             "batch_time": "2022-01-01T00:00:00Z"
                         },
-                        "batch_001_snapshot.json:md5,cce29b9398f7544d6d4e5e1e0a3d624f"
+                        "batch_001_snapshot.json:md5,2fd3bed1ca6015331fc73589c602bfcd"
                     ]
                 ],
                 "1": [
-                    "versions.yml:md5,c25402591477fbd4e217997985bd994f"
+                    "versions.yml:md5,3369f5fa764333ad943f34b735ce08b2"
                 ],
                 "snapshot_stats": [
                     [
@@ -59,19 +59,19 @@
                             "batch_timestamp": 1640995200000,
                             "batch_time": "2022-01-01T00:00:00Z"
                         },
-                        "batch_001_snapshot.json:md5,cce29b9398f7544d6d4e5e1e0a3d624f"
+                        "batch_001_snapshot.json:md5,2fd3bed1ca6015331fc73589c602bfcd"
                     ]
                 ],
                 "versions": [
-                    "versions.yml:md5,c25402591477fbd4e217997985bd994f"
+                    "versions.yml:md5,3369f5fa764333ad943f34b735ce08b2"
                 ]
             }
         ],
         "meta": {
-            "nf-test": "0.9.2",
-            "nextflow": "25.04.7"
+            "nf-test": "0.9.3",
+            "nextflow": "25.10.3"
         },
-        "timestamp": "2025-10-03T09:21:29.908353"
+        "timestamp": "2026-02-01T14:20:52.024381"
     },
     "Should handle empty batch gracefully": {
         "content": [
@@ -83,11 +83,11 @@
                             "batch_timestamp": 1640998800000,
                             "batch_time": "2022-01-01T01:00:00Z"
                         },
-                        "batch_empty_snapshot.json:md5,478e16eb52ca34cfc50726b162aa3936"
+                        "batch_empty_snapshot.json:md5,d2cfad8bf2c0f93f5a04868f42f50dcd"
                     ]
                 ],
                 "1": [
-                    "versions.yml:md5,c25402591477fbd4e217997985bd994f"
+                    "versions.yml:md5,3369f5fa764333ad943f34b735ce08b2"
                 ],
                 "snapshot_stats": [
                     [
@@ -96,18 +96,18 @@
                             "batch_timestamp": 1640998800000,
                             "batch_time": "2022-01-01T01:00:00Z"
                         },
-                        "batch_empty_snapshot.json:md5,478e16eb52ca34cfc50726b162aa3936"
+                        "batch_empty_snapshot.json:md5,d2cfad8bf2c0f93f5a04868f42f50dcd"
                     ]
                 ],
                 "versions": [
-                    "versions.yml:md5,c25402591477fbd4e217997985bd994f"
+                    "versions.yml:md5,3369f5fa764333ad943f34b735ce08b2"
                 ]
             }
         ],
         "meta": {
-            "nf-test": "0.9.2",
-            "nextflow": "25.04.7"
+            "nf-test": "0.9.3",
+            "nextflow": "25.10.3"
         },
-        "timestamp": "2025-10-03T09:21:33.825701"
+        "timestamp": "2026-02-01T14:20:56.364255"
     }
 }

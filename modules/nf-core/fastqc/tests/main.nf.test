@@ -4,6 +4,7 @@ nextflow_process {
     script "../main.nf"
     process "FASTQC"
 
+    options "-stub"
     tag "modules"
     tag "modules_nfcore"
     tag "fastqc"
@@ -172,8 +173,6 @@ nextflow_process {
     }
 
     test("sarscov2 single-end [fastq] - stub") {
-
-    options "-stub"
         when {
             process {
                 """
@@ -194,8 +193,6 @@ nextflow_process {
     }
 
     test("sarscov2 paired-end [fastq] - stub") {
-
-    options "-stub"
         when {
             process {
                 """
@@ -217,8 +214,6 @@ nextflow_process {
     }
 
     test("sarscov2 interleaved [fastq] - stub") {
-
-    options "-stub"
         when {
             process {
                 """
@@ -239,8 +234,6 @@ nextflow_process {
     }
 
     test("sarscov2 paired-end [bam] - stub") {
-
-    options "-stub"
         when {
             process {
                 """
@@ -261,8 +254,6 @@ nextflow_process {
     }
 
     test("sarscov2 multiple [fastq] - stub") {
-
-    options "-stub"
         when {
             process {
                 """
@@ -286,8 +277,6 @@ nextflow_process {
     }
 
     test("sarscov2 custom_prefix - stub") {
-
-    options "-stub"
         when {
             process {
                 """

@@ -4,6 +4,7 @@
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
 include { MULTIQC                    } from '../modules/nf-core/multiqc/main'
+include { UNTAR                      } from '../modules/nf-core/untar/main'
 include { paramsSummaryMap           } from 'plugin/nf-schema'
 include { paramsSummaryMultiqc       } from '../subworkflows/nf-core/utils_nfcore_pipeline'
 include { softwareVersionsToYAML     } from '../subworkflows/nf-core/utils_nfcore_pipeline'
@@ -14,6 +15,8 @@ include { REALTIME_MONITORING        } from '../subworkflows/local/realtime_moni
 include { REALTIME_POD5_MONITORING   } from '../subworkflows/local/realtime_pod5_monitoring'
 include { DORADO_BASECALLING         } from '../subworkflows/local/dorado_basecalling'
 include { BARCODE_DISCOVERY          } from '../subworkflows/local/barcode_discovery'
+include { INPUT_SCANNER              } from '../subworkflows/local/input_scanner'
+include { POD5_BARCODE_DISCOVERY    } from '../subworkflows/local/pod5_barcode_discovery'
 include { DEMULTIPLEXING             } from '../subworkflows/local/demultiplexing'
 include { QC_ANALYSIS                } from '../subworkflows/local/qc_analysis'
 include { ASSEMBLY                   } from '../subworkflows/local/assembly'
@@ -21,6 +24,41 @@ include { TAXONOMIC_CLASSIFICATION   } from '../subworkflows/local/taxonomic_cla
 include { VALIDATION                 } from '../subworkflows/local/validation'
 include { DYNAMIC_RESOURCE_ALLOCATION } from '../subworkflows/local/dynamic_resource_allocation'
 include { NANOPLOT_COMPARE           } from '../modules/local/nanoplot_compare/main'
+
+// Experimental feature imports (v1.5 planned)
+include { QC_BENCHMARK               } from '../subworkflows/local/qc_benchmark'
+include { REALTIME_STATISTICS        } from '../subworkflows/local/realtime_statistics'
+include { KRONA_KRAKEN2              } from '../modules/local/krona_kraken2/main'
+include { MULTIQC_NANOPORE_STATS     } from '../modules/local/multiqc_nanopore_stats/main'
+
+/*
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    HELPER FUNCTIONS
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+*/
+
+//
+// Detect POD5 directory structure: 'flat' or 'barcode_subdirs'
+// - flat: POD5 files directly in the directory (e.g., pod5_dir/*.pod5)
+// - barcode_subdirs: POD5 files in barcode subdirectories (e.g., pod5_dir/barcode01/*.pod5)
+//
+def detectPod5Structure(pod5_dir) {
+    def dir = file(pod5_dir)
+    def hasBarcodeDirs = false
+
+    // Check for barcode*/ subdirectories containing POD5 files
+    dir.eachFile { f ->
+        if (f.isDirectory() && f.name.startsWith('barcode')) {
+            def hasPod5 = false
+            f.eachFileMatch(~/.+\.pod5$/) { hasPod5 = true }
+            if (hasPod5) {
+                hasBarcodeDirs = true
+            }
+        }
+    }
+
+    return hasBarcodeDirs ? 'barcode_subdirs' : 'flat'
+}
 
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -32,18 +70,65 @@ workflow NANOMETANF {
 
     take:
     ch_samplesheet // channel: samplesheet read in from --input
-    
+
     main:
     ch_versions = Channel.empty()
     ch_multiqc_files = Channel.empty()
-    
+
+    //
+    // BACKWARD COMPATIBILITY: Handle deprecated parameters
+    // Map old parameter names to new ones with deprecation warnings
+    //
+    def run_validation_effective = params.run_validation
+    if (params.blast_validation && !params.run_validation) {
+        log.warn "DEPRECATED: Parameter 'blast_validation' is deprecated. Please use 'run_validation' instead."
+        log.warn "  Enabling validation due to blast_validation=true"
+        run_validation_effective = true
+    }
+    if (params.blast_db && !params.pathogen_genomes) {
+        log.warn "DEPRECATED: Parameter 'blast_db' is deprecated. Please use 'pathogen_genomes' instead."
+    }
+    if (params.validation_taxa && !params.taxids_to_validate) {
+        log.warn "DEPRECATED: Parameter 'validation_taxa' is deprecated. Please use 'taxids_to_validate' instead."
+    }
+
+    //
+    // INPUT VALIDATION: Check for conflicting or missing parameters
+    //
+    def input_modes = []
+    if (params.input) input_modes << '--input'
+    if (params.input_dir) input_modes << '--input_dir'
+    if (params.barcode_input_dir) input_modes << '--barcode_input_dir'
+    if (params.pod5_input_dir && params.use_dorado) input_modes << '--pod5_input_dir'
+    if (params.realtime_mode && params.nanopore_output_dir) input_modes << '--realtime_mode'
+
+    if (input_modes.size() > 1 && !params.realtime_mode) {
+        log.warn "========================================================================="
+        log.warn "  WARNING: Multiple input modes specified: ${input_modes.join(', ')}"
+        log.warn "  Only one input mode should be used. The pipeline will use the first detected."
+        log.warn "========================================================================="
+    }
+
+    if (input_modes.size() == 0 && !params.realtime_mode) {
+        log.error "========================================================================="
+        log.error "  ERROR: No input specified!"
+        log.error ""
+        log.error "  Please provide one of:"
+        log.error "    --input samplesheet.csv"
+        log.error "    --input_dir /path/to/barcode/folders"
+        log.error "    --pod5_input_dir /path/to/pod5 --use_dorado"
+        log.error "    --realtime_mode --nanopore_output_dir /path/to/monitor"
+        log.error "========================================================================="
+        error "No input data specified. See above for options."
+    }
+
     //
     // WORKFLOW ROUTING: Determine if this is POD5 or FASTQ workflow
     //
-    def is_pod5_workflow = (params.pod5_input_dir && params.use_dorado) || 
+    def is_pod5_workflow = (params.pod5_input_dir && params.use_dorado) ||
                           (params.realtime_mode && params.file_pattern?.contains('.pod5'))
     def is_barcode_discovery = params.barcode_input_dir
-    
+
     if (is_pod5_workflow) {
         //
         // POD5 WORKFLOW PATH
@@ -59,41 +144,102 @@ workflow NANOMETANF {
             )
             ch_processed_samples = REALTIME_POD5_MONITORING.out.samples
             ch_versions = ch_versions.mix(REALTIME_POD5_MONITORING.out.versions.ifEmpty([]))
-            
+
+            // Real-time statistics generation (optional)
+            if (params.enable_realtime_stats) {
+                def stats_config = [
+                    enable_quality_indicators: true,
+                    enable_source_analysis: true,
+                    enable_timing_analysis: true,
+                    quality_threshold_warnings: true,
+                    stats_interval: params.realtime_report_interval ?: 30000,
+                    report_format: 'html,json'
+                ]
+
+                REALTIME_STATISTICS (
+                    REALTIME_POD5_MONITORING.out.batches,
+                    stats_config
+                )
+                ch_versions = ch_versions.mix(REALTIME_STATISTICS.out.versions)
+                ch_realtime_stats = REALTIME_STATISTICS.out.realtime_reports
+            } else {
+                ch_realtime_stats = Channel.empty()
+            }
+
         } else {
             // Static POD5 basecalling
             if (!params.pod5_input_dir) {
                 error "POD5 input directory is required when use_dorado is true and not in realtime mode"
             }
-            ch_pod5_files = Channel.fromPath("${params.pod5_input_dir}/*.pod5", checkIfExists: true)
-                .collect()
-                .map { files -> 
-                    def meta = [ 
-                        id: 'pod5_sample', 
-                        single_end: true,
-                        barcode_kit: params.barcode_kit ?: null
-                    ]
-                    [ meta, files ]
-                }
-            
-            DORADO_BASECALLING (
-                ch_pod5_files,
-                params.dorado_model
-            )
-            ch_processed_samples = DORADO_BASECALLING.out.fastq
-            ch_versions = ch_versions.mix(DORADO_BASECALLING.out.versions)
+
+            // Auto-detect POD5 directory structure
+            def pod5_structure = detectPod5Structure(params.pod5_input_dir)
+            log.info "POD5 directory structure detected: ${pod5_structure}"
+
+            if (pod5_structure == 'barcode_subdirs') {
+                //
+                // PRE-DEMULTIPLEXED POD5: barcode subdirectories with POD5 files
+                // Each barcode is processed as a separate sample, demultiplexing is skipped
+                //
+                log.info "Processing pre-demultiplexed POD5 barcode directories"
+
+                POD5_BARCODE_DISCOVERY (
+                    params.pod5_input_dir
+                )
+
+                // Run basecalling for each barcode sample
+                DORADO_BASECALLING (
+                    POD5_BARCODE_DISCOVERY.out.samples,
+                    params.dorado_model
+                )
+
+                // Skip demultiplexing - samples are already per-barcode
+                ch_processed_samples = DORADO_BASECALLING.out.fastq
+                ch_versions = ch_versions.mix(DORADO_BASECALLING.out.versions)
+                ch_versions = ch_versions.mix(POD5_BARCODE_DISCOVERY.out.versions)
+
+            } else {
+                //
+                // FLAT POD5: all POD5 files in a single directory
+                // Process as single sample, optionally demultiplex after basecalling
+                //
+                log.info "Processing flat POD5 directory"
+
+                ch_pod5_files = Channel.fromPath("${params.pod5_input_dir}/*.pod5", checkIfExists: true)
+                    .collect()
+                    .map { files ->
+                        def meta = [
+                            id: 'pod5_sample',
+                            single_end: true,
+                            barcode_kit: params.barcode_kit ?: null
+                        ]
+                        [ meta, files ]
+                    }
+
+                DORADO_BASECALLING (
+                    ch_pod5_files,
+                    params.dorado_model
+                )
+                ch_processed_samples = DORADO_BASECALLING.out.fastq
+                ch_versions = ch_versions.mix(DORADO_BASECALLING.out.versions)
+            }
         }
-        
-    } else if (is_barcode_discovery) {
+
+    } else if (params.input_dir || is_barcode_discovery) {
         //
-        // PRE-DEMULTIPLEXED BARCODE DIRECTORIES
+        // UNIFIED DIRECTORY SCAN (replaces BARCODE_DISCOVERY)
         //
-        BARCODE_DISCOVERY (
-            params.barcode_input_dir
+        def effective_input_dir = params.input_dir ?: params.barcode_input_dir
+        if (params.barcode_input_dir && !params.input_dir) {
+            log.warn "DEPRECATED: --barcode_input_dir is deprecated. Use --input_dir instead."
+        }
+        INPUT_SCANNER (
+            effective_input_dir,
+            params.sample_regex
         )
-        ch_processed_samples = BARCODE_DISCOVERY.out.samples
-        ch_versions = ch_versions.mix(BARCODE_DISCOVERY.out.versions)
-        
+        ch_processed_samples = INPUT_SCANNER.out.samples
+        ch_versions = ch_versions.mix(INPUT_SCANNER.out.versions)
+
     } else {
         //
         // FASTQ WORKFLOW PATH
@@ -107,6 +253,27 @@ workflow NANOMETANF {
                 params.batch_interval ?: "5min"
             )
             ch_processed_samples = REALTIME_MONITORING.out.samples
+
+            // Real-time statistics generation (optional)
+            if (params.enable_realtime_stats) {
+                def stats_config = [
+                    enable_quality_indicators: true,
+                    enable_source_analysis: true,
+                    enable_timing_analysis: true,
+                    quality_threshold_warnings: true,
+                    stats_interval: params.realtime_report_interval ?: 30000,
+                    report_format: 'html,json'
+                ]
+
+                REALTIME_STATISTICS (
+                    REALTIME_MONITORING.out.batches,
+                    stats_config
+                )
+                ch_versions = ch_versions.mix(REALTIME_STATISTICS.out.versions)
+                ch_realtime_stats = REALTIME_STATISTICS.out.realtime_reports
+            } else {
+                ch_realtime_stats = Channel.empty()
+            }
         } else {
             // Standard samplesheet input - detect and handle POD5 files
             ch_samplesheet
@@ -143,13 +310,13 @@ workflow NANOMETANF {
             }
         }
     }
-    
+
     //
     // SUBWORKFLOW: Dynamic resource allocation for optimal performance
     //
     if (params.enable_dynamic_resources) {
         log.info "=== Enabling Dynamic Resource Allocation ==="
-        
+
         // Prepare resource configuration
         def resource_config = [
             'optimization_profile': params.optimization_profile ?: 'auto',
@@ -159,13 +326,13 @@ workflow NANOMETANF {
             'enable_gpu_optimization': params.enable_gpu_optimization ?: true,
             'realtime_mode': params.realtime_mode ?: false
         ]
-        
+
         // System configuration
         def system_config = [
             'monitoring_interval': params.resource_monitoring_interval ?: 30,
             'enable_performance_logging': params.enable_performance_logging ?: true
         ]
-        
+
         // Create input for resource allocation - combine samples with tool context
         ch_resource_inputs = ch_processed_samples
             .map { meta, files ->
@@ -175,7 +342,7 @@ workflow NANOMETANF {
                 ]
                 [ meta, files, tool_context ]
             }
-        
+
         DYNAMIC_RESOURCE_ALLOCATION (
             ch_resource_inputs,
             resource_config,
@@ -186,13 +353,13 @@ workflow NANOMETANF {
         // Extract resource configurations for later use
         ch_resource_configs = DYNAMIC_RESOURCE_ALLOCATION.out.resource_configs
         ch_optimal_allocations = DYNAMIC_RESOURCE_ALLOCATION.out.optimal_allocations
-        
+
         log.info "Dynamic resource allocation configured successfully"
     } else {
         ch_resource_configs = Channel.empty()
         ch_optimal_allocations = Channel.empty()
     }
-    
+
     //
     // SUBWORKFLOW: Demultiplexing (handle multiplexed samples)
     //
@@ -200,7 +367,7 @@ workflow NANOMETANF {
         ch_processed_samples
     )
     ch_versions = ch_versions.mix(DEMULTIPLEXING.out.versions)
-    
+
     //
     // SUBWORKFLOW: Quality control analysis
     //
@@ -242,14 +409,31 @@ workflow NANOMETANF {
         } else {
             ch_nanoplot_comparison = Channel.empty()
         }
+
+        //
+        // SUBWORKFLOW: QC tool benchmarking (optional)
+        // Compare performance of FASTP, FILTLONG, CHOPPER on same input
+        //
+        if (params.enable_qc_benchmark) {
+            log.info "=== QC Tool Benchmarking Enabled ==="
+
+            QC_BENCHMARK (
+                DEMULTIPLEXING.out.samples
+            )
+            ch_versions = ch_versions.mix(QC_BENCHMARK.out.versions)
+            ch_qc_benchmark_results = QC_BENCHMARK.out.benchmark_results
+        } else {
+            ch_qc_benchmark_results = Channel.empty()
+        }
     } else {
         // If QC is skipped, pass through original reads
         log.info "Skipping QC analysis - using original reads"
         ch_qc_reads = DEMULTIPLEXING.out.samples
         ch_qc_reports = Channel.empty()
         ch_nanoplot_reports = Channel.empty()
+        ch_qc_benchmark_results = Channel.empty()
     }
-    
+
     //
     // SUBWORKFLOW: Multi-tool genome assembly for long-read data
     //
@@ -259,36 +443,113 @@ workflow NANOMETANF {
         )
         ch_versions = ch_versions.mix(ASSEMBLY.out.versions)
     }
-    
+
     //
     // SUBWORKFLOW: Multi-tool taxonomic classification with taxpasta standardization
     //
-    if (params.kraken2_db) {
-        ch_classification_db = Channel.fromPath(params.kraken2_db, checkIfExists: true)
-        
+    if (params.skip_kraken2) {
+        log.info "Taxonomic classification skipped (--skip_kraken2 is true)"
+    } else if (!params.kraken2_db) {
+        log.warn "========================================================================="
+        log.warn "  WARNING: No Kraken2 database provided (--kraken2_db)"
+        log.warn "  Taxonomic classification will be SKIPPED."
+        log.warn ""
+        log.warn "  To enable classification, provide a database path:"
+        log.warn "    --kraken2_db /path/to/kraken2_db"
+        log.warn ""
+        log.warn "  Or download a pre-built database from:"
+        log.warn "    https://benlangmead.github.io/aws-indexes/k2"
+        log.warn ""
+        log.warn "  To silence this warning, use: --skip_kraken2 true"
+        log.warn "========================================================================="
+    }
+
+    if (params.kraken2_db && !params.skip_kraken2) {
+        //
+        // PREPARE DATABASE: Handle both directory and tar.gz inputs
+        // Supports: local directories, local tar.gz files, and remote tar.gz URLs
+        //
+        def db_path = params.kraken2_db
+        def is_archive = db_path.toString().endsWith('.tar.gz') || db_path.toString().endsWith('.tgz')
+
+        if (is_archive) {
+            // Extract tar.gz archive using UNTAR module
+            ch_db_archive = Channel.of([ [id: 'kraken2_db'], file(db_path, checkIfExists: true) ])
+            UNTAR ( ch_db_archive )
+            // STREAMING-FIX: Use .first() to convert queue channel to value channel
+            // Queue channels are consumed after one emission, breaking streaming workflows
+            // Value channels can be reused across multiple emissions (required for watchPath)
+            ch_classification_db = UNTAR.out.untar.map { meta, db -> db }.first()
+            ch_versions = ch_versions.mix(UNTAR.out.versions)
+        } else {
+            // Use directory path directly
+            // STREAMING-FIX: Use .first() to convert queue channel to value channel
+            // This ensures the database path can be reused for each streaming batch
+            // Without .first(), only the first batch would receive the database
+            ch_classification_db = Channel.fromPath(db_path, checkIfExists: true).first()
+        }
+
         TAXONOMIC_CLASSIFICATION (
             ch_qc_reads,
             ch_classification_db
         )
         ch_versions = ch_versions.mix(TAXONOMIC_CLASSIFICATION.out.versions)
         ch_multiqc_files = ch_multiqc_files.mix(TAXONOMIC_CLASSIFICATION.out.report.collect{it[1]})
-        
+
         //
-        // SUBWORKFLOW: Optional BLAST validation
+        // MODULE: Krona interactive visualization of taxonomic results
+        // Note: skip_krona parameter for ARM Mac compatibility (Krona container has permission issues)
         //
-        if (params.blast_validation && params.blast_db) {
-            // Extract sequences for validation from Kraken2 classified reads
-            ch_validation_seqs = TAXONOMIC_CLASSIFICATION.out.classified_reads
-                .filter { meta, reads -> params.validation_taxa?.any { taxa -> meta.id.contains(taxa) } }
-            
-            if (!ch_validation_seqs.empty) {
-                ch_blast_db = Channel.fromPath(params.blast_db, checkIfExists: true)
-                
-                VALIDATION (
-                    ch_validation_seqs,
-                    ch_blast_db
-                )
-                ch_versions = ch_versions.mix(VALIDATION.out.versions)
+        if (params.enable_krona_plots && !params.skip_krona) {
+            log.info "Generating Krona interactive visualization"
+
+            KRONA_KRAKEN2 (
+                TAXONOMIC_CLASSIFICATION.out.report
+            )
+            ch_versions = ch_versions.mix(KRONA_KRAKEN2.out.versions)
+            ch_krona_reports = KRONA_KRAKEN2.out.html
+        } else {
+            ch_krona_reports = Channel.empty()
+        }
+
+        //
+        // SUBWORKFLOW: Pathogen validation via BLAST and/or minimap2
+        // Validates Kraken2 classifications against reference genomes
+        // Output: validation_results.json for Nanometa Live dashboard
+        //
+        // REQUIREMENT: save_reads_assignment must be true for validation to work
+        // The Kraken2 output file (per-read classifications) is needed to extract reads by taxid
+        //
+        if (run_validation_effective && params.pathogen_genomes) {
+            // Auto-enable save_reads_assignment when validation is active
+            if (!params.save_reads_assignment) {
+                log.warn "Validation requires per-read Kraken2 output. Automatically enabling save_reads_assignment."
+                params.save_reads_assignment = true
+            }
+
+            // Check that pathogen_genomes file exists and is JSON
+            def genomes_file = file(params.pathogen_genomes, checkIfExists: true)
+            if (!genomes_file.name.endsWith('.json')) {
+                log.warn "WARNING: pathogen_genomes file '${params.pathogen_genomes}' does not have .json extension"
+            }
+
+            log.info "Running pathogen validation using ${params.validation_method} method"
+            log.info "  Genomes file: ${params.pathogen_genomes}"
+            log.info "  Taxids to validate: ${params.taxids_to_validate}"
+
+            VALIDATION (
+                TAXONOMIC_CLASSIFICATION.out.classified_reads,
+                TAXONOMIC_CLASSIFICATION.out.reads_assignment,
+                TAXONOMIC_CLASSIFICATION.out.report,
+                params.pathogen_genomes,
+                params.taxids_to_validate,
+                params.validation_method
+            )
+            ch_versions = ch_versions.mix(VALIDATION.out.versions)
+
+            // Log validation completion
+            VALIDATION.out.validation_json.subscribe {
+                log.info "Validation results written to: ${params.outdir}/validation/validation_results.json"
             }
         }
     }
@@ -304,6 +565,28 @@ workflow NANOMETANF {
             newLine: true
         ).set { ch_collated_versions }
 
+    //
+    // MODULE: Generate nanopore-specific MultiQC custom content (optional)
+    //
+    if (params.enable_nanopore_stats_mqc) {
+        // Collect sample statistics from QC outputs
+        ch_sample_stats = ch_qc_reports
+            .map { meta, report ->
+                [
+                    sample_id: meta.id,
+                    barcode: meta.barcode ?: 'unclassified',
+                    report_path: report.toString()
+                ]
+            }
+            .collect()
+
+        MULTIQC_NANOPORE_STATS (
+            ch_sample_stats,
+            'nanometanf'
+        )
+        ch_versions = ch_versions.mix(MULTIQC_NANOPORE_STATS.out.versions)
+        ch_multiqc_files = ch_multiqc_files.mix(MULTIQC_NANOPORE_STATS.out.multiqc_files)
+    }
 
     //
     // MODULE: MultiQC - Comprehensive quality control report
@@ -374,7 +657,7 @@ workflow NANOMETANF {
     classification_reports = params.kraken2_db ? TAXONOMIC_CLASSIFICATION.out.report : Channel.empty() // channel: [ val(meta), path(txt) ] - Original format
     standardized_reports   = params.kraken2_db ? TAXONOMIC_CLASSIFICATION.out.standardized_report : Channel.empty() // channel: [ val(meta), path(tsv/csv/etc) ] - Taxpasta format
     classifier_used        = params.kraken2_db ? TAXONOMIC_CLASSIFICATION.out.classifier_used : Channel.empty() // channel: val(classifier_name)
-    blast_results          = params.blast_validation ? VALIDATION.out.txt : Channel.empty()           // channel: [ val(meta), path(txt) ]
+    blast_results          = (run_validation_effective && params.pathogen_genomes) ? VALIDATION.out.blast_results : Channel.empty()  // channel: [ val(meta), path(txt) ]
     versions               = ch_versions                                     // channel: [ path(versions.yml) ]
 
 }

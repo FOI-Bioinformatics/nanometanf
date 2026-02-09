@@ -1,21 +1,22 @@
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    SUBWORKFLOW: TAXONOMIC_CLASSIFICATION  
+    SUBWORKFLOW: TAXONOMIC_CLASSIFICATION
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     Multi-tool taxonomic classification with taxpasta standardization
-    
+
     Supported classifiers:
     - kraken2: Kraken2 k-mer based classification
-    
+
     Future classifiers (ready to implement):
     - centrifuge: Centrifuge classification
     - metaphlan: MetaPhlAn4 marker-based profiling
     - kaiju: Kaiju protein-level classification
-    
+
     Features:
     - Tool-agnostic interface
     - Taxpasta standardization for consistent outputs
     - Easy addition of new classifiers
+    - Scalable streaming architecture with per-sample parallelism (v1.5+)
 ----------------------------------------------------------------------------------------
 */
 
@@ -24,13 +25,15 @@ include { KRAKEN2_OPTIMIZED              } from "${projectDir}/modules/local/kra
 include { KRAKEN2_INCREMENTAL_CLASSIFIER } from "${projectDir}/modules/local/kraken2_incremental_classifier/main"
 include { KRAKEN2_OUTPUT_MERGER          } from "${projectDir}/modules/local/kraken2_output_merger/main"
 include { KRAKEN2_REPORT_GENERATOR       } from "${projectDir}/modules/local/kraken2_report_generator/main"
+include { KRAKEN2_FINAL_AGGREGATOR       } from "${projectDir}/modules/local/kraken2_final_aggregator/main"
 include { TAXPASTA_STANDARDISE           } from "${projectDir}/modules/nf-core/taxpasta/standardise/main"
 
 workflow TAXONOMIC_CLASSIFICATION {
 
     take:
-    ch_reads     // channel: [ val(meta), path(reads) ]
-    ch_db        // channel: [ path(db) ]
+    ch_reads     // channel: [ val(meta), path(reads) ] - streaming compatible (from watchPath or samplesheet)
+    ch_db        // channel: [ path(db) ] - MUST be a value channel (use .first()) for streaming compatibility
+                 // Queue channels are consumed after one emission, breaking streaming workflows
 
     main:
     ch_versions = Channel.empty()
@@ -38,6 +41,8 @@ workflow TAXONOMIC_CLASSIFICATION {
     ch_unclassified_reads = Channel.empty()
     ch_reads_assignment = Channel.empty()
     ch_raw_reports = Channel.empty()
+    ch_final_cumulative_output = Channel.empty()
+    ch_final_cumulative_report = Channel.empty()
 
     // Set classifier and validate parameters
     def classifier = params.classifier ?: 'kraken2'
@@ -50,18 +55,34 @@ workflow TAXONOMIC_CLASSIFICATION {
     // Memory-mapping enables OS-level database caching, eliminating redundant disk I/O across batches
     //
     def auto_enable_optimizations = params.realtime_mode && !params.kraken2_use_optimizations
-    def use_memory_mapping = params.realtime_mode ? true : params.kraken2_memory_mapping
+    // Allow explicit override of memory mapping (e.g., for ARM Mac compatibility where mmap crashes)
+    // In real-time mode, default to true unless explicitly set to false
+    def use_memory_mapping = params.kraken2_memory_mapping
     def use_optimizations = params.realtime_mode ? true : params.kraken2_use_optimizations
 
     if (auto_enable_optimizations && classifier == 'kraken2') {
         log.info "=== Phase 2: Database Preloading Enabled ==="
         log.info "Real-time mode detected - automatically enabling Kraken2 optimizations:"
-        log.info "  - Memory-mapped database loading: ENABLED"
-        log.info "  - Database cached in OS page cache for reuse across batches"
-        log.info "  - Eliminates repeated database loading (30+ batches → 1 load)"
-        log.info "  - Estimated time savings: 1-3 minutes per batch after first load"
+        log.info "  - Memory-mapped database loading: ${use_memory_mapping ? 'ENABLED' : 'DISABLED (ARM Mac compatible mode)'}"
+        if (use_memory_mapping) {
+            log.info "  - Database cached in OS page cache for reuse across batches"
+            log.info "  - Eliminates repeated database loading (30+ batches -> 1 load)"
+            log.info "  - Estimated time savings: 1-3 minutes per batch after first load"
+        } else {
+            log.info "  - Note: Set --kraken2_memory_mapping true for faster performance on x86 systems"
+        }
     }
-    
+
+    // Log scalable streaming architecture info
+    if (params.kraken2_enable_incremental && params.realtime_mode) {
+        log.info "=== Scalable Streaming Architecture ==="
+        log.info "Per-sample parallel processing enabled:"
+        log.info "  - Batch files stored separately (append-only, O(1) per batch)"
+        log.info "  - Incremental taxid counting (no full file re-reads)"
+        log.info "  - Concurrency limit: ${params.max_classification_forks ?: 8} parallel Kraken2 jobs"
+        log.info "  - Final aggregation at end-of-session"
+    }
+
     //
     // BRANCH: Route to appropriate classifier
     //
@@ -74,7 +95,7 @@ workflow TAXONOMIC_CLASSIFICATION {
             if (params.kraken2_enable_incremental == true) {
                 log.info "=== Phase 1.1: Incremental Kraken2 Classification ==="
                 log.info "Using incremental Kraken2 processing with batch caching:"
-                log.info "  - Classify only NEW reads per batch (O(n) vs O(n²))"
+                log.info "  - Classify only NEW reads per batch (O(n) vs O(n^2))"
                 log.info "  - Raw outputs cached per batch for efficient merging"
                 log.info "  - Cumulative reports generated from merged data"
                 log.info "  - Estimated time savings: 30-90 minutes for 30-batch runs"
@@ -117,41 +138,162 @@ workflow TAXONOMIC_CLASSIFICATION {
                 )
                 ch_versions = ch_versions.mix(KRAKEN2_INCREMENTAL_CLASSIFIER.out.versions)
 
-                // Collect batch outputs per sample/barcode
-                ch_raw_kraken2_outputs = KRAKEN2_INCREMENTAL_CLASSIFIER.out.raw_kraken2_output
-                    .groupTuple(by: 0)  // Group by meta
-
-                ch_batch_reports = KRAKEN2_INCREMENTAL_CLASSIFIER.out.report
-                    .groupTuple(by: 0)  // Group by meta
-
-                ch_batch_metadata = KRAKEN2_INCREMENTAL_CLASSIFIER.out.batch_metadata
-                    .groupTuple(by: 0)  // Group by meta
-                    .map{ meta, files -> files }  // Extract just the metadata files (remove meta)
+                //
+                // SCALABLE STREAMING ARCHITECTURE (v1.5+)
+                // Per-sample parallelism with append-only batch storage
+                //
+                // Architecture:
+                // 1. Each batch is classified independently (parallel across samples)
+                // 2. Batch output stored as separate file (O(1) write, no cumulative re-read)
+                // 3. All processes are stateless (no shared filesystem state)
+                // 4. Final aggregation at end-of-session collects batch files via channels
+                //
 
                 //
-                // MODULE: Merge batch outputs
+                // MODULE: Store batch output with append-only architecture
+                // Stateless: writes only to work directory, no outdir reads
                 //
                 KRAKEN2_OUTPUT_MERGER (
-                    ch_raw_kraken2_outputs,
-                    ch_batch_metadata
+                    KRAKEN2_INCREMENTAL_CLASSIFIER.out.classifier_output
                 )
                 ch_versions = ch_versions.mix(KRAKEN2_OUTPUT_MERGER.out.versions)
 
                 //
-                // MODULE: Generate cumulative report
+                // MODULE: Process per-batch report (stateless, no cumulative state)
                 //
                 KRAKEN2_REPORT_GENERATOR (
-                    KRAKEN2_OUTPUT_MERGER.out.cumulative_output,
-                    ch_batch_reports,
+                    KRAKEN2_OUTPUT_MERGER.out.merger_output,
                     ch_db
                 )
                 ch_versions = ch_versions.mix(KRAKEN2_REPORT_GENERATOR.out.versions)
+
+                //
+                // PROGRESSIVE CUMULATIVE REPORTING
+                // Accumulates per-batch taxid counts in Groovy memory and writes
+                // progressive cumulative kreports to outdir for Nanometa Live polling.
+                // Runs in the Nextflow head process (single JVM) with synchronized
+                // per-sample state -- no race conditions, no shared filesystem state.
+                // This provides live cumulative reports during the run, while
+                // FINAL_AGGREGATOR produces the definitive output at session end.
+                //
+                def cumulative_taxa_state = [:].withDefault { ->
+                    [total_reads: 0, classified_reads: 0, unclassified_reads: 0, taxa: [:]]
+                }
+                def batch_write_counter = [:].withDefault { 0 }
+                def write_interval = params.report_write_interval ?: 5
+
+                KRAKEN2_REPORT_GENERATOR.out.taxid_counts
+                    .subscribe { meta, taxid_file ->
+                        try {
+                            def sample_id = meta.id
+
+                            synchronized(cumulative_taxa_state) {
+                                def batch_counts = new groovy.json.JsonSlurper().parseText(taxid_file.text)
+                                def state = cumulative_taxa_state[sample_id]
+
+                                // Merge batch taxa into cumulative state
+                                batch_counts.taxa.each { taxid, data ->
+                                    if (!state.taxa.containsKey(taxid)) {
+                                        state.taxa[taxid] = [
+                                            reads: 0, cumul: 0,
+                                            rank: data.rank, name: data.name
+                                        ]
+                                    }
+                                    state.taxa[taxid].reads += (data.reads as int)
+                                    state.taxa[taxid].cumul += (data.cumul as int)
+                                }
+                                state.total_reads += (batch_counts.total_reads as int)
+                                state.classified_reads += (batch_counts.classified_reads as int)
+                                state.unclassified_reads += (batch_counts.unclassified_reads as int)
+
+                                batch_write_counter[sample_id]++
+
+                                // Write only every N batches or on final batch
+                                if (write_interval <= 0
+                                    || batch_write_counter[sample_id] % write_interval == 0
+                                    || meta.is_final_batch == true) {
+
+                                    // Write progressive cumulative kreport for dashboard
+                                    def outdir = new File("${params.outdir}/kraken2")
+                                    outdir.mkdirs()
+                                    def total = state.total_reads ?: 1
+
+                                    def sb = new StringBuilder()
+                                    state.taxa.sort { a, b ->
+                                        (b.value.cumul as int) <=> (a.value.cumul as int) ?: a.key <=> b.key
+                                    }.each { taxid, tdata ->
+                                        def pct = String.format("%.2f", ((tdata.cumul as double) / total) * 100.0)
+                                        sb.append("${pct}\t${tdata.cumul}\t${tdata.reads}\t${tdata.rank}\t${taxid}\t${tdata.name}\n")
+                                    }
+
+                                    // Atomic write: temp file then rename
+                                    def temp = new File(outdir, "${sample_id}.cumulative.kraken2.report.txt.tmp")
+                                    temp.text = sb.toString()
+                                    def target = new File(outdir, "${sample_id}.cumulative.kraken2.report.txt")
+                                    if (!temp.renameTo(target)) {
+                                        // renameTo can fail silently; fall back to copy+delete
+                                        target.text = temp.text
+                                        temp.delete()
+                                        log.debug "Progressive report: renameTo failed, used copy fallback for ${sample_id}"
+                                    }
+
+                                    log.debug "Progressive cumulative report updated for ${sample_id}: ${state.total_reads} reads, ${state.taxa.size()} taxa"
+                                } // end write interval check
+                            }
+                        } catch (Exception e) {
+                            log.warn "Progressive cumulative report failed for ${meta.id}: ${e.message}"
+                        }
+                    }
+
+                //
+                // END-OF-SESSION AGGREGATION
+                // Collect all batch output and report files per sample via channels.
+                // groupTuple waits for channel closure (end of real-time session or
+                // static input complete), then passes collected files to aggregator.
+                // This produces the definitive cumulative output from actual files.
+                //
+
+                // Collect batch output files per sample
+                ch_sample_outputs = KRAKEN2_OUTPUT_MERGER.out.batch_output
+                    .map { meta, output_file ->
+                        return tuple(meta.id, output_file)
+                    }
+                    .groupTuple(by: 0)
+
+                // Collect batch report files per sample
+                ch_sample_reports = KRAKEN2_OUTPUT_MERGER.out.batch_report_copy
+                    .map { meta, report_file ->
+                        return tuple(meta.id, report_file)
+                    }
+                    .groupTuple(by: 0)
+
+                // Join outputs and reports by sample_id, then run aggregation
+                // Both channels come from the same OUTPUT_MERGER process, so cardinality
+                // always matches. Use failOnMismatch:false to allow partial results if
+                // errorStrategy permits some batch failures.
+                ch_aggregator_input = ch_sample_outputs
+                    .join(ch_sample_reports, by: 0)
+                    .map { sample_id, outputs, reports ->
+                        return tuple([id: sample_id, batch_count: outputs.size()], outputs, reports)
+                    }
+
+                KRAKEN2_FINAL_AGGREGATOR (
+                    ch_aggregator_input
+                )
+                ch_versions = ch_versions.mix(KRAKEN2_FINAL_AGGREGATOR.out.versions)
+
+                // Emit final cumulative outputs
+                ch_final_cumulative_output = KRAKEN2_FINAL_AGGREGATOR.out.cumulative_output
+                ch_final_cumulative_report = KRAKEN2_FINAL_AGGREGATOR.out.cumulative_report
 
                 // Collect outputs from incremental path
                 ch_classified_reads = KRAKEN2_INCREMENTAL_CLASSIFIER.out.classified_reads_fastq
                 ch_unclassified_reads = KRAKEN2_INCREMENTAL_CLASSIFIER.out.unclassified_reads_fastq
                 ch_reads_assignment = KRAKEN2_INCREMENTAL_CLASSIFIER.out.classified_reads_assignment
-                ch_raw_reports = KRAKEN2_REPORT_GENERATOR.out.report
+                // Use final cumulative report for downstream (TAXPASTA, KRONA, MultiQC)
+                // Per-batch reports would produce 720 files for 24 barcodes x 30 batches
+                ch_raw_reports = KRAKEN2_FINAL_AGGREGATOR.out.cumulative_report
+                ch_batch_reports = KRAKEN2_REPORT_GENERATOR.out.report
                 ch_performance_metrics = KRAKEN2_REPORT_GENERATOR.out.stats
 
             } else if (use_optimizations == true) {
@@ -194,7 +336,7 @@ workflow TAXONOMIC_CLASSIFICATION {
                 ch_performance_metrics = Channel.empty()
             }
             break
-            
+
         // Future classifiers to be added here:
         // case 'centrifuge':
         //     CENTRIFUGE_CENTRIFUGE(...)
@@ -202,20 +344,27 @@ workflow TAXONOMIC_CLASSIFICATION {
         // case 'metaphlan':
         //     METAPHLAN4_METAPHLAN4(...)
         //     break
-        
+
         default:
             error "Unsupported classifier: ${classifier}. Currently supported: kraken2"
     }
-    
+
     //
     // MODULE: Standardize classification reports with taxpasta
     //
     if (params.enable_taxpasta_standardization != false) {
+        //
+        // STREAMING-FIX: All non-streaming inputs must be value channels
+        // Queue channels (default for file()) are consumed after one use
+        // Value channels can be reused across multiple streaming emissions
+        //
+        def taxonomy_file = params.taxonomy_file ? file(params.taxonomy_file, checkIfExists: true) : []
+
         TAXPASTA_STANDARDISE (
             ch_raw_reports,
-            classifier,
-            output_format,
-            params.taxonomy_file ? file(params.taxonomy_file, checkIfExists: true) : []
+            Channel.value(classifier),
+            Channel.value(output_format),
+            Channel.value(taxonomy_file)
         )
         ch_versions = ch_versions.mix(TAXPASTA_STANDARDISE.out.versions)
         ch_standardized_reports = TAXPASTA_STANDARDISE.out.standardised_profile
@@ -224,12 +373,14 @@ workflow TAXONOMIC_CLASSIFICATION {
     }
 
     emit:
-    classified_reads      = ch_classified_reads      // channel: [ val(meta), path(fastq) ]
-    unclassified_reads    = ch_unclassified_reads    // channel: [ val(meta), path(fastq) ]
-    reads_assignment      = ch_reads_assignment      // channel: [ val(meta), path(txt) ]
-    report                = ch_raw_reports           // channel: [ val(meta), path(txt) ] - Original format for compatibility
-    standardized_report   = ch_standardized_reports  // channel: [ val(meta), path(tsv/csv/etc) ] - Standardized format
-    performance_metrics   = ch_performance_metrics   // channel: [ path(json) ] - Performance metrics (when optimizations enabled)
-    classifier_used       = Channel.value(classifier) // channel: val(classifier_name)
-    versions              = ch_versions              // channel: [ path(versions.yml) ]
+    classified_reads      = ch_classified_reads           // channel: [ val(meta), path(fastq) ]
+    unclassified_reads    = ch_unclassified_reads         // channel: [ val(meta), path(fastq) ]
+    reads_assignment      = ch_reads_assignment           // channel: [ val(meta), path(txt) ]
+    report                = ch_raw_reports                // channel: [ val(meta), path(txt) ] - Original format for compatibility
+    standardized_report   = ch_standardized_reports       // channel: [ val(meta), path(tsv/csv/etc) ] - Standardized format
+    final_output          = ch_final_cumulative_output    // channel: [ val(meta), path(txt) ] - End-of-session cumulative output
+    final_report          = ch_final_cumulative_report    // channel: [ val(meta), path(txt) ] - End-of-session cumulative report
+    performance_metrics   = ch_performance_metrics        // channel: [ path(json) ] - Performance metrics (when optimizations enabled)
+    classifier_used       = Channel.value(classifier)     // channel: val(classifier_name)
+    versions              = ch_versions                   // channel: [ path(versions.yml) ]
 }

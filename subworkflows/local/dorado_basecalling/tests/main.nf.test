@@ -43,7 +43,7 @@ nextflow_workflow {
                 input[1] = 'dna_r10.4.1_e4.3_400bps_hac@v5.0.0'  // dorado_model
                 """
             }
-            
+
             params {
                 demultiplex = false
                 barcode_kit = null
@@ -62,15 +62,15 @@ nextflow_workflow {
             assert workflow.out.fastq
             assert workflow.out.summary
             assert workflow.out.versions
-            
+
             // Verify basecalling output
             def fastq_outputs = workflow.out.fastq.toList()
             assert fastq_outputs.size() >= 1
-            
+
             // Verify summary output
             def summary_outputs = workflow.out.summary.toList()
             assert summary_outputs.size() >= 1
-            
+
             // Verify versions output
             def versions = workflow.out.versions.toList()
             assert versions.size() >= 1
@@ -105,7 +105,7 @@ nextflow_workflow {
                 input[1] = 'dna_r10.4.1_e4.3_400bps_hac@v5.0.0'  // dorado_model
                 """
             }
-            
+
             params {
                 demultiplex = true
                 barcode_kit = 'SQK-NBD114-24'
@@ -125,15 +125,15 @@ nextflow_workflow {
             assert workflow.out.fastq
             assert workflow.out.summary
             assert workflow.out.versions
-            
+
             // Verify demultiplexed output
             def fastq_outputs = workflow.out.fastq.toList()
             assert fastq_outputs.size() >= 1
-            
+
             // Verify summary output for multiplex
             def summary_outputs = workflow.out.summary.toList()
             assert summary_outputs.size() >= 1
-            
+
             // Should have versions from both basecalling and demultiplexing
             def versions = workflow.out.versions.toList()
             assert versions.size() >= 1
@@ -148,15 +148,15 @@ nextflow_workflow {
             mkdir -p $outputDir/batch_pod5/sample1
             mkdir -p $outputDir/batch_pod5/sample2
             mkdir -p $outputDir/batch_pod5/sample3
-            
+
             # Sample 1 POD5 files
             echo "Sample 1 POD5 data A" > $outputDir/batch_pod5/sample1/s1_batch_001.pod5
             echo "Sample 1 POD5 data B" > $outputDir/batch_pod5/sample1/s1_batch_002.pod5
-            
+
             # Sample 2 POD5 files
             echo "Sample 2 POD5 data A" > $outputDir/batch_pod5/sample2/s2_batch_001.pod5
             echo "Sample 2 POD5 data B" > $outputDir/batch_pod5/sample2/s2_batch_002.pod5
-            
+
             # Sample 3 POD5 files
             echo "Sample 3 POD5 data A" > $outputDir/batch_pod5/sample3/s3_batch_001.pod5
             echo "Sample 3 POD5 data B" > $outputDir/batch_pod5/sample3/s3_batch_002.pod5
@@ -192,7 +192,7 @@ nextflow_workflow {
                 input[1] = 'dna_r10.4.1_e4.3_400bps_fast@v5.0.0'  // dorado_model - fast model
                 """
             }
-            
+
             params {
                 demultiplex = false
                 barcode_kit = null
@@ -210,14 +210,14 @@ nextflow_workflow {
             assert snapshot(workflow.out.versions).match()
             assert workflow.out.fastq
             assert workflow.out.summary
-            
+
             // Verify batch processing
             def fastq_outputs = workflow.out.fastq.toList()
             assert fastq_outputs.size() >= 3
-            
+
             def summary_outputs = workflow.out.summary.toList()
             assert summary_outputs.size() >= 3
-            
+
             // Verify all samples processed
             def sample_ids = fastq_outputs.collect { meta, fastq -> meta.id }
             assert sample_ids.contains('batch_sample1')
@@ -252,7 +252,7 @@ nextflow_workflow {
                 input[1] = 'dna_r10.4.1_e4.3_400bps_sup@v5.0.0'  // dorado_model - super accurate
                 """
             }
-            
+
             params {
                 demultiplex = false
                 barcode_kit = null
@@ -270,11 +270,11 @@ nextflow_workflow {
             assert snapshot(workflow.out.versions).match()
             assert workflow.out.fastq
             assert workflow.out.summary
-            
+
             // Verify model-specific processing
             def fastq_outputs = workflow.out.fastq.toList()
             assert fastq_outputs.size() >= 1
-            
+
             def summary_outputs = workflow.out.summary.toList()
             assert summary_outputs.size() >= 1
         }
@@ -286,12 +286,12 @@ nextflow_workflow {
             """
             # Create mixed POD5 samples
             mkdir -p $outputDir/mixed_pod5
-            
+
             # Single sample POD5 files
             echo "Single sample POD5 1" > $outputDir/mixed_pod5/single_001.pod5
             echo "Single sample POD5 2" > $outputDir/mixed_pod5/single_002.pod5
-            
-            # Multiplex sample POD5 files  
+
+            # Multiplex sample POD5 files
             echo "Multiplex sample POD5 1" > $outputDir/mixed_pod5/multiplex_001.pod5
             echo "Multiplex sample POD5 2" > $outputDir/mixed_pod5/multiplex_002.pod5
             """
@@ -319,7 +319,7 @@ nextflow_workflow {
                 input[1] = 'dna_r10.4.1_e4.3_400bps_hac@v5.0.0'  // dorado_model
                 """
             }
-            
+
             params {
                 demultiplex = false  // Global setting - individual meta takes precedence
                 barcode_kit = 'SQK-NBD114-24'
@@ -337,14 +337,14 @@ nextflow_workflow {
             assert snapshot(workflow.out.versions).match()
             assert workflow.out.fastq
             assert workflow.out.summary
-            
+
             // Verify mixed sample handling
             def fastq_outputs = workflow.out.fastq.toList()
             assert fastq_outputs.size() >= 2
-            
+
             def summary_outputs = workflow.out.summary.toList()
             assert summary_outputs.size() >= 2
-            
+
             // Verify both sample types processed
             def sample_ids = fastq_outputs.collect { meta, fastq -> meta.id }
             assert sample_ids.contains('single_sample') || sample_ids.contains('multiplex_sample')
@@ -377,7 +377,7 @@ nextflow_workflow {
                 input[1] = 'dna_r10.4.1_e4.3_400bps_hac@v5.0.0'  // dorado_model
                 """
             }
-            
+
             params {
                 demultiplex = true
                 barcode_kit = 'SQK-RBK110-96'  // Different barcode kit
@@ -396,11 +396,11 @@ nextflow_workflow {
             assert snapshot(workflow.out.versions).match()
             assert workflow.out.fastq
             assert workflow.out.summary
-            
+
             // Verify different barcode kit handling
             def fastq_outputs = workflow.out.fastq.toList()
             assert fastq_outputs.size() >= 1
-            
+
             def summary_outputs = workflow.out.summary.toList()
             assert summary_outputs.size() >= 1
         }
@@ -442,7 +442,7 @@ nextflow_workflow {
                 for (int i = 1; i <= 20; i++) {
                     pod5_files.add(file('$outputDir/large_pod5_dataset/large_' + String.format("%03d", i) + '.pod5'))
                 }
-                
+
                 input[0] = [
                     [
                         [id: 'large_dataset', single_end: true],
@@ -452,7 +452,7 @@ nextflow_workflow {
                 input[1] = 'dna_r10.4.1_e4.3_400bps_fast@v5.0.0'  // dorado_model - fast for large dataset
                 """
             }
-            
+
             params {
                 demultiplex = false
                 barcode_kit = null
@@ -470,11 +470,11 @@ nextflow_workflow {
             assert snapshot(workflow.out.versions).match()
             assert workflow.out.fastq
             assert workflow.out.summary
-            
+
             // Verify large dataset handling
             def fastq_outputs = workflow.out.fastq.toList()
             assert fastq_outputs.size() >= 1
-            
+
             // Verify processing efficiency
             assert workflow.duration.toMillis() < 900000 // Less than 15 minutes
         }
@@ -489,7 +489,7 @@ nextflow_workflow {
                 input[1] = 'dna_r10.4.1_e4.3_400bps_hac@v5.0.0'  // dorado_model
                 """
             }
-            
+
             params {
                 demultiplex = false
                 barcode_kit = null
@@ -504,13 +504,13 @@ nextflow_workflow {
         then {
             assert workflow.success
             assert snapshot(workflow.out.versions).match()
-            
+
             // Should handle empty input gracefully
             if (workflow.out.fastq) {
                 def fastq_outputs = workflow.out.fastq.toList()
                 assert fastq_outputs.size() == 0
             }
-            
+
             if (workflow.out.summary) {
                 def summary_outputs = workflow.out.summary.toList()
                 assert summary_outputs.size() == 0
@@ -544,7 +544,7 @@ nextflow_workflow {
                 input[1] = 'dna_r10.4.1_e4.3_400bps_sup@v5.0.0'  // dorado_model - super accurate
                 """
             }
-            
+
             params {
                 demultiplex = false
                 barcode_kit = null
@@ -562,11 +562,11 @@ nextflow_workflow {
             assert snapshot(workflow.out.versions).match()
             assert workflow.out.fastq
             assert workflow.out.summary
-            
+
             // Verify quality threshold handling
             def fastq_outputs = workflow.out.fastq.toList()
             assert fastq_outputs.size() >= 1
-            
+
             def summary_outputs = workflow.out.summary.toList()
             assert summary_outputs.size() >= 1
         }
@@ -606,7 +606,7 @@ nextflow_workflow {
                 input[1] = 'dna_r10.4.1_e4.3_400bps_hac@v5.0.0'  // dorado_model
                 """
             }
-            
+
             params {
                 demultiplex = false
                 barcode_kit = null
@@ -624,11 +624,11 @@ nextflow_workflow {
             assert snapshot(workflow.out.versions).match()
             assert workflow.out.fastq
             assert workflow.out.summary
-            
+
             // Verify complex metadata preservation
             def fastq_outputs = workflow.out.fastq.toList()
             assert fastq_outputs.size() >= 1
-            
+
             // Check metadata preservation
             def first_output = fastq_outputs[0]
             def meta = first_output[0]

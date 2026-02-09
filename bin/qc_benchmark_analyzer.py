@@ -23,13 +23,13 @@ import re
 
 class QCBenchmarkAnalyzer:
     """Analyze and compare QC tool performance metrics."""
-    
+
     def __init__(self, results_dir, output_file):
         self.results_dir = Path(results_dir)
         self.output_file = Path(output_file)
         self.metrics = {}
         self.comparison_data = []
-        
+
     def parse_seqkit_stats(self, stats_file):
         """Parse SeqKit stats output to extract sequence metrics."""
         try:
@@ -45,16 +45,16 @@ class QCBenchmarkAnalyzer:
         except Exception as e:
             print(f"Error parsing SeqKit stats {stats_file}: {e}")
         return {}
-    
+
     def parse_fastp_json(self, json_file):
         """Parse FASTP JSON output to extract QC metrics."""
         try:
             with open(json_file, 'r') as f:
                 data = json.load(f)
-            
+
             before = data.get('summary', {}).get('before_filtering', {})
             after = data.get('summary', {}).get('after_filtering', {})
-            
+
             return {
                 'reads_before': before.get('total_reads', 0),
                 'reads_after': after.get('total_reads', 0),
@@ -71,35 +71,35 @@ class QCBenchmarkAnalyzer:
         except Exception as e:
             print(f"Error parsing FASTP JSON {json_file}: {e}")
         return {}
-    
+
     def parse_filtlong_log(self, log_file):
         """Parse FILTLONG log to extract filtering metrics."""
         try:
             with open(log_file, 'r') as f:
                 log_content = f.read()
-            
+
             # Extract metrics from FILTLONG log using regex
             metrics = {}
-            
+
             # Look for input/output read counts and lengths
             input_reads_match = re.search(r'(\d+) reads in input', log_content)
             output_reads_match = re.search(r'(\d+) reads in output', log_content)
-            
+
             if input_reads_match:
                 metrics['reads_before'] = int(input_reads_match.group(1))
             if output_reads_match:
                 metrics['reads_after'] = int(output_reads_match.group(1))
-                
+
             return metrics
         except Exception as e:
             print(f"Error parsing FILTLONG log {log_file}: {e}")
         return {}
-    
+
     def parse_nextflow_trace(self, trace_file):
         """Parse Nextflow execution trace to extract performance metrics."""
         try:
             df = pd.read_csv(trace_file, sep='\t')
-            
+
             # Group by process name and aggregate metrics
             process_metrics = {}
             for _, row in df.iterrows():
@@ -110,21 +110,21 @@ class QCBenchmarkAnalyzer:
                         'memory': [],
                         'cpu_usage': []
                     }
-                
+
                 # Convert duration to seconds
                 duration_str = str(row.get('duration', '0ms'))
                 duration_ms = self._parse_duration(duration_str)
                 process_metrics[process]['duration'].append(duration_ms)
-                
+
                 # Parse memory usage
                 memory_str = str(row.get('memory', '0 MB'))
                 memory_mb = self._parse_memory(memory_str)
                 process_metrics[process]['memory'].append(memory_mb)
-                
+
                 # CPU usage percentage
                 cpu_usage = float(row.get('%cpu', 0))
                 process_metrics[process]['cpu_usage'].append(cpu_usage)
-            
+
             # Calculate averages
             for process in process_metrics:
                 process_metrics[process] = {
@@ -132,12 +132,12 @@ class QCBenchmarkAnalyzer:
                     'max_memory_mb': np.max(process_metrics[process]['memory']),
                     'avg_cpu_usage': np.mean(process_metrics[process]['cpu_usage'])
                 }
-            
+
             return process_metrics
         except Exception as e:
             print(f"Error parsing Nextflow trace {trace_file}: {e}")
         return {}
-    
+
     def _parse_duration(self, duration_str):
         """Parse duration string to milliseconds."""
         duration_str = duration_str.strip()
@@ -150,7 +150,7 @@ class QCBenchmarkAnalyzer:
         elif 'h' in duration_str:
             return float(duration_str.replace('h', '')) * 3600000
         return 0
-    
+
     def _parse_memory(self, memory_str):
         """Parse memory string to MB."""
         memory_str = memory_str.strip().upper()
@@ -161,17 +161,17 @@ class QCBenchmarkAnalyzer:
         elif 'KB' in memory_str:
             return float(memory_str.replace('KB', '').strip()) / 1024
         return 0
-    
+
     def analyze_benchmark_results(self):
         """Analyze all benchmark results in the results directory."""
         print("Analyzing QC benchmark results...")
-        
+
         # Find all benchmark result directories
         benchmark_dirs = list(self.results_dir.glob("**/qc_benchmark"))
-        
+
         for benchmark_dir in benchmark_dirs:
             print(f"Processing benchmark results in: {benchmark_dir}")
-            
+
             # Process FASTP results
             fastp_results = self._process_tool_results(benchmark_dir, 'fastp')
             if fastp_results:
@@ -180,7 +180,7 @@ class QCBenchmarkAnalyzer:
                     'category': 'General Purpose',
                     **fastp_results
                 })
-            
+
             # Process FILTLONG results
             filtlong_results = self._process_tool_results(benchmark_dir, 'filtlong')
             if filtlong_results:
@@ -189,7 +189,7 @@ class QCBenchmarkAnalyzer:
                     'category': 'Nanopore Optimized',
                     **filtlong_results
                 })
-            
+
             # Process enhanced results (PORECHOP + FILTLONG)
             enhanced_results = self._process_tool_results(benchmark_dir, 'porechop_filtlong')
             if enhanced_results:
@@ -198,14 +198,14 @@ class QCBenchmarkAnalyzer:
                     'category': 'Enhanced Nanopore',
                     **enhanced_results
                 })
-    
+
     def _process_tool_results(self, benchmark_dir, tool_name):
         """Process results for a specific tool."""
         results = {}
-        
+
         # Look for tool-specific result files
         tool_files = list(benchmark_dir.glob(f"**/*{tool_name}*"))
-        
+
         for file_path in tool_files:
             if file_path.suffix == '.json' and 'fastp' in tool_name:
                 fastp_metrics = self.parse_fastp_json(file_path)
@@ -216,22 +216,22 @@ class QCBenchmarkAnalyzer:
             elif 'stats' in file_path.name:
                 seqkit_metrics = self.parse_seqkit_stats(file_path)
                 results.update(seqkit_metrics)
-        
+
         return results
-    
+
     def generate_performance_plots(self):
         """Generate performance comparison plots."""
         if not self.comparison_data:
             print("No comparison data available for plotting.")
             return
-        
+
         df = pd.DataFrame(self.comparison_data)
-        
+
         # Set up the plotting style
         plt.style.use('seaborn-v0_8')
         fig, axes = plt.subplots(2, 2, figsize=(15, 12))
         fig.suptitle('QC Tools Performance Comparison', fontsize=16, fontweight='bold')
-        
+
         # Plot 1: Reads retained
         if 'reads_before' in df.columns and 'reads_after' in df.columns:
             df['retention_rate'] = (df['reads_after'] / df['reads_before'] * 100).fillna(0)
@@ -239,60 +239,60 @@ class QCBenchmarkAnalyzer:
             axes[0, 0].set_title('Read Retention Rate (%)')
             axes[0, 0].set_ylabel('Percentage')
             axes[0, 0].tick_params(axis='x', rotation=45)
-        
+
         # Plot 2: Average read length improvement
         if 'avg_len' in df.columns:
             axes[0, 1].bar(df['tool'], df['avg_len'], color=['#1f77b4', '#ff7f0e', '#2ca02c'])
             axes[0, 1].set_title('Average Read Length After QC')
             axes[0, 1].set_ylabel('Base pairs')
             axes[0, 1].tick_params(axis='x', rotation=45)
-        
+
         # Plot 3: Quality improvement (if available)
         if 'q20_rate_after' in df.columns:
             axes[1, 0].bar(df['tool'], df['q20_rate_after'], color=['#1f77b4', '#ff7f0e', '#2ca02c'])
             axes[1, 0].set_title('Q20 Rate After QC')
             axes[1, 0].set_ylabel('Q20 Rate')
             axes[1, 0].tick_params(axis='x', rotation=45)
-        
+
         # Plot 4: Total bases retained
         if 'sum_len' in df.columns:
             axes[1, 1].bar(df['tool'], df['sum_len'], color=['#1f77b4', '#ff7f0e', '#2ca02c'])
             axes[1, 1].set_title('Total Bases After QC')
             axes[1, 1].set_ylabel('Total bases')
             axes[1, 1].tick_params(axis='x', rotation=45)
-        
+
         plt.tight_layout()
-        
+
         # Save plot
         plot_file = self.output_file.parent / f"{self.output_file.stem}_plots.png"
         plt.savefig(plot_file, dpi=300, bbox_inches='tight')
         print(f"Performance plots saved to: {plot_file}")
-        
+
         return plot_file
-    
+
     def generate_report(self):
         """Generate comprehensive benchmark report."""
         print("Generating benchmark report...")
-        
+
         # Analyze results
         self.analyze_benchmark_results()
-        
+
         # Generate plots
         plot_file = self.generate_performance_plots()
-        
+
         # Generate HTML report
         html_content = self._generate_html_report(plot_file)
-        
+
         # Write report
         with open(self.output_file, 'w') as f:
             f.write(html_content)
-        
+
         print(f"Benchmark report generated: {self.output_file}")
-    
+
     def _generate_html_report(self, plot_file):
         """Generate HTML report content."""
         report_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        
+
         html_template = f"""
         <!DOCTYPE html>
         <html>
@@ -313,7 +313,7 @@ class QCBenchmarkAnalyzer:
         <body>
             <h1>QC Tools Benchmark Report</h1>
             <p><strong>Generated:</strong> {report_time}</p>
-            
+
             <div class="summary">
                 <h2>Executive Summary</h2>
                 <p>This report compares the performance of different QC tools for nanopore sequencing data processing in the nanometanf pipeline.</p>
@@ -324,44 +324,44 @@ class QCBenchmarkAnalyzer:
                     <li><strong>PORECHOP+FILTLONG:</strong> Enhanced nanopore QC with adapter trimming</li>
                 </ul>
             </div>
-            
+
             <h2>Performance Comparison</h2>
             {self._generate_comparison_table()}
-            
+
             <div class="plot">
                 <h2>Performance Visualizations</h2>
                 <img src="{plot_file.name}" alt="Performance Comparison Plots" style="max-width: 100%; height: auto;">
             </div>
-            
+
             <div class="recommendation">
                 <h2>Recommendations</h2>
                 {self._generate_recommendations()}
             </div>
-            
+
             <h2>Detailed Metrics</h2>
             {self._generate_detailed_metrics()}
-            
+
         </body>
         </html>
         """
-        
+
         return html_template
-    
+
     def _generate_comparison_table(self):
         """Generate comparison table HTML."""
         if not self.comparison_data:
             return "<p>No comparison data available.</p>"
-        
+
         df = pd.DataFrame(self.comparison_data)
-        
+
         # Calculate summary metrics
         summary_table = "<table><tr><th>Tool</th><th>Category</th><th>Reads Retained</th><th>Avg Read Length</th><th>Total Bases</th></tr>"
-        
+
         for _, row in df.iterrows():
             reads_retained = f"{row.get('reads_after', 'N/A')}"
             avg_length = f"{row.get('avg_len', 'N/A'):.0f}" if pd.notna(row.get('avg_len')) else 'N/A'
             total_bases = f"{row.get('sum_len', 'N/A'):,}" if pd.notna(row.get('sum_len')) else 'N/A'
-            
+
             summary_table += f"""
             <tr>
                 <td>{row['tool']}</td>
@@ -371,10 +371,10 @@ class QCBenchmarkAnalyzer:
                 <td>{total_bases}</td>
             </tr>
             """
-        
+
         summary_table += "</table>"
         return summary_table
-    
+
     def _generate_recommendations(self):
         """Generate tool recommendations based on benchmark results."""
         recommendations = """
@@ -393,12 +393,12 @@ class QCBenchmarkAnalyzer:
         </ul>
         """
         return recommendations
-    
+
     def _generate_detailed_metrics(self):
         """Generate detailed metrics table."""
         if not self.comparison_data:
             return "<p>No detailed metrics available.</p>"
-        
+
         df = pd.DataFrame(self.comparison_data)
         return df.to_html(classes="table", table_id="detailed_metrics", escape=False)
 
@@ -406,9 +406,9 @@ def main():
     parser = argparse.ArgumentParser(description='Analyze QC benchmark results')
     parser.add_argument('--results_dir', required=True, help='Directory containing benchmark results')
     parser.add_argument('--output', required=True, help='Output HTML report file')
-    
+
     args = parser.parse_args()
-    
+
     analyzer = QCBenchmarkAnalyzer(args.results_dir, args.output)
     analyzer.generate_report()
 

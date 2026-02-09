@@ -30,7 +30,7 @@ nextflow_workflow {
                 ]
                 """
             }
-            
+
             params {
                 qc_tool = 'fastp'
                 skip_fastp = false
@@ -370,7 +370,7 @@ nextflow_workflow {
                 ]
                 """
             }
-            
+
             params {
                 qc_tool = 'fastp'
                 skip_nanoplot = true
@@ -386,7 +386,7 @@ nextflow_workflow {
             // Should handle edge cases gracefully
             assert workflow.success
             assert snapshot(workflow.out.versions).match()
-            
+
             if (workflow.success) {
                 // May have limited outputs due to edge cases
                 if (workflow.out.qc_reads) {
@@ -444,7 +444,7 @@ nextflow_workflow {
                 input[0] = []
                 """
             }
-            
+
             params {
                 qc_tool = 'fastp'
                 skip_fastp = false
@@ -458,7 +458,7 @@ nextflow_workflow {
             // Should handle empty input gracefully
             assert workflow.success
             assert snapshot(workflow.out.versions).match()
-            
+
             if (workflow.success) {
                 // Empty outputs expected
                 if (workflow.out.qc_reads) {

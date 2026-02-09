@@ -1,0 +1,4 @@
+sample,fastq,barcode
+sample_01,/Users/andreassjodin/Code/nanometanf/tests/fixtures/fastq/barcode01.fastq.gz,
+sample_02,/Users/andreassjodin/Code/nanometanf/tests/fixtures/fastq/barcode02.fastq.gz,
+test_sample,/Users/andreassjodin/Code/nanometanf/tests/fixtures/fastq/test_sample.fastq.gz,

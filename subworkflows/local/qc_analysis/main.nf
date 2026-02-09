@@ -42,11 +42,12 @@ workflow QC_ANALYSIS {
     ch_qc_json = Channel.empty()
     ch_fastqc_html = Channel.empty()
     ch_seqkit_stats = Channel.empty()
-    
+
     // Set QC tool and validate parameters
     def qc_tool = params.qc_tool ?: 'fastp'
     def enable_adapter_trimming = params.enable_adapter_trimming ?: false
-    
+    def run_fastqc = !(params.realtime_mode && params.skip_fastqc_realtime)
+
     //
     // OPTIONAL: Adapter trimming with PORECHOP (nanopore-specific)
     //
@@ -59,7 +60,7 @@ workflow QC_ANALYSIS {
     } else {
         ch_adapter_trimmed = ch_reads
     }
-    
+
     //
     // BRANCH: Route to appropriate QC tool
     //
@@ -68,22 +69,26 @@ workflow QC_ANALYSIS {
             //
             // MODULE: Run FASTP for general-purpose quality filtering and QC
             //
+            // FASTP expects: tuple(meta, reads, adapter_fasta), discard_trimmed_pass, save_trimmed_fail, save_merged
+            ch_fastp_input = ch_adapter_trimmed.map { meta, reads ->
+                [ meta, reads, [] ]  // Add empty adapter_fasta to tuple
+            }
+
             FASTP (
-                ch_adapter_trimmed,
-                [],           // adapter_fasta
-                false,        // discard_trimmed_pass  
+                ch_fastp_input,
+                false,        // discard_trimmed_pass
                 false,        // save_trimmed_fail
                 false         // save_merged
             )
             ch_versions = ch_versions.mix(FASTP.out.versions)
-            
+
             // Collect standardized outputs
             ch_qc_reads = FASTP.out.reads
             ch_qc_reports = FASTP.out.html
             ch_qc_logs = FASTP.out.log
             ch_qc_json = FASTP.out.json
             break
-            
+
         case 'filtlong':
             //
             // MODULE: Run FILTLONG for nanopore-optimized quality filtering
@@ -92,30 +97,32 @@ workflow QC_ANALYSIS {
             ch_filtlong_input = ch_adapter_trimmed.map { meta, reads ->
                 [meta, [], reads]  // [meta, shortreads=empty, longreads=reads]
             }
-            
+
             FILTLONG (
                 ch_filtlong_input
             )
             ch_versions = ch_versions.mix(FILTLONG.out.versions)
-            
+
             //
             // Enhanced reporting for FILTLONG: Add FastQC and SeqKit stats
             //
-            
+
             // MODULE: Run FastQC on filtered reads for comprehensive HTML reporting
-            FASTQC (
-                FILTLONG.out.reads
-            )
-            ch_versions = ch_versions.mix(FASTQC.out.versions)
-            ch_fastqc_html = FASTQC.out.html
-            
-            // MODULE: Run SeqKit stats for detailed sequence statistics  
+            if (run_fastqc) {
+                FASTQC (
+                    FILTLONG.out.reads
+                )
+                ch_versions = ch_versions.mix(FASTQC.out.versions)
+                ch_fastqc_html = FASTQC.out.html
+            }
+
+            // MODULE: Run SeqKit stats for detailed sequence statistics
             SEQKIT_STATS (
                 FILTLONG.out.reads
             )
             ch_versions = ch_versions.mix(SEQKIT_STATS.out.versions)
             ch_seqkit_stats = SEQKIT_STATS.out.stats
-            
+
             // Collect standardized outputs
             ch_qc_reads = FILTLONG.out.reads
             ch_qc_reports = ch_fastqc_html              // Use FastQC HTML reports for FILTLONG
@@ -139,11 +146,13 @@ workflow QC_ANALYSIS {
             //
 
             // MODULE: Run FastQC on filtered reads for comprehensive HTML reporting
-            FASTQC (
-                CHOPPER.out.fastq
-            )
-            ch_versions = ch_versions.mix(FASTQC.out.versions)
-            ch_fastqc_html = FASTQC.out.html
+            if (run_fastqc) {
+                FASTQC (
+                    CHOPPER.out.fastq
+                )
+                ch_versions = ch_versions.mix(FASTQC.out.versions)
+                ch_fastqc_html = FASTQC.out.html
+            }
 
             // MODULE: Run SeqKit stats for detailed sequence statistics
             SEQKIT_STATS (
@@ -174,23 +183,39 @@ workflow QC_ANALYSIS {
     // For tools that use SEQKIT_STATS (chopper, filtlong), aggregate batch-level stats
     // into cumulative statistics when incremental mode is enabled
     //
+    // STREAMING-FIX: groupTuple() waits for channel completion, which never happens
+    // with watchPath() in true streaming mode. This feature is incompatible with
+    // realtime streaming and should be disabled when realtime_mode is enabled.
+    //
     def enable_incremental = params.qc_enable_incremental ?: false
+    def is_realtime_mode = params.realtime_mode ?: false
     def ch_final_seqkit_stats = ch_seqkit_stats
 
     if (enable_incremental && (qc_tool == 'chopper' || qc_tool == 'filtlong')) {
-        log.info "Using incremental QC statistics aggregation for ${qc_tool}"
+        if (is_realtime_mode) {
+            // STREAMING-FIX: Skip groupTuple-based aggregation in realtime mode
+            // groupTuple() blocks indefinitely waiting for channel closure
+            // Instead, pass through individual batch stats - cumulative aggregation
+            // should be handled by the downstream dashboard or a streaming-compatible module
+            log.warn "Incremental QC stats aggregation disabled in realtime mode (groupTuple incompatible with watchPath)"
+            log.info "Individual batch statistics will be emitted instead of cumulative"
+            // ch_final_seqkit_stats remains as ch_seqkit_stats (individual batches)
+        } else {
+            // Non-realtime mode: safe to use groupTuple (channel will close)
+            log.info "Using incremental QC statistics aggregation for ${qc_tool}"
 
-        // Group batch-level seqkit stats by sample ID
-        def ch_grouped_batch_stats = ch_seqkit_stats.groupTuple(by: 0)
+            // Group batch-level seqkit stats by sample ID
+            def ch_grouped_batch_stats = ch_seqkit_stats.groupTuple(by: 0)
 
-        // Merge batch statistics into cumulative statistics
-        SEQKIT_MERGE_STATS(
-            ch_grouped_batch_stats
-        )
-        ch_versions = ch_versions.mix(SEQKIT_MERGE_STATS.out.versions)
+            // Merge batch statistics into cumulative statistics
+            SEQKIT_MERGE_STATS(
+                ch_grouped_batch_stats
+            )
+            ch_versions = ch_versions.mix(SEQKIT_MERGE_STATS.out.versions)
 
-        // Use cumulative stats instead of batch stats
-        ch_final_seqkit_stats = SEQKIT_MERGE_STATS.out.cumulative_stats
+            // Use cumulative stats instead of batch stats
+            ch_final_seqkit_stats = SEQKIT_MERGE_STATS.out.cumulative_stats
+        }
     }
 
     //

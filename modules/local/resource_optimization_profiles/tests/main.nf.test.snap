@@ -3,58 +3,58 @@
         "content": [
             {
                 "0": [
-                    "optimization_profiles.json:md5,55b7f2d7d57660aaf5f461218b0c0935"
+                    "optimization_profiles.json:md5,0a37e698c992e75ce117398ab5efd720"
                 ],
                 "1": [
-                    "active_profile.json:md5,1c78d1fd0f9f05ec466a547523f622d4"
+                    "active_profile.json:md5,60880e0e92dc6a6c90d0edf826b471fc"
                 ],
                 "2": [
-                    "versions.yml:md5,640841b43c323e224293c2d3e866ed27"
+                    "versions.yml:md5,c48f91654c703d4b343a446030a8fdd2"
                 ],
                 "active_profile": [
-                    "active_profile.json:md5,1c78d1fd0f9f05ec466a547523f622d4"
+                    "active_profile.json:md5,60880e0e92dc6a6c90d0edf826b471fc"
                 ],
                 "profiles": [
-                    "optimization_profiles.json:md5,55b7f2d7d57660aaf5f461218b0c0935"
+                    "optimization_profiles.json:md5,0a37e698c992e75ce117398ab5efd720"
                 ],
                 "versions": [
-                    "versions.yml:md5,640841b43c323e224293c2d3e866ed27"
+                    "versions.yml:md5,c48f91654c703d4b343a446030a8fdd2"
                 ]
             }
         ],
         "meta": {
-            "nf-test": "0.9.2",
-            "nextflow": "25.04.7"
+            "nf-test": "0.9.3",
+            "nextflow": "25.10.3"
         },
-        "timestamp": "2025-10-03T09:26:58.991234"
+        "timestamp": "2026-02-01T14:24:34.639562"
     },
     "Should load auto profile": {
         "content": [
             {
                 "0": [
-                    "optimization_profiles.json:md5,ea8099a133f8c5bc863cd4599dfc0532"
+                    "optimization_profiles.json:md5,0a37e698c992e75ce117398ab5efd720"
                 ],
                 "1": [
-                    "active_profile.json:md5,9b378a617b1f004d891334fa57bb9382"
+                    "active_profile.json:md5,60880e0e92dc6a6c90d0edf826b471fc"
                 ],
                 "2": [
-                    "versions.yml:md5,640841b43c323e224293c2d3e866ed27"
+                    "versions.yml:md5,c48f91654c703d4b343a446030a8fdd2"
                 ],
                 "active_profile": [
-                    "active_profile.json:md5,9b378a617b1f004d891334fa57bb9382"
+                    "active_profile.json:md5,60880e0e92dc6a6c90d0edf826b471fc"
                 ],
                 "profiles": [
-                    "optimization_profiles.json:md5,ea8099a133f8c5bc863cd4599dfc0532"
+                    "optimization_profiles.json:md5,0a37e698c992e75ce117398ab5efd720"
                 ],
                 "versions": [
-                    "versions.yml:md5,640841b43c323e224293c2d3e866ed27"
+                    "versions.yml:md5,c48f91654c703d4b343a446030a8fdd2"
                 ]
             }
         ],
         "meta": {
-            "nf-test": "0.9.2",
-            "nextflow": "25.04.7"
+            "nf-test": "0.9.3",
+            "nextflow": "25.10.3"
         },
-        "timestamp": "2025-10-03T09:27:02.568382"
+        "timestamp": "2026-02-01T14:24:39.147393"
     }
 }

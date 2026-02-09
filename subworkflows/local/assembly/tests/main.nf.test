@@ -35,7 +35,7 @@ nextflow_workflow {
                 ]
                 """
             }
-            
+
             params {
                 assembler = 'flye'
                 genome_size = '5m'
@@ -54,17 +54,17 @@ nextflow_workflow {
             assert workflow.out.assembly_info
             assert workflow.out.assembler_used
             assert workflow.out.versions
-            
+
             // Verify Flye assembly outputs
             def assemblies = workflow.out.assembly.toList()
             assert assemblies.size() >= 1
-            
+
             def graphs = workflow.out.assembly_graph.toList()
             assert graphs.size() >= 1
-            
+
             def info = workflow.out.assembly_info.toList()
             assert info.size() >= 1
-            
+
             // Check assembler identification
             def assembler_used = workflow.out.assembler_used.getVal()
             assert assembler_used == 'flye'
@@ -91,7 +91,7 @@ nextflow_workflow {
                 ]
                 """
             }
-            
+
             params {
                 assembler = 'miniasm'
                 max_cpus = 2
@@ -107,18 +107,18 @@ nextflow_workflow {
             assert workflow.out.assembly_graph
             assert workflow.out.assembler_used
             assert workflow.out.versions
-            
+
             // Verify Miniasm assembly outputs
             def assemblies = workflow.out.assembly.toList()
             assert assemblies.size() >= 1
-            
+
             def graphs = workflow.out.assembly_graph.toList()
             assert graphs.size() >= 1
-            
+
             // Check assembler identification
             def assembler_used = workflow.out.assembler_used.getVal()
             assert assembler_used == 'miniasm'
-            
+
             // Miniasm doesn't provide assembly info
             if (workflow.out.assembly_info) {
                 def info = workflow.out.assembly_info.toList()
@@ -147,7 +147,7 @@ nextflow_workflow {
                 ]
                 """
             }
-            
+
             params {
                 assembler = 'flye'
                 genome_size = '2.5m'  // Smaller genome
@@ -164,7 +164,7 @@ nextflow_workflow {
             assert workflow.out.assembly
             assert workflow.out.assembly_graph
             assert workflow.out.assembly_info
-            
+
             // Verify assembly with custom genome size
             def assemblies = workflow.out.assembly.toList()
             assert assemblies.size() >= 1
@@ -191,7 +191,7 @@ nextflow_workflow {
                 ]
                 """
             }
-            
+
             params {
                 assembler = 'flye'
                 genome_size = '5m'
@@ -208,7 +208,7 @@ nextflow_workflow {
             assert workflow.out.assembly
             assert workflow.out.assembly_graph
             assert workflow.out.assembly_info
-            
+
             // Verify assembly with corrected reads mode
             def assemblies = workflow.out.assembly.toList()
             assert assemblies.size() >= 1
@@ -245,7 +245,7 @@ nextflow_workflow {
                 ]
                 """
             }
-            
+
             params {
                 assembler = 'flye'
                 genome_size = '5m'
@@ -262,14 +262,14 @@ nextflow_workflow {
             assert workflow.out.assembly
             assert workflow.out.assembly_graph
             assert workflow.out.assembly_info
-            
+
             // Verify batch processing
             def assemblies = workflow.out.assembly.toList()
             assert assemblies.size() >= 3
-            
+
             def graphs = workflow.out.assembly_graph.toList()
             assert graphs.size() >= 3
-            
+
             def info = workflow.out.assembly_info.toList()
             assert info.size() >= 3
         }
@@ -295,7 +295,7 @@ nextflow_workflow {
                 ]
                 """
             }
-            
+
             params {
                 assembler = 'flye'
                 genome_size = '5m'
@@ -313,7 +313,7 @@ nextflow_workflow {
             assert workflow.out.assembly
             assert workflow.out.assembly_graph
             assert workflow.out.assembly_info
-            
+
             // Verify high-quality assembly
             def assemblies = workflow.out.assembly.toList()
             assert assemblies.size() >= 1
@@ -340,7 +340,7 @@ nextflow_workflow {
                 ]
                 """
             }
-            
+
             params {
                 assembler = 'flye'
                 genome_size = '100m'  // Large genome (100Mb)
@@ -357,7 +357,7 @@ nextflow_workflow {
             assert workflow.out.assembly
             assert workflow.out.assembly_graph
             assert workflow.out.assembly_info
-            
+
             // Verify large genome assembly
             def assemblies = workflow.out.assembly.toList()
             assert assemblies.size() >= 1
@@ -372,7 +372,7 @@ nextflow_workflow {
                 input[0] = []
                 """
             }
-            
+
             params {
                 assembler = 'flye'
                 genome_size = '5m'
@@ -386,7 +386,7 @@ nextflow_workflow {
             // Should handle empty input gracefully
             assert workflow.success
             assert snapshot(workflow.out.versions).match()
-            
+
             if (workflow.success) {
                 // Empty outputs expected
                 if (workflow.out.assembly) {
@@ -417,7 +417,7 @@ nextflow_workflow {
                 ]
                 """
             }
-            
+
             params {
                 assembler = 'invalid_assembler'  // Invalid assembler
                 genome_size = '5m'
@@ -430,7 +430,7 @@ nextflow_workflow {
         then {
             // Should fail due to invalid assembler
             assert workflow.failed
-            
+
             // Should fail quickly during parameter validation
             assert workflow.duration.toMillis() < 60000 // Less than 1 minute
         }
@@ -456,7 +456,7 @@ nextflow_workflow {
                 ]
                 """
             }
-            
+
             params {
                 assembler = 'flye'  // Primary assembler for comparison
                 genome_size = '5m'
@@ -474,11 +474,11 @@ nextflow_workflow {
             assert workflow.out.assembly_graph
             assert workflow.out.assembly_info
             assert workflow.out.assembler_used
-            
+
             // Verify comparison-ready outputs
             def assemblies = workflow.out.assembly.toList()
             assert assemblies.size() >= 1
-            
+
             def assembler_used = workflow.out.assembler_used.getVal()
             assert assembler_used == 'flye'
         }

@@ -126,8 +126,8 @@ process EXPONENTIAL_BACKOFF_HANDLER {
     echo '{"sample_id": "${meta.id}", "retry_count": ${retry_count}, "delay_seconds": 5, "should_retry": true}' > backoff_report.json
 
     cat <<-END_VERSIONS > versions.yml
-    "${task.process}":
-        python: \$(python3 --version | sed 's/Python //g')
-    END_VERSIONS
+"${task.process}":
+    python: \$(python3 --version | sed 's/Python //g')
+END_VERSIONS
     """
 }

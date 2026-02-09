@@ -7,6 +7,7 @@ The nanometanf pipeline implements an advanced multi-tool QC framework that allo
 ## Quick Start
 
 ### Basic Usage
+
 ```bash
 # Use default FASTP (general-purpose)
 nextflow run foi-bioinformatics/nanometanf --input samplesheet.csv --outdir results
@@ -19,6 +20,7 @@ nextflow run foi-bioinformatics/nanometanf --input samplesheet.csv --outdir resu
 ```
 
 ### Using QC Strategy Profiles
+
 ```bash
 # Stringent QC for genomics/variant calling
 nextflow run foi-bioinformatics/nanometanf -profile docker,nanopore_strict --input samplesheet.csv --outdir results
@@ -33,12 +35,14 @@ nextflow run foi-bioinformatics/nanometanf -profile docker,nanopore_assembly --i
 ## QC Tools Comparison
 
 ### FASTP (General-Purpose)
+
 - **Best for**: Cross-platform compatibility, detailed reporting, RNA data
 - **Strengths**: Rich HTML reports, JSON output, comprehensive statistics
 - **Optimal use cases**: Mixed sequencing technologies, transcriptomics, detailed QC analysis
 - **Performance**: Moderate speed, moderate memory usage
 
 ### FILTLONG (Nanopore-Optimized)
+
 - **Best for**: Nanopore data, length-based filtering, speed
 - **Strengths**: Nanopore-specific algorithms, length-weighted quality scoring, fast processing
 - **Optimal use cases**: Genomics, metagenomics, assembly projects
@@ -46,6 +50,7 @@ nextflow run foi-bioinformatics/nanometanf -profile docker,nanopore_assembly --i
 - **Enhanced reporting**: Automatically includes FastQC and SeqKit statistics
 
 ### PORECHOP + FILTLONG (Enhanced)
+
 - **Best for**: High-quality requirements, contaminated samples
 - **Strengths**: Adapter removal, highest quality output
 - **Optimal use cases**: Critical applications, contaminated samples, publication-quality data
@@ -56,7 +61,9 @@ nextflow run foi-bioinformatics/nanometanf -profile docker,nanopore_assembly --i
 The pipeline includes pre-configured QC profiles optimized for different use cases:
 
 ### nanopore_strict
+
 **Use for**: High-quality genomics, variant calling, publication data
+
 ```bash
 # Configuration highlights:
 --qc_tool filtlong
@@ -67,7 +74,9 @@ The pipeline includes pre-configured QC profiles optimized for different use cas
 ```
 
 ### nanopore_balanced (Recommended)
+
 **Use for**: General nanopore analysis, routine QC
+
 ```bash
 # Configuration highlights:
 --qc_tool filtlong
@@ -78,7 +87,9 @@ The pipeline includes pre-configured QC profiles optimized for different use cas
 ```
 
 ### nanopore_permissive
+
 **Use for**: Low-coverage samples, contaminated data, challenging datasets
+
 ```bash
 # Configuration highlights:
 --qc_tool filtlong
@@ -89,7 +100,9 @@ The pipeline includes pre-configured QC profiles optimized for different use cas
 ```
 
 ### nanopore_metagenomics
+
 **Use for**: Metagenomic analysis, taxonomic profiling
+
 ```bash
 # Configuration highlights:
 --qc_tool filtlong
@@ -100,7 +113,9 @@ The pipeline includes pre-configured QC profiles optimized for different use cas
 ```
 
 ### nanopore_assembly
+
 **Use for**: Genome assembly projects
+
 ```bash
 # Configuration highlights:
 --qc_tool filtlong
@@ -111,7 +126,9 @@ The pipeline includes pre-configured QC profiles optimized for different use cas
 ```
 
 ### nanopore_rna
+
 **Use for**: RNA/transcriptomic analysis
+
 ```bash
 # Configuration highlights:
 --qc_tool fastp  # Better adapter handling for RNA
@@ -125,16 +142,19 @@ The pipeline includes pre-configured QC profiles optimized for different use cas
 ### FILTLONG Parameters
 
 #### `filtlong_min_length` (default: 1000)
+
 - **1000-1500**: Standard for most applications
 - **2000+**: Strict filtering for high-quality assemblies
 - **500-800**: Permissive for low-coverage or transcriptomic data
 
 #### `filtlong_keep_percent` (default: 90)
+
 - **75-85%**: Strict quality requirements
 - **90-95%**: Balanced approach
 - **95-99%**: Permissive filtering
 
 #### `filtlong_min_mean_q` (default: 8.0)
+
 - **10+**: High-quality requirements
 - **8-9**: Standard filtering
 - **6-7**: Permissive for challenging data
@@ -142,16 +162,19 @@ The pipeline includes pre-configured QC profiles optimized for different use cas
 ### FASTP Parameters
 
 #### `fastp_qualified_quality` (default: 15)
+
 - **20+**: Strict quality filtering
 - **15-20**: Standard filtering
 - **10-15**: Permissive filtering
 
 #### `fastp_length_required` (default: 1000)
+
 - Adjust based on expected read lengths for your application
 
 ## Performance Benchmarking
 
 ### Enable Benchmarking
+
 ```bash
 nextflow run foi-bioinformatics/nanometanf \
   --input samplesheet.csv \
@@ -160,6 +183,7 @@ nextflow run foi-bioinformatics/nanometanf \
 ```
 
 This will run all QC tools on your data and generate a comprehensive comparison report including:
+
 - Processing time comparison
 - Memory usage analysis
 - Read retention rates
@@ -167,6 +191,7 @@ This will run all QC tools on your data and generate a comprehensive comparison 
 - Tool-specific recommendations
 
 ### Benchmark Analysis
+
 ```bash
 # Generate benchmark report
 python bin/qc_benchmark_analyzer.py \
@@ -179,21 +204,25 @@ python bin/qc_benchmark_analyzer.py \
 ### Data Type Considerations
 
 #### Genomic DNA
+
 - **Recommended**: `nanopore_balanced` or `nanopore_strict` profiles
 - **Tool**: FILTLONG with adapter trimming
 - **Focus**: Read length preservation, quality improvement
 
 #### Metagenomic samples
+
 - **Recommended**: `nanopore_metagenomics` profile
 - **Tool**: FILTLONG with moderate stringency
 - **Focus**: Taxonomic accuracy, diversity preservation
 
 #### RNA/cDNA
+
 - **Recommended**: `nanopore_rna` profile
 - **Tool**: FASTP (better adapter handling)
 - **Focus**: Transcript integrity, splice junction preservation
 
 #### Assembly projects
+
 - **Recommended**: `nanopore_assembly` profile
 - **Tool**: FILTLONG with length priority
 - **Focus**: Long read retention, quality over quantity
@@ -222,24 +251,29 @@ python bin/qc_benchmark_analyzer.py \
 ### Common Issues
 
 #### Low read retention with FILTLONG
+
 - **Solution**: Reduce `filtlong_keep_percent` or `filtlong_min_mean_q`
 - **Profile**: Switch to `nanopore_permissive`
 
 #### Slow processing with PORECHOP
+
 - **Solution**: Disable adapter trimming for speed: `--enable_adapter_trimming false`
 - **Alternative**: Use FASTP for faster adapter detection
 
 #### Memory issues
+
 - **Solution**: FILTLONG typically uses less memory than FASTP
 - **Recommendation**: Use `--qc_tool filtlong` for large datasets
 
 #### Poor assembly results
+
 - **Solution**: Use `nanopore_assembly` profile with longer minimum length
 - **Parameters**: Increase `filtlong_min_length` to 2000+
 
 ### Performance Optimization
 
 #### Speed Priority
+
 ```bash
 --qc_tool filtlong
 --enable_adapter_trimming false
@@ -247,6 +281,7 @@ python bin/qc_benchmark_analyzer.py \
 ```
 
 #### Quality Priority
+
 ```bash
 --qc_tool filtlong
 --enable_adapter_trimming true
@@ -255,6 +290,7 @@ python bin/qc_benchmark_analyzer.py \
 ```
 
 #### Memory Efficiency
+
 ```bash
 --qc_tool filtlong  # More memory efficient than FASTP
 --skip_nanoplot true  # Reduce memory usage
@@ -263,7 +299,9 @@ python bin/qc_benchmark_analyzer.py \
 ## Advanced Configuration
 
 ### Custom QC Profiles
+
 Create custom profiles in `conf/qc_profiles.config`:
+
 ```groovy
 my_custom_profile {
     params {
@@ -276,6 +314,7 @@ my_custom_profile {
 ```
 
 ### Combining with Other Profiles
+
 ```bash
 nextflow run foi-bioinformatics/nanometanf \
   -profile docker,nanopore_strict,my_custom_profile \
@@ -285,17 +324,20 @@ nextflow run foi-bioinformatics/nanometanf \
 ## Output Interpretation
 
 ### FILTLONG + Enhanced Reporting
+
 - **FILTLONG log**: Filtering statistics and decisions
 - **FastQC HTML**: Comprehensive sequence quality reports
 - **SeqKit stats**: Detailed sequence statistics
 - **NanoPlot HTML**: Nanopore-specific visualizations
 
 ### FASTP Reporting
+
 - **FASTP HTML**: Rich interactive QC report
 - **FASTP JSON**: Machine-readable statistics
 - **NanoPlot HTML**: Additional nanopore visualizations
 
 ### Benchmark Reports
+
 - **Performance comparison**: Processing time, memory usage
 - **Quality metrics**: Read retention, quality improvement
 - **Recommendations**: Tool selection guidance
@@ -303,16 +345,19 @@ nextflow run foi-bioinformatics/nanometanf \
 ## Integration with Downstream Analysis
 
 ### Taxonomic Classification
+
 - Use `nanopore_metagenomics` profile
 - Enable taxonomic assignment saving
 - Use taxpasta standardization for consistent outputs
 
 ### Genome Assembly
+
 - Use `nanopore_assembly` profile
 - Prioritize read length over quantity
 - Consider strict quality filtering
 
 ### Variant Calling
+
 - Use `nanopore_strict` profile
 - Enable adapter trimming
 - Maximize quality metrics

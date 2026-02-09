@@ -3,6 +3,8 @@ nextflow_process {
     name "Test Process FILTLONG"
     script "../main.nf"
     process "FILTLONG"
+
+    options "-stub"
     config "./nextflow.config"
     tag "filtlong"
     tag "modules"

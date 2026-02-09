@@ -4,6 +4,7 @@ nextflow_process {
     script "../main.nf"
     process "ANALYZE_INPUT_CHARACTERISTICS"
 
+    options "-stub"
     // Test Level & Component
     tag "module"
     tag "analyze_input_characteristics"
@@ -44,13 +45,13 @@ nextflow_process {
         then {
             assert process.success
             assert process.out.characteristics.size() == 1
-            
+
             // Check that characteristics file was generated
             def (meta, characteristics_file) = process.out.characteristics[0]
             assert meta.id == 'test_sample'
             assert characteristics_file != null
             assert path(characteristics_file).exists()
-            
+
             // Check versions output
             assert process.out.versions.size() == 1
             assert path(process.out.versions[0]).getText().contains('python')
@@ -91,12 +92,12 @@ nextflow_process {
         then {
             assert process.success
             assert process.out.characteristics.size() == 1
-            
+
             def (meta, characteristics_file) = process.out.characteristics[0]
             assert meta.id == 'test_pod5'
             assert meta.file_type == 'pod5'
             assert path(characteristics_file).exists()
-            
+
             assert process.out.versions.size() == 1
         }
     }
@@ -137,11 +138,11 @@ nextflow_process {
         then {
             assert process.success
             assert process.out.characteristics.size() == 1
-            
+
             def (meta, characteristics_file) = process.out.characteristics[0]
             assert meta.id == 'test_multiple'
             assert path(characteristics_file).exists()
-            
+
             assert process.out.versions.size() == 1
         }
     }
@@ -172,15 +173,15 @@ nextflow_process {
         then {
             assert process.success
             assert process.out.characteristics.size() == 1
-            
+
             def (meta, characteristics_file) = process.out.characteristics[0]
             assert meta.id == 'complexity_test'
             assert path(characteristics_file).exists()
-            
+
             // Check that complexity analysis data exists in file
             def characteristics_content = path(characteristics_file).text
             assert characteristics_content.contains('complexity') || characteristics_content.contains('entropy')
-            
+
             assert process.out.versions.size() == 1
         }
     }
@@ -212,19 +213,16 @@ nextflow_process {
         then {
             assert process.success
             assert process.out.characteristics.size() == 1
-            
+
             def (meta, characteristics_file) = process.out.characteristics[0]
             assert meta.id == 'edge_case_test'
             assert path(characteristics_file).exists()
-            
+
             assert process.out.versions.size() == 1
         }
     }
 
     test("Should run in stub mode") {
-
-        options "-stub"
-
         when {
             process {
                 """
@@ -248,7 +246,7 @@ nextflow_process {
             assert process.success
             assert process.out.characteristics.size() == 1
             assert process.out.versions.size() == 1
-            
+
             def (meta, characteristics_file) = process.out.characteristics[0]
             assert meta.id == 'stub_test'
             assert path(characteristics_file).exists()

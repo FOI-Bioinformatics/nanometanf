@@ -7,23 +7,27 @@ Production-tested recommendations for running nanometanf reliably and efficientl
 ### Samplesheet Best Practices
 
 **DO**:
+
 ```csv
 sample,fastq,barcode
 Sample001_Treatment_Rep1,/data/nanopore/sample001.fastq.gz,BC01
 Sample002_Treatment_Rep2,/data/nanopore/sample002.fastq.gz,BC02
 Sample003_Control_Rep1,/data/nanopore/sample003.fastq.gz,BC03
 ```
+
 - ✅ Use absolute paths
 - ✅ Descriptive sample names
 - ✅ Consistent naming scheme
 - ✅ Include replicates/conditions in names
 
 **DON'T**:
+
 ```csv
 sample,fastq,barcode
 s1,../data/file.fq,
 sample 2,file2.fastq.gz,
 ```
+
 - ❌ Relative paths
 - ❌ Spaces in names
 - ❌ Inconsistent naming
@@ -34,6 +38,7 @@ sample 2,file2.fastq.gz,
 ### Directory Structure
 
 **Recommended layout**:
+
 ```
 project/
 ├── raw_data/
@@ -60,14 +65,15 @@ project/
 
 **Choose the right input mode**:
 
-| Input Mode | Use When | Pros | Cons |
-|------------|----------|------|------|
-| `--input samplesheet.csv` | Standard FASTQ analysis | Fast, flexible | Manual samplesheet |
-| `--pod5_input_dir` | Raw POD5 basecalling | Full control over models | Slower (basecalling) |
-| `--barcode_input_dir` | Pre-demuxed folders | Auto-discovery | Requires standard structure |
-| `--realtime_mode` | Live sequencing | Real-time results | Complex setup |
+| Input Mode                | Use When                | Pros                     | Cons                        |
+| ------------------------- | ----------------------- | ------------------------ | --------------------------- |
+| `--input samplesheet.csv` | Standard FASTQ analysis | Fast, flexible           | Manual samplesheet          |
+| `--pod5_input_dir`        | Raw POD5 basecalling    | Full control over models | Slower (basecalling)        |
+| `--barcode_input_dir`     | Pre-demuxed folders     | Auto-discovery           | Requires standard structure |
+| `--realtime_mode`         | Live sequencing         | Real-time results        | Complex setup               |
 
 **Example decision tree**:
+
 ```
 Do you have POD5 files?
 ├─ Yes → Use --use_dorado --pod5_input_dir
@@ -86,6 +92,7 @@ Do you have POD5 files?
 ### QC Thresholds
 
 **Recommended filters**:
+
 ```bash
 # Basecalling
 nextflow run ... \
@@ -104,6 +111,7 @@ EOF
 ```
 
 **Quality flags to monitor**:
+
 - Mean Q-score < 9 → Check basecalling settings
 - N50 < 1kb (genomics) → Fragmented DNA
 - <50% pass filter → Sample quality issues
@@ -113,12 +121,14 @@ EOF
 ### QC Report Review
 
 **Red flags in MultiQC**:
+
 1. **Bimodal quality distribution** → Mixed sample quality
 2. **Low N50 + high read count** → Excessive fragmentation
 3. **Unclassified rate > 90%** → Wrong database or contamination
 4. **Adapter content > 10%** → Trimming not working
 
 **Action items**:
+
 ```bash
 # If quality issues detected
 1. Check NanoPlot report for sample-specific issues
@@ -134,6 +144,7 @@ EOF
 ### Memory Planning
 
 **Calculate required memory**:
+
 ```
 Total Memory = (
     Kraken2_DB_size × 1.2 +
@@ -144,6 +155,7 @@ Total Memory = (
 ```
 
 **Example** (50GB Kraken2 DB + A100 GPU):
+
 ```
 = (50GB × 1.2) + 80GB + 4GB + 10GB safety
 = 154GB total system RAM recommended
@@ -154,6 +166,7 @@ Total Memory = (
 ### Disk Space Planning
 
 **Storage requirements** (per 1M reads):
+
 ```
 Raw POD5:     ~15-20GB
 FASTQ (gzip): ~2-5GB
@@ -162,6 +175,7 @@ Results:      ~500MB-1GB
 ```
 
 **Best practices**:
+
 ```bash
 # Use separate disks
 -w /fast/local/work     # Fast disk for temporary files
@@ -189,6 +203,7 @@ nextflow clean -after <run-name> -f
 | Custom species | Custom build | Varies | Optimal |
 
 **Downloading**:
+
 ```bash
 # Standard database (recommended)
 wget https://genome-idx.s3.amazonaws.com/kraken/k2_standard_20240904.tar.gz
@@ -200,6 +215,7 @@ kraken2-inspect --db kraken2_db/ | head
 ```
 
 **Optimization**:
+
 ```bash
 # Preload to RAM disk (if sufficient RAM)
 mkdir /dev/shm/kraken2_db
@@ -214,6 +230,7 @@ nextflow run ... --kraken2_db /dev/shm/kraken2_db/
 ### Version Control
 
 **Always specify versions**:
+
 ```bash
 # Pipeline version
 nextflow run foi-bioinformatics/nanometanf \
@@ -228,6 +245,7 @@ nextflow run ... -with-trace -with-report
 ```
 
 **Document environment**:
+
 ```bash
 # Save software versions
 nextflow run ... -with-report report.html
@@ -244,6 +262,7 @@ nextflow run ... -with-report report.html
 ### Parameter Files
 
 **Create reusable parameter files**:
+
 ```yaml
 # params.yaml
 input: /data/samplesheet.csv
@@ -254,6 +273,7 @@ enable_dynamic_resources: true
 ```
 
 **Use with**:
+
 ```bash
 nextflow run ... -params-file params.yaml
 ```
@@ -265,6 +285,7 @@ nextflow run ... -params-file params.yaml
 ### Standard Production Pipeline
 
 **Template script**:
+
 ```bash
 #!/bin/bash
 # production_pipeline.sh
@@ -319,6 +340,7 @@ fi
 ### Batch Processing
 
 **Process multiple batches efficiently**:
+
 ```bash
 # Process in parallel (if resources available)
 for batch in batch1 batch2 batch3; do
@@ -334,6 +356,7 @@ watch 'ps aux | grep nextflow'
 ```
 
 **Sequential processing** (resource-constrained):
+
 ```bash
 for batch in batch1 batch2 batch3; do
     nextflow run ... \
@@ -354,6 +377,7 @@ done
 ### Resume Strategy
 
 **Always use `-resume`**:
+
 ```bash
 # Initial run
 nextflow run ... -resume
@@ -363,6 +387,7 @@ nextflow run ... -resume  # Picks up where it left off
 ```
 
 **When NOT to use resume**:
+
 - Changed input files
 - Changed parameters (except --outdir)
 - Updated pipeline version
@@ -372,6 +397,7 @@ nextflow run ... -resume  # Picks up where it left off
 ### Monitoring & Alerts
 
 **Email notifications**:
+
 ```bash
 nextflow run ... \
     --email user@institution.org \
@@ -379,6 +405,7 @@ nextflow run ... \
 ```
 
 **Custom monitoring**:
+
 ```bash
 # Monitor progress file
 tail -f results/pipeline_info/execution_trace.txt
@@ -398,12 +425,14 @@ nextflow run ... -with-trace
 ### Sensitive Data
 
 **DO**:
+
 - Use encrypted storage for patient data
 - Limit file permissions (`chmod 600`)
 - Use secure transfer (scp, sftp, not HTTP)
 - Clean temporary files after completion
 
 **DON'T**:
+
 - Store credentials in config files
 - Use world-readable permissions
 - Leave data in shared /tmp directories
@@ -414,6 +443,7 @@ nextflow run ... -with-trace
 ### Data Retention
 
 **Recommended policy**:
+
 ```
 Raw data (POD5):    Archive, 7+ years
 FASTQ:              Archive, 3-5 years
@@ -423,6 +453,7 @@ QC reports:         Archive, 10+ years
 ```
 
 **Archival checklist**:
+
 ```bash
 # Before archiving
 ✓ Verify all expected outputs present
@@ -440,6 +471,7 @@ QC reports:         Archive, 10+ years
 ### Pre-Production Validation
 
 **Test progression**:
+
 ```bash
 # 1. Stub test (30 seconds)
 nextflow run ... -profile test,docker -stub
@@ -457,6 +489,7 @@ nextflow run ... --input production_samples.csv -profile docker
 ### Continuous Validation
 
 **After pipeline updates**:
+
 ```bash
 # Run test suite
 nf-test test --verbose
@@ -477,6 +510,7 @@ python bin/performance_regression_tester.py compare \
 ### Per-Run Documentation
 
 **Required documentation**:
+
 ```
 results/
 └── pipeline_info/
@@ -487,6 +521,7 @@ results/
 ```
 
 **README template**:
+
 ```
 Project: [Project Name]
 Date: [YYYY-MM-DD]

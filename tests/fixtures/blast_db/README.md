@@ -12,6 +12,7 @@ This directory contains a minimal BLAST nucleotide database for testing the vali
 ### Test Sequences
 
 The database contains 5 bacterial test sequences:
+
 1. Escherichia coli (240 bp)
 2. Salmonella enterica (240 bp)
 3. Pseudomonas aeruginosa (240 bp)
@@ -30,6 +31,7 @@ makeblastdb -in test_sequences.fasta -dbtype nucl -out test_db
 ### Usage in Tests
 
 Tests should reference the database as:
+
 ```groovy
 db = file("${projectDir}/tests/fixtures/blast_db/test_db")
 ```

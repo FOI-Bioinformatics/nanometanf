@@ -1,4 +1,52 @@
 {
+    "versions_summary": {
+        "content": [
+            [
+                "versions.yml:md5,cc8e9c3b7e5401d49168930bc0586472"
+            ]
+        ],
+        "meta": {
+            "nf-test": "0.9.3",
+            "nextflow": "25.10.3"
+        },
+        "timestamp": "2026-02-03T10:09:03.361982"
+    },
+    "versions": {
+        "content": [
+            [
+                "versions.yml:md5,cc8e9c3b7e5401d49168930bc0586472"
+            ]
+        ],
+        "meta": {
+            "nf-test": "0.9.3",
+            "nextflow": "25.10.3"
+        },
+        "timestamp": "2026-02-03T10:08:49.272461"
+    },
+    "versions_null": {
+        "content": [
+            [
+                "versions.yml:md5,cc8e9c3b7e5401d49168930bc0586472"
+            ]
+        ],
+        "meta": {
+            "nf-test": "0.9.3",
+            "nextflow": "25.10.3"
+        },
+        "timestamp": "2026-02-03T10:08:58.327341"
+    },
+    "versions_paired": {
+        "content": [
+            [
+                "versions.yml:md5,cc8e9c3b7e5401d49168930bc0586472"
+            ]
+        ],
+        "meta": {
+            "nf-test": "0.9.3",
+            "nextflow": "25.10.3"
+        },
+        "timestamp": "2026-02-03T10:09:07.8361"
+    },
     "Should use custom dorado_path parameter - stub": {
         "content": [
             {
@@ -56,5 +104,17 @@
             "nextflow": "25.04.7"
         },
         "timestamp": "2025-10-20T23:46:19.411773"
+    },
+    "versions_default": {
+        "content": [
+            [
+                "versions.yml:md5,cc8e9c3b7e5401d49168930bc0586472"
+            ]
+        ],
+        "meta": {
+            "nf-test": "0.9.3",
+            "nextflow": "25.10.3"
+        },
+        "timestamp": "2026-02-03T10:08:53.972253"
     }
 }

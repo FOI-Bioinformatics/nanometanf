@@ -17,44 +17,44 @@ process OPTIMIZE_RESOURCE_ALLOCATION {
 
     script:
     def args = task.ext.args ?: ''
-    
+
     """
     #!/usr/bin/env python3
-    
+
     import json
     import os
     import math
     from datetime import datetime
     from pathlib import Path
-    
+
     # Load input data
     meta = json.loads('${new groovy.json.JsonBuilder(meta).toString()}')
     resource_config = json.loads('${new groovy.json.JsonBuilder(resource_config).toString()}')
-    
+
     # Load predictions and system metrics
     with open('${predictions}', 'r') as f:
         predictions = json.load(f)
-    
+
     with open('${system_metrics}', 'r') as f:
         system_metrics = json.load(f)
-    
+
     def calculate_system_capacity():
         \"\"\"Calculate current system capacity and constraints\"\"\"
         cpu_info = system_metrics.get('cpu', {})
         memory_info = system_metrics.get('memory', {})
         current_load = system_metrics.get('current_load', {})
-        
+
         # Calculate available resources considering current load
         total_cores = cpu_info.get('logical_cores', 4)
         total_memory_gb = memory_info.get('total_gb', 8)
         available_memory_gb = memory_info.get('available_gb', 4)
-        
+
         cpu_utilization = current_load.get('cpu_utilization_percent', 0) / 100.0
         memory_utilization = current_load.get('memory_utilization_percent', 0) / 100.0
-        
+
         # Apply safety factors
         safety_factor = resource_config.get('safety_factor', 0.8)
-        
+
         capacity = {
             'max_cpu_cores': max(1, int(total_cores * safety_factor)),
             'max_memory_gb': max(2, available_memory_gb * safety_factor),
@@ -64,26 +64,26 @@ process OPTIMIZE_RESOURCE_ALLOCATION {
             'available_cpu_cores': max(1, int(total_cores * (1 - cpu_utilization) * safety_factor)),
             'available_memory_gb': max(2, available_memory_gb * safety_factor)
         }
-        
+
         return capacity
-    
+
     def optimize_cpu_allocation(predicted_cores, system_capacity, priority):
         \"\"\"Optimize CPU allocation based on system constraints\"\"\"
         max_cores = system_capacity['max_cpu_cores']
         available_cores = system_capacity['available_cpu_cores']
-        
+
         # Priority-based allocation
         priority_factors = {
             'high': 1.0,     # Get full requested resources
             'normal': 0.8,   # Get 80% of requested resources
             'low': 0.6       # Get 60% of requested resources
         }
-        
+
         priority_factor = priority_factors.get(priority, 0.8)
-        
+
         # Apply priority adjustment
         adjusted_cores = int(predicted_cores * priority_factor)
-        
+
         # System constraint checks
         if system_capacity['cpu_pressure']:
             # Reduce allocation under high CPU pressure
@@ -91,10 +91,10 @@ process OPTIMIZE_RESOURCE_ALLOCATION {
         else:
             # Normal allocation up to available cores
             adjusted_cores = min(adjusted_cores, available_cores)
-        
+
         # Ensure minimum and maximum bounds
         final_cores = max(1, min(adjusted_cores, max_cores))
-        
+
         return {
             'allocated_cores': final_cores,
             'requested_cores': predicted_cores,
@@ -102,24 +102,24 @@ process OPTIMIZE_RESOURCE_ALLOCATION {
             'constraint_limited': final_cores < predicted_cores,
             'allocation_efficiency': final_cores / predicted_cores if predicted_cores > 0 else 1.0
         }
-    
+
     def optimize_memory_allocation(predicted_memory_gb, system_capacity, priority):
         \"\"\"Optimize memory allocation based on system constraints\"\"\"
         max_memory = system_capacity['max_memory_gb']
         available_memory = system_capacity['available_memory_gb']
-        
+
         # Priority-based allocation
         priority_factors = {
             'high': 1.0,
             'normal': 0.85,
             'low': 0.7
         }
-        
+
         priority_factor = priority_factors.get(priority, 0.85)
-        
+
         # Apply priority adjustment
         adjusted_memory = predicted_memory_gb * priority_factor
-        
+
         # System constraint checks
         if system_capacity['memory_pressure']:
             # Conservative allocation under memory pressure
@@ -127,10 +127,10 @@ process OPTIMIZE_RESOURCE_ALLOCATION {
         else:
             # Normal allocation up to available memory
             adjusted_memory = min(adjusted_memory, available_memory)
-        
+
         # Ensure minimum and maximum bounds
         final_memory = max(2, min(adjusted_memory, max_memory))
-        
+
         return {
             'allocated_memory_gb': round(final_memory, 1),
             'requested_memory_gb': predicted_memory_gb,
@@ -138,26 +138,26 @@ process OPTIMIZE_RESOURCE_ALLOCATION {
             'constraint_limited': final_memory < predicted_memory_gb,
             'allocation_efficiency': final_memory / predicted_memory_gb if predicted_memory_gb > 0 else 1.0
         }
-    
+
     def optimize_gpu_allocation(tool_context, system_capacity):
         \"\"\"Optimize GPU allocation based on tool requirements and availability\"\"\"
         gpu_info = system_metrics.get('gpu', {})
         tool_name = tool_context.get('tool_name', 'unknown')
-        
+
         gpu_allocation = {
             'gpu_enabled': False,
             'gpu_devices': None,
             'gpu_memory_gb': 0,
             'acceleration_factor': 1.0
         }
-        
+
         # Check if GPU is beneficial for this tool
         gpu_beneficial_tools = ['dorado_basecaller', 'guppy_basecaller']
-        
+
         if tool_name in gpu_beneficial_tools and gpu_info.get('gpu_available'):
             nvidia_gpus = gpu_info.get('nvidia_gpus', [])
             apple_gpus = gpu_info.get('apple_gpus', [])
-            
+
             if nvidia_gpus:
                 # Use NVIDIA GPU
                 gpu_allocation['gpu_enabled'] = True
@@ -170,14 +170,14 @@ process OPTIMIZE_RESOURCE_ALLOCATION {
                 gpu_allocation['gpu_devices'] = 'metal'
                 gpu_allocation['gpu_memory_gb'] = 'shared'  # Apple Silicon shares system memory
                 gpu_allocation['acceleration_factor'] = 3.0  # 3x speedup estimate
-        
+
         return gpu_allocation
-    
+
     def calculate_optimal_parallelization(predictions, optimized_resources, tool_context):
         \"\"\"Calculate optimal parallelization strategy\"\"\"
         tool_name = tool_context.get('tool_name', 'unknown')
         allocated_cores = optimized_resources['cpu']['allocated_cores']
-        
+
         # Tool-specific parallelization strategies
         parallelization_profiles = {
             'dorado_basecaller': {
@@ -211,19 +211,19 @@ process OPTIMIZE_RESOURCE_ALLOCATION {
                 'memory_intensive': True
             }
         }
-        
+
         profile = parallelization_profiles.get(tool_name, parallelization_profiles.get('filtlong'))
-        
+
         # Calculate optimal job configuration
         max_jobs = profile.get('max_parallel_jobs', 1)
-        
+
         if profile.get('memory_per_job'):
             # Memory-limited parallelization
             memory_limited_jobs = int(optimized_resources['memory']['allocated_memory_gb'] / profile['memory_per_job'])
             max_jobs = min(max_jobs, memory_limited_jobs)
-        
+
         threads_per_job = max(1, allocated_cores // max(max_jobs, 1))
-        
+
         return {
             'parallel_jobs': max_jobs,
             'threads_per_job': threads_per_job,
@@ -231,30 +231,30 @@ process OPTIMIZE_RESOURCE_ALLOCATION {
             'parallelization_strategy': profile.get('thread_scaling', 'linear'),
             'optimization_notes': profile
         }
-    
+
     def generate_process_configuration(optimized_resources, parallelization, tool_context):
         \"\"\"Generate Nextflow process configuration\"\"\"
         cpu_config = optimized_resources['cpu']
         memory_config = optimized_resources['memory']
         gpu_config = optimized_resources['gpu']
-        
+
         # Base process configuration
         process_config = {
             'cpus': cpu_config['allocated_cores'],
             'memory': f"{memory_config['allocated_memory_gb']}.GB",
             'time': f"{optimized_resources['runtime']['adjusted_time_hours']:.1f}h"
         }
-        
+
         # Add GPU configuration if enabled
         if gpu_config['gpu_enabled']:
             if 'nvidia' in str(gpu_config['gpu_devices']):
                 process_config['accelerator'] = [1, 'nvidia-tesla-v100']  # Generic NVIDIA config
             else:
                 process_config['accelerator'] = [1, 'apple-silicon-gpu']  # Apple Silicon
-        
+
         # Add tool-specific configurations
         tool_name = tool_context.get('tool_name', 'unknown')
-        
+
         if tool_name == 'kraken2':
             # Kraken2 needs significant memory
             process_config['memory'] = f"{max(16, memory_config['allocated_memory_gb'])}.GB"
@@ -262,31 +262,31 @@ process OPTIMIZE_RESOURCE_ALLOCATION {
             # Assembly tools need extra time
             extended_time = optimized_resources['runtime']['adjusted_time_hours'] * 1.5
             process_config['time'] = f"{extended_time:.1f}h"
-        
+
         # Add retry and error strategies
         process_config['errorStrategy'] = 'retry'
         process_config['maxRetries'] = 2
-        
+
         return process_config
-    
+
     def calculate_performance_metrics(predictions, optimized_resources, system_capacity):
         \"\"\"Calculate performance and efficiency metrics\"\"\"
         cpu_efficiency = optimized_resources['cpu']['allocation_efficiency']
         memory_efficiency = optimized_resources['memory']['allocation_efficiency']
-        
+
         # Resource utilization scores
         cpu_utilization = optimized_resources['cpu']['allocated_cores'] / system_capacity['max_cpu_cores']
         memory_utilization = optimized_resources['memory']['allocated_memory_gb'] / system_capacity['max_memory_gb']
-        
+
         # Performance predictions
         baseline_runtime = predictions['predictions']['runtime_estimates']['predicted_runtime_hours']
-        
+
         # Apply acceleration factors
         gpu_factor = optimized_resources['gpu']['acceleration_factor']
         cpu_factor = optimized_resources['cpu']['allocated_cores'] / predictions['predictions']['cpu_requirements']['predicted_cores']
-        
+
         adjusted_runtime = baseline_runtime / (gpu_factor * min(cpu_factor, 2.0))  # Cap CPU scaling benefit
-        
+
         performance_metrics = {
             'resource_efficiency': {
                 'cpu_efficiency': round(cpu_efficiency, 3),
@@ -311,37 +311,37 @@ process OPTIMIZE_RESOURCE_ALLOCATION {
                 'allocation_confidence': predictions['confidence_metrics']['confidence_level']
             }
         }
-        
+
         return performance_metrics
-    
+
     # Main optimization logic
     print(f"Optimizing resource allocation for {meta['id']}")
-    
+
     # Extract key information
     tool_context = predictions.get('tool_context', {})
     cpu_prediction = predictions['predictions']['cpu_requirements']['predicted_cores']
     memory_prediction = predictions['predictions']['memory_requirements']['predicted_memory_gb']
     priority = predictions['recommendations'].get('priority_level', 'normal')
-    
+
     print(f"Tool: {tool_context.get('tool_name', 'unknown')}")
     print(f"Predicted requirements - CPU: {cpu_prediction} cores, Memory: {memory_prediction:.1f} GB")
     print(f"Priority: {priority}")
-    
+
     # Calculate system capacity
     system_capacity = calculate_system_capacity()
     print(f"System capacity - CPU: {system_capacity['available_cpu_cores']} cores, Memory: {system_capacity['available_memory_gb']:.1f} GB")
-    
+
     # Optimize resource allocations
     cpu_optimization = optimize_cpu_allocation(cpu_prediction, system_capacity, priority)
     memory_optimization = optimize_memory_allocation(memory_prediction, system_capacity, priority)
     gpu_optimization = optimize_gpu_allocation(tool_context, system_capacity)
-    
+
     # Calculate runtime adjustments
     runtime_optimization = {
         'baseline_time_hours': predictions['predictions']['runtime_estimates']['predicted_runtime_hours'],
         'adjusted_time_hours': predictions['predictions']['runtime_estimates']['predicted_runtime_hours'] / gpu_optimization['acceleration_factor']
     }
-    
+
     # Combine optimized resources
     optimized_resources = {
         'cpu': cpu_optimization,
@@ -349,16 +349,16 @@ process OPTIMIZE_RESOURCE_ALLOCATION {
         'gpu': gpu_optimization,
         'runtime': runtime_optimization
     }
-    
+
     # Calculate optimal parallelization
     parallelization = calculate_optimal_parallelization(predictions, optimized_resources, tool_context)
-    
+
     # Generate process configuration
     process_config = generate_process_configuration(optimized_resources, parallelization, tool_context)
-    
+
     # Calculate performance metrics
     performance_metrics = calculate_performance_metrics(predictions, optimized_resources, system_capacity)
-    
+
     # Compile final allocation
     optimal_allocation = {
         'sample_id': meta['id'],
@@ -381,24 +381,24 @@ process OPTIMIZE_RESOURCE_ALLOCATION {
         'performance_predictions': performance_metrics['performance_predictions'],
         'nextflow_process_config': process_config
     }
-    
+
     # Save optimal allocation
     output_file = f"{meta['id']}_optimal_allocation.json"
     with open(output_file, 'w') as f:
         json.dump(optimal_allocation, f, indent=2)
-    
+
     # Save performance metrics
     performance_file = f"{meta['id']}_performance_metrics.json"
     with open(performance_file, 'w') as f:
         json.dump(performance_metrics, f, indent=2)
-    
+
     print(f"Optimization complete for {meta['id']}:")
     print(f"  Allocated CPU cores: {cpu_optimization['allocated_cores']} (requested: {cpu_prediction})")
     print(f"  Allocated memory: {memory_optimization['allocated_memory_gb']:.1f} GB (requested: {memory_prediction:.1f} GB)")
     print(f"  GPU acceleration: {'enabled' if gpu_optimization['gpu_enabled'] else 'disabled'}")
     print(f"  Estimated runtime: {runtime_optimization['adjusted_time_hours']:.1f} hours")
     print(f"  Resource efficiency: {performance_metrics['resource_efficiency']['overall_efficiency']:.2f}")
-    
+
     # Generate versions file
     with open('versions.yml', 'w') as f:
         f.write('''\"${task.process}\":
@@ -512,9 +512,9 @@ STUB_EOF
 STUB_EOF
 
     cat <<-END_VERSIONS > versions.yml
-    "${task.process}":
-        python: "3.9"
-        resource_optimization: "1.0"
-    END_VERSIONS
+"${task.process}":
+    python: "3.9"
+    resource_optimization: "1.0"
+END_VERSIONS
     """
 }

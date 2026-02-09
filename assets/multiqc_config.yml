@@ -24,23 +24,23 @@ disable_version_detection: true
 # Custom content for nanopore-specific modules (Section 4.2)
 custom_data:
   nanopore_stats:
-    file_format: 'json'
-    section_name: 'Nanopore Sequencing Statistics'
-    description: 'Oxford Nanopore sequencing run metrics including read length, quality, and yield'
-    plot_type: 'table'
+    file_format: "json"
+    section_name: "Nanopore Sequencing Statistics"
+    description: "Oxford Nanopore sequencing run metrics including read length, quality, and yield"
+    plot_type: "table"
     pconfig:
-      namespace: 'Nanopore'
+      namespace: "Nanopore"
 
   dorado_basecalling:
-    file_format: 'json'
-    section_name: 'Dorado Basecalling Statistics'
-    description: 'Dorado basecaller performance metrics and quality scores'
-    plot_type: 'generalstats'
+    file_format: "json"
+    section_name: "Dorado Basecalling Statistics"
+    description: "Dorado basecaller performance metrics and quality scores"
+    plot_type: "generalstats"
 
   kraken2_krona:
-    file_format: 'html'
-    section_name: 'Taxonomic Classification (Krona)'
-    description: 'Interactive hierarchical visualization of Kraken2 taxonomic classification results'
+    file_format: "html"
+    section_name: "Taxonomic Classification (Krona)"
+    description: "Interactive hierarchical visualization of Kraken2 taxonomic classification results"
 
 # Enable NanoPlot module for nanopore-specific QC visualization
 # NanoPlot generates comprehensive quality metrics including:
@@ -75,15 +75,15 @@ sp:
 # Module-specific configurations
 module_order:
   - nanopore_stats:
-      name: 'Nanopore Sequencing'
-      anchor: 'nanopore_sequencing'
-      info: 'Comprehensive nanopore sequencing statistics'
+      name: "Nanopore Sequencing"
+      anchor: "nanopore_sequencing"
+      info: "Comprehensive nanopore sequencing statistics"
   - dorado:
-      name: 'Dorado Basecalling'
-      anchor: 'dorado_basecalling'
-      info: 'Basecalling performance and quality metrics'
+      name: "Dorado Basecalling"
+      anchor: "dorado_basecalling"
+      info: "Basecalling performance and quality metrics"
   - kraken2:
-      name: 'Kraken2 Classification'
-      anchor: 'kraken2_taxonomy'
+      name: "Kraken2 Classification"
+      anchor: "kraken2_taxonomy"
   - nanoplot:
-      name: 'NanoPlot QC'
+      name: "NanoPlot QC"

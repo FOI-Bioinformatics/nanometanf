@@ -160,8 +160,8 @@ process SEQKIT_MERGE_STATS {
     print(f"Total bases: {total_sum_len:,}")
 
     cat <<-END_VERSIONS > versions.yml
-    "${task.process}":
-        python: \$(python3 --version 2>&1 | sed 's/Python //')
+"${task.process}":
+    python: \$(python3 --version 2>&1 | sed 's/Python //')
 END_VERSIONS
     """
 
@@ -189,8 +189,8 @@ END_TSV
 END_MANIFEST
 
     cat <<-END_VERSIONS > versions.yml
-    "${task.process}":
-        python: \$(python3 --version 2>&1 | sed 's/Python //')
+"${task.process}":
+    python: \$(python3 --version 2>&1 | sed 's/Python //')
 END_VERSIONS
     """
 }

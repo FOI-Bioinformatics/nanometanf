@@ -1,0 +1,32 @@
+name: CI
+
+on:
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Verify Pipeline
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Nextflow
+        uses: nf-core/setup-nextflow@v2
+        with:
+          version: "25.10.0"
+
+      - name: Verify syntax (dry-run)
+        run: |
+          nextflow run main.nf \
+            -preview \
+            --input assets/test_samplesheet.csv \
+            --outdir test_output \
+            --validate_params false \
+            --skip_kraken2 true
+
+      - name: Verify help output
+        run: nextflow run main.nf --help

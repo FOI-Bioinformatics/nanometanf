@@ -3,6 +3,7 @@ nextflow_process {
     script "../main.nf"
     process "KRAKEN2_INCREMENTAL_CLASSIFIER"
 
+    options "-stub"
     // Test Level & Component
     tag "module"
     tag "kraken2_incremental_classifier"
@@ -20,8 +21,6 @@ nextflow_process {
     tag "snapshot"
 
     test("sarscov2 single-end [fastq] - batch 0 - stub") {
-        options "-stub"
-
         when {
             process {
                 """
@@ -45,8 +44,6 @@ nextflow_process {
     }
 
     test("sarscov2 paired-end [fastq] - batch 1 - stub") {
-        options "-stub"
-
         when {
             process {
                 """
@@ -78,8 +75,6 @@ nextflow_process {
     }
 
     test("sarscov2 single-end [fastq] - save_output_fastqs - stub") {
-        options "-stub"
-
         when {
             process {
                 """
@@ -106,8 +101,6 @@ nextflow_process {
     }
 
     test("sarscov2 paired-end [fastq] - save_output_fastqs - stub") {
-        options "-stub"
-
         when {
             process {
                 """
@@ -139,8 +132,6 @@ nextflow_process {
     }
 
     test("sarscov2 single-end [fastq] - save_reads_assignment - stub") {
-        options "-stub"
-
         when {
             process {
                 """
@@ -165,8 +156,6 @@ nextflow_process {
     }
 
     test("sarscov2 single-end [fastq] - batch_metadata validation - stub") {
-        options "-stub"
-
         when {
             process {
                 """

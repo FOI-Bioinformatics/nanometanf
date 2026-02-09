@@ -18,6 +18,7 @@ This document provides a comprehensive overview of the Phase 1.1 implementation 
 In real-time sequencing workflows, nanopore instruments continuously generate new reads over hours or days. The standard Kraken2 classification approach requires re-classifying ALL accumulated reads each time new data arrives:
 
 **Standard Mode Behavior**:
+
 ```
 Batch 1 (100 reads):   Classify 100 reads          = 100 classifications
 Batch 2 (+100 reads):  Classify ALL 200 reads      = 200 classifications
@@ -29,6 +30,7 @@ Total classifications: 100 + 200 + 300 + ... + 3,000 = 46,500 classifications
 ```
 
 This creates **O(n²) time complexity** where n is the number of batches, leading to:
+
 - Exponentially increasing processing time per batch
 - Wasted computation re-classifying the same reads repeatedly
 - Poor scalability for long-running sequencing sessions
@@ -37,6 +39,7 @@ This creates **O(n²) time complexity** where n is the number of batches, leadin
 ### Solution: Incremental Classification
 
 **Incremental Mode Behavior**:
+
 ```
 Batch 1 (100 reads):   Classify 100 NEW reads      = 100 classifications
 Batch 2 (+100 reads):  Classify 100 NEW reads      = 100 classifications
@@ -123,6 +126,7 @@ KRAKEN2_REPORT_GENERATOR
 **Location**: `modules/local/kraken2_incremental_classifier/`
 
 **Key Features**:
+
 - Tags each process with `${meta.id}_batch${meta.batch_id}` for traceability
 - Generates batch metadata JSON with timing and statistics
 - Supports optional classified/unclassified FASTQ outputs
@@ -130,6 +134,7 @@ KRAKEN2_REPORT_GENERATOR
 - Uses same Kraken2 parameters as standard mode
 
 **Inputs**:
+
 ```groovy
 tuple val(meta), path(reads)    // Meta must include: id, single_end, batch_id
 path  db                         // Kraken2 database directory
@@ -138,6 +143,7 @@ val   save_reads_assignment      // Boolean: save read assignments
 ```
 
 **Outputs**:
+
 ```groovy
 raw_kraken2_output       // ${prefix}.kraken2.output.txt
 report                   // ${prefix}.kraken2.report.txt
@@ -149,6 +155,7 @@ versions                 // versions.yml
 ```
 
 **Batch Metadata Structure**:
+
 ```json
 {
   "sample_id": "sample1",
@@ -170,6 +177,7 @@ versions                 // versions.yml
 **Container**: `community.wave.seqera.io/library/kraken2_coreutils_pigz:45764814c4bb5bf3`
 
 **Dependencies**:
+
 - `kraken2=2.1.5`
 - `coreutils=9.4`
 - `pigz=2.8`
@@ -181,18 +189,21 @@ versions                 // versions.yml
 **Location**: `modules/local/kraken2_output_merger/`
 
 **Key Features**:
+
 - Python-based merging logic for maintainability
 - Automatic chronological ordering using batch metadata
 - Validates batch continuity and detects gaps
 - Generates merge statistics
 
 **Inputs**:
+
 ```groovy
 tuple val(meta), path(batch_outputs)  // All batch output files for a sample
 path  batch_metadata                  // All batch metadata JSON files
 ```
 
 **Outputs**:
+
 ```groovy
 cumulative_output    // ${prefix}.cumulative.kraken2.output.txt
 merge_stats          // merge_statistics.json
@@ -200,6 +211,7 @@ versions             // versions.yml
 ```
 
 **Merge Statistics Structure**:
+
 ```json
 {
   "sample_id": "sample1",
@@ -211,6 +223,7 @@ versions             // versions.yml
 ```
 
 **Merging Algorithm**:
+
 ```python
 # 1. Parse all batch metadata JSON files
 # 2. Sort metadata by batch_id (chronological order)
@@ -224,6 +237,7 @@ versions             // versions.yml
 **Container**: `community.wave.seqera.io/library/python_requests:94935e32c9b9c3d7`
 
 **Dependencies**:
+
 - `python=3.11`
 
 ### 3. KRAKEN2_REPORT_GENERATOR
@@ -233,11 +247,13 @@ versions             // versions.yml
 **Location**: `modules/local/kraken2_report_generator/`
 
 **Key Features**:
+
 - Uses official KrakenTools `combine_kreports.py` for report merging
 - Calculates classification statistics from cumulative output
 - Generates summary statistics JSON
 
 **Inputs**:
+
 ```groovy
 tuple val(meta), path(cumulative_output)  // Cumulative Kraken2 output
 tuple val(meta), path(batch_reports)      // All batch report files
@@ -245,6 +261,7 @@ path  db                                  // Kraken2 database (for taxonomy)
 ```
 
 **Outputs**:
+
 ```groovy
 report     // ${prefix}.cumulative.kraken2.report.txt
 stats      // classification_statistics.json
@@ -252,6 +269,7 @@ versions   // versions.yml
 ```
 
 **Classification Statistics Structure**:
+
 ```json
 {
   "sample_id": "sample1",
@@ -264,6 +282,7 @@ versions   // versions.yml
 ```
 
 **KrakenTools Integration**:
+
 ```bash
 combine_kreports.py \
   -r batch0.report.txt batch1.report.txt ... \
@@ -274,6 +293,7 @@ combine_kreports.py \
 **Container**: `community.wave.seqera.io/library/python_requests:94935e32c9b9c3d7`
 
 **Dependencies**:
+
 - `python=3.11`
 - `bioconda::krakentools=1.2`
 
@@ -340,6 +360,7 @@ if (params.kraken2_enable_incremental && ch_reads.map { it[0].batch_id }.unique(
 ### Channel Operations
 
 **Key channel transformation for batch collection**:
+
 ```groovy
 // Collect all batch outputs per sample
 ch_batch_outputs = KRAKEN2_INCREMENTAL_CLASSIFIER.out.raw_kraken2_output
@@ -357,10 +378,12 @@ ch_batch_outputs = KRAKEN2_INCREMENTAL_CLASSIFIER.out.raw_kraken2_output
 ### Conditional Activation
 
 Incremental mode activates when:
+
 1. `params.kraken2_enable_incremental == true` (user-enabled)
 2. Input data contains multiple batches (detected by `batch_id` in metadata)
 
 **Automatic fallback to standard mode** when:
+
 - Single-batch input (no benefit from incremental)
 - No `batch_id` present in metadata
 - Parameter explicitly disabled
@@ -370,11 +393,13 @@ Incremental mode activates when:
 ### Parameters
 
 **Primary control parameter**:
+
 ```groovy
 kraken2_enable_incremental = false  // Default: disabled for backward compatibility
 ```
 
 **Existing parameters reused**:
+
 ```groovy
 kraken2_save_output_fastqs = false        // Save classified/unclassified FASTQs
 kraken2_save_readclassifications = false  // Save read assignments
@@ -384,6 +409,7 @@ kraken2_db = null                         // Kraken2 database path
 ### Usage Examples
 
 **Enable incremental mode**:
+
 ```bash
 nextflow run foi-bioinformatics/nanometanf \
   --input samplesheet.csv \
@@ -393,6 +419,7 @@ nextflow run foi-bioinformatics/nanometanf \
 ```
 
 **With real-time monitoring** (natural use case):
+
 ```bash
 nextflow run foi-bioinformatics/nanometanf \
   --realtime_mode \
@@ -404,6 +431,7 @@ nextflow run foi-bioinformatics/nanometanf \
 ```
 
 **With additional outputs**:
+
 ```bash
 nextflow run foi-bioinformatics/nanometanf \
   --input samplesheet.csv \
@@ -461,6 +489,7 @@ nextflow run foi-bioinformatics/nanometanf \
 ### Test Execution
 
 **Run all unit tests**:
+
 ```bash
 export JAVA_HOME=$CONDA_PREFIX/lib/jvm
 export PATH=$JAVA_HOME/bin:$PATH
@@ -472,6 +501,7 @@ nf-test test modules/local/kraken2_report_generator/tests/main.nf.test --verbose
 ```
 
 **Run with specific tags**:
+
 ```bash
 nf-test test --tag kraken2
 nf-test test --tag incremental
@@ -495,10 +525,10 @@ nf-test test --tag incremental
 
 ### Time Complexity
 
-| Mode | Time Complexity | 30-Batch Example |
-|------|----------------|------------------|
-| Standard | O(n²) | 46,500 classifications |
-| Incremental | O(n) | 3,000 classifications |
+| Mode            | Time Complexity   | 30-Batch Example            |
+| --------------- | ----------------- | --------------------------- |
+| Standard        | O(n²)             | 46,500 classifications      |
+| Incremental     | O(n)              | 3,000 classifications       |
 | **Improvement** | **93% reduction** | **43,500 fewer operations** |
 
 ### Expected Time Savings
@@ -506,11 +536,13 @@ nf-test test --tag incremental
 Based on typical Kraken2 classification rates:
 
 **Assumptions**:
+
 - 100 reads per batch
 - 30 batches total
 - 0.1 seconds per read classification
 
 **Standard mode**:
+
 ```
 Total time = Σ(batch_i × 0.1) for i=1 to 30
           = (100+200+...+3000) × 0.1 seconds
@@ -519,6 +551,7 @@ Total time = Σ(batch_i × 0.1) for i=1 to 30
 ```
 
 **Incremental mode**:
+
 ```
 Total time = 30 batches × 100 reads × 0.1 seconds
           = 3,000 × 0.1 seconds
@@ -536,11 +569,13 @@ Total time = 30 batches × 100 reads × 0.1 seconds
 ### Scalability
 
 **Linear scaling with number of batches**:
+
 - 10 batches: ~3 minutes total processing time
 - 30 batches: ~5 minutes total processing time
 - 100 batches: ~10 minutes total processing time
 
 **Comparison with standard mode**:
+
 - 10 batches standard: ~9 minutes (vs 3 minutes incremental)
 - 30 batches standard: ~77 minutes (vs 5 minutes incremental)
 - 100 batches standard: ~14 hours (vs 10 minutes incremental)
@@ -577,11 +612,13 @@ results/
 ### File Format Specifications
 
 **Cumulative Kraken2 Output** (`.cumulative.kraken2.output.txt`):
+
 - Same format as standard Kraken2 output
 - Contains all reads from all batches in chronological order
 - Compatible with standard Kraken2 tools
 
 **Cumulative Kraken2 Report** (`.cumulative.kraken2.report.txt`):
+
 - Standard Kraken2 report format
 - Generated by KrakenTools `combine_kreports.py`
 - Contains final taxonomic abundance across all reads

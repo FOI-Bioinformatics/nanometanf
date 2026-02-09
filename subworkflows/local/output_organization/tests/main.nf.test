@@ -23,17 +23,17 @@ nextflow_workflow {
             mkdir -p $outputDir/mock_qc
             echo "<html><body>QC Report</body></html>" > $outputDir/mock_qc/fastp_report.html
             echo "<html><body>NanoPlot Report</body></html>" > $outputDir/mock_qc/nanoplot_report.html
-            
+
             # Create mock classification reports
             mkdir -p $outputDir/mock_classification
             echo "taxid\tcount\tname" > $outputDir/mock_classification/kraken2_report.txt
             echo "1\t100\troot" >> $outputDir/mock_classification/kraken2_report.txt
-            
+
             # Create mock validation reports
             mkdir -p $outputDir/mock_validation
             echo "qseqid\tsseqid\tpident" > $outputDir/mock_validation/blast_results.txt
             echo "seq1\tref1\t95.5" >> $outputDir/mock_validation/blast_results.txt
-            
+
             # Create mock MultiQC report
             mkdir -p $outputDir/mock_multiqc
             echo "<html><body>MultiQC Report</body></html>" > $outputDir/mock_multiqc/multiqc_report.html
@@ -72,7 +72,7 @@ nextflow_workflow {
                 ]
                 """
             }
-            
+
             params {
                 outdir = '$outputDir/organized_results'
             }
@@ -85,19 +85,19 @@ nextflow_workflow {
             assert workflow.out.classification_outputs
             assert workflow.out.validation_outputs
             assert workflow.out.report_outputs
-            
+
             // Verify QC outputs organization
             def qc_outputs = workflow.out.qc_outputs.toList()
             assert qc_outputs.size() >= 2
-            
+
             // Verify classification outputs organization
             def classification_outputs = workflow.out.classification_outputs.toList()
             assert classification_outputs.size() >= 1
-            
+
             // Verify validation outputs organization
             def validation_outputs = workflow.out.validation_outputs.toList()
             assert validation_outputs.size() >= 1
-            
+
             // Verify report outputs organization
             def report_outputs = workflow.out.report_outputs.toList()
             assert report_outputs.size() >= 1
@@ -114,7 +114,7 @@ nextflow_workflow {
                 echo "<html><body>QC Report Sample \${i}</body></html>" > $outputDir/batch_qc/fastp_sample\${i}.html
                 echo "<html><body>NanoPlot Sample \${i}</body></html>" > $outputDir/batch_qc/nanoplot_sample\${i}.html
             done
-            
+
             # Create multiple classification reports
             mkdir -p $outputDir/batch_classification
             echo "taxid\tcount\tname" > $outputDir/batch_classification/kraken2_sample1.txt
@@ -123,14 +123,14 @@ nextflow_workflow {
             echo "1\t200\troot" >> $outputDir/batch_classification/kraken2_sample2.txt
             echo "taxid\tcount\tname" > $outputDir/batch_classification/kraken2_sample3.txt
             echo "1\t300\troot" >> $outputDir/batch_classification/kraken2_sample3.txt
-            
+
             # Create multiple validation reports
             mkdir -p $outputDir/batch_validation
             for i in 1 2 3; do
                 echo "qseqid\tsseqid\tpident" > $outputDir/batch_validation/blast_sample\${i}.txt
                 echo "seq\${i}\tref\${i}\t9\${i}.5" >> $outputDir/batch_validation/blast_sample\${i}.txt
             done
-            
+
             # Create MultiQC report
             echo "<html><body>Batch MultiQC Report</body></html>" > $outputDir/batch_multiqc.html
             """
@@ -200,7 +200,7 @@ nextflow_workflow {
                 ]
                 """
             }
-            
+
             params {
                 outdir = '$outputDir/batch_organized_results'
             }
@@ -212,15 +212,15 @@ nextflow_workflow {
             assert workflow.out.qc_outputs
             assert workflow.out.classification_outputs
             assert workflow.out.validation_outputs
-            
+
             // Verify batch QC outputs organization
             def qc_outputs = workflow.out.qc_outputs.toList()
             assert qc_outputs.size() >= 6  // 3 fastp + 3 nanoplot
-            
+
             // Verify batch classification outputs organization
             def classification_outputs = workflow.out.classification_outputs.toList()
             assert classification_outputs.size() >= 3
-            
+
             // Verify batch validation outputs organization
             def validation_outputs = workflow.out.validation_outputs.toList()
             assert validation_outputs.size() >= 3
@@ -233,19 +233,19 @@ nextflow_workflow {
             """
             # Create diverse output formats
             mkdir -p $outputDir/mixed_outputs
-            
+
             # Different QC report formats
             echo "<html><body>HTML QC Report</body></html>" > $outputDir/mixed_outputs/qc_report.html
             echo "JSON QC Report" > $outputDir/mixed_outputs/qc_report.json
-            
+
             # Different classification formats
             echo "Standard Kraken2 Report" > $outputDir/mixed_outputs/kraken2_standard.txt
             echo "Custom Kraken2 Report" > $outputDir/mixed_outputs/kraken2_custom.report
-            
+
             # Different validation formats
             echo "BLAST XML Output" > $outputDir/mixed_outputs/blast_results.xml
             echo "BLAST Tabular Output" > $outputDir/mixed_outputs/blast_results.tsv
-            
+
             # MultiQC report
             echo "<html><body>Mixed MultiQC Report</body></html>" > $outputDir/mixed_outputs/multiqc_mixed.html
             """
@@ -283,7 +283,7 @@ nextflow_workflow {
                 ]
                 """
             }
-            
+
             params {
                 outdir = '$outputDir/mixed_organized_results'
             }
@@ -296,14 +296,14 @@ nextflow_workflow {
             assert workflow.out.classification_outputs
             assert workflow.out.validation_outputs
             assert workflow.out.report_outputs
-            
+
             // Verify mixed format handling
             def qc_outputs = workflow.out.qc_outputs.toList()
             assert qc_outputs.size() >= 2
-            
+
             def classification_outputs = workflow.out.classification_outputs.toList()
             assert classification_outputs.size() >= 1
-            
+
             def validation_outputs = workflow.out.validation_outputs.toList()
             assert validation_outputs.size() >= 1
         }
@@ -355,7 +355,7 @@ nextflow_workflow {
                 ]
                 """
             }
-            
+
             params {
                 outdir = '$outputDir/very/deep/custom/output/directory'
             }
@@ -368,11 +368,11 @@ nextflow_workflow {
             assert workflow.out.classification_outputs
             assert workflow.out.validation_outputs
             assert workflow.out.report_outputs
-            
+
             // Verify custom path organization
             def qc_outputs = workflow.out.qc_outputs.toList()
             assert qc_outputs.size() >= 2
-            
+
             // Check that output paths contain custom directory structure
             def first_qc_output = qc_outputs[0]
             assert first_qc_output.size() == 3  // [meta, file, output_path]
@@ -393,7 +393,7 @@ nextflow_workflow {
                 input[4] = []  // Empty multiqc report
                 """
             }
-            
+
             params {
                 outdir = '$outputDir/empty_organized_results'
             }
@@ -402,23 +402,23 @@ nextflow_workflow {
         then {
             assert workflow.success
             assert snapshot(workflow.out.versions).match()
-            
+
             // Verify empty channels are handled
             if (workflow.out.qc_outputs) {
                 def qc_outputs = workflow.out.qc_outputs.toList()
                 assert qc_outputs.size() == 0
             }
-            
+
             if (workflow.out.classification_outputs) {
                 def classification_outputs = workflow.out.classification_outputs.toList()
                 assert classification_outputs.size() == 0
             }
-            
+
             if (workflow.out.validation_outputs) {
                 def validation_outputs = workflow.out.validation_outputs.toList()
                 assert validation_outputs.size() == 0
             }
-            
+
             if (workflow.out.report_outputs) {
                 def report_outputs = workflow.out.report_outputs.toList()
                 assert report_outputs.size() == 0
@@ -472,7 +472,7 @@ nextflow_workflow {
                 ]
                 """
             }
-            
+
             params {
                 outdir = '$outputDir/special_organized_results'
             }
@@ -485,7 +485,7 @@ nextflow_workflow {
             assert workflow.out.classification_outputs
             assert workflow.out.validation_outputs
             assert workflow.out.report_outputs
-            
+
             // Verify special character handling
             def qc_outputs = workflow.out.qc_outputs.toList()
             assert qc_outputs.size() >= 2
@@ -538,7 +538,7 @@ nextflow_workflow {
                 ]
                 """
             }
-            
+
             params {
                 outdir = '$outputDir/long_path_organized_results'
             }
@@ -551,11 +551,11 @@ nextflow_workflow {
             assert workflow.out.classification_outputs
             assert workflow.out.validation_outputs
             assert workflow.out.report_outputs
-            
+
             // Verify long path handling
             def qc_outputs = workflow.out.qc_outputs.toList()
             assert qc_outputs.size() >= 2
-            
+
             def classification_outputs = workflow.out.classification_outputs.toList()
             assert classification_outputs.size() >= 1
         }

@@ -1,42 +1,225 @@
 //
-// Validation subworkflow for BLAST analysis
+// Enhanced validation subworkflow for pathogen confirmation
+// Supports BLAST and minimap2 validation against reference genomes
+//
+// REQUIREMENT: params.save_reads_assignment must be true for this subworkflow to work
+// The Kraken2 output file (per-read classifications) is needed to extract reads by taxid
 //
 
-include { BLAST_BLASTN            } from "${projectDir}/modules/nf-core/blast/blastn/main"
+include { EXTRACT_READS_BY_TAXID        } from '../../../modules/local/extract_reads_by_taxid/main'
+include { BLASTN_VALIDATION             } from '../../../modules/local/blastn_validation/main'
+include { MINIMAP2_VALIDATION           } from '../../../modules/local/minimap2_validation/main'
+include { AGGREGATE_VALIDATION_RESULTS  } from '../../../modules/local/aggregate_validation_results/main'
 
 workflow VALIDATION {
 
     take:
-    ch_query     // channel: [ val(meta), path(fasta) ]
-    ch_db        // channel: [ path(blast_db) ]
+    ch_classified_reads    // channel: [ val(meta), path(fastq) ] - from TAXONOMIC_CLASSIFICATION
+    ch_kraken_output       // channel: [ val(meta), path(txt) ] - Kraken2 raw output (C/U lines)
+    ch_kraken_reports      // channel: [ val(meta), path(txt) ] - Kraken2 reports (for read counts)
+    pathogen_genomes       // val(path) - Path to genomes JSON file
+    taxids_to_validate     // val(string) - 'auto', 'all', or comma-separated taxid list
+    validation_method      // val(string) - 'blast', 'minimap2', or 'both'
 
     main:
     ch_versions = Channel.empty()
 
-    // Prepare database with meta for BLAST_BLASTN
-    // Handle both channel and simple value inputs (for nf-test compatibility)
-    def db_channel = ch_db instanceof List ? Channel.fromList(ch_db) : ch_db
-    ch_db_with_meta = db_channel.map { db -> [ [id: 'blast_db'], db ] }
+    //
+    // Parse pathogen genomes JSON to get taxid -> genome/database path mapping
+    // JSON format: { "taxid": "/path/to/genome.fasta", ... }
+    //
+    // Read the JSON file and parse it to create a channel of [taxid, genome_path] tuples
+    // Relative paths are resolved from the JSON file's parent directory
+    //
+    ch_genome_mapping = Channel.fromPath(pathogen_genomes, checkIfExists: true)
+        .map { json_file ->
+            def json_text = json_file.text
+            def slurper = new groovy.json.JsonSlurper()
+            def genome_map
+            try {
+                genome_map = slurper.parseText(json_text)
+            } catch (Exception e) {
+                log.error "Failed to parse pathogen genomes JSON file: ${json_file}"
+                log.error "Error: ${e.message}"
+                log.error "Please ensure the file contains valid JSON format: {\"taxid\": \"/path/to/genome.fasta\", ...}"
+                throw new RuntimeException("Invalid pathogen genomes JSON: ${e.message}")
+            }
+
+            // Check for empty genome map
+            if (!genome_map || genome_map.isEmpty()) {
+                log.warn "Pathogen genomes JSON file is empty: ${json_file}"
+                log.warn "No validation tasks will be performed. Add taxid->genome mappings to enable validation."
+                return []
+            }
+
+            def json_parent = json_file.parent
+            return genome_map.collect { taxid, genome_path ->
+                // Resolve relative paths from JSON file's parent directory
+                def genome_file
+                // Check for absolute paths (Unix or Windows style)
+                if (genome_path.startsWith('/') || (genome_path.length() > 1 && genome_path.charAt(1) == ':')) {
+                    // Absolute path
+                    genome_file = file(genome_path, checkIfExists: true)
+                } else {
+                    // Relative path - resolve from JSON file's location
+                    genome_file = file("${json_parent}/${genome_path}", checkIfExists: true)
+                }
+                [ taxid.toString(), genome_file ]
+            }
+        }
+        .flatMap { it }  // Flatten the list of tuples into individual emissions
 
     //
-    // MODULE: Run BLAST for sequence validation
-    // BLAST_BLASTN expects 5 inputs:
-    //   1. tuple val(meta), path(fasta) - query
-    //   2. tuple val(meta2), path(db) - database with meta
-    //   3. path taxidlist - optional taxonomy filter
-    //   4. val taxids - optional taxonomy IDs
-    //   5. val negative_tax - boolean for negative filtering
+    // Filter genome mapping based on taxids_to_validate parameter
     //
-    BLAST_BLASTN (
-        ch_query,
-        ch_db_with_meta,
-        [],              // taxidlist - empty
-        [],              // taxids - empty
-        false            // negative_tax - false
+    ch_filtered_genomes = ch_genome_mapping
+        .filter { taxid, genome ->
+            if (taxids_to_validate == 'auto' || taxids_to_validate == 'all') {
+                return true  // Include all taxids from JSON
+            } else {
+                // Only include requested taxids
+                def requested = taxids_to_validate.split(',').collect { it.trim() }
+                return requested.contains(taxid)
+            }
+        }
+
+    //
+    // Create validation tasks by combining samples with taxids
+    // First join classified reads with kraken output by meta.id
+    //
+    ch_sample_data = ch_classified_reads
+        .join(ch_kraken_output, by: [0])  // Join on meta
+
+    //
+    // Combine each sample with each taxid that has a genome available
+    // Result: [ meta_with_taxid, reads, kraken_output, taxid, genome ]
+    //
+    ch_validation_tasks = ch_sample_data
+        .combine(ch_filtered_genomes)
+        .map { meta, reads, kraken_output, taxid, genome ->
+            def new_meta = meta.clone()
+            new_meta.taxid = taxid.toInteger()
+            [ new_meta, reads, kraken_output, taxid, genome ]
+        }
+
+    //
+    // MODULE: Extract reads classified as each target taxid
+    // Input: combined tuple [ meta, reads, kraken_output, taxid ]
+    //
+    ch_extraction_input = ch_validation_tasks.map { meta, reads, kraken_output, taxid, genome ->
+        [ meta, reads, kraken_output, taxid ]
+    }
+
+    EXTRACT_READS_BY_TAXID(ch_extraction_input)
+    ch_versions = ch_versions.mix(EXTRACT_READS_BY_TAXID.out.versions.first())
+
+    //
+    // Prepare validation input by combining extracted reads with genome references
+    // Key by meta (which includes taxid) to properly join
+    //
+    // Use tuple keys [sample_id, taxid] for robust joining (avoids issues if sample_id contains underscores)
+    ch_extracted_with_genome = EXTRACT_READS_BY_TAXID.out.reads
+        .map { meta, reads -> [ [meta.id, meta.taxid.toString()], meta, reads ] }
+        .join(
+            ch_validation_tasks.map { meta, reads, kraken_output, taxid, genome ->
+                [ [meta.id, taxid.toString()], genome ]
+            },
+            by: [0]
+        )
+        .map { key, meta, reads, genome ->
+            [ meta, reads, genome ]
+        }
+
+    //
+    // MODULE: Run BLAST validation (if enabled)
+    //
+    ch_blast_stats = Channel.empty()
+    ch_blast_results = Channel.empty()
+
+    if (validation_method == 'blast' || validation_method == 'both') {
+        BLASTN_VALIDATION(ch_extracted_with_genome)
+        ch_blast_stats = BLASTN_VALIDATION.out.stats.map { meta, stats -> stats }
+        ch_blast_results = BLASTN_VALIDATION.out.results
+        ch_versions = ch_versions.mix(BLASTN_VALIDATION.out.versions.first())
+    }
+
+    //
+    // MODULE: Run minimap2 validation (if enabled)
+    //
+    ch_minimap2_stats = Channel.empty()
+    ch_minimap2_results = Channel.empty()
+
+    if (validation_method == 'minimap2' || validation_method == 'both') {
+        MINIMAP2_VALIDATION(ch_extracted_with_genome)
+        ch_minimap2_stats = MINIMAP2_VALIDATION.out.stats.map { meta, stats -> stats }
+        ch_minimap2_results = MINIMAP2_VALIDATION.out.alignments
+        ch_versions = ch_versions.mix(MINIMAP2_VALIDATION.out.versions.first())
+    }
+
+    //
+    // MODULE: Aggregate all validation results into Nanometa Live JSON format
+    //
+    ch_extraction_stats = EXTRACT_READS_BY_TAXID.out.stats.map { meta, stats -> stats }
+
+    // Collect Kraken2 reports for species name lookup
+    ch_kraken_report_files = ch_kraken_reports.map { meta, report -> report }
+
+    //
+    // INTERMEDIATE VALIDATION: Progressive aggregation for real-time dashboard
+    // Uses .tap() to fork channels and .subscribe to accumulate validation stats
+    // in JVM memory, writing periodic intermediate JSON to outdir for dashboard polling.
+    //
+    def val_interval = params.validation_aggregate_interval ?: 0
+    if (val_interval > 0) {
+        // Fork channels for intermediate aggregation
+        def ch_blast_for_intermediate = Channel.create()
+        def ch_minimap2_for_intermediate = Channel.create()
+
+        ch_blast_stats = ch_blast_stats.tap(ch_blast_for_intermediate)
+        ch_minimap2_stats = ch_minimap2_stats.tap(ch_minimap2_for_intermediate)
+
+        def intermediate_results = [].asSynchronized()
+        def val_counter = new java.util.concurrent.atomic.AtomicInteger(0)
+
+        ch_blast_for_intermediate.mix(ch_minimap2_for_intermediate).subscribe { stats_file ->
+            try {
+                def data = new groovy.json.JsonSlurper().parseText(stats_file.text)
+                intermediate_results.add(data)
+                def count = val_counter.incrementAndGet()
+
+                if (count % val_interval == 0) {
+                    def outdir = new File("${params.outdir}/validation")
+                    outdir.mkdirs()
+                    def json_text = new groovy.json.JsonBuilder(intermediate_results.collect()).toPrettyString()
+                    def temp = new File(outdir, "intermediate_validation.json.tmp")
+                    temp.text = json_text
+                    def target = new File(outdir, "intermediate_validation.json")
+                    if (!temp.renameTo(target)) {
+                        target.text = temp.text
+                        temp.delete()
+                    }
+                    log.debug "Intermediate validation updated: ${intermediate_results.size()} results"
+                }
+            } catch (Exception e) {
+                log.warn "Intermediate validation aggregation failed: ${e.message}"
+            }
+        }
+    }
+
+    AGGREGATE_VALIDATION_RESULTS(
+        ch_blast_stats.collect().ifEmpty([]),
+        ch_minimap2_stats.collect().ifEmpty([]),
+        ch_extraction_stats.collect().ifEmpty([]),
+        ch_kraken_report_files.collect().ifEmpty([]),
+        validation_method
     )
-    ch_versions = ch_versions.mix(BLAST_BLASTN.out.versions)
+    ch_versions = ch_versions.mix(AGGREGATE_VALIDATION_RESULTS.out.versions)
 
     emit:
-    txt          = BLAST_BLASTN.out.txt           // channel: [ val(meta), path(txt) ]
-    versions     = ch_versions                    // channel: [ path(versions.yml) ]
+    validation_json    = AGGREGATE_VALIDATION_RESULTS.out.json      // path: validation_results.json
+    validation_summary = AGGREGATE_VALIDATION_RESULTS.out.summary   // path: validation_summary.tsv
+    extraction_stats   = EXTRACT_READS_BY_TAXID.out.stats           // channel: [ val(meta), path(json) ]
+    blast_results      = ch_blast_results                           // channel: [ val(meta), path(tsv) ]
+    minimap2_results   = ch_minimap2_results                        // channel: [ val(meta), path(paf) ]
+    versions           = ch_versions                                // channel: [ path(versions.yml) ]
 }

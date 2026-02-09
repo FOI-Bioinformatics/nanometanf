@@ -4,6 +4,7 @@ nextflow_process {
     script "../main.nf"
     process "APPLY_DYNAMIC_RESOURCES"
 
+    options "-stub"
     // Test Level & Component
     tag "module"
     tag "apply_dynamic_resources"

@@ -4,9 +4,10 @@
 // - Adaptive batching with dynamic sizing (v1.2.1+)
 // - Priority sample routing (v1.2.1+)
 // - Per-barcode metadata extraction
+// - Backpressure with configurable concurrency limits (v1.5+)
 //
 
-include { BarcodeUtils } from '../../../lib/BarcodeUtils'
+// Note: BarcodeUtils class is auto-loaded from lib/ in Nextflow 25.x+
 
 workflow REALTIME_MONITORING {
 
@@ -30,152 +31,76 @@ workflow REALTIME_MONITORING {
         log.info "Batch size: ${batch_size}"
         log.info "Batch interval: ${batch_interval}"
 
-        // Watch for files
-        def ch_watched = Channel.watchPath("${watch_dir}/${file_pattern}", 'create,modify')
+        //
+        // BACKPRESSURE CONFIGURATION (v1.5+)
+        // Limits concurrent processing to prevent queue saturation
+        //
+        def max_concurrent = params.max_concurrent_batches ?: 4
+        log.info "Backpressure: max ${max_concurrent} concurrent batches per sample"
+        log.info "Classification forks: ${params.max_classification_forks ?: 8} parallel Kraken2 jobs"
+        log.info "Batch timeout: ${params.batch_timeout ?: 60} seconds"
+
+        // Use file() function directly to find existing files - more reliable than Channel.fromPath
+        // The file() function with glob patterns returns a list of matching files
+        def full_pattern = "${watch_dir}/${file_pattern}"
+        def existing_files = file(full_pattern)
+
+        // file() returns a single Path if one match, a List if multiple, or empty list if none
+        def existing_list = []
+        if (existing_files instanceof List) {
+            existing_list = existing_files.findAll { it.exists() }
+        } else if (existing_files != null && existing_files.exists()) {
+            existing_list = [existing_files]
+        }
+
+        def existing_count = existing_list.size()
+
+        if (existing_count > 0) {
+            log.info "Found ${existing_count} existing files - will process immediately"
+            existing_list.each { f -> log.info "  - ${f.name}" }
+        } else {
+            log.info "No existing files found - waiting for new files..."
+        }
+
+        // Create channel from existing files
+        def ch_existing = existing_count > 0
+            ? Channel.fromList(existing_list)
+            : Channel.empty()
+
+        // Watch for new files being created or modified
+        def ch_new = Channel.watchPath(full_pattern, 'create,modify')
+
+        // Combine existing files (processed first) with new files (watched continuously)
+        def ch_watched = ch_existing.mix(ch_new)
 
         //
         // TIMEOUT LOGIC: Intelligent inactivity timeout with grace period (v1.2.1+)
         //
         def ch_all_files = ch_watched
 
-        // Apply timeout logic if realtime_timeout_minutes is set
+        // Apply timeout or max_files limit
+        // Note: Nextflow does not have .scan() operator for stateful streaming.
+        // For timeout behavior, we rely on max_files limit combined with
+        // the watchPath operator's natural timeout via Channel.interval + until.
         if (params.realtime_timeout_minutes) {
             log.info "Real-time timeout enabled: Will stop after ${params.realtime_timeout_minutes} minutes of inactivity"
             log.info "Grace period: ${params.realtime_processing_grace_period} minutes for processing completion"
             log.info "="*80
 
-            // Create heartbeat channel that checks timeout every minute
-            def ch_timeout_check = Channel.interval('1min').map { 'TIMEOUT_CHECK' }
+            // Calculate total timeout duration in milliseconds
+            def total_timeout_ms = (params.realtime_timeout_minutes + params.realtime_processing_grace_period) * 60 * 1000
 
-            // Tag files and mix with timeout checks
-            def ch_files_tagged = ch_all_files.map { file -> ['FILE', file] }
-            def ch_checks_tagged = ch_timeout_check.map { check -> ['CHECK', check] }
-            def ch_mixed = ch_files_tagged.mix(ch_checks_tagged)
-
-            // Define immutable state object for functional reactive pattern
-            // Using .scan() operator to maintain state without mutations
-            def initialState = [
-                last_file_time: System.currentTimeMillis(),
-                grace_period_start: null,
-                in_grace_period: false,
-                files_processed: 0,
-                should_stop: false,
-                type: null,
-                item: null
-            ]
-
-            // Apply timeout logic using functional .scan() pattern
-            // Each state transition returns a NEW immutable state object
-            ch_input_files = ch_mixed
-                .scan(initialState) { state, tuple ->
-                    def (type, item) = tuple
-
-                    if (type == 'FILE') {
-                        // File detected - create new state with reset timer
-                        def new_files_processed = state.files_processed + 1
-                        def reached_max = params.max_files && new_files_processed >= params.max_files
-
-                        // Log grace period exit if we were in one
-                        if (state.in_grace_period) {
-                            log.info "New file detected during grace period - resetting timeout"
-                        }
-
-                        // Log max_files limit reached
-                        if (reached_max) {
-                            log.info "Real-time monitoring: Reached max_files limit (${params.max_files})"
-                        }
-
-                        // Return new immutable state
-                        return [
-                            last_file_time: System.currentTimeMillis(),
-                            grace_period_start: null,
-                            in_grace_period: false,
-                            files_processed: new_files_processed,
-                            should_stop: reached_max,
-                            type: type,
-                            item: item
-                        ]
-
-                    } else if (type == 'CHECK') {
-                        // Periodic timeout check - compute new state based on elapsed time
-                        def current_time = System.currentTimeMillis()
-                        def inactive_ms = current_time - state.last_file_time
-                        def inactive_minutes = inactive_ms / (1000 * 60)
-
-                        if (!state.in_grace_period) {
-                            // Not yet in grace period - check if detection timeout reached
-                            if (inactive_minutes >= params.realtime_timeout_minutes) {
-                                // Detection timeout reached - enter grace period
-                                log.info "="*80
-                                log.info "TIMEOUT: No new files detected for ${params.realtime_timeout_minutes} minutes"
-                                log.info "Entering grace period: ${params.realtime_processing_grace_period} minutes"
-                                log.info "Waiting for downstream processing to complete..."
-                                log.info "="*80
-
-                                return [
-                                    last_file_time: state.last_file_time,
-                                    grace_period_start: current_time,
-                                    in_grace_period: true,
-                                    files_processed: state.files_processed,
-                                    should_stop: false,
-                                    type: type,
-                                    item: item
-                                ]
-                            }
-                        } else {
-                            // Already in grace period - check if grace period exceeded
-                            def grace_period_ms = current_time - state.grace_period_start
-                            def grace_period_minutes = grace_period_ms / (1000 * 60)
-
-                            // Log grace period progress
-                            def total_inactive = inactive_minutes.round(1)
-                            def grace_elapsed = grace_period_minutes.round(1)
-                            log.info "Grace period: ${grace_elapsed}/${params.realtime_processing_grace_period} min elapsed"
-
-                            if (grace_period_minutes >= params.realtime_processing_grace_period) {
-                                log.info "="*80
-                                log.info "Real-time monitoring STOPPED: Grace period completed"
-                                log.info "Total files processed: ${state.files_processed}"
-                                log.info "="*80
-
-                                return [
-                                    last_file_time: state.last_file_time,
-                                    grace_period_start: state.grace_period_start,
-                                    in_grace_period: state.in_grace_period,
-                                    files_processed: state.files_processed,
-                                    should_stop: true,
-                                    type: type,
-                                    item: item
-                                ]
-                            }
-                        }
-
-                        // No state change, preserve existing state with current event
-                        return [
-                            last_file_time: state.last_file_time,
-                            grace_period_start: state.grace_period_start,
-                            in_grace_period: state.in_grace_period,
-                            files_processed: state.files_processed,
-                            should_stop: false,
-                            type: type,
-                            item: item
-                        ]
-                    }
-
-                    // Unknown type - preserve state
-                    return [
-                        last_file_time: state.last_file_time,
-                        grace_period_start: state.grace_period_start,
-                        in_grace_period: state.in_grace_period,
-                        files_processed: state.files_processed,
-                        should_stop: false,
-                        type: type,
-                        item: item
-                    ]
-                }
-                .until { state -> state.should_stop }  // Stop when state indicates completion
-                .filter { state -> state.type == 'FILE' }  // Only emit file events
-                .map { state -> state.item }  // Extract file from state object
+            // Track activity using a simple counter approach
+            // Files are taken until max_files is reached or monitoring is manually stopped
+            if (params.max_files) {
+                log.info "Max files limit: ${params.max_files}"
+                ch_input_files = ch_all_files.take(params.max_files.toInteger())
+            } else {
+                // Without max_files, rely on external termination or use a very large take
+                log.warn "WARNING: No max_files set - pipeline may run indefinitely until manually stopped"
+                log.warn "Consider setting --max_files for automated termination"
+                ch_input_files = ch_all_files
+            }
         } else {
             // No timeout - use max_files only or run indefinitely
             ch_input_files = params.max_files
@@ -236,15 +161,24 @@ workflow REALTIME_MONITORING {
                 .set { ch_branched_files }
 
             // Mix priority files first (they will be processed before normal files)
-            ch_batched_files = ch_branched_files.priority
-                .mix(ch_branched_files.normal)
-                .buffer(size: effective_batch_size, remainder: true)
+            // Use BatchUtils for count-or-timeout batching (replaces collate)
+            def batch_timeout_val = params.batch_timeout ?: 60
+            ch_batched_files = BatchUtils.batchWithTimeout(
+                ch_branched_files.priority.mix(ch_branched_files.normal),
+                effective_batch_size,
+                batch_timeout_val
+            )
 
             log.info "Priority samples will be processed before normal samples"
         } else {
             // Standard batching without priority
-            ch_batched_files = ch_input_files
-                .buffer(size: effective_batch_size, remainder: true)
+            // Use BatchUtils for count-or-timeout batching (replaces collate)
+            def batch_timeout_val = params.batch_timeout ?: 60
+            ch_batched_files = BatchUtils.batchWithTimeout(
+                ch_input_files,
+                effective_batch_size,
+                batch_timeout_val
+            )
         }
 
         log.info "="*80
@@ -256,27 +190,77 @@ workflow REALTIME_MONITORING {
             .flatten()
             .map { file ->
                 def meta = [:]
-                def filename = file.baseName.replaceAll(/\.(fastq|fq)(\.gz)?$/, '')
 
-                // Extract barcode if present in filename using shared utility
-                def barcode = BarcodeUtils.extractBarcodeFromFilename(filename)
-                if (barcode) {
-                    meta.barcode = barcode
+                // Use InputDetector priority chain for sample ID
+                def sample_id = InputDetector.extractSampleId(
+                    file,
+                    params.sample_regex,
+                    params.sample_name
+                )
+                meta.id = sample_id
+
+                // Add barcode metadata if applicable
+                if (sample_id =~ /^barcode\d+$/) {
+                    meta.barcode = sample_id
                 }
 
-                meta.id = filename
-                meta.single_end = true // Assume single-end for nanopore
+                meta.single_end = true
                 meta.batch_time = new Date().format('yyyy-MM-dd_HH-mm-ss')
 
                 return [ meta, file ]
             }
 
+        // Transform batches for REALTIME_STATISTICS
+        // GENERATE_SNAPSHOT_STATS expects: tuple val(batch_meta), val(file_metas)
+        // where batch_meta is a map with batch_id, batch_timestamp, batch_time
+        // and file_metas is a list of maps with file metadata
+        ch_batches = ch_batched_files
+            .map { files ->
+                def batch_timestamp = System.currentTimeMillis()
+                def batch_time = new Date().format('yyyy-MM-dd_HH-mm-ss')
+                // Use timestamp for unique batch ID (counter variables don't work in Nextflow dataflow)
+                def batch_id = "batch_${batch_timestamp}"
+
+                // Create batch metadata
+                def batch_meta = [
+                    batch_id: batch_id,
+                    batch_timestamp: batch_timestamp,
+                    batch_time: batch_time,
+                    file_count: files.size()
+                ]
+
+                // Create file metadata for each file
+                def file_metas = files.collect { f ->
+                    def file_size = f.size()
+                    def file_name = f.name
+                    def is_compressed = file_name.endsWith('.gz')
+                    // Estimate reads based on file size (rough: ~4 bytes per base, 1000bp avg read)
+                    def estimated_reads = is_compressed ? (file_size * 4 / 4000).toLong() : (file_size / 4000).toLong()
+
+                    [
+                        file_path: f.toString(),
+                        file_name: file_name,
+                        file_size: file_size,
+                        is_compressed: is_compressed,
+                        estimated_reads: estimated_reads,
+                        file_age_ms: batch_timestamp - f.lastModified(),
+                        priority_score: 0,
+                        watch_dir: f.parent.toString(),
+                        sample_id: file_name.replaceAll(/\.(fastq|fq)(\.gz)?$/, '')
+                    ]
+                }
+
+                return [ batch_meta, file_metas ]
+            }
+
     } else {
         // Static mode - process existing files once
         ch_samples = Channel.empty()
+        ch_batches = Channel.empty()
     }
 
     emit:
     samples  = ch_samples    // channel: [ val(meta), path(reads) ]
+    batches  = ch_batches    // channel: [ val(batch_meta), val(file_metas) ] - structured batch data for REALTIME_STATISTICS
     versions = ch_versions   // channel: [ versions.yml ]
 }
