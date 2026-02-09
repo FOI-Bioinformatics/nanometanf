@@ -770,5 +770,5 @@ nextflow run foi-bioinformatics/nanometanf \
 ---
 
 **Last Updated:** 2025-01-26
-**Version:** 1.5.0dev (scalable streaming requires v1.5.0+, basic features work with v1.2.0+)
+**Version:** 1.5.0 (scalable streaming requires v1.5.0+, basic features work with v1.2.0+)
 **Maintainer:** foi-bioinformatics team

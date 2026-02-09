@@ -14,12 +14,12 @@
 
 **Use for:** Production deployments, critical analyses, publication-quality data.
 
-### Development: v1.5.0dev (Active Development)
+### Development: v1.5.0 (Active Development)
 
 **Status:** Development
 **nf-core Compliance:** 96%
 
-**New in v1.5.0dev:**
+**New in v1.5.0:**
 
 - Scalable streaming architecture for high-throughput real-time processing
 - Per-sample parallelism (no global serialization bottlenecks)
@@ -38,7 +38,7 @@
 | v1.3.0        | Broken | 2025-10-19   | **Do not use**                 |
 | v1.3.1        | Hotfix | 2025-10-20   | Testing only                   |
 | v1.3.3        | Beta   | 2025-10-25   | Advanced features, test first  |
-| **v1.5.0dev** | Dev    | Ongoing      | Scalable streaming, developers |
+| **v1.5.0** | Dev    | Ongoing      | Scalable streaming, developers |
 
 ---
 
@@ -48,7 +48,7 @@
 
 **Error:** `No such variable: KRAKEN2_INCREMENTAL_CLASSIFIER`
 
-Use v1.2.0 (stable) or v1.5.0dev (development with scalable streaming).
+Use v1.2.0 (stable) or v1.5.0 (development with scalable streaming).
 
 ---
 
@@ -60,7 +60,7 @@ Use **v1.2.0** for proven stability and reliability.
 
 ### For High-Throughput Real-time Processing
 
-Use **v1.5.0dev** if you need:
+Use **v1.5.0** if you need:
 
 - Processing >10 barcodes simultaneously
 - Improved CPU utilization (70-90% vs 15-20%)
@@ -68,7 +68,7 @@ Use **v1.5.0dev** if you need:
 
 ### For Development
 
-Use **v1.5.0dev** (dev branch) for contributing or testing new features.
+Use **v1.5.0** (dev branch) for contributing or testing new features.
 
 ---
 
@@ -81,7 +81,7 @@ Use **v1.5.0dev** (dev branch) for contributing or testing new features.
 - 100% nf-core compliance
 - Dorado 1.1.1 compatibility
 
-### v1.5.0dev (Development)
+### v1.5.0 (Development)
 
 **Scalable Streaming Architecture:**
 
@@ -133,7 +133,7 @@ nextflow run foi-bioinformatics/nanometanf -r dev \
 
 ## Migration Paths
 
-### From v1.2.0 to v1.5.0dev
+### From v1.2.0 to v1.5.0
 
 **Breaking Changes:** None for standard usage.
 

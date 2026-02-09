@@ -19,7 +19,7 @@ This file provides guidance for AI assistants working on the nanometanf pipeline
 - Quality control (Chopper, FASTP, NanoPlot) and validation (BLAST/minimap2)
 - Platform-specific optimizations (MinION, PromethION profiles)
 
-**Current Version:** 1.5.0dev
+**Current Version:** 1.5.0
 **nf-core Compliance:** 96/100
 
 ---
@@ -387,10 +387,10 @@ gh pr create --title "Title" --body "Description"
 ---
 
 **Last Updated:** 2026-02-03
-**Version:** 1.5.0dev
+**Version:** 1.5.0
 **Maintainer:** foi-bioinformatics team (@andreassjodin)
 
-**Recent Changes (v1.5.0dev):**
+**Recent Changes (v1.5.0):**
 
 - Scalable streaming architecture with per-sample parallelism
 - Append-only batch storage (O(1) per batch)

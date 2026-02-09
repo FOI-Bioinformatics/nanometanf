@@ -224,7 +224,7 @@ Found documentation issues? [Report them](https://github.com/foi-bioinformatics/
 
 ---
 
-**Version:** 1.5.0dev
+**Version:** 1.5.0
 **Last Updated:** 2026-02-03
 **Maintainer:** foi-bioinformatics team (@andreassjodin)
 

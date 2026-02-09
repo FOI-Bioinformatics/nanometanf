@@ -269,4 +269,4 @@ These documents are preserved for historical reference but are not actively main
 
 **Last Updated:** 2026-02-03
 **Maintainer:** Andreas Sjodin (@andreassjodin)
-**Version:** 1.5.0dev
+**Version:** 1.5.0

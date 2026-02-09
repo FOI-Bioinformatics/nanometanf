@@ -2,7 +2,7 @@
 
 **Date:** 2026-01-30
 **Scope:** Throughput, resource utilization, architectural correctness, nf-core compliance
-**Pipeline version:** 1.5.0dev (scalable streaming architecture)
+**Pipeline version:** 1.5.0 (scalable streaming architecture)
 
 ---
 

@@ -5,7 +5,7 @@
 
 ## Overview
 
-This document describes the documentation updates made to align with v1.5.0dev changes and fix accuracy issues.
+This document describes the documentation updates made to align with v1.5.0 changes and fix accuracy issues.
 
 ## Changes Made
 
