@@ -130,6 +130,9 @@ max_classification_forks = 8    // Max parallel Kraken2 jobs
   - Three execution modes: incremental (scalable), optimized, standard
 
 - **`qc_analysis/main.nf`** - Quality control workflow
+  - Routes to `FASTP_STREAMING` in streaming/watchPath mode, upstream `FASTP` in batch mode
+  - FASTQC and SEQKIT_STATS use `topic: versions` (not `.out.versions` channel)
+
 - **`validation/main.nf`** - Pathogen validation via BLAST/minimap2
 
 ### Key Modules (modules/local/)
@@ -140,6 +143,7 @@ max_classification_forks = 8    // Max parallel Kraken2 jobs
 | `kraken2_output_merger/`          | Append-only batch storage with atomic index |
 | `kraken2_report_generator/`       | Incremental taxid counting                  |
 | `kraken2_final_aggregator/`       | End-of-session concatenation                |
+| `fastp_streaming/`                | FASTP wrapper for multi-file streaming input |
 | `dorado_basecaller/`              | POD5 basecalling                            |
 | `dorado_demux/`                   | Dorado demultiplexing                       |
 | `extract_reads_by_taxid/`         | Extract reads for validation                |
@@ -250,7 +254,16 @@ setup { "cat > $outputDir/test.csv ..." }
 
 **Fixture location:** `tests/fixtures/`
 
-### 4. nf-core Compliance
+### 4. nf-core Module Maintenance
+
+Four nf-core modules have local modifications. See [nfcore_module_maintenance.md](docs/development/nfcore_module_maintenance.md) for full details.
+
+| Module | Modification | Update Strategy |
+|--------|-------------|----------------|
+| `blast/blastn` | `export BLASTDB=${db}` env var | Protected in `.nf-core.yml` skip list. Re-apply after manual update. |
+| `fastp` | None (restored to upstream) | Safe to update freely. Streaming handled by local `fastp_streaming/`. |
+| `kraken2/kraken2` | Container SHAs, stub versions | Run `nf-core modules update kraken2/kraken2` -- no functional divergence. |
+| `nanoplot` | Stub hardcoded version | Run `nf-core modules update nanoplot` -- upstream uses same convention. |
 
 ```bash
 nf-core lint
@@ -380,13 +393,14 @@ gh pr create --title "Title" --body "Description"
 - **[User Guide](docs/user/usage.md)** - Complete usage instructions
 - **[Development Guide](docs/development/README.md)** - Developer documentation
 - **[Testing Guide](docs/development/TESTING.md)** - nf-test documentation
+- **[nf-core Module Maintenance](docs/development/nfcore_module_maintenance.md)** - Local modification tracking
 - **[Real-time Processing](docs/user/realtime_processing.md)** - Advanced real-time guide
 - [nf-core guidelines](https://nf-co.re/docs/contributing/guidelines)
 - [Nextflow documentation](https://www.nextflow.io/docs/latest/)
 
 ---
 
-**Last Updated:** 2026-02-03
+**Last Updated:** 2026-03-01
 **Version:** 1.5.0
 **Maintainer:** foi-bioinformatics team (@andreassjodin)
 
@@ -401,3 +415,13 @@ gh pr create --title "Title" --body "Description"
 - Unified input handling: INPUT_SCANNER subworkflow with InputDetector
 - BatchUtils refactoring: replaced deprecated `Channel.create()` with `buffer()`
 - Test suite fixes: 55 active tests (17 pipeline + 38 module) with stub mode compatibility
+
+**Production hardening (2026-03-01):**
+
+- FASTP_STREAMING local module: multi-file concatenation for watchPath mode, upstream fastp restored
+- MULTIQC updated to single-tuple input API
+- FASTQC/SEQKIT_STATS version channel fixes (topic: versions pattern)
+- kraken2_optimized: division-by-zero guard, output declaration fix
+- Stub block fixes across 15+ modules (hardcoded versions, proper output files)
+- nf-core module maintenance strategy: `.nf-core.yml` skip list, ACTION REQUIRED comments
+- Removed Unicode from Nextflow files (project policy)
