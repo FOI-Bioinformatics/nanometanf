@@ -25,9 +25,6 @@ input:
       type: file
       description: FASTQ file(s) for the current batch only
       pattern: "*.{fastq,fastq.gz,fq,fq.gz}"
-  - db_meta:
-      type: map
-      description: Groovy Map containing database metadata
   - db:
       type: directory
       description: Kraken2 database directory
@@ -64,6 +61,11 @@ output:
       type: file
       description: Unclassified reads in FASTQ format (optional)
       pattern: "*unclassified*.fastq.gz"
+  - classifier_output:
+      type: tuple
+      description: |
+        Combined output for streaming-compatible workflow (no joins needed).
+        Contains raw Kraken2 output, batch metadata, and report in a single tuple.
   - classified_reads_assignment:
       type: file
       description: Per-read classification assignments (optional)

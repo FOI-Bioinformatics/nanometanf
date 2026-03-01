@@ -127,10 +127,10 @@ process ERROR_CLASSIFIER {
 
     # Log classification
     if is_retryable:
-        print(f"🔄 RETRYABLE ERROR: {category} (confidence: {confidence:.0%})", file=sys.stderr)
+        print(f"? RETRYABLE ERROR: {category} (confidence: {confidence:.0%})", file=sys.stderr)
         print(f"   Reason: {reason}", file=sys.stderr)
     else:
-        print(f"❌ FATAL ERROR: {category} (confidence: {confidence:.0%})", file=sys.stderr)
+        print(f"ERROR: FATAL ERROR: {category} (confidence: {confidence:.0%})", file=sys.stderr)
         print(f"   Reason: {reason}", file=sys.stderr)
 
     # Write versions
@@ -147,7 +147,7 @@ process ERROR_CLASSIFIER {
 
     cat <<-END_VERSIONS > versions.yml
 "${task.process}":
-    python: \$(python3 --version | sed 's/Python //g')
+    python: 3.11
 END_VERSIONS
     """
 }

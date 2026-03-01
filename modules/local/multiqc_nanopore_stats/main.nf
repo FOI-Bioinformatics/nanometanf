@@ -138,7 +138,7 @@ process MULTIQC_NANOPORE_STATS {
 
     cat <<-END_VERSIONS > versions.yml
 "${task.process}":
-    python: \$(python3 --version | sed 's/Python //g')
+    python: 3.11
 END_VERSIONS
     """
 }

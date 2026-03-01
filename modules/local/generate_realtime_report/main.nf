@@ -197,7 +197,7 @@ process GENERATE_REALTIME_REPORT {
     </head>
     <body>
         <div class="header">
-            <h1>🧬 Nanometa Real-time Monitoring</h1>
+            <h1>Nanometa Real-time Monitoring</h1>
             <div class="subtitle">
                 Batch: {snapshot["batch_info"]["batch_id"]} |
                 <span class="timestamp">{snapshot["batch_info"]["processing_time_formatted"]}</span>
@@ -207,7 +207,7 @@ process GENERATE_REALTIME_REPORT {
         <div class="dashboard">
             <!-- Current Batch Overview -->
             <div class="card">
-                <h3>📊 Current Batch</h3>
+                <h3>Current Batch</h3>
                 <div class="large-metric">{snapshot["file_statistics"]["file_count"]}</div>
                 <div style="text-align: center; color: #7f8c8d;">Files Processed</div>
                 <div class="metric">
@@ -226,7 +226,7 @@ process GENERATE_REALTIME_REPORT {
 
             <!-- Session Summary -->
             <div class="card success">
-                <h3>🎯 Session Summary</h3>
+                <h3>Session Summary</h3>
                 <div class="large-metric">{cumulative["session_info"]["total_batches"]}</div>
                 <div style="text-align: center; color: #7f8c8d;">Total Batches</div>
                 <div class="metric">
@@ -245,7 +245,7 @@ process GENERATE_REALTIME_REPORT {
 
             <!-- Performance Metrics -->
             <div class="card">
-                <h3>⚡ Performance</h3>
+                <h3>Performance</h3>
                 <div class="metric">
                     <span class="metric-label">Files/sec</span>
                     <span class="metric-value">{cumulative["performance"]["files_per_second"]:.2f}</span>
@@ -266,7 +266,7 @@ process GENERATE_REALTIME_REPORT {
 
             <!-- Quality Indicators -->
             <div class="card">
-                <h3>✅ Quality Indicators</h3>
+                <h3>Quality Indicators</h3>
                 <div class="metric">
                     <span class="metric-label">Compression Ratio</span>
                     <span class="metric-value">{snapshot["quality_indicators"]["compressed_ratio"]:.1%}</span>
@@ -286,7 +286,7 @@ process GENERATE_REALTIME_REPORT {
 
             <!-- Source Analysis -->
             <div class="card">
-                <h3>📁 Data Sources</h3>
+                <h3>Data Sources</h3>
                 <div class="metric">
                     <span class="metric-label">Watch Directories</span>
                     <span class="metric-value">{len(cumulative["source_summary"]["unique_directories"])}</span>
@@ -311,7 +311,7 @@ process GENERATE_REALTIME_REPORT {
 
             <!-- Timing Analysis -->
             <div class="card">
-                <h3>⏱️ Timing Analysis</h3>
+                <h3>Timing Analysis</h3>
                 <div class="metric">
                     <span class="metric-label">Avg File Age</span>
                     <span class="metric-value">{snapshot["timing_analysis"]["average_file_age_ms"]/60000:.1f} min</span>
@@ -344,7 +344,7 @@ process GENERATE_REALTIME_REPORT {
         if alerts:
             report_html += '''
             <div class="card warning">
-                <h3>⚠️ Active Alerts</h3>
+                <h3>Active Alerts</h3>
             '''
             for alert in alerts:
                 alert_class = 'warning' if alert['level'] == 'warning' else 'error'
@@ -418,23 +418,23 @@ process GENERATE_REALTIME_REPORT {
 </head>
 <body>
     <div class="header">
-        <h1>🧬 Nanometa Real-time Monitoring (Stub)</h1>
+        <h1>Nanometa Real-time Monitoring (Stub)</h1>
         <div class="subtitle">Batch: ${batch_meta.batch_id} | Generated: 2024-01-01T00:00:00</div>
     </div>
     <div class="card">
-        <h3>📊 Current Batch</h3>
+        <h3>Current Batch</h3>
         <div class="metric"><span>Files Processed</span><span class="metric-value">10</span></div>
         <div class="metric"><span>Total Size</span><span class="metric-value">100.0 MB</span></div>
         <div class="metric"><span>Estimated Reads</span><span class="metric-value">500,000</span></div>
     </div>
     <div class="card">
-        <h3>🎯 Session Summary</h3>
+        <h3>Session Summary</h3>
         <div class="metric"><span>Total Batches</span><span class="metric-value">5</span></div>
         <div class="metric"><span>Total Files</span><span class="metric-value">50</span></div>
         <div class="metric"><span>Session Duration</span><span class="metric-value">300s</span></div>
     </div>
     <div class="card">
-        <h3>⚡ Performance</h3>
+        <h3>Performance</h3>
         <div class="metric"><span>Files/sec</span><span class="metric-value">0.17</span></div>
         <div class="metric"><span>MB/sec</span><span class="metric-value">0.33</span></div>
         <div class="metric"><span>Reads/sec</span><span class="metric-value">1,667</span></div>

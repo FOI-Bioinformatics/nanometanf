@@ -27,16 +27,16 @@ workflow OUTPUT_ORGANIZATION {
     //
     // Structure:
     // results/
-    // ├── qc/
-    // │   ├── fastp/
-    // │   └── nanoplot/
-    // ├── classification/
-    // │   └── kraken2/
-    // ├── validation/
-    // │   └── blast/
-    // ├── reports/
-    // │   └── multiqc/
-    // └── pipeline_info/
+    // |?? qc/
+    // |   |?? fastp/
+    // |   \?? nanoplot/
+    // |?? classification/
+    // |   \?? kraken2/
+    // |?? validation/
+    // |   \?? blast/
+    // |?? reports/
+    // |   \?? multiqc/
+    // \?? pipeline_info/
 
     //
     // CHANNEL: Organize QC outputs

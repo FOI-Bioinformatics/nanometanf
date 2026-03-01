@@ -21,6 +21,7 @@
 */
 
 include { FASTP                   } from "${projectDir}/modules/nf-core/fastp/main"
+include { FASTP_STREAMING         } from "${projectDir}/modules/local/fastp_streaming/main"
 include { FILTLONG                } from "${projectDir}/modules/nf-core/filtlong/main"
 include { CHOPPER                 } from "${projectDir}/modules/nf-core/chopper/main"
 include { PORECHOP_PORECHOP       } from "${projectDir}/modules/nf-core/porechop/porechop/main"
@@ -69,24 +70,40 @@ workflow QC_ANALYSIS {
             //
             // MODULE: Run FASTP for general-purpose quality filtering and QC
             //
-            // FASTP expects: tuple(meta, reads, adapter_fasta), discard_trimmed_pass, save_trimmed_fail, save_merged
+            // In realtime (streaming) mode, reads arrive as multiple files per batch cycle.
+            // FASTP_STREAMING handles multi-file concatenation before calling fastp.
+            // In standard batch mode, use the unmodified upstream nf-core/fastp module.
             ch_fastp_input = ch_adapter_trimmed.map { meta, reads ->
-                [ meta, reads, [] ]  // Add empty adapter_fasta to tuple
+                [ meta, reads, [] ]  // adapter_fasta: empty list
             }
 
-            FASTP (
-                ch_fastp_input,
-                false,        // discard_trimmed_pass
-                false,        // save_trimmed_fail
-                false         // save_merged
-            )
-            ch_versions = ch_versions.mix(FASTP.out.versions)
+            def is_streaming = params.realtime_mode ?: false
 
-            // Collect standardized outputs
-            ch_qc_reads = FASTP.out.reads
-            ch_qc_reports = FASTP.out.html
-            ch_qc_logs = FASTP.out.log
-            ch_qc_json = FASTP.out.json
+            if (is_streaming) {
+                FASTP_STREAMING (
+                    ch_fastp_input,
+                    false,        // discard_trimmed_pass
+                    false,        // save_trimmed_fail
+                    false         // save_merged
+                )
+                ch_versions = ch_versions.mix(FASTP_STREAMING.out.versions)
+                ch_qc_reads = FASTP_STREAMING.out.reads
+                ch_qc_reports = FASTP_STREAMING.out.html
+                ch_qc_logs = FASTP_STREAMING.out.log
+                ch_qc_json = FASTP_STREAMING.out.json
+            } else {
+                FASTP (
+                    ch_fastp_input,
+                    false,        // discard_trimmed_pass
+                    false,        // save_trimmed_fail
+                    false         // save_merged
+                )
+                ch_versions = ch_versions.mix(FASTP.out.versions)
+                ch_qc_reads = FASTP.out.reads
+                ch_qc_reports = FASTP.out.html
+                ch_qc_logs = FASTP.out.log
+                ch_qc_json = FASTP.out.json
+            }
             break
 
         case 'filtlong':
@@ -112,7 +129,7 @@ workflow QC_ANALYSIS {
                 FASTQC (
                     FILTLONG.out.reads
                 )
-                ch_versions = ch_versions.mix(FASTQC.out.versions)
+                // FASTQC uses topic: versions pattern - no .out.versions channel
                 ch_fastqc_html = FASTQC.out.html
             }
 
@@ -120,7 +137,7 @@ workflow QC_ANALYSIS {
             SEQKIT_STATS (
                 FILTLONG.out.reads
             )
-            ch_versions = ch_versions.mix(SEQKIT_STATS.out.versions)
+            // SEQKIT_STATS uses topic: versions pattern - no .out.versions channel
             ch_seqkit_stats = SEQKIT_STATS.out.stats
 
             // Collect standardized outputs
@@ -150,7 +167,7 @@ workflow QC_ANALYSIS {
                 FASTQC (
                     CHOPPER.out.fastq
                 )
-                ch_versions = ch_versions.mix(FASTQC.out.versions)
+                // FASTQC uses topic: versions pattern - no .out.versions channel
                 ch_fastqc_html = FASTQC.out.html
             }
 
@@ -158,7 +175,7 @@ workflow QC_ANALYSIS {
             SEQKIT_STATS (
                 CHOPPER.out.fastq
             )
-            ch_versions = ch_versions.mix(SEQKIT_STATS.out.versions)
+            // SEQKIT_STATS uses topic: versions pattern - no .out.versions channel
             ch_seqkit_stats = SEQKIT_STATS.out.stats
 
             // Collect standardized outputs

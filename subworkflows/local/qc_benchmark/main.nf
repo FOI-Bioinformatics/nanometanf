@@ -44,9 +44,10 @@ workflow QC_BENCHMARK {
     //
 
     // Run FASTP with standard parameters
+    // adapter_fasta is part of the first input tuple per nf-core/fastp interface
+    ch_fastp_benchmark_input = ch_reads.map { meta, reads -> [ meta, reads, [] ] }
     FASTP (
-        ch_reads,
-        [],           // adapter_fasta
+        ch_fastp_benchmark_input,
         false,        // discard_trimmed_pass
         false,        // save_trimmed_fail
         false         // save_merged
@@ -57,13 +58,13 @@ workflow QC_BENCHMARK {
     FASTQC (
         FASTP.out.reads
     )
-    ch_versions = ch_versions.mix(FASTQC.out.versions.first())
+    // FASTQC uses topic: versions pattern - no .out.versions channel
 
     // Run SeqKit stats on FASTP output
     SEQKIT_STATS (
         FASTP.out.reads
     )
-    ch_versions = ch_versions.mix(SEQKIT_STATS.out.versions.first())
+    // SEQKIT_STATS uses topic: versions pattern - no .out.versions channel
 
     // Create FASTP benchmark record
     ch_fastp_benchmark = FASTP.out.reads
@@ -96,13 +97,13 @@ workflow QC_BENCHMARK {
     FASTQC (
         FILTLONG.out.reads
     )
-    ch_versions = ch_versions.mix(FASTQC.out.versions.first())
+    // FASTQC uses topic: versions pattern - no .out.versions channel
 
     // Run SeqKit stats on FILTLONG output
     SEQKIT_STATS (
         FILTLONG.out.reads
     )
-    ch_versions = ch_versions.mix(SEQKIT_STATS.out.versions.first())
+    // SEQKIT_STATS uses topic: versions pattern - no .out.versions channel
 
     // Create FILTLONG benchmark record
     ch_filtlong_benchmark = FILTLONG.out.reads
@@ -163,13 +164,13 @@ workflow QC_BENCHMARK {
     FASTQC (
         CHOPPER.out.fastq
     )
-    ch_versions = ch_versions.mix(FASTQC.out.versions.first())
+    // FASTQC uses topic: versions pattern - no .out.versions channel
 
     // Run SeqKit stats on CHOPPER output for detailed statistics
     SEQKIT_STATS (
         CHOPPER.out.fastq
     )
-    ch_versions = ch_versions.mix(SEQKIT_STATS.out.versions.first())
+    // SEQKIT_STATS uses topic: versions pattern - no .out.versions channel
 
     // Create CHOPPER benchmark record
     ch_chopper_benchmark = CHOPPER.out.fastq

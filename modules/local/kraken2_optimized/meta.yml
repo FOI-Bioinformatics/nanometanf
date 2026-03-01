@@ -28,11 +28,21 @@ input:
   - db:
       type: directory
       description: Kraken2 database directory
-  - optimization_config:
-      type: map
-      description: |
-        Optimization settings
-        e.g. [ memory_mapping:true, preload_db:true, use_mmap_cache:true ]
+  - save_output_fastqs:
+      type: boolean
+      description: Save classified and unclassified reads to FASTQ files
+  - save_reads_assignment:
+      type: boolean
+      description: Save per-read classification assignments
+  - use_memory_mapping:
+      type: boolean
+      description: Enable memory-mapped database loading to reduce RAM usage
+  - confidence_threshold:
+      type: float
+      description: Confidence score filter (0.0-1.0)
+  - minimum_hit_groups:
+      type: integer
+      description: Minimum number of hit groups required for classification
 
 output:
   - meta:
@@ -40,10 +50,18 @@ output:
       description: |
         Groovy Map containing sample information
         e.g. [ id:'sample1', single_end:false ]
-  - output:
+  - classified_reads_fastq:
       type: file
-      description: Kraken2 classification output
-      pattern: "*.kraken2.output.txt"
+      description: Classified reads in FASTQ format (optional)
+      pattern: "*.classified{.,_}*"
+  - unclassified_reads_fastq:
+      type: file
+      description: Unclassified reads in FASTQ format (optional)
+      pattern: "*.unclassified{.,_}*"
+  - classified_reads_assignment:
+      type: file
+      description: Per-read classification assignments (optional)
+      pattern: "*classifiedreads.txt"
   - report:
       type: file
       description: Kraken2 taxonomic report

@@ -59,7 +59,7 @@ process EXPONENTIAL_BACKOFF_HANDLER {
         # Cap at max_delay
         delay = min(delay, max_delay)
 
-        # Add jitter (±10%) to prevent thundering herd
+        # Add jitter (?10%) to prevent thundering herd
         import random
         jitter = delay * random.uniform(-0.1, 0.1)
         delay_with_jitter = delay + jitter
@@ -108,10 +108,10 @@ process EXPONENTIAL_BACKOFF_HANDLER {
 
     # Log backoff decision
     if should_retry:
-        print(f"⏱️  BACKOFF: Retry {retry_count + 1} scheduled in {delay_seconds:.1f}s", file=sys.stderr)
+        print(f"TIMER:  BACKOFF: Retry {retry_count + 1} scheduled in {delay_seconds:.1f}s", file=sys.stderr)
         print(f"   Next attempt: {next_retry_time.strftime('%Y-%m-%d %H:%M:%S')}", file=sys.stderr)
     else:
-        print(f"🛑 MAX RETRIES: Stopping after {retry_count} attempts", file=sys.stderr)
+        print(f"? MAX RETRIES: Stopping after {retry_count} attempts", file=sys.stderr)
 
     # Write versions
     with open('versions.yml', 'w') as f:
@@ -127,7 +127,7 @@ process EXPONENTIAL_BACKOFF_HANDLER {
 
     cat <<-END_VERSIONS > versions.yml
 "${task.process}":
-    python: \$(python3 --version | sed 's/Python //g')
+    python: 3.11
 END_VERSIONS
     """
 }

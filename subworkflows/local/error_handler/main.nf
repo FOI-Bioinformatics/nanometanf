@@ -81,7 +81,7 @@ workflow ERROR_HANDLER {
                 metadata: meta
             ])
 
-            log.error "❌ FATAL ERROR: ${meta.id} - ${category} - ${error_msg}"
+            log.error "ERROR: FATAL ERROR: ${meta.id} - ${category} - ${error_msg}"
             return [meta, error_msg, category]
         }
 
@@ -111,12 +111,12 @@ workflow ERROR_HANDLER {
                 // Increment retry count
                 def updated_meta = meta + [retry_count: (meta.retry_count ?: 0) + 1]
 
-                log.warn "⏱️  RETRY: ${meta.id} will retry in ${delay}s (attempt ${updated_meta.retry_count})"
+                log.warn "TIMER:  RETRY: ${meta.id} will retry in ${delay}s (attempt ${updated_meta.retry_count})"
 
                 return ['RETRY', updated_meta, error_msg, category, delay]
             } else {
                 // Max retries exceeded - send to dead letter queue
-                log.error "🛑 MAX RETRIES: ${meta.id} exceeded maximum retry attempts"
+                log.error "? MAX RETRIES: ${meta.id} exceeded maximum retry attempts"
 
                 dead_letter_samples.add([
                     sample_id: meta.id,
@@ -163,13 +163,13 @@ workflow ERROR_HANDLER {
         .subscribe { state ->
             if (state == 'OPEN') {
                 log.error """
-                🚨 CIRCUIT BREAKER OPEN 🚨
+                ? CIRCUIT BREAKER OPEN ?
                 Too many failures detected - pipeline may be experiencing systemic issues.
                 Review circuit_breaker_report.json for details.
                 """.stripIndent()
             } else if (state == 'HALF_OPEN') {
                 log.warn """
-                ⚠️  CIRCUIT BREAKER HALF-OPEN
+                WARN:  CIRCUIT BREAKER HALF-OPEN
                 Failure threshold approaching - proceed with caution.
                 """.stripIndent()
             }

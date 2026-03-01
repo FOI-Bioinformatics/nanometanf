@@ -631,15 +631,20 @@ workflow NANOMETANF {
             log.info "Real-time mode: MultiQC will run once at the end (deferred execution via .collect())"
         }
 
-        MULTIQC (
-            ch_multiqc_files.collect(),
-            ch_multiqc_config.toList(),
-            ch_multiqc_custom_config.toList(),
-            ch_multiqc_logo.toList(),
-            [],
-            []
-        )
-        ch_multiqc_report = MULTIQC.out.report.toList()
+        // Combine inputs into the tuple format expected by the updated MULTIQC module
+        // New API: tuple val(meta), path(multiqc_files), path(multiqc_config), path(multiqc_logo), path(replace_names), path(sample_names)
+        ch_multiqc_input = Channel.of(1)
+            .combine(ch_multiqc_files.collect())
+            .combine(ch_multiqc_config.collect().ifEmpty([]))
+            .combine(ch_multiqc_custom_config.collect().ifEmpty([]))
+            .combine(ch_multiqc_logo.collect().ifEmpty([]))
+            .map { _dummy, files, config, custom_config, logo ->
+                def all_configs = ([config] + [custom_config]).flatten().findAll { it }
+                [ [id: 'multiqc'], files, all_configs, logo, [], [] ]
+            }
+
+        MULTIQC ( ch_multiqc_input )
+        ch_multiqc_report = MULTIQC.out.report.map { meta, report -> report }.toList()
     } else {
         log.info "Skipping MultiQC report generation"
         ch_multiqc_report = Channel.empty()

@@ -45,7 +45,7 @@ workflow ENHANCED_REALTIME_MONITORING {
 
     if (params.realtime_mode) {
         log.info "="*80
-        log.info "🔬 Enhanced Real-time Monitoring Started"
+        log.info "? Enhanced Real-time Monitoring Started"
         log.info "="*80
         log.info "Watch Directory:      ${watch_dir}"
         log.info "File Pattern:         ${file_pattern}"
@@ -120,7 +120,7 @@ workflow ENHANCED_REALTIME_MONITORING {
         // Ready files channel
         ch_ready_files = ch_split_files.ready
             .map { meta, file ->
-                log.info "✓ READY: ${meta.id} (${file.size()} bytes)"
+                log.info "? READY: ${meta.id} (${file.size()} bytes)"
                 return [meta, file]
             }
 
@@ -128,9 +128,9 @@ workflow ENHANCED_REALTIME_MONITORING {
         ch_not_ready_files = ch_split_files.not_ready
             .map { meta, file, action ->
                 if (action == 'RETRY') {
-                    log.warn "⏳ NOT READY: ${meta.id} - Retry ${meta.retry_count}/${max_retries}"
+                    log.warn "WAITING: NOT READY: ${meta.id} - Retry ${meta.retry_count}/${max_retries}"
                 } else {
-                    log.error "❌ FAILED: ${meta.id} - Max retries exceeded"
+                    log.error "ERROR: FAILED: ${meta.id} - Max retries exceeded"
                 }
                 return [meta, file, action]
             }

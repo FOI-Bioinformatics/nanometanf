@@ -56,7 +56,7 @@ process REALTIME_PROGRESS_TRACKER {
             if time_since_last > watchdog_timeout:
                 stats['watchdog_status'] = 'STALLED'
                 stats['time_since_last_file'] = time_since_last
-                print(f"⚠️  WATCHDOG: No new files for {time_since_last:.0f}s (threshold: {watchdog_timeout}s)", file=sys.stderr)
+                print(f"WARN:  WATCHDOG: No new files for {time_since_last:.0f}s (threshold: {watchdog_timeout}s)", file=sys.stderr)
             else:
                 stats['watchdog_status'] = 'ACTIVE'
                 stats['time_since_last_file'] = time_since_last
@@ -161,7 +161,7 @@ process REALTIME_PROGRESS_TRACKER {
     </head>
     <body>
         <div class="container">
-            <h1>🔬 Real-time Sequencing Monitoring Dashboard</h1>
+            <h1>? Real-time Sequencing Monitoring Dashboard</h1>
 
             <div class="stats-grid">
                 <div class="stat-card info">
@@ -230,7 +230,7 @@ process REALTIME_PROGRESS_TRACKER {
         f.write('"${task.process}":\\n')
         f.write(f'  python: {sys.version.split()[0]}\\n')
 
-    print(f"📊 Dashboard generated: {stats['files_processed']}/{stats['total_files_detected']} files processed", file=sys.stderr)
+    print(f"? Dashboard generated: {stats['files_processed']}/{stats['total_files_detected']} files processed", file=sys.stderr)
     """
 
     stub:
@@ -240,7 +240,7 @@ process REALTIME_PROGRESS_TRACKER {
 
     cat <<-END_VERSIONS > versions.yml
 "${task.process}":
-    python: \$(python3 --version | sed 's/Python //g')
+    python: 3.11
 END_VERSIONS
     """
 }

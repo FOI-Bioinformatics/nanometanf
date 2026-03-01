@@ -36,6 +36,11 @@ lint:
   multiqc_config:
     - report_comment
 
+update:
+  https://github.com/nf-core/modules.git:
+    nf-core:
+      blast/blastn: False  # LOCAL MODIFICATION: export BLASTDB=${db} required before DB discovery
+
 template:
   org: foi-bioinformatics
   name: nanometanf

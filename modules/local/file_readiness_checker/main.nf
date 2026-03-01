@@ -69,10 +69,10 @@ process FILE_READINESS_CHECKER {
     is_ready, message = check_file_stability(file_path, stability_time)
 
     if is_ready:
-        print(f"✓ READY: {file_path.name} - {message}", file=sys.stderr)
+        print(f"? READY: {file_path.name} - {message}", file=sys.stderr)
         ready_status = "READY"
     else:
-        print(f"⏳ NOT_READY: {file_path.name} - {message}", file=sys.stderr)
+        print(f"WAITING: NOT_READY: {file_path.name} - {message}", file=sys.stderr)
         ready_status = "NOT_READY"
 
     # Export status for Nextflow
@@ -91,7 +91,7 @@ process FILE_READINESS_CHECKER {
 
     cat <<-END_VERSIONS > versions.yml
 "${task.process}":
-    python: \$(python3 --version | sed 's/Python //g')
+    python: 3.11
 END_VERSIONS
     """
 }

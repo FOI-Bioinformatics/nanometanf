@@ -217,26 +217,26 @@ Checks Summary:
   Warnings:        2
 
 Input Validation: PASSED
-  ✓ File existence checks
-  ✓ File format validation
-  ✓ File integrity (checksums verified)
-  ✓ File size validation (50.0 MB total)
+  ? File existence checks
+  ? File format validation
+  ? File integrity (checksums verified)
+  ? File size validation (50.0 MB total)
 
 Content Validation: WARNING
-  ✓ Sequence quality (avg Q12.5)
-  ✓ Read count (12,500 reads)
-  ⚠ Sequence length (150 short reads detected)
-  ✓ Data completeness
+  ? Sequence quality (avg Q12.5)
+  ? Read count (12,500 reads)
+  WARN: Sequence length (150 short reads detected)
+  ? Data completeness
 
 Pipeline Integrity: PASSED
-  ✓ Parameter validation
-  ✓ Dependency availability
-  ✓ Resource availability
+  ? Parameter validation
+  ? Dependency availability
+  ? Resource availability
 
 Output Validation: FAILED
-  ✓ Output structure complete
-  ✗ Output format (taxonomy file format issue)
-  ✓ Data consistency
+  ? Output structure complete
+  ? Output format (taxonomy file format issue)
+  ? Data consistency
 
 Warnings:
   1. Low severity - 150 short reads detected
@@ -246,9 +246,9 @@ Errors:
   1. Format validation - sample_taxonomy.txt format non-compliant
 
 Recommendations:
-  • Address format compliance issue in taxonomy output
-  • Review short read filtering thresholds
-  • Re-run validation after corrections
+  ? Address format compliance issue in taxonomy output
+  ? Review short read filtering thresholds
+  ? Re-run validation after corrections
 
 Validation completed: \$(date "+%Y-%m-%d %H:%M:%S")
 EOF

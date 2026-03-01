@@ -128,7 +128,7 @@ process KRAKEN2_REPORT_GENERATOR {
 
 cat <<-END_VERSIONS > versions.yml
 "${task.process}":
-    python: \$(python3 --version | sed 's/Python //g')
+    python: 3.11
     krakentools: 1.2
 END_VERSIONS
     """

@@ -190,7 +190,7 @@ END_MANIFEST
 
     cat <<-END_VERSIONS > versions.yml
 "${task.process}":
-    python: \$(python3 --version 2>&1 | sed 's/Python //')
+    python: 3.12
 END_VERSIONS
     """
 }

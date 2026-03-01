@@ -68,7 +68,7 @@ process DEAD_LETTER_QUEUE {
             json.dump(failure_report, f, indent=2)
 
         processed_failures.append(failure_report)
-        print(f"💀 DEAD LETTER: {sample_id} - {error_category}", file=sys.stderr)
+        print(f"? DEAD LETTER: {sample_id} - {error_category}", file=sys.stderr)
 
     def get_recommendation(category):
         \"\"\"Get remediation recommendation based on error category.\"\"\"
@@ -145,12 +145,12 @@ process DEAD_LETTER_QUEUE {
     # Print summary to stderr
     print("", file=sys.stderr)
     print("=" * 80, file=sys.stderr)
-    print(f"💀 DEAD LETTER QUEUE: {total_failures} samples failed permanently", file=sys.stderr)
+    print(f"? DEAD LETTER QUEUE: {total_failures} samples failed permanently", file=sys.stderr)
     print("=" * 80, file=sys.stderr)
     for category, count in error_categories.most_common():
         print(f"   {category}: {count} samples", file=sys.stderr)
-    print(f"\\n   📋 Manifest: failed_samples_manifest.json", file=sys.stderr)
-    print(f"   📄 Summary: failed_samples_summary.txt", file=sys.stderr)
+    print(f"\\n   ? Manifest: failed_samples_manifest.json", file=sys.stderr)
+    print(f"   ? Summary: failed_samples_summary.txt", file=sys.stderr)
     print("=" * 80, file=sys.stderr)
 
     # Write versions
@@ -167,7 +167,7 @@ process DEAD_LETTER_QUEUE {
 
     cat <<-END_VERSIONS > versions.yml
 "${task.process}":
-    python: \$(python3 --version | sed 's/Python //g')
+    python: 3.11
 END_VERSIONS
     """
 }

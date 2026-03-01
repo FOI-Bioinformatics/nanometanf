@@ -126,13 +126,13 @@ process CIRCUIT_BREAKER {
 
     # Log circuit breaker decision
     if circuit_state == 'OPEN':
-        print(f"🚨 CIRCUIT BREAKER OPEN: {metrics['total_failures']} failures detected", file=sys.stderr)
+        print(f"? CIRCUIT BREAKER OPEN: {metrics['total_failures']} failures detected", file=sys.stderr)
         print(f"   {recommendation}", file=sys.stderr)
     elif circuit_state == 'HALF_OPEN':
-        print(f"⚠️  CIRCUIT BREAKER HALF-OPEN: Approaching failure threshold", file=sys.stderr)
+        print(f"WARN:  CIRCUIT BREAKER HALF-OPEN: Approaching failure threshold", file=sys.stderr)
         print(f"   {recommendation}", file=sys.stderr)
     else:
-        print(f"✅ CIRCUIT BREAKER CLOSED: System healthy ({metrics['total_failures']} failures)", file=sys.stderr)
+        print(f"OK: CIRCUIT BREAKER CLOSED: System healthy ({metrics['total_failures']} failures)", file=sys.stderr)
 
     # Write versions
     with open('versions.yml', 'w') as f:
@@ -147,7 +147,7 @@ process CIRCUIT_BREAKER {
 
     cat <<-END_VERSIONS > versions.yml
 "${task.process}":
-    python: \$(python3 --version | sed 's/Python //g')
+    python: 3.11
 END_VERSIONS
     """
 }
