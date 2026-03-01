@@ -1,3 +1,8 @@
+// LOCAL MODIFICATION: Updated container SHAs; stub block uses hardcoded versions
+// Reason: Synced with latest nf-core remote; hardcoded stub versions are nf-core convention
+// Last verified against nf-core remote: 2026-03-01
+// ACTION REQUIRED: Run 'nf-core modules update kraken2/kraken2' - no functional divergence.
+//                  Remove this comment after re-sync.
 process KRAKEN2_KRAKEN2 {
     tag "$meta.id"
     label 'process_high'

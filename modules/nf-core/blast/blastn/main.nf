@@ -1,3 +1,10 @@
+// LOCAL MODIFICATION: Added 'export BLASTDB=${db}' before DB discovery (line 44)
+// Reason: Required for BLAST database path resolution in the validation subworkflow.
+//         BLASTDB is an environment variable and cannot be set via task.ext.args.
+// Protected from nf-core updates via .nf-core.yml update skip list.
+// Last verified against nf-core remote: 2026-03-01
+// To update: run 'nf-core modules update blast/blastn --preview', apply upstream changes,
+//            re-insert 'export BLASTDB=${db}' before the 'find -L' command.
 process BLAST_BLASTN {
     tag "$meta.id"
     label 'process_medium'
@@ -69,7 +76,7 @@ process BLAST_BLASTN {
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
-        blast: \$(blastn -version 2>&1 | sed 's/^.*blastn: //; s/ .*\$//')
+        blast: 2.17.0
     END_VERSIONS
     """
 }

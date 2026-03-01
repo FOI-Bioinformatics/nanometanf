@@ -4,7 +4,6 @@ nextflow_process {
     script "../main.nf"
     process "FASTQC"
 
-    options "-stub"
     tag "modules"
     tag "modules_nfcore"
     tag "fastqc"
@@ -31,7 +30,7 @@ nextflow_process {
                 { assert process.out.html[0][1] ==~ ".*/test_fastqc.html" },
                 { assert process.out.zip[0][1] ==~ ".*/test_fastqc.zip" },
                 { assert path(process.out.html[0][1]).text.contains("<tr><td>File type</td><td>Conventional base calls</td></tr>") },
-                { assert snapshot(process.out.versions).match() }
+                { assert snapshot(sanitizeOutput(process.out).findAll { key, val -> key != 'html' && key != 'zip' }).match() }
             )
         }
     }
@@ -59,7 +58,7 @@ nextflow_process {
                 { assert process.out.zip[0][1][1] ==~ ".*/test_2_fastqc.zip" },
                 { assert path(process.out.html[0][1][0]).text.contains("<tr><td>File type</td><td>Conventional base calls</td></tr>") },
                 { assert path(process.out.html[0][1][1]).text.contains("<tr><td>File type</td><td>Conventional base calls</td></tr>") },
-                { assert snapshot(process.out.versions).match() }
+                { assert snapshot(sanitizeOutput(process.out).findAll { key, val -> key != 'html' && key != 'zip' }).match() }
             )
         }
     }
@@ -83,7 +82,7 @@ nextflow_process {
                 { assert process.out.html[0][1] ==~ ".*/test_fastqc.html" },
                 { assert process.out.zip[0][1] ==~ ".*/test_fastqc.zip" },
                 { assert path(process.out.html[0][1]).text.contains("<tr><td>File type</td><td>Conventional base calls</td></tr>") },
-                { assert snapshot(process.out.versions).match() }
+                { assert snapshot(sanitizeOutput(process.out).findAll { key, val -> key != 'html' && key != 'zip' }).match() }
             )
         }
     }
@@ -107,7 +106,7 @@ nextflow_process {
                 { assert process.out.html[0][1] ==~ ".*/test_fastqc.html" },
                 { assert process.out.zip[0][1] ==~ ".*/test_fastqc.zip" },
                 { assert path(process.out.html[0][1]).text.contains("<tr><td>File type</td><td>Conventional base calls</td></tr>") },
-                { assert snapshot(process.out.versions).match() }
+                { assert snapshot(sanitizeOutput(process.out).findAll { key, val -> key != 'html' && key != 'zip' }).match() }
             )
         }
     }
@@ -143,7 +142,7 @@ nextflow_process {
                 { assert path(process.out.html[0][1][1]).text.contains("<tr><td>File type</td><td>Conventional base calls</td></tr>") },
                 { assert path(process.out.html[0][1][2]).text.contains("<tr><td>File type</td><td>Conventional base calls</td></tr>") },
                 { assert path(process.out.html[0][1][3]).text.contains("<tr><td>File type</td><td>Conventional base calls</td></tr>") },
-                { assert snapshot(process.out.versions).match() }
+                { assert snapshot(sanitizeOutput(process.out).findAll { key, val -> key != 'html' && key != 'zip' }).match() }
             )
         }
     }
@@ -167,12 +166,14 @@ nextflow_process {
                 { assert process.out.html[0][1] ==~ ".*/mysample_fastqc.html" },
                 { assert process.out.zip[0][1] ==~ ".*/mysample_fastqc.zip" },
                 { assert path(process.out.html[0][1]).text.contains("<tr><td>File type</td><td>Conventional base calls</td></tr>") },
-                { assert snapshot(process.out.versions).match() }
+                { assert snapshot(sanitizeOutput(process.out).findAll { key, val -> key != 'html' && key != 'zip' }).match() }
             )
         }
     }
 
     test("sarscov2 single-end [fastq] - stub") {
+
+    options "-stub"
         when {
             process {
                 """
@@ -193,6 +194,8 @@ nextflow_process {
     }
 
     test("sarscov2 paired-end [fastq] - stub") {
+
+    options "-stub"
         when {
             process {
                 """
@@ -214,6 +217,8 @@ nextflow_process {
     }
 
     test("sarscov2 interleaved [fastq] - stub") {
+
+    options "-stub"
         when {
             process {
                 """
@@ -234,6 +239,8 @@ nextflow_process {
     }
 
     test("sarscov2 paired-end [bam] - stub") {
+
+    options "-stub"
         when {
             process {
                 """
@@ -254,6 +261,8 @@ nextflow_process {
     }
 
     test("sarscov2 multiple [fastq] - stub") {
+
+    options "-stub"
         when {
             process {
                 """
@@ -277,6 +286,8 @@ nextflow_process {
     }
 
     test("sarscov2 custom_prefix - stub") {
+
+    options "-stub"
         when {
             process {
                 """

@@ -1,3 +1,8 @@
+// LOCAL MODIFICATION: Hardcoded version in stub block instead of calling NanoPlot binary
+// Reason: Stub tests should not require real tool binaries to be installed
+// Last verified against nf-core remote: 2026-03-01
+// ACTION REQUIRED: Run 'nf-core modules update nanoplot' - upstream now uses the same
+//                  hardcoded stub convention. Remove this comment after re-sync.
 process NANOPLOT {
     tag "$meta.id"
     label 'process_low'

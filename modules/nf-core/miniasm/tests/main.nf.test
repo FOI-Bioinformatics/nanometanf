@@ -5,7 +5,6 @@ nextflow_process {
     script "../main.nf"
     process "MINIASM"
 
-    options "-stub"
     tag "modules"
     tag "modules_nfcore"
     tag "miniasm"

@@ -34,19 +34,9 @@ process FASTP {
     def out_fq2 = discard_trimmed_pass ?: "--out2 ${prefix}_2.fastp.fastq.gz"
     // Added soft-links to original fastqs for consistent naming in MultiQC
     // Use single ended for interleaved. Add --interleaved_in in config.
-    // Count number of input files to determine if concatenation is needed
-    def input_files = reads instanceof List ? reads : [reads]
-    def num_files = input_files.size()
     if ( task.ext.args?.contains('--interleaved_in') ) {
         """
-        # Handle single or multiple input files
-        if [ ${num_files} -gt 1 ]; then
-            # Multiple files: concatenate them
-            cat ${reads} > ${prefix}.fastq.gz
-        else
-            # Single file: create symlink if name differs
-            [ ! -f ${prefix}.fastq.gz ] && ln -sf ${reads} ${prefix}.fastq.gz
-        fi
+        [ ! -f ${prefix}.fastq.gz ] && ln -sf ${reads} ${prefix}.fastq.gz
 
         fastp \\
             --stdout \\
@@ -67,14 +57,7 @@ process FASTP {
         """
     } else if (meta.single_end) {
         """
-        # Handle single or multiple input files for single-end data
-        if [ ${num_files} -gt 1 ]; then
-            # Multiple files: concatenate them
-            cat ${reads} > ${prefix}.fastq.gz
-        else
-            # Single file: create symlink if name differs
-            [ ! -f ${prefix}.fastq.gz ] && ln -sf ${reads} ${prefix}.fastq.gz
-        fi
+        [ ! -f ${prefix}.fastq.gz ] && ln -sf ${reads} ${prefix}.fastq.gz
 
         fastp \\
             --in1 ${prefix}.fastq.gz \\
@@ -135,7 +118,7 @@ process FASTP {
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
-        fastp: \$(fastp --version 2>&1 | sed -e "s/fastp //g")
+        fastp: 1.0.1
     END_VERSIONS
     """
 }

@@ -50,7 +50,7 @@ process CHOPPER {
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
-        chopper: \$(chopper --version 2>&1 | cut -d ' ' -f 2)
+        chopper: 0.9.0
     END_VERSIONS
     """
 }
