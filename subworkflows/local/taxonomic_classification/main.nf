@@ -92,12 +92,15 @@ workflow TAXONOMIC_CLASSIFICATION {
             // MODULE: Run Kraken2 for taxonomic classification
             // Three modes: incremental (batch caching), optimized (memory-mapping), or standard
             //
-            if (params.kraken2_enable_incremental == true) {
+            if (params.kraken2_enable_incremental == true || params.realtime_mode == true) {
                 log.info "=== Phase 1.1: Incremental Kraken2 Classification ==="
                 log.info "Using incremental Kraken2 processing with batch caching:"
                 log.info "  - Classify only NEW reads per batch (O(n) vs O(n^2))"
                 log.info "  - Raw outputs cached per batch for efficient merging"
                 log.info "  - Cumulative reports generated from merged data"
+                if (params.realtime_mode && !params.kraken2_enable_incremental) {
+                    log.info "  - Automatically enabled by realtime mode for cumulative reporting"
+                }
                 log.info "  - Estimated time savings: 30-90 minutes for 30-batch runs"
 
                 //
