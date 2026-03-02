@@ -32,7 +32,7 @@ process MINIMAP2_VALIDATION {
 
     # Count input reads (handle gzipped files)
     if [[ "${reads}" == *.gz ]]; then
-        TOTAL_READS=\$(zcat "${reads}" | awk 'NR%4==1' | wc -l | tr -d ' ')
+        TOTAL_READS=\$(gunzip -c "${reads}" | awk 'NR%4==1' | wc -l | tr -d ' ')
     else
         TOTAL_READS=\$(awk 'NR%4==1' "${reads}" | wc -l | tr -d ' ')
     fi

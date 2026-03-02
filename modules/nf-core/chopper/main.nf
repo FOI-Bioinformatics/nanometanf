@@ -27,8 +27,7 @@ process CHOPPER {
 
     if ("$fastq" == "${prefix}.fastq.gz") error "Input and output names are the same, set prefix in module configuration to disambiguate!"
     """
-    zcat \\
-        $args \\
+    gunzip -c \\
         $fastq | \\
     chopper \\
         --threads $task.cpus \\
@@ -50,7 +49,7 @@ process CHOPPER {
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
-        chopper: 0.9.0
+        chopper: 0.12.0
     END_VERSIONS
     """
 }
