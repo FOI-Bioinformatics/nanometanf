@@ -45,7 +45,7 @@ workflow QC_ANALYSIS {
     ch_seqkit_stats = Channel.empty()
 
     // Set QC tool and validate parameters
-    def qc_tool = params.qc_tool ?: 'chopper'
+    def qc_tool = (params.qc_tool ?: 'chopper').toLowerCase()
     def enable_adapter_trimming = params.enable_adapter_trimming ?: false
     def run_fastqc = !(params.realtime_mode && params.skip_fastqc_realtime)
 
