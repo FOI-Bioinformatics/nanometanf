@@ -13,6 +13,8 @@ process AGGREGATE_VALIDATION_RESULTS {
     path(extraction_stats)
     path(kraken_reports)
     val(validation_method)
+    val(validation_hit_rate_threshold)
+    val(validation_identity_threshold)
 
     output:
     path("validation_results.json"), emit: json
@@ -36,8 +38,8 @@ process AGGREGATE_VALIDATION_RESULTS {
     # Configuration from params
     validation_method = "${validation_method}"
     pipeline_version = "${pipeline_version}"
-    hit_threshold = ${params.validation_hit_rate_threshold ?: 0.5}
-    identity_threshold = ${params.validation_identity_threshold ?: 90.0}
+    hit_threshold = ${validation_hit_rate_threshold ?: 0.5}
+    identity_threshold = ${validation_identity_threshold ?: 90.0}
 
     # Initialize results structure and failure counters
     results = defaultdict(dict)

@@ -137,7 +137,14 @@ workflow VALIDATION {
     ch_blast_results = Channel.empty()
 
     if (validation_method == 'blast' || validation_method == 'both') {
-        BLASTN_VALIDATION(ch_extracted_with_genome)
+        BLASTN_VALIDATION(
+            ch_extracted_with_genome,
+            params.blast_evalue ?: "1e-10",
+            params.blast_perc_identity ?: 90,
+            params.blast_max_target_seqs ?: 1,
+            params.validation_hit_rate_threshold ?: 0.5,
+            params.validation_identity_threshold ?: 90.0
+        )
         ch_blast_stats = BLASTN_VALIDATION.out.stats.map { meta, stats -> stats }
         ch_blast_results = BLASTN_VALIDATION.out.results
         ch_versions = ch_versions.mix(BLASTN_VALIDATION.out.versions.first())
@@ -150,7 +157,13 @@ workflow VALIDATION {
     ch_minimap2_results = Channel.empty()
 
     if (validation_method == 'minimap2' || validation_method == 'both') {
-        MINIMAP2_VALIDATION(ch_extracted_with_genome)
+        MINIMAP2_VALIDATION(
+            ch_extracted_with_genome,
+            params.minimap2_preset ?: "map-ont",
+            params.minimap2_min_mapq ?: 10,
+            params.validation_hit_rate_threshold ?: 0.5,
+            params.validation_identity_threshold ?: 90.0
+        )
         ch_minimap2_stats = MINIMAP2_VALIDATION.out.stats.map { meta, stats -> stats }
         ch_minimap2_results = MINIMAP2_VALIDATION.out.alignments
         ch_versions = ch_versions.mix(MINIMAP2_VALIDATION.out.versions.first())
@@ -211,7 +224,9 @@ workflow VALIDATION {
         ch_minimap2_stats.collect().ifEmpty([]),
         ch_extraction_stats.collect().ifEmpty([]),
         ch_kraken_report_files.collect().ifEmpty([]),
-        validation_method
+        validation_method,
+        params.validation_hit_rate_threshold ?: 0.5,
+        params.validation_identity_threshold ?: 90.0
     )
     ch_versions = ch_versions.mix(AGGREGATE_VALIDATION_RESULTS.out.versions)
 

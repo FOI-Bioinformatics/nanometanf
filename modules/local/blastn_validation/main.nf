@@ -9,6 +9,11 @@ process BLASTN_VALIDATION {
 
     input:
     tuple val(meta), path(reads), path(reference)
+    val blast_evalue
+    val blast_perc_identity
+    val blast_max_target_seqs
+    val validation_hit_rate_threshold
+    val validation_identity_threshold
 
     output:
     tuple val(meta), path("*.blast.tsv"), emit: results
@@ -20,11 +25,11 @@ process BLASTN_VALIDATION {
 
     script:
     def prefix = task.ext.prefix ?: "${meta.id}_taxid${meta.taxid}"
-    def evalue = task.ext.evalue ?: params.blast_evalue ?: "1e-10"
-    def perc_identity = task.ext.perc_identity ?: params.blast_perc_identity ?: 90
-    def max_target_seqs = task.ext.max_target_seqs ?: params.blast_max_target_seqs ?: 1
-    def hit_threshold = params.validation_hit_rate_threshold ?: 0.5
-    def identity_threshold = params.validation_identity_threshold ?: 90.0
+    def evalue = task.ext.evalue ?: blast_evalue ?: "1e-10"
+    def perc_identity = task.ext.perc_identity ?: blast_perc_identity ?: 90
+    def max_target_seqs = task.ext.max_target_seqs ?: blast_max_target_seqs ?: 1
+    def hit_threshold = validation_hit_rate_threshold ?: 0.5
+    def identity_threshold = validation_identity_threshold ?: 90.0
     def sample_id = meta.id
     def taxid = meta.taxid
     """

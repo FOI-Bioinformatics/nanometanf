@@ -9,6 +9,10 @@ process MINIMAP2_VALIDATION {
 
     input:
     tuple val(meta), path(reads), path(reference)
+    val minimap2_preset
+    val minimap2_min_mapq
+    val validation_hit_rate_threshold
+    val validation_identity_threshold
 
     output:
     tuple val(meta), path("*.paf"), emit: alignments
@@ -20,10 +24,10 @@ process MINIMAP2_VALIDATION {
 
     script:
     def prefix = task.ext.prefix ?: "${meta.id}_taxid${meta.taxid}"
-    def preset = task.ext.preset ?: params.minimap2_preset ?: "map-ont"
-    def min_mapq = task.ext.min_mapq ?: params.minimap2_min_mapq ?: 10
-    def hit_threshold = params.validation_hit_rate_threshold ?: 0.5
-    def identity_threshold = params.validation_identity_threshold ?: 90.0
+    def preset = task.ext.preset ?: minimap2_preset ?: "map-ont"
+    def min_mapq = task.ext.min_mapq ?: minimap2_min_mapq ?: 10
+    def hit_threshold = validation_hit_rate_threshold ?: 0.5
+    def identity_threshold = validation_identity_threshold ?: 90.0
     def sample_id = meta.id
     def taxid = meta.taxid
     """
