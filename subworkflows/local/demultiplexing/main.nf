@@ -32,7 +32,8 @@ workflow DEMULTIPLEXING {
     if (params.use_dorado && params.barcode_kit) {
         DORADO_DEMUX (
             ch_branched.needs_demux,
-            params.barcode_kit ?: 'SQK-NBD114-24'  // Default barcode kit
+            params.barcode_kit ?: 'SQK-NBD114-24',  // Default barcode kit
+            params.trim_barcodes ?: false
         )
         ch_versions = ch_versions.mix(DORADO_DEMUX.out.versions)
 

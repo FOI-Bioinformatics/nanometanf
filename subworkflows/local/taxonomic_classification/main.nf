@@ -179,16 +179,20 @@ workflow TAXONOMIC_CLASSIFICATION {
                 // This provides live cumulative reports during the run, while
                 // FINAL_AGGREGATOR produces the definitive output at session end.
                 //
-                def cumulative_taxa_state = [:].withDefault { ->
+                def cumulative_taxa_state = [:].withDefault { key ->
                     [total_reads: 0, classified_reads: 0, unclassified_reads: 0, taxa: [:]]
                 }
                 def batch_write_counter = [:].withDefault { 0 }
                 def write_interval = params.report_write_interval ?: 5
 
                 KRAKEN2_REPORT_GENERATOR.out.taxid_counts
-                    .subscribe { meta, taxid_file ->
+                    .subscribe { item ->
+                        def sample_label = "unknown"
                         try {
+                            def meta = item[0]
+                            def taxid_file = item[1]
                             def sample_id = meta.id
+                            sample_label = sample_id
 
                             synchronized(cumulative_taxa_state) {
                                 def batch_counts = new groovy.json.JsonSlurper().parseText(taxid_file.text)
@@ -244,7 +248,7 @@ workflow TAXONOMIC_CLASSIFICATION {
                                 } // end write interval check
                             }
                         } catch (Exception e) {
-                            log.warn "Progressive cumulative report failed for ${meta.id}: ${e.message}"
+                            log.warn "Progressive cumulative report failed for sample '${sample_label}': ${e.message}"
                         }
                     }
 

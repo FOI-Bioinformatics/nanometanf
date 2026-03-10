@@ -101,11 +101,11 @@ EOF
     echo "Batch ${meta.batch_id ?: 0} completed in \${DURATION}s" >&2
     echo "Classified: \$CLASSIFIED_SEQS / \$TOTAL_SEQS reads" >&2
 
-    cat <<-END_VERSIONS > versions.yml
-    "${task.process}":
-        kraken2: \$(echo \$(kraken2 --version 2>&1) | sed 's/^.*Kraken version //; s/ .*\$//')
-        pigz: \$( pigz --version 2>&1 | sed 's/pigz //g' )
-    END_VERSIONS
+    cat << END_VERSIONS > versions.yml
+"${task.process}":
+    kraken2: \$(kraken2 --version 2>&1 | head -1 | sed 's/.*version //')
+    pigz: \$(pigz --version 2>&1 | sed 's/pigz //')
+END_VERSIONS
     """
 
     stub:
@@ -126,10 +126,10 @@ EOF
         touch ${prefix}.kraken2.classifiedreads.txt
     fi
 
-    cat <<-END_VERSIONS > versions.yml
-    "${task.process}":
-        kraken2: 2.1.3
-        pigz: 2.8
-    END_VERSIONS
+cat << END_VERSIONS > versions.yml
+"${task.process}":
+    kraken2: 2.1.3
+    pigz: 2.8
+END_VERSIONS
     """
 }

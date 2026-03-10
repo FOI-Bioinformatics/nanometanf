@@ -8,6 +8,13 @@ process DORADO_BASECALLER {
     input:
     tuple val(meta), path(pod5_files)
     val model
+    val min_qscore
+    val trim_adapters
+    val trim_barcodes
+    val demultiplex
+    val barcode_kit
+    val dorado_path
+    val dorado_device
 
     output:
     tuple val(meta), path("*.fastq.gz"), emit: fastq
@@ -20,27 +27,29 @@ process DORADO_BASECALLER {
     script:
     def args = task.ext.args ?: ''
     def prefix = task.ext.prefix ?: "${meta.id}"
-    def min_qscore = params.min_qscore ?: 9
+    def qscore = min_qscore ?: 9
     // Fix: Dorado --trim accepts 'none', 'all', or 'adapters'
     // If both adapters and barcodes need trimming, use 'all'
     // If only adapters, use 'adapters'
     // If neither, omit the argument (default behavior trims all)
     def trim_option = ''
-    if (params.trim_adapters && params.trim_barcodes) {
+    if (trim_adapters && trim_barcodes) {
         trim_option = '--trim all'
-    } else if (params.trim_adapters) {
+    } else if (trim_adapters) {
         trim_option = '--trim adapters'
-    } else if (!params.trim_adapters && !params.trim_barcodes) {
+    } else if (!trim_adapters && !trim_barcodes) {
         trim_option = '--no-trim'
     }
     // Note: trim_barcodes alone is not a valid Dorado option, so we use default behavior
-    def demultiplex = params.demultiplex && params.barcode_kit ? "--kit-name ${params.barcode_kit}" : ''
+    def demux_option = demultiplex && barcode_kit ? "--kit-name ${barcode_kit}" : ''
 
     // Handle both single POD5 file and directory of POD5 files
     def input_path = pod5_files.size() == 1 && pod5_files[0].isFile() ? pod5_files[0] : '.'
 
     // Use custom dorado path if specified
-    def dorado_cmd = params.dorado_path ?: 'dorado'
+    def dorado_cmd = dorado_path ?: 'dorado'
+
+    def device = dorado_device ?: 'auto'
 
     """
     # Set dorado command
@@ -75,7 +84,7 @@ process DORADO_BASECALLER {
 
     # Device Selection - respect user's --dorado_device parameter
     echo "=== Device Configuration ==="
-    REQUESTED_DEVICE="${params.dorado_device ?: 'auto'}"
+    REQUESTED_DEVICE="${device}"
     echo "Requested device: \$REQUESTED_DEVICE"
 
     if [[ "\$REQUESTED_DEVICE" == "cpu" ]]; then
@@ -159,10 +168,10 @@ process DORADO_BASECALLER {
         \$DEVICE_ARG \\
         \$BATCH_SIZE_ARG \\
         --emit-fastq \\
-        --min-qscore ${min_qscore} \\
+        --min-qscore ${qscore} \\
         --verbose \\
         ${trim_option} \\
-        ${demultiplex} \\
+        ${demux_option} \\
         ${args} \\
         > ${prefix}.fastq
 
@@ -175,13 +184,13 @@ process DORADO_BASECALLER {
     cat > ${prefix}_summary.txt << EOF
 Sample: ${prefix}
 Model: ${model}
-Min Q-score: ${min_qscore}
+Min Q-score: ${qscore}
 Device: \$GPU_DEVICES
 GPU Available: \$GPU_AVAILABLE
-Trim Adapters: ${params.trim_adapters ?: false}
-Trim Barcodes: ${params.trim_barcodes ?: false}
-Demultiplex: ${params.demultiplex ?: false}
-Barcode Kit: ${params.barcode_kit ?: 'none'}
+Trim Adapters: ${trim_adapters ?: false}
+Trim Barcodes: ${trim_barcodes ?: false}
+Demultiplex: ${demultiplex ?: false}
+Barcode Kit: ${barcode_kit ?: 'none'}
 Input files: ${pod5_files.join(', ')}
 Input file count: ${pod5_files.size()}
 Basecalling started: \$(date)
@@ -210,7 +219,7 @@ END_VERSIONS
 
     stub:
     def prefix = task.ext.prefix ?: "${meta.id}"
-    def min_qscore = params.min_qscore ?: 9
+    def qscore = min_qscore ?: 9
     """
     # Create stub FASTQ with realistic structure
     cat > ${prefix}.fastq << 'EOF'
@@ -229,13 +238,13 @@ EOF
     cat > ${prefix}_summary.txt << EOF
 Sample: ${prefix}
 Model: ${model}
-Min Q-score: ${min_qscore}
+Min Q-score: ${qscore}
 Device: cpu
 GPU Available: false
-Trim Adapters: ${params.trim_adapters ?: false}
-Trim Barcodes: ${params.trim_barcodes ?: false}
-Demultiplex: ${params.demultiplex ?: false}
-Barcode Kit: ${params.barcode_kit ?: 'none'}
+Trim Adapters: ${trim_adapters ?: false}
+Trim Barcodes: ${trim_barcodes ?: false}
+Demultiplex: ${demultiplex ?: false}
+Barcode Kit: ${barcode_kit ?: 'none'}
 Input files: stub_input.pod5
 Input file count: 1
 Basecalling started: 2024-01-01 00:00:00

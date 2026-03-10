@@ -8,6 +8,7 @@ process DORADO_DEMUX {
     input:
     tuple val(meta), path(reads)
     val barcode_kit
+    val trim_barcodes
 
     output:
     tuple val(meta), path("demux_output/barcode*/*.fastq*"), emit: demuxed_reads, optional: true
@@ -21,7 +22,7 @@ process DORADO_DEMUX {
     script:
     def args = task.ext.args ?: ''
     def prefix = task.ext.prefix ?: "${meta.id}"
-    def trim_barcodes = params.trim_barcodes ? "" : "--no-trim"
+    def trim_option = trim_barcodes ? "" : "--no-trim"
 
     """
     mkdir -p demux_output
@@ -48,7 +49,7 @@ process DORADO_DEMUX {
     \$DORADO_CMD demux \\
         --kit-name ${barcode_kit} \\
         --output-dir demux_output \\
-        ${trim_barcodes} \\
+        ${trim_option} \\
         --emit-fastq \\
         ${args} \\
         ${reads}
@@ -101,7 +102,7 @@ EOF
 Demultiplexing Summary for ${meta.id}
 =====================================
 Barcode Kit: ${barcode_kit}
-Trim Barcodes: ${params.trim_barcodes ?: false}
+Trim Barcodes: ${trim_barcodes ?: false}
 
 Files Created: 3
 - barcode01: 2 reads

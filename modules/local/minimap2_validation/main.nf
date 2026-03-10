@@ -95,9 +95,22 @@ with open(paf_file) as f:
                 mapped_reads.add(qname)
                 mapqs.append(mapq)
 
-                # Calculate identity as nmatch / alen
-                if alen > 0:
-                    identities.append(nmatch / alen * 100)
+                # Calculate identity from the dv (divergence) tag if present,
+                # falling back to nmatch/alen. The dv tag gives a more accurate
+                # identity estimate for nanopore reads where indels inflate alen.
+                identity = None
+                for tag in cols[12:]:
+                    if tag.startswith('dv:f:'):
+                        try:
+                            dv = float(tag.split(':')[2])
+                            identity = (1.0 - dv) * 100
+                        except (ValueError, IndexError):
+                            pass
+                        break
+                if identity is None and alen > 0:
+                    identity = nmatch / alen * 100
+                if identity is not None:
+                    identities.append(identity)
 
                 # Calculate query coverage (use abs to handle reverse strand alignments)
                 if qlen > 0:

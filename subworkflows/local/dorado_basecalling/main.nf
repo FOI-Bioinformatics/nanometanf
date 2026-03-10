@@ -23,7 +23,14 @@ workflow DORADO_BASECALLING {
     // Basecalling with Dorado
     DORADO_BASECALLER (
         pod5_files,
-        dorado_model
+        dorado_model,
+        params.min_qscore ?: 9,
+        params.trim_adapters ?: false,
+        params.trim_barcodes ?: false,
+        params.demultiplex ?: false,
+        params.barcode_kit ?: '',
+        params.dorado_path ?: '',
+        params.dorado_device ?: 'auto'
     )
     ch_versions = ch_versions.mix(DORADO_BASECALLER.out.versions)
 

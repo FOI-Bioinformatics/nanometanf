@@ -231,8 +231,8 @@ EOF
 
     echo -e "sample_id\\ttaxid\\tspecies\\tmethod\\tkraken_reads\\thits\\thit_rate\\tavg_identity\\tavg_coverage\\tstatus" > validation_summary.tsv
 
-    cat <<-END_VERSIONS > versions.yml
-    "AGGREGATE_VALIDATION_RESULTS":
+    cat << END_VERSIONS > versions.yml
+"AGGREGATE_VALIDATION_RESULTS":
     python: 3.11.0
 END_VERSIONS
     """

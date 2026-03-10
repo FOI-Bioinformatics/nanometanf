@@ -101,7 +101,14 @@ workflow REALTIME_POD5_MONITORING {
         //
         DORADO_BASECALLER (
             ch_pod5_samples,
-            dorado_model
+            dorado_model,
+            params.min_qscore ?: 9,
+            params.trim_adapters ?: false,
+            params.trim_barcodes ?: false,
+            params.demultiplex ?: false,
+            params.barcode_kit ?: '',
+            params.dorado_path ?: '',
+            params.dorado_device ?: 'auto'
         )
         ch_versions = ch_versions.mix(DORADO_BASECALLER.out.versions.first())
 
