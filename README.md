@@ -106,6 +106,37 @@ nextflow run foi-bioinformatics/nanometanf \
   ...
 ```
 
+## Deployment Profiles
+
+The pipeline includes hardware-specific profiles that adjust resource allocation
+for different Oxford Nanopore sequencing instruments and deployment scenarios.
+Select a profile with `-profile <name>` when launching the pipeline.
+
+| Profile | Use Case | Description |
+|---|---|---|
+| `test` | CI and validation | Minimal dataset with reduced resources for rapid testing |
+| `minion` | MinION / Mk1C | Conservative memory and CPU allocation for portable sequencers |
+| `promethion` | PromethION (standard) | Higher throughput settings for PromethION runs |
+| `promethion_8` | PromethION (8-barcode) | Tuned for multiplexed PromethION runs with up to 8 barcodes |
+| `field` | Field deployments | Reduced resource footprint for laptop-based analysis |
+
+Profiles can be combined with an execution engine profile (e.g., `docker`,
+`singularity`, `conda`):
+
+```bash
+# PromethION run with Docker
+nextflow run foi-bioinformatics/nanometanf -profile promethion,docker --input samplesheet.csv
+
+# MinION field analysis with Conda
+nextflow run foi-bioinformatics/nanometanf -profile minion,conda --input samplesheet.csv --realtime_mode
+
+# CI stub test
+nextflow run foi-bioinformatics/nanometanf -profile test,docker
+```
+
+For production deployments requiring additional resource tuning, see
+`conf/production.config` for enhanced resource allocation settings.
+
 ## Documentation
 
 **[Complete Documentation](docs/README.md)** - Main documentation hub

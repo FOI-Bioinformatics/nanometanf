@@ -22,8 +22,8 @@ include { QC_ANALYSIS                } from '../subworkflows/local/qc_analysis'
 include { ASSEMBLY                   } from '../subworkflows/local/assembly'
 include { TAXONOMIC_CLASSIFICATION   } from '../subworkflows/local/taxonomic_classification'
 include { VALIDATION                 } from '../subworkflows/local/validation'
-include { DYNAMIC_RESOURCE_ALLOCATION } from '../subworkflows/local/dynamic_resource_allocation'
 include { NANOPLOT_COMPARE           } from '../modules/local/nanoplot_compare/main'
+include { MANIFEST_WRITER           } from '../modules/local/manifest_writer/main'
 
 // Experimental feature imports (v1.5 planned)
 include { QC_BENCHMARK               } from '../subworkflows/local/qc_benchmark'
@@ -120,6 +120,58 @@ workflow NANOMETANF {
         log.error "    --realtime_mode --nanopore_output_dir /path/to/monitor"
         log.error "========================================================================="
         error "No input data specified. See above for options."
+    }
+
+    // Realtime safeguard: warn if no termination condition is set
+    if (params.realtime_mode && params.max_files == null && params.realtime_timeout_minutes == null) {
+        log.warn "========================================================================="
+        log.warn "  WARNING: Real-time mode is enabled without a termination condition."
+        log.warn "  Neither --max_files nor --realtime_timeout_minutes is set."
+        log.warn "  The pipeline will run indefinitely until manually stopped."
+        log.warn ""
+        log.warn "  Consider setting one of:"
+        log.warn "    --max_files <N>                     Stop after N files processed"
+        log.warn "    --realtime_timeout_minutes <N>      Stop after N minutes of inactivity"
+        log.warn "========================================================================="
+    }
+
+    //
+    // INPUT VALIDATION: Verify external resources before pipeline execution
+    //
+
+    // Validate Kraken2 database when classification is enabled
+    if (!params.skip_kraken2) {
+        if (!params.kraken2_db) {
+            error "Kraken2 classification is enabled but params.kraken2_db is not set. " +
+                  "Provide a database path with --kraken2_db or set --skip_kraken2 true."
+        }
+        def kraken2_db_dir = file(params.kraken2_db)
+        if (!kraken2_db_dir.exists()) {
+            error "Kraken2 database directory does not exist: ${params.kraken2_db}"
+        }
+        def has_hash = file("${params.kraken2_db}/hash.k2d").exists()
+        def has_taxo = file("${params.kraken2_db}/taxo.k2d").exists()
+        if (!has_hash || !has_taxo) {
+            error "Kraken2 database at ${params.kraken2_db} appears incomplete. " +
+                  "Expected hash.k2d and taxo.k2d inside the directory."
+        }
+    }
+
+    // Validate output directory is writable
+    def outdir = file(params.outdir)
+    if (!outdir.mkdirs() && !outdir.exists()) {
+        error "Unable to create or access output directory: ${params.outdir}. " +
+              "Check that the path is writable."
+    }
+
+    // Validate sample_regex if provided
+    if (params.sample_regex) {
+        try {
+            java.util.regex.Pattern.compile(params.sample_regex)
+        } catch (e) {
+            error "Invalid regular expression in params.sample_regex: '${params.sample_regex}'. " +
+                  "Pattern compilation failed: ${e.message}"
+        }
     }
 
     //
@@ -312,55 +364,6 @@ workflow NANOMETANF {
     }
 
     //
-    // SUBWORKFLOW: Dynamic resource allocation for optimal performance
-    //
-    if (params.enable_dynamic_resources) {
-        log.info "=== Enabling Dynamic Resource Allocation ==="
-
-        // Prepare resource configuration
-        def resource_config = [
-            'optimization_profile': params.optimization_profile ?: 'auto',
-            'safety_factor': params.resource_safety_factor ?: 0.8,
-            'priority_samples': params.priority_samples ?: [],
-            'max_parallel_jobs': params.max_parallel_jobs ?: 4,
-            'enable_gpu_optimization': params.enable_gpu_optimization ?: true,
-            'realtime_mode': params.realtime_mode ?: false
-        ]
-
-        // System configuration
-        def system_config = [
-            'monitoring_interval': params.resource_monitoring_interval ?: 30,
-            'enable_performance_logging': params.enable_performance_logging ?: true
-        ]
-
-        // Create input for resource allocation - combine samples with tool context
-        ch_resource_inputs = ch_processed_samples
-            .map { meta, files ->
-                def tool_context = [
-                    'tool_name': 'preprocessing',  // Will be updated per process
-                    'workflow_stage': 'initial_processing'
-                ]
-                [ meta, files, tool_context ]
-            }
-
-        DYNAMIC_RESOURCE_ALLOCATION (
-            ch_resource_inputs,
-            resource_config,
-            system_config
-        )
-        ch_versions = ch_versions.mix(DYNAMIC_RESOURCE_ALLOCATION.out.versions)
-
-        // Extract resource configurations for later use
-        ch_resource_configs = DYNAMIC_RESOURCE_ALLOCATION.out.resource_configs
-        ch_optimal_allocations = DYNAMIC_RESOURCE_ALLOCATION.out.optimal_allocations
-
-        log.info "Dynamic resource allocation configured successfully"
-    } else {
-        ch_resource_configs = Channel.empty()
-        ch_optimal_allocations = Channel.empty()
-    }
-
-    //
     // SUBWORKFLOW: Demultiplexing (handle multiplexed samples)
     //
     DEMULTIPLEXING (
@@ -392,7 +395,14 @@ workflow NANOMETANF {
         //
         // MODULE: Multi-sample NanoPlot comparison (optional)
         //
+        // NOTE: The .collect() below waits for all items in the channel before emitting,
+        // which blocks until the entire real-time session completes. This is acceptable
+        // because enable_nanoplot_comparison defaults to false and is intended for
+        // post-run batch analysis, not streaming use. In streaming mode, per-sample
+        // NanoPlot runs are handled by QC_ANALYSIS with interval-based gating instead.
+        //
         if (params.enable_nanoplot_comparison && !params.skip_nanoplot) {
+            log.info "NanoPlot multi-sample comparison enabled -- this defers until all samples complete"
             // Collect all QC'd reads for comparative analysis
             ch_comparison_reads = ch_qc_reads.map { meta, reads -> reads }.collect()
 
@@ -552,6 +562,33 @@ workflow NANOMETANF {
                 log.info "Validation results written to: ${params.outdir}/validation/validation_results.json"
             }
         }
+    }
+
+    //
+    // MODULE: Write canonical run manifest
+    // Collects tool identity and sample list for frontend discovery
+    //
+    if (params.write_canonical != false) {
+        // Collect sample IDs from processed samples
+        def ch_sample_ids = DEMULTIPLEXING.out.samples
+            .map { meta, reads -> meta.id }
+            .collect()
+
+        def effective_classifier = (params.kraken2_db && !params.skip_kraken2) ? (params.classifier ?: 'kraken2') : ""
+        def effective_qc_tool = (!params.skip_fastp || !params.skip_nanoplot) ? (params.qc_tool ?: 'chopper') : ""
+        def effective_assembler = params.enable_assembly ? (params.assembler ?: 'flye') : ""
+        def effective_validation = (run_validation_effective && params.pathogen_genomes) ? (params.validation_method ?: 'blast') : ""
+        def effective_mode = params.realtime_mode ? "realtime" : "batch"
+
+        MANIFEST_WRITER (
+            Channel.value(effective_classifier),
+            Channel.value(effective_qc_tool),
+            Channel.value(effective_assembler),
+            Channel.value(effective_validation),
+            ch_sample_ids,
+            Channel.value(effective_mode)
+        )
+        ch_versions = ch_versions.mix(MANIFEST_WRITER.out.versions)
     }
 
     //

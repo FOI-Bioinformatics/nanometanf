@@ -76,7 +76,18 @@ workflow REALTIME_MONITORING {
         //
         // TIMEOUT LOGIC: Intelligent inactivity timeout with grace period (v1.2.1+)
         //
-        def ch_all_files = ch_watched
+        // Filter out files still being written (mtime less than 1 second ago).
+        // Incomplete files are dropped from this emission but will be
+        // re-emitted by watchPath on the next modify event.
+        def ch_stable = ch_watched.filter { f ->
+            def age_ms = System.currentTimeMillis() - f.lastModified()
+            if (age_ms < 1000) {
+                log.debug "Deferring file (still settling): ${f.name}"
+                return false
+            }
+            return true
+        }
+        def ch_all_files = ch_stable
 
         // Apply timeout or max_files limit
         // Note: Nextflow does not have .scan() operator for stateful streaming.
