@@ -196,7 +196,7 @@ EOF
 
     cat <<-END_VERSIONS > versions.yml
 "${task.process}":
-    blastn: 2.15.0
+    blastn: 2.16.0
     seqtk: 1.4
     python: 3.11.0
 END_VERSIONS

@@ -42,7 +42,6 @@ nextflow_pipeline {
 
                 use_dorado = false
                 realtime_mode = false
-                enable_dynamic_resources = false
 
                 max_cpus = 2
                 max_memory = '4.GB'

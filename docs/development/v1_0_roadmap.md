@@ -16,8 +16,8 @@
 
 **1.2 Disabled Experimental Features**
 
-- Set `enable_dynamic_resources = false` in nextflow.config
-- Marked dynamic resource allocation as experimental for v1.0
+- Experimental resource allocation features disabled for v1.0 stability
+- These modules were subsequently removed in later cleanup phases
 
 **1.3 Fixed Real-time Monitoring Hang** ⭐ **CRITICAL**
 
@@ -116,13 +116,9 @@ Important tests that should pass:
 
 **Target**: >80% of P1 tests passing
 
-**4.3 Mark P2 Experimental Tests** (2 tests)
-Can fail for v1.0:
+**4.3 P2 Tests**
 
-- `dynamic_resource_allocation.nf.test`
-- `resource_allocation_modules.nf.test`
-
-**Action**: Add `@experimental` tag, document as future work
+Note: The dynamic resource allocation tests referenced here were removed along with the corresponding modules in later cleanup phases.
 
 ### Phase 5: Documentation Completion
 
@@ -239,8 +235,6 @@ Can fail for v1.0:
 
 ### Experimental Features (Disabled by Default)
 
-- Dynamic resource allocation (set `--enable_dynamic_resources`)
-- Advanced performance monitoring
 - GPU optimization profiles
 
 ## Risk Assessment
@@ -298,16 +292,12 @@ Can fail for v1.0:
 
 ### v1.1 (Future)
 
-- Re-enable dynamic resource allocation
 - Performance optimizations
 - Additional QC tools
-- Enhanced real-time statistics
 
 ### v1.2 (Future)
 
 - Assembly workflows
-- Long-term project tracking
-- Advanced visualization
 - Multi-sample comparisons
 
 ## Notes

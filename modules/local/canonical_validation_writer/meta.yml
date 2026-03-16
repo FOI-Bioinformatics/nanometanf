@@ -1,0 +1,49 @@
+name: "canonical_validation_writer"
+description: Convert PAF or BLAST outfmt-6 to canonical alignment TSV with named columns
+keywords:
+  - canonical
+  - validation
+  - alignment
+  - paf
+  - blast
+  - tsv
+tools:
+  - alignment_to_canonical.py:
+      description: Converts alignment output to a canonical TSV with named columns
+      homepage: https://github.com/foi-bioinformatics/nanometanf
+      licence: ["MIT"]
+
+input:
+  - meta:
+      type: map
+      description: |
+        Groovy Map containing sample information
+        e.g. [ id:'sample1', taxid:562 ]
+  - alignment:
+      type: file
+      description: Alignment file (PAF or BLAST outfmt-6)
+      pattern: "*.{paf,tsv,txt}"
+  - tool_name:
+      type: string
+      description: Alignment tool name (e.g., minimap2, blast)
+  - input_format:
+      type: string
+      description: Input file format (paf or blast)
+
+output:
+  - meta:
+      type: map
+      description: |
+        Groovy Map containing sample information
+        e.g. [ id:'sample1', taxid:562 ]
+  - canonical:
+      type: file
+      description: Canonical alignment TSV file with named columns
+      pattern: "*.alignments.tsv"
+  - versions:
+      type: file
+      description: File containing software versions
+      pattern: "versions.yml"
+
+authors:
+  - "@andreassjodin"

@@ -555,106 +555,58 @@ Quality-focused dashboard:
 - Classification rate evolution
 - Data yield projections
 
-## Resource Monitoring Outputs
+## Canonical Output Layer
 
-**Enabled with:** `--enable_performance_logging`
+**Enabled with:** `--write_canonical true` (default: true)
 
-### System Resource Metrics
+The canonical output layer provides tool-agnostic, machine-readable output files in a consistent format across all analysis stages. This facilitates integration with downstream tools such as Nanometa Live.
 
-**`resource_monitoring/system_metrics.json`**
+### Output Structure
+
+```
+results/canonical/
+├── classification/
+│   └── {sample}.classification.tsv
+├── qc/
+│   └── {sample}.qc.tsv
+├── validation/
+│   └── {sample}.validation.tsv
+├── assembly/
+│   └── {sample}.assembly.tsv
+└── _manifest.json
+```
+
+### Manifest File
+
+**`_manifest.json`** provides an index of all canonical output files produced during a run:
 
 ```json
 {
-  "measurements": [
-    {
-      "timestamp": "2025-09-12T14:00:01Z",
-      "cpu_percent": 45.2,
-      "memory_gb_used": 12.8,
-      "memory_gb_available": 19.2,
-      "disk_io_read_mbps": 450,
-      "disk_io_write_mbps": 120
-    }
-  ],
-  "resource_summary": {
-    "peak_cpu_usage": 78.5,
-    "peak_memory_gb": 15.6,
-    "mean_cpu_usage": 52.3,
-    "mean_memory_gb": 13.2
+  "pipeline": "nanometanf",
+  "timestamp": "2026-03-14T10:00:00Z",
+  "samples": ["barcode01", "barcode02"],
+  "outputs": {
+    "classification": ["classification/barcode01.classification.tsv"],
+    "qc": ["qc/barcode01.qc.tsv"],
+    "validation": ["validation/barcode01.validation.tsv"],
+    "assembly": ["assembly/barcode01.assembly.tsv"]
   }
 }
 ```
 
-### Process Resource Usage
+### Canonical Writers
 
-**`resource_monitoring/process_metrics.json`**
+Each analysis stage has a dedicated writer module that converts tool-specific output into the canonical format:
 
-Per-process resource consumption:
+| Module | Input | Output |
+|--------|-------|--------|
+| `canonical_classification_writer` | Kraken2 reports | `classification/{sample}.classification.tsv` |
+| `canonical_qc_writer` | FASTP/SeqKit metrics | `qc/{sample}.qc.tsv` |
+| `canonical_validation_writer` | BLAST/minimap2 results | `validation/{sample}.validation.tsv` |
+| `canonical_assembly_writer` | Assembly statistics | `assembly/{sample}.assembly.tsv` |
+| `manifest_writer` | All canonical outputs | `_manifest.json` |
 
-```json
-{
-  "processes": [
-    {
-      "process_name": "KRAKEN2",
-      "task_id": "task_123",
-      "sample": "sample1",
-      "cpu_hours": 2.5,
-      "peak_memory_gb": 12.0,
-      "duration_minutes": 15.3,
-      "exit_status": 0
-    },
-    {
-      "process_name": "DORADO_BASECALLER",
-      "task_id": "task_456",
-      "sample": "sample2",
-      "cpu_hours": 8.2,
-      "peak_memory_gb": 8.5,
-      "duration_minutes": 45.7,
-      "gpu_utilization": 95.2,
-      "exit_status": 0
-    }
-  ],
-  "optimization_recommendations": {
-    "kraken2": "Consider increasing CPU allocation for faster processing",
-    "dorado": "GPU utilization optimal"
-  }
-}
-```
-
-### Dynamic Resource Allocation
-
-**Enabled with:** `--optimization_profile auto`
-
-**`resource_monitoring/resource_predictions.json`**
-
-ML-based resource predictions:
-
-```json
-{
-  "input_analysis": {
-    "total_input_size_gb": 45.2,
-    "estimated_read_count": 2500000,
-    "file_count": 180,
-    "input_type": "fastq_realtime"
-  },
-  "resource_predictions": {
-    "kraken2": {
-      "predicted_cpu": 16,
-      "predicted_memory_gb": 14.5,
-      "predicted_runtime_minutes": 18.2,
-      "confidence": 0.89
-    },
-    "dorado_basecaller": {
-      "predicted_cpu": 8,
-      "predicted_memory_gb": 10.2,
-      "predicted_runtime_minutes": 52.3,
-      "gpu_recommended": true,
-      "confidence": 0.92
-    }
-  },
-  "optimization_profile_selected": "high_throughput",
-  "safety_factor_applied": 0.8
-}
-```
+The canonical output format is independent of which upstream tools are used, providing a stable interface for consumers such as Nanometa Live.
 
 ## Pipeline Execution Reports
 
@@ -813,16 +765,20 @@ results/
 └── pipeline_info/      ✓ Execution metadata
 ```
 
-### Mode 7: Dynamic Resource Optimization
+### Canonical Output Layer (All Modes)
+
+When `--write_canonical true` is set (default), an additional `canonical/` directory is produced alongside standard outputs:
 
 ```
 results/
-├── resource_monitoring/        ✓ Resource metrics
-│   ├── system_metrics.json
-│   ├── process_metrics.json
-│   └── resource_predictions.json
+├── canonical/                  ✓ Tool-agnostic outputs
+│   ├── classification/         ✓ Standardized classification
+│   ├── qc/                     ✓ Standardized QC metrics
+│   ├── validation/             ✓ Standardized validation
+│   ├── assembly/               ✓ Standardized assembly stats
+│   └── _manifest.json          ✓ Output index
 ├── [standard outputs based on input type]
-└── pipeline_info/              ✓ Enhanced execution metadata
+└── pipeline_info/              ✓ Execution metadata
 ```
 
 ## File Format Reference

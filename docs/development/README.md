@@ -14,7 +14,6 @@ This directory contains comprehensive documentation for developers working on th
 - [PROMETHION_OPTIMIZATIONS.md](PROMETHION_OPTIMIZATIONS.md) - Platform-specific performance optimizations
 - [incremental_kraken2_implementation.md](incremental_kraken2_implementation.md) - Kraken2 incremental classification
 - [PHASE_1.1_STATUS.md](PHASE_1.1_STATUS.md) - Incremental Kraken2 feature status
-- [dynamic_resource_allocation.md](dynamic_resource_allocation.md) - Dynamic resource allocation system
 - **Scalable Streaming (v1.5+)** - See [CLAUDE.md](../../CLAUDE.md) for architecture details
 
 ### Deployment & Operations
@@ -37,7 +36,6 @@ development/
 ├── PROMETHION_OPTIMIZATIONS.md        # Performance optimizations
 ├── incremental_kraken2_implementation.md  # Kraken2 architecture
 ├── PHASE_1.1_STATUS.md                # Feature status
-├── dynamic_resource_allocation.md     # Resource system
 ├── production_deployment.md           # Deployment guide
 ├── developer_api.md                   # API reference
 ├── test_organization.md               # Test structure
@@ -159,7 +157,7 @@ See [TESTING.md](TESTING.md) for comprehensive testing documentation.
 
 ### Input Modes
 
-The pipeline supports 7 execution modes:
+The pipeline supports 6 execution modes:
 
 1. Standard FASTQ processing
 2. Pre-demultiplexed barcode directories
@@ -167,7 +165,6 @@ The pipeline supports 7 execution modes:
 4. Multiplex POD5 with demultiplexing
 5. Real-time FASTQ monitoring
 6. Real-time POD5 processing
-7. Dynamic resource optimization
 
 See [../user/usage.md](../user/usage.md) for detailed usage instructions.
 
@@ -209,6 +206,20 @@ Key modules:
 - `kraken2_final_aggregator/` - End-of-session concatenation
 
 See [CLAUDE.md](../../CLAUDE.md) for detailed architecture documentation.
+
+### Canonical Output Layer
+
+The pipeline produces tool-agnostic canonical outputs (`results/canonical/`) via five writer modules:
+
+- `canonical_classification_writer/` - Converts Kraken2 reports to standardized TSV
+- `canonical_qc_writer/` - Converts FASTP/SeqKit metrics to standardized TSV
+- `canonical_validation_writer/` - Converts BLAST/minimap2 results to standardized TSV
+- `canonical_assembly_writer/` - Converts assembly statistics to standardized TSV
+- `manifest_writer/` - Generates `_manifest.json` indexing all canonical outputs
+
+Corresponding `bin/` scripts: `kreport_to_canonical.py`, `qc_to_canonical.py`, `alignment_to_canonical.py`, `assembly_to_canonical.py`, `write_manifest.py`.
+
+Controlled by `params.write_canonical` (default: true).
 
 ## Troubleshooting Development Issues
 

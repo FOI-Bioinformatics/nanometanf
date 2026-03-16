@@ -706,8 +706,7 @@ ch_multiqc_files.collect()  // Wait for all files before proceeding
    - Further reduce processing time with hardware acceleration
 
 5. **Additional Classifiers**:
-   - Extend optimizations to Centrifuge, MetaPhlAn, Kaiju
-   - Unified incremental interface
+   - If future classifiers are added, extend incremental optimizations accordingly
 
 ---
 

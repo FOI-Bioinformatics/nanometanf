@@ -36,9 +36,8 @@
 | ------------------------------------------------------------------- | ------------------- | ------------------------ |
 | **[Production Deployment](development/production_deployment.md)**   | Deployment guide    | Setting up production    |
 | **[Platform Optimizations](user/OPTIMIZATIONS_QUICK_REFERENCE.md)** | Performance tips    | Platform-specific tuning |
-| **[Dynamic Resources](development/dynamic_resource_allocation.md)** | Advanced allocation | HPC optimization         |
 
-### 📋 Release Information
+###📋 Release Information
 
 | Document                                           | Purpose              | When to Use            |
 | -------------------------------------------------- | -------------------- | ---------------------- |
@@ -96,7 +95,6 @@ docs/
 │   ├── PROMETHION_OPTIMIZATIONS.md    # Platform optimizations
 │   ├── incremental_kraken2_implementation.md # Kraken2 architecture
 │   ├── PHASE_1.1_STATUS.md            # Feature status
-│   ├── dynamic_resource_allocation.md # Resource system
 │   ├── production_deployment.md       # Deployment guide
 │   ├── developer_api.md               # API reference
 │   ├── test_organization.md           # Test structure
@@ -132,7 +130,7 @@ docs/
 
 ## Pipeline Capabilities Summary
 
-**Seven Execution Modes:**
+**Six Execution Modes:**
 
 1. Standard FASTQ processing (batch analysis)
 2. Pre-demultiplexed barcode directories (automated discovery)
@@ -140,7 +138,10 @@ docs/
 4. Multiplex POD5 with demultiplexing (barcoded samples)
 5. Real-time FASTQ monitoring (live sequencing)
 6. Real-time POD5 processing (live basecalling + analysis)
-7. Dynamic resource optimization (any mode with intelligent allocation)
+
+**Canonical Output Layer:**
+
+All modes can produce tool-agnostic canonical outputs (`results/canonical/`) with standardized TSV files for classification, QC, validation, and assembly. A manifest file (`_manifest.json`) indexes all canonical outputs. Controlled by `--write_canonical` (default: true).
 
 **Scalable Streaming Architecture (v1.5+):**
 

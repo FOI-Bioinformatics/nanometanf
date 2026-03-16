@@ -153,12 +153,10 @@ Background test suite execution showed stable performance:
 
 | Test Category                     | Passing | Failing | Notes                |
 | --------------------------------- | ------- | ------- | -------------------- |
-| **ANALYZE_INPUT_CHARACTERISTICS** | 6/6     | 0       | ✅ 100%              |
-| **APPLY_DYNAMIC_RESOURCES**       | 6/6     | 0       | ✅ 100%              |
-| **DORADO_BASECALLER**             | 1/5     | 4       | ⚠️ Binary dependency |
-| **DORADO_DEMUX**                  | 1/2     | 1       | ⚠️ Binary dependency |
+| **DORADO_BASECALLER**             | 1/5     | 4       | Binary dependency    |
+| **DORADO_DEMUX**                  | 1/2     | 1       | Binary dependency    |
 
-**Dorado Test Failures:** Not functional issues - tests require dorado binary in PATH or Docker image. Functionality verified manually.
+**Note:** The resource allocation modules (ANALYZE_INPUT_CHARACTERISTICS, APPLY_DYNAMIC_RESOURCES) referenced in the original v1.2.0 evaluation have been removed in subsequent cleanup phases. Dorado test failures are not functional issues -- tests require the dorado binary in PATH or a Docker image. Functionality verified manually.
 
 ---
 
@@ -260,9 +258,8 @@ nf-core modules update untar
 
 #### 1. Pipeline Enhancements
 
-- Alternative classifiers (Centrifuge, Kaiju) - v1.3.0+
-- Enhanced assembly workflows with polishing - v1.3.0+
-- Cloud-native execution profiles - v1.4.0+
+- Enhanced assembly workflows with polishing
+- Additional classifier support as needed
 
 #### 2. Testing Infrastructure
 

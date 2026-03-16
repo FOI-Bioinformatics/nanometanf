@@ -96,6 +96,16 @@ max_classification_forks = 8    // Max parallel Kraken2 jobs
 
 ---
 
+## Canonical Output Layer
+
+The pipeline produces tool-agnostic canonical outputs via five writer modules wired into each subworkflow and the main workflow. Output is written to `results/canonical/` with subdirectories for `classification/`, `qc/`, `validation/`, and `assembly/`, plus a `_manifest.json` index file.
+
+Controlled by `params.write_canonical` (default: true).
+
+Corresponding `bin/` scripts handle the format conversion: `kreport_to_canonical.py`, `qc_to_canonical.py`, `alignment_to_canonical.py`, `assembly_to_canonical.py`, `write_manifest.py`.
+
+---
+
 ## Critical Files for Development
 
 ### Entry Points
@@ -149,6 +159,11 @@ max_classification_forks = 8    // Max parallel Kraken2 jobs
 | `extract_reads_by_taxid/`         | Extract reads for validation                |
 | `blastn_validation/`              | BLAST validation                            |
 | `minimap2_validation/`            | Fast minimap2 validation                    |
+| `canonical_classification_writer/`| Kraken2 report to canonical TSV             |
+| `canonical_qc_writer/`           | FASTP/SeqKit metrics to canonical TSV       |
+| `canonical_validation_writer/`   | BLAST/minimap2 results to canonical TSV     |
+| `canonical_assembly_writer/`     | Assembly stats to canonical TSV             |
+| `manifest_writer/`               | Generates _manifest.json for canonical dir  |
 
 ### Library Utilities (lib/)
 
@@ -329,6 +344,10 @@ nf-test test --update-snapshot
 - `--kraken2_db` - Path to Kraken2 database
 - `--kraken2_memory_mapping` - Memory-mapped loading (set `false` on ARM Mac)
 - `--skip_krona` - Skip Krona (set `true` on ARM Mac)
+
+### Canonical Outputs
+
+- `--write_canonical` - Enable canonical output layer (default: true)
 
 ### Platform Profiles
 

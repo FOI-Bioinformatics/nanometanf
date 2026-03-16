@@ -9,9 +9,6 @@
     - fastp: General-purpose QC with rich reporting
     - filtlong: Nanopore-optimized length-weighted quality filtering
 
-    Future QC tools (ready to implement):
-    - nanoq: Nanopore quality assessment
-
     Features:
     - Tool-agnostic interface
     - Nanopore-specific optimizations
@@ -29,6 +26,7 @@ include { NANOPLOT                } from "${projectDir}/modules/nf-core/nanoplot
 include { FASTQC                  } from "${projectDir}/modules/nf-core/fastqc/main"
 include { SEQKIT_STATS            } from "${projectDir}/modules/nf-core/seqkit/stats/main"
 include { SEQKIT_MERGE_STATS      } from "${projectDir}/modules/local/seqkit_merge_stats/main"
+include { CANONICAL_QC_WRITER    } from "${projectDir}/modules/local/canonical_qc_writer/main"
 
 workflow QC_ANALYSIS {
 
@@ -86,11 +84,11 @@ workflow QC_ANALYSIS {
                     false,        // save_trimmed_fail
                     false         // save_merged
                 )
-                ch_versions = ch_versions.mix(FASTP_STREAMING.out.versions)
-                ch_qc_reads = FASTP_STREAMING.out.reads
-                ch_qc_reports = FASTP_STREAMING.out.html
-                ch_qc_logs = FASTP_STREAMING.out.log
-                ch_qc_json = FASTP_STREAMING.out.json
+                ch_versions = ch_versions.mix(FASTP_STREAMING.out.versions.ifEmpty([]))
+                ch_qc_reads = FASTP_STREAMING.out.reads.ifEmpty([])
+                ch_qc_reports = FASTP_STREAMING.out.html.ifEmpty([])
+                ch_qc_logs = FASTP_STREAMING.out.log.ifEmpty([])
+                ch_qc_json = FASTP_STREAMING.out.json.ifEmpty([])
             } else {
                 FASTP (
                     ch_fastp_input,
@@ -98,11 +96,11 @@ workflow QC_ANALYSIS {
                     false,        // save_trimmed_fail
                     false         // save_merged
                 )
-                ch_versions = ch_versions.mix(FASTP.out.versions)
-                ch_qc_reads = FASTP.out.reads
-                ch_qc_reports = FASTP.out.html
-                ch_qc_logs = FASTP.out.log
-                ch_qc_json = FASTP.out.json
+                ch_versions = ch_versions.mix(FASTP.out.versions.ifEmpty([]))
+                ch_qc_reads = FASTP.out.reads.ifEmpty([])
+                ch_qc_reports = FASTP.out.html.ifEmpty([])
+                ch_qc_logs = FASTP.out.log.ifEmpty([])
+                ch_qc_json = FASTP.out.json.ifEmpty([])
             }
             break
 
@@ -118,7 +116,7 @@ workflow QC_ANALYSIS {
             FILTLONG (
                 ch_filtlong_input
             )
-            ch_versions = ch_versions.mix(FILTLONG.out.versions)
+            ch_versions = ch_versions.mix(FILTLONG.out.versions.ifEmpty([]))
 
             //
             // Enhanced reporting for FILTLONG: Add FastQC and SeqKit stats
@@ -130,7 +128,7 @@ workflow QC_ANALYSIS {
                     FILTLONG.out.reads
                 )
                 // FASTQC uses topic: versions pattern - no .out.versions channel
-                ch_fastqc_html = FASTQC.out.html
+                ch_fastqc_html = FASTQC.out.html.ifEmpty([])
             }
 
             // MODULE: Run SeqKit stats for detailed sequence statistics
@@ -138,12 +136,12 @@ workflow QC_ANALYSIS {
                 FILTLONG.out.reads
             )
             // SEQKIT_STATS uses topic: versions pattern - no .out.versions channel
-            ch_seqkit_stats = SEQKIT_STATS.out.stats
+            ch_seqkit_stats = SEQKIT_STATS.out.stats.ifEmpty([])
 
             // Collect standardized outputs
-            ch_qc_reads = FILTLONG.out.reads
+            ch_qc_reads = FILTLONG.out.reads.ifEmpty([])
             ch_qc_reports = ch_fastqc_html              // Use FastQC HTML reports for FILTLONG
-            ch_qc_logs = FILTLONG.out.log
+            ch_qc_logs = FILTLONG.out.log.ifEmpty([])
             ch_qc_json = ch_seqkit_stats                // Use SeqKit stats as JSON-like structured output
             break
 
@@ -156,7 +154,7 @@ workflow QC_ANALYSIS {
                 ch_adapter_trimmed,
                 []  // No contamination filtering fasta
             )
-            ch_versions = ch_versions.mix(CHOPPER.out.versions)
+            ch_versions = ch_versions.mix(CHOPPER.out.versions.ifEmpty([]))
 
             //
             // Enhanced reporting for CHOPPER: Add FastQC and SeqKit stats
@@ -168,7 +166,7 @@ workflow QC_ANALYSIS {
                     CHOPPER.out.fastq
                 )
                 // FASTQC uses topic: versions pattern - no .out.versions channel
-                ch_fastqc_html = FASTQC.out.html
+                ch_fastqc_html = FASTQC.out.html.ifEmpty([])
             }
 
             // MODULE: Run SeqKit stats for detailed sequence statistics
@@ -176,19 +174,14 @@ workflow QC_ANALYSIS {
                 CHOPPER.out.fastq
             )
             // SEQKIT_STATS uses topic: versions pattern - no .out.versions channel
-            ch_seqkit_stats = SEQKIT_STATS.out.stats
+            ch_seqkit_stats = SEQKIT_STATS.out.stats.ifEmpty([])
 
             // Collect standardized outputs
-            ch_qc_reads = CHOPPER.out.fastq
+            ch_qc_reads = CHOPPER.out.fastq.ifEmpty([])
             ch_qc_reports = ch_fastqc_html              // Use FastQC HTML reports for CHOPPER
             ch_qc_logs = Channel.empty()                // CHOPPER has no log output
             ch_qc_json = ch_seqkit_stats                // Use SeqKit stats as JSON-like structured output
             break
-
-        // Future QC tools to be added here:
-        // case 'nanoq':
-        //     NANOQ(ch_adapter_trimmed)
-        //     break
 
         default:
             error "Unsupported QC tool: ${qc_tool}. Currently supported: fastp, filtlong, chopper"
@@ -295,7 +288,26 @@ workflow QC_ANALYSIS {
         log.info "NanoPlot is disabled (skip_nanoplot = true)"
     }
 
+    //
+    // MODULE: Convert QC statistics to canonical JSON format
+    // Produces tool-agnostic output for frontend consumption
+    //
+    ch_canonical_qc = Channel.empty()
+    if (params.write_canonical != false) {
+        // Use fastp JSON when available, otherwise seqkit stats
+        def ch_qc_input = qc_tool == 'fastp' ? ch_qc_json : ch_final_seqkit_stats
+
+        CANONICAL_QC_WRITER (
+            ch_qc_input,
+            Channel.value(qc_tool),
+            Channel.value("auto")
+        )
+        ch_canonical_qc = CANONICAL_QC_WRITER.out.canonical
+        ch_versions = ch_versions.mix(CANONICAL_QC_WRITER.out.versions)
+    }
+
     emit:
+    canonical_qc = ch_canonical_qc        // channel: [ val(meta), path(json) ] - Canonical QC JSON
     reads        = ch_qc_reads            // channel: [ val(meta), path(reads) ] - QC'd reads
     qc_reports   = ch_qc_reports          // channel: [ val(meta), path(html) ] - QC HTML reports (tool-specific)
     qc_logs      = ch_qc_logs             // channel: [ val(meta), path(log) ] - QC log files

@@ -9,11 +9,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
--
+- Canonical output layer: tool-agnostic TSV outputs in `results/canonical/` with classification, QC, validation, and assembly subdirectories
+- Five canonical writer modules: `canonical_classification_writer`, `canonical_qc_writer`, `canonical_validation_writer`, `canonical_assembly_writer`, `manifest_writer`
+- Five `bin/` scripts for format conversion: `kreport_to_canonical.py`, `qc_to_canonical.py`, `alignment_to_canonical.py`, `assembly_to_canonical.py`, `write_manifest.py`
+- Parameter `write_canonical` (default: true) to control canonical output generation
+- Manifest file (`_manifest.json`) indexing all canonical outputs per run
 
 ### Changed
 
--
+- Standardized `publishDir` patterns and added section headers to `modules.config`
+
+### Removed
+
+- Error handling subworkflow and 5 modules: `circuit_breaker`, `dead_letter_queue`, `error_classifier`, `error_handler`, `exponential_backoff_handler`
+- Enhanced realtime monitoring subworkflow and `file_readiness_checker` module
+- Dynamic resource allocation subworkflow and 5 modules: `monitor_system_resources`, `optimize_resource_allocation`, `predict_resource_requirements`, `resource_optimization_profiles`, `analyze_input_characteristics`
+- Removed ~36 dead parameters from `nextflow_schema.json`
+- Removed placeholder tool cases: canu, raven, shasta (assembly), centrifuge, metaphlan (classification), nanoq (QC)
+- Removed configuration files: `conf/cloud.config`, `conf/cluster.config`, `conf/production.config`
 
 ### Fixed
 

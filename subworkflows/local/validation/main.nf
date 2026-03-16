@@ -10,6 +10,7 @@ include { EXTRACT_READS_BY_TAXID        } from '../../../modules/local/extract_r
 include { BLASTN_VALIDATION             } from '../../../modules/local/blastn_validation/main'
 include { MINIMAP2_VALIDATION           } from '../../../modules/local/minimap2_validation/main'
 include { AGGREGATE_VALIDATION_RESULTS  } from '../../../modules/local/aggregate_validation_results/main'
+include { CANONICAL_VALIDATION_WRITER  } from '../../../modules/local/canonical_validation_writer/main'
 
 workflow VALIDATION {
 
@@ -88,7 +89,7 @@ workflow VALIDATION {
     // First join classified reads with kraken output by meta.id
     //
     ch_sample_data = ch_classified_reads
-        .join(ch_kraken_output, by: [0])  // Join on meta
+        .join(ch_kraken_output, by: [0], remainder: true)  // Join on meta
 
     //
     // Combine each sample with each taxid that has a genome available
@@ -111,7 +112,7 @@ workflow VALIDATION {
     }
 
     EXTRACT_READS_BY_TAXID(ch_extraction_input)
-    ch_versions = ch_versions.mix(EXTRACT_READS_BY_TAXID.out.versions.first())
+    ch_versions = ch_versions.mix(EXTRACT_READS_BY_TAXID.out.versions.first().ifEmpty([]))
 
     //
     // Prepare validation input by combining extracted reads with genome references
@@ -124,7 +125,8 @@ workflow VALIDATION {
             ch_validation_tasks.map { meta, reads, kraken_output, taxid, genome ->
                 [ [meta.id, taxid.toString()], genome ]
             },
-            by: [0]
+            by: [0],
+            remainder: true
         )
         .map { key, meta, reads, genome ->
             [ meta, reads, genome ]
@@ -145,9 +147,9 @@ workflow VALIDATION {
             params.validation_hit_rate_threshold ?: 0.5,
             params.validation_identity_threshold ?: 90.0
         )
-        ch_blast_stats = BLASTN_VALIDATION.out.stats.map { meta, stats -> stats }
-        ch_blast_results = BLASTN_VALIDATION.out.results
-        ch_versions = ch_versions.mix(BLASTN_VALIDATION.out.versions.first())
+        ch_blast_stats = BLASTN_VALIDATION.out.stats.map { meta, stats -> stats }.ifEmpty([])
+        ch_blast_results = BLASTN_VALIDATION.out.results.ifEmpty([])
+        ch_versions = ch_versions.mix(BLASTN_VALIDATION.out.versions.first().ifEmpty([]))
     }
 
     //
@@ -164,9 +166,9 @@ workflow VALIDATION {
             params.validation_hit_rate_threshold ?: 0.5,
             params.validation_identity_threshold ?: 90.0
         )
-        ch_minimap2_stats = MINIMAP2_VALIDATION.out.stats.map { meta, stats -> stats }
-        ch_minimap2_results = MINIMAP2_VALIDATION.out.alignments
-        ch_versions = ch_versions.mix(MINIMAP2_VALIDATION.out.versions.first())
+        ch_minimap2_stats = MINIMAP2_VALIDATION.out.stats.map { meta, stats -> stats }.ifEmpty([])
+        ch_minimap2_results = MINIMAP2_VALIDATION.out.alignments.ifEmpty([])
+        ch_versions = ch_versions.mix(MINIMAP2_VALIDATION.out.versions.first().ifEmpty([]))
     }
 
     //
@@ -176,6 +178,35 @@ workflow VALIDATION {
 
     // Collect Kraken2 reports for species name lookup
     ch_kraken_report_files = ch_kraken_reports.map { meta, report -> report }
+
+    //
+    // MODULE: Convert alignment results to canonical TSV format
+    // Produces tool-agnostic output with named columns
+    //
+    // Build a unified channel of [meta, file, tool_name, format] from whichever
+    // validation methods are active. A single process invocation handles all items.
+    //
+    ch_canonical_alignments = Channel.empty()
+    if (params.write_canonical != false) {
+        def ch_for_canonical = Channel.empty()
+
+        if (validation_method == 'blast' || validation_method == 'both') {
+            ch_for_canonical = ch_for_canonical.mix(
+                ch_blast_results.map { meta, f -> [meta, f, "blast", "blast"] }
+            )
+        }
+        if (validation_method == 'minimap2' || validation_method == 'both') {
+            ch_for_canonical = ch_for_canonical.mix(
+                ch_minimap2_results.map { meta, f -> [meta, f, "minimap2", "paf"] }
+            )
+        }
+
+        CANONICAL_VALIDATION_WRITER (
+            ch_for_canonical
+        )
+        ch_canonical_alignments = CANONICAL_VALIDATION_WRITER.out.canonical
+        ch_versions = ch_versions.mix(CANONICAL_VALIDATION_WRITER.out.versions)
+    }
 
     //
     // INTERMEDIATE VALIDATION: Progressive aggregation for real-time dashboard
@@ -231,10 +262,11 @@ workflow VALIDATION {
     ch_versions = ch_versions.mix(AGGREGATE_VALIDATION_RESULTS.out.versions)
 
     emit:
-    validation_json    = AGGREGATE_VALIDATION_RESULTS.out.json      // path: validation_results.json
-    validation_summary = AGGREGATE_VALIDATION_RESULTS.out.summary   // path: validation_summary.tsv
-    extraction_stats   = EXTRACT_READS_BY_TAXID.out.stats           // channel: [ val(meta), path(json) ]
-    blast_results      = ch_blast_results                           // channel: [ val(meta), path(tsv) ]
-    minimap2_results   = ch_minimap2_results                        // channel: [ val(meta), path(paf) ]
-    versions           = ch_versions                                // channel: [ path(versions.yml) ]
+    validation_json        = AGGREGATE_VALIDATION_RESULTS.out.json      // path: validation_results.json
+    validation_summary     = AGGREGATE_VALIDATION_RESULTS.out.summary   // path: validation_summary.tsv
+    extraction_stats       = EXTRACT_READS_BY_TAXID.out.stats           // channel: [ val(meta), path(json) ]
+    blast_results          = ch_blast_results                           // channel: [ val(meta), path(tsv) ]
+    minimap2_results       = ch_minimap2_results                        // channel: [ val(meta), path(paf) ]
+    canonical_alignments   = ch_canonical_alignments                    // channel: [ val(meta), path(tsv) ] - Canonical alignment TSV
+    versions               = ch_versions                                // channel: [ path(versions.yml) ]
 }

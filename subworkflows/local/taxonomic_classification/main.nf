@@ -7,11 +7,6 @@
     Supported classifiers:
     - kraken2: Kraken2 k-mer based classification
 
-    Future classifiers (ready to implement):
-    - centrifuge: Centrifuge classification
-    - metaphlan: MetaPhlAn4 marker-based profiling
-    - kaiju: Kaiju protein-level classification
-
     Features:
     - Tool-agnostic interface
     - Taxpasta standardization for consistent outputs
@@ -27,6 +22,7 @@ include { KRAKEN2_OUTPUT_MERGER          } from "${projectDir}/modules/local/kra
 include { KRAKEN2_REPORT_GENERATOR       } from "${projectDir}/modules/local/kraken2_report_generator/main"
 include { KRAKEN2_FINAL_AGGREGATOR       } from "${projectDir}/modules/local/kraken2_final_aggregator/main"
 include { TAXPASTA_STANDARDISE           } from "${projectDir}/modules/nf-core/taxpasta/standardise/main"
+include { CANONICAL_CLASSIFICATION_WRITER } from "${projectDir}/modules/local/canonical_classification_writer/main"
 
 workflow TAXONOMIC_CLASSIFICATION {
 
@@ -139,7 +135,7 @@ workflow TAXONOMIC_CLASSIFICATION {
                     params.save_output_fastqs ?: false,
                     params.save_reads_assignment ?: false
                 )
-                ch_versions = ch_versions.mix(KRAKEN2_INCREMENTAL_CLASSIFIER.out.versions)
+                ch_versions = ch_versions.mix(KRAKEN2_INCREMENTAL_CLASSIFIER.out.versions.ifEmpty([]))
 
                 //
                 // SCALABLE STREAMING ARCHITECTURE (v1.5+)
@@ -265,21 +261,21 @@ workflow TAXONOMIC_CLASSIFICATION {
                     .map { meta, output_file ->
                         return tuple(meta.id, output_file)
                     }
-                    .groupTuple(by: 0)
+                    .groupTuple(by: 0, remainder: true)
 
                 // Collect batch report files per sample
                 ch_sample_reports = KRAKEN2_OUTPUT_MERGER.out.batch_report_copy
                     .map { meta, report_file ->
                         return tuple(meta.id, report_file)
                     }
-                    .groupTuple(by: 0)
+                    .groupTuple(by: 0, remainder: true)
 
                 // Join outputs and reports by sample_id, then run aggregation
                 // Both channels come from the same OUTPUT_MERGER process, so cardinality
-                // always matches. Use failOnMismatch:false to allow partial results if
+                // always matches. Use remainder:true to allow partial results if
                 // errorStrategy permits some batch failures.
                 ch_aggregator_input = ch_sample_outputs
-                    .join(ch_sample_reports, by: 0)
+                    .join(ch_sample_reports, by: 0, remainder: true)
                     .map { sample_id, outputs, reports ->
                         return tuple([id: sample_id, batch_count: outputs.size()], outputs, reports)
                     }
@@ -294,9 +290,9 @@ workflow TAXONOMIC_CLASSIFICATION {
                 ch_final_cumulative_report = KRAKEN2_FINAL_AGGREGATOR.out.cumulative_report
 
                 // Collect outputs from incremental path
-                ch_classified_reads = KRAKEN2_INCREMENTAL_CLASSIFIER.out.classified_reads_fastq
-                ch_unclassified_reads = KRAKEN2_INCREMENTAL_CLASSIFIER.out.unclassified_reads_fastq
-                ch_reads_assignment = KRAKEN2_INCREMENTAL_CLASSIFIER.out.classified_reads_assignment
+                ch_classified_reads = KRAKEN2_INCREMENTAL_CLASSIFIER.out.classified_reads_fastq.ifEmpty([])
+                ch_unclassified_reads = KRAKEN2_INCREMENTAL_CLASSIFIER.out.unclassified_reads_fastq.ifEmpty([])
+                ch_reads_assignment = KRAKEN2_INCREMENTAL_CLASSIFIER.out.classified_reads_assignment.ifEmpty([])
                 // Use final cumulative report for downstream (TAXPASTA, KRONA, MultiQC)
                 // Per-batch reports would produce 720 files for 24 barcodes x 30 batches
                 ch_raw_reports = KRAKEN2_FINAL_AGGREGATOR.out.cumulative_report
@@ -318,14 +314,14 @@ workflow TAXONOMIC_CLASSIFICATION {
                     params.kraken2_confidence ?: 0.0,
                     params.kraken2_minimum_hit_groups ?: 0
                 )
-                ch_versions = ch_versions.mix(KRAKEN2_OPTIMIZED.out.versions)
+                ch_versions = ch_versions.mix(KRAKEN2_OPTIMIZED.out.versions.ifEmpty([]))
 
                 // Collect outputs
-                ch_classified_reads = KRAKEN2_OPTIMIZED.out.classified_reads_fastq
-                ch_unclassified_reads = KRAKEN2_OPTIMIZED.out.unclassified_reads_fastq
-                ch_reads_assignment = KRAKEN2_OPTIMIZED.out.classified_reads_assignment
-                ch_raw_reports = KRAKEN2_OPTIMIZED.out.report
-                ch_performance_metrics = KRAKEN2_OPTIMIZED.out.performance_metrics
+                ch_classified_reads = KRAKEN2_OPTIMIZED.out.classified_reads_fastq.ifEmpty([])
+                ch_unclassified_reads = KRAKEN2_OPTIMIZED.out.unclassified_reads_fastq.ifEmpty([])
+                ch_reads_assignment = KRAKEN2_OPTIMIZED.out.classified_reads_assignment.ifEmpty([])
+                ch_raw_reports = KRAKEN2_OPTIMIZED.out.report.ifEmpty([])
+                ch_performance_metrics = KRAKEN2_OPTIMIZED.out.performance_metrics.ifEmpty([])
             } else {
                 KRAKEN2_KRAKEN2 (
                     ch_reads,
@@ -333,24 +329,16 @@ workflow TAXONOMIC_CLASSIFICATION {
                     params.save_output_fastqs ?: false,    // save_output_fastqs
                     params.save_reads_assignment ?: false  // save_reads_assignment
                 )
-                ch_versions = ch_versions.mix(KRAKEN2_KRAKEN2.out.versions)
+                ch_versions = ch_versions.mix(KRAKEN2_KRAKEN2.out.versions.ifEmpty([]))
 
                 // Collect outputs
-                ch_classified_reads = KRAKEN2_KRAKEN2.out.classified_reads_fastq
-                ch_unclassified_reads = KRAKEN2_KRAKEN2.out.unclassified_reads_fastq
-                ch_reads_assignment = KRAKEN2_KRAKEN2.out.classified_reads_assignment
-                ch_raw_reports = KRAKEN2_KRAKEN2.out.report
+                ch_classified_reads = KRAKEN2_KRAKEN2.out.classified_reads_fastq.ifEmpty([])
+                ch_unclassified_reads = KRAKEN2_KRAKEN2.out.unclassified_reads_fastq.ifEmpty([])
+                ch_reads_assignment = KRAKEN2_KRAKEN2.out.classified_reads_assignment.ifEmpty([])
+                ch_raw_reports = KRAKEN2_KRAKEN2.out.report.ifEmpty([])
                 ch_performance_metrics = Channel.empty()
             }
             break
-
-        // Future classifiers to be added here:
-        // case 'centrifuge':
-        //     CENTRIFUGE_CENTRIFUGE(...)
-        //     break
-        // case 'metaphlan':
-        //     METAPHLAN4_METAPHLAN4(...)
-        //     break
 
         default:
             error "Unsupported classifier: ${classifier}. Currently supported: kraken2"
@@ -379,7 +367,23 @@ workflow TAXONOMIC_CLASSIFICATION {
         ch_standardized_reports = ch_raw_reports
     }
 
+    //
+    // MODULE: Convert classification reports to canonical JSON format
+    // Produces tool-agnostic output for frontend consumption
+    //
+    ch_canonical_classification = Channel.empty()
+    if (params.write_canonical != false) {
+        CANONICAL_CLASSIFICATION_WRITER (
+            ch_raw_reports,
+            Channel.value(classifier),
+            Channel.value("auto")
+        )
+        ch_canonical_classification = CANONICAL_CLASSIFICATION_WRITER.out.canonical
+        ch_versions = ch_versions.mix(CANONICAL_CLASSIFICATION_WRITER.out.versions)
+    }
+
     emit:
+    canonical_classification = ch_canonical_classification // channel: [ val(meta), path(json) ] - Canonical classification JSON
     classified_reads      = ch_classified_reads           // channel: [ val(meta), path(fastq) ]
     unclassified_reads    = ch_unclassified_reads         // channel: [ val(meta), path(fastq) ]
     reads_assignment      = ch_reads_assignment           // channel: [ val(meta), path(txt) ]

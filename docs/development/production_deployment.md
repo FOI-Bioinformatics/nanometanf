@@ -88,16 +88,14 @@ This guide provides comprehensive instructions for deploying nanometanf in produ
 ```bash
 # Production deployment command
 nextflow run foi-bioinformatics/nanometanf \\
-    -profile production \\
-    -c /production/nanometanf/config/production.config \\
     --input /production/nanometanf/data/input/samplesheet.csv \\
     --outdir /production/nanometanf/data/output \\
-    --enable_error_recovery true \\
-    --enable_performance_logging true \\
+    --kraken2_db /production/databases/kraken2 \\
     --max_cpus 32 \\
     --max_memory '256.GB' \\
     --max_time '48.h' \\
     -work-dir /production/nanometanf/work \\
+    -profile docker \\
     -resume
 ```
 
@@ -106,15 +104,13 @@ nextflow run foi-bioinformatics/nanometanf \\
 ```bash
 # SLURM cluster deployment
 nextflow run foi-bioinformatics/nanometanf \\
-    -profile cluster \\
-    -c /shared/nanometanf/config/cluster.config \\
     --input /shared/data/nanometanf/samplesheet.csv \\
     --outdir /shared/results/nanometanf \\
-    --optimization_profile high_throughput \\
+    --kraken2_db /shared/databases/kraken2 \\
     --max_cpus 128 \\
     --max_memory '1.TB' \\
-    --enable_dynamic_resources true \\
     -work-dir /scratch/$USER/nanometanf_work \\
+    -profile singularity \\
     -resume
 ```
 
@@ -123,14 +119,12 @@ nextflow run foi-bioinformatics/nanometanf \\
 ```bash
 # AWS Batch deployment
 nextflow run foi-bioinformatics/nanometanf \\
-    -profile cloud \\
     --input s3://your-bucket/input/samplesheet.csv \\
     --outdir s3://your-bucket/results \\
-    --enable_spot_instances true \\
-    --enable_cost_monitoring true \\
-    --optimization_profile balanced \\
+    --kraken2_db s3://your-bucket/databases/kraken2 \\
     -work-dir s3://your-work-bucket/work \\
     -bucket-dir s3://your-scratch-bucket \\
+    -profile docker \\
     -resume
 ```
 
@@ -234,18 +228,12 @@ Key metrics to monitor:
 
 ### Automated Recovery
 
-```bash
-# Enhanced error handling configuration
-params {
-    enable_error_recovery = true
-    max_retry_attempts = 3
-    retry_exponential_backoff = true
-    error_notification_email = "admin@your-domain.com"
+Nextflow provides built-in retry mechanisms via process directives. Configure retries in your custom config:
 
-    // Error-specific recovery strategies
-    memory_error_multiplier = 2.0
-    disk_error_cleanup = true
-    network_error_delay = "5min"
+```groovy
+process {
+    errorStrategy = 'retry'
+    maxRetries = 3
 }
 ```
 
@@ -322,14 +310,14 @@ sysctl -p
 ### Nextflow Optimization
 
 ```bash
-# Performance-optimized execution
+# Performance-optimized execution with platform profile
 nextflow run foi-bioinformatics/nanometanf \\
-    -profile production \\
-    --optimization_profile high_throughput \\
-    --enable_dynamic_resources true \\
-    --resource_safety_factor 0.9 \\
-    --max_parallel_jobs 50 \\
-    -Xmx8g \\  # Increase Nextflow JVM memory
+    -profile promethion,docker \\
+    --realtime_mode \\
+    --kraken2_enable_incremental true \\
+    --max_classification_forks 8 \\
+    --max_cpus 48 \\
+    --max_memory '128.GB' \\
     -resume
 ```
 

@@ -116,13 +116,12 @@ maintainers:
    - `chopper/` (if local)
    - `nanoplot_compare/`
 
-3. **Resource allocation modules** (6 modules):
-   - `analyze_input_characteristics/`
-   - `monitor_system_resources/`
-   - `predict_resource_requirements/`
-   - `allocate_resources/`
-   - `log_performance_metrics/`
-   - `generate_resource_report/`
+3. **Canonical writer modules** (5 modules):
+   - `canonical_classification_writer/`
+   - `canonical_qc_writer/`
+   - `canonical_validation_writer/`
+   - `canonical_assembly_writer/`
+   - `manifest_writer/`
 
 4. **Utility modules** (remaining modules)
 
@@ -309,7 +308,7 @@ docs/
 │ ├── PROMETHION_OPTIMIZATIONS.md # Platform optimizations
 │ ├── PHASE_1.1_STATUS.md # Incremental Kraken2 status
 │ ├── incremental_kraken2_implementation.md # Kraken2 architecture
-│ ├── dynamic_resource_allocation.md # Dynamic resource docs
+│ ├── nfcore_module_maintenance.md # nf-core module maintenance
 │ ├── production_deployment.md # Production deployment guide
 │ ├── developer_api.md # Developer API
 │ ├── test_organization.md # Test organization

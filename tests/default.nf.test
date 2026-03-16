@@ -31,7 +31,6 @@ nextflow_pipeline {
                 skip_kraken2 = true
                 blast_validation = false
                 realtime_mode = false
-                enable_dynamic_resources = false
             }
         }
 

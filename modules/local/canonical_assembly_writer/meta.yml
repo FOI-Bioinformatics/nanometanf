@@ -1,0 +1,56 @@
+name: "canonical_assembly_writer"
+description: Convert Flye assembly_info.txt to canonical assembly statistics JSON
+keywords:
+  - canonical
+  - assembly
+  - flye
+  - statistics
+  - json
+tools:
+  - assembly_to_canonical.py:
+      description: Converts assembly information to a canonical JSON format
+      homepage: https://github.com/foi-bioinformatics/nanometanf
+      licence: ["MIT"]
+
+input:
+  - meta:
+      type: map
+      description: |
+        Groovy Map containing sample information
+        e.g. [ id:'sample1' ]
+  - assembly_info:
+      type: file
+      description: Assembly information file (Flye assembly_info.txt)
+      pattern: "*.txt"
+  - assembly_fasta:
+      type: file
+      description: Assembly FASTA file for GC content computation (optional)
+      pattern: "*.{fa,fasta,fna}{,.gz}"
+  - tool_name:
+      type: string
+      description: Assembler name (e.g., flye, miniasm)
+  - tool_version:
+      type: string
+      description: Assembler version string
+
+output:
+  - meta:
+      type: map
+      description: |
+        Groovy Map containing sample information
+        e.g. [ id:'sample1' ]
+  - canonical:
+      type: file
+      description: Canonical assembly statistics JSON file
+      pattern: "*.assembly_stats.json"
+  - sidecar:
+      type: file
+      description: Sidecar metadata JSON file
+      pattern: "*.assembly_stats.sidecar.json"
+  - versions:
+      type: file
+      description: File containing software versions
+      pattern: "versions.yml"
+
+authors:
+  - "@andreassjodin"

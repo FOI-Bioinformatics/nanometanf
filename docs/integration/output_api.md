@@ -49,14 +49,21 @@ results/
 ├── validation/                  # BLAST validation (if enabled)
 │   └── {sample_id}_blast.txt       # BLAST results
 │
+├── canonical/                   # Tool-agnostic canonical outputs (if --write_canonical true)
+│   ├── classification/
+│   │   └── {sample_id}.classification.tsv
+│   ├── qc/
+│   │   └── {sample_id}.qc.tsv
+│   ├── validation/
+│   │   └── {sample_id}.validation.tsv
+│   ├── assembly/
+│   │   └── {sample_id}.assembly.tsv
+│   └── _manifest.json             # Output index
+│
 └── realtime/                    # Real-time monitoring outputs (if enabled)
     ├── batch_stats/
     │   ├── batch_{timestamp}.json   # Per-batch processing statistics
     │   └── cumulative_stats.json    # Cumulative statistics
-    │
-    ├── resource_metrics/
-    │   ├── resource_predictions.json # Dynamic resource predictions
-    │   └── system_metrics.json       # System resource usage
     │
     └── monitoring/
         ├── file_discovery.log       # File detection log
