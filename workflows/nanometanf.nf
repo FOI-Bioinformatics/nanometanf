@@ -668,16 +668,24 @@ workflow NANOMETANF {
             log.info "Real-time mode: MultiQC will run once at the end (deferred execution via .collect())"
         }
 
-        // Combine inputs into the tuple format expected by the updated MULTIQC module
+        // Build MULTIQC input tuple
         // New API: tuple val(meta), path(multiqc_files), path(multiqc_config), path(multiqc_logo), path(replace_names), path(sample_names)
-        ch_multiqc_input = Channel.of(1)
-            .combine(ch_multiqc_files.collect())
-            .combine(ch_multiqc_config.collect().ifEmpty([]))
-            .combine(ch_multiqc_custom_config.collect().ifEmpty([]))
-            .combine(ch_multiqc_logo.collect().ifEmpty([]))
-            .map { _dummy, files, config, custom_config, logo ->
-                def all_configs = ([config] + [custom_config]).flatten().findAll { it }
-                [ [id: 'multiqc'], files, all_configs, logo, [], [] ]
+        //
+        // Each channel is collected independently. The .map{[it]} wrapper prevents
+        // .combine() from flattening the inner lists into the result tuple.
+        ch_multiqc_input = ch_multiqc_files
+            .collect().map { [it] }
+            .combine(
+                ch_multiqc_config
+                    .mix(ch_multiqc_custom_config)
+                    .collect().map { [it] }
+            )
+            .combine(
+                ch_multiqc_logo
+                    .toList().map { it.size() > 0 ? [it] : [[]] }
+            )
+            .map { files, configs, logo ->
+                [ [id: 'multiqc'], files, configs, logo, [], [] ]
             }
 
         MULTIQC ( ch_multiqc_input )

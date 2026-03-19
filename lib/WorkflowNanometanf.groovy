@@ -37,6 +37,7 @@ class WorkflowNanometanf {
     private static void validateInputModes(params, log) {
         def input_modes = [
             'samplesheet': params.input,
+            'input_dir': params.input_dir,
             'barcode_discovery': params.barcode_input_dir,
             'static_pod5': (!params.realtime_mode && params.use_dorado && params.pod5_input_dir),
             'realtime_fastq': (params.realtime_mode && !params.use_dorado && params.nanopore_output_dir),
