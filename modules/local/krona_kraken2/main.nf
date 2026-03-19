@@ -1,6 +1,7 @@
 process KRONA_KRAKEN2 {
     tag "$meta.id"
     label 'process_single'
+    maxForks 1
 
     conda "${moduleDir}/environment.yml"
     container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
@@ -25,8 +26,12 @@ process KRONA_KRAKEN2 {
     # Kraken2 format: %reads, #reads_clade, #reads_taxon, rank, taxid, name
     # Krona format: count taxid [taxid taxid...]
 
-    # Import Krona taxonomy database
-    ktUpdateTaxonomy.sh
+    # Import Krona taxonomy database (skip if already present to avoid
+    # redundant downloads; maxForks 1 prevents concurrent access)
+    KRONA_TAX_DIR=\$(dirname \$(which ktUpdateTaxonomy.sh))/../opt/krona/taxonomy
+    if [ ! -s "\$KRONA_TAX_DIR/taxonomy.tab" ]; then
+        ktUpdateTaxonomy.sh
+    fi
 
     # Convert Kraken2 report to Krona input
     awk -F'\\t' '\$4 != "U" {print \$3"\\t"\$5}' ${kraken_report} > ${prefix}.krona.txt
