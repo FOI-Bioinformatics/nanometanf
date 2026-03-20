@@ -31,15 +31,17 @@ nextflow_process {
                     []
                 ]
                 input[1] = 'dna_r10.4.1_e4.3_400bps_hac'
+                input[2] = 10       // min_qscore
+                input[3] = true     // trim_adapters
+                input[4] = false    // trim_barcodes
+                input[5] = false    // demultiplex
+                input[6] = ''       // barcode_kit
+                input[7] = '/custom/path/to/dorado'  // dorado_path
+                input[8] = 'auto'   // dorado_device
                 """
             }
             params {
                 outdir = "$outputDir"
-                dorado_path = '/custom/path/to/dorado'
-                min_qscore = 10
-                trim_adapters = true
-                trim_barcodes = false
-                demultiplex = false
                 skip_kraken2 = true
                 blast_validation = false
             }
@@ -63,12 +65,17 @@ nextflow_process {
                     []
                 ]
                 input[1] = 'dna_r10.4.1_e4.3_400bps_hac'
+                input[2] = 9        // min_qscore
+                input[3] = false    // trim_adapters
+                input[4] = false    // trim_barcodes
+                input[5] = false    // demultiplex
+                input[6] = ''       // barcode_kit
+                input[7] = 'dorado' // dorado_path (default)
+                input[8] = 'auto'   // dorado_device
                 """
             }
             params {
                 outdir = "$outputDir"
-                dorado_path = 'dorado'  // Default
-                min_qscore = 9
                 skip_kraken2 = true
                 blast_validation = false
             }
@@ -92,12 +99,17 @@ nextflow_process {
                     []
                 ]
                 input[1] = 'dna_r10.4.1_e4.3_400bps_sup'
+                input[2] = 12       // min_qscore
+                input[3] = false    // trim_adapters
+                input[4] = false    // trim_barcodes
+                input[5] = false    // demultiplex
+                input[6] = ''       // barcode_kit
+                input[7] = ''       // dorado_path (empty, should fall back to 'dorado')
+                input[8] = 'auto'   // dorado_device
                 """
             }
             params {
                 outdir = "$outputDir"
-                dorado_path = null  // Should fall back to 'dorado'
-                min_qscore = 12
                 skip_kraken2 = true
                 blast_validation = false
             }
@@ -123,11 +135,17 @@ nextflow_process {
                     []
                 ]
                 input[1] = 'dna_r10.4.1_e4.3_400bps_hac'
+                input[2] = 9        // min_qscore
+                input[3] = true     // trim_adapters
+                input[4] = false    // trim_barcodes
+                input[5] = false    // demultiplex
+                input[6] = ''       // barcode_kit
+                input[7] = '/usr/local/dorado-1.2.0/bin/dorado'  // dorado_path
+                input[8] = 'auto'   // dorado_device
                 """
             }
             params {
                 outdir = "$outputDir"
-                dorado_path = '/usr/local/dorado-1.2.0/bin/dorado'
                 skip_kraken2 = true
                 blast_validation = false
             }
@@ -153,12 +171,17 @@ nextflow_process {
                     []
                 ]
                 input[1] = 'dna_r10.4.1_e4.3_400bps_hac'
+                input[2] = 9        // min_qscore
+                input[3] = true     // trim_adapters
+                input[4] = true     // trim_barcodes
+                input[5] = false    // demultiplex
+                input[6] = ''       // barcode_kit
+                input[7] = '/opt/dorado/dorado'  // dorado_path
+                input[8] = 'auto'   // dorado_device
                 """
             }
             params {
                 outdir = "$outputDir"
-                dorado_path = '/opt/dorado/dorado'
-                demultiplex = false
                 skip_kraken2 = true
                 blast_validation = false
             }
