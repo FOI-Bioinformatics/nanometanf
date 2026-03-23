@@ -99,9 +99,13 @@ workflow ASSEMBLY {
     ch_canonical_assembly = Channel.empty()
     if (params.write_canonical != false && assembler == 'flye') {
         // Flye provides assembly_info.txt; miniasm does not produce equivalent stats
+        // Guard against empty input from failed upstream assembly
+        def ch_assembly_info_filtered = ch_assembly_info.filter { it instanceof List && it.size() >= 2 && it[1] != null }
+        def ch_assembly_filtered = ch_assembly.filter { it instanceof List && it.size() >= 2 && it[1] != null }
+
         CANONICAL_ASSEMBLY_WRITER (
-            ch_assembly_info,
-            ch_assembly,
+            ch_assembly_info_filtered,
+            ch_assembly_filtered,
             Channel.value(assembler),
             Channel.value("auto")
         )
