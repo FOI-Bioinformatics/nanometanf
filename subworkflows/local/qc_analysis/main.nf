@@ -297,8 +297,11 @@ workflow QC_ANALYSIS {
         // Use fastp JSON when available, otherwise seqkit stats
         def ch_qc_input = qc_tool == 'fastp' ? ch_qc_json : ch_final_seqkit_stats
 
+        // Guard against empty input from failed upstream QC processes
+        def ch_qc_filtered = ch_qc_input.filter { it instanceof List && it.size() >= 2 && it[1] != null }
+
         CANONICAL_QC_WRITER (
-            ch_qc_input,
+            ch_qc_filtered,
             Channel.value(qc_tool),
             Channel.value("auto")
         )

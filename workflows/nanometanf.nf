@@ -569,9 +569,10 @@ workflow NANOMETANF {
     // Collects tool identity and sample list for frontend discovery
     //
     if (params.write_canonical != false) {
-        // Collect sample IDs from processed samples
+        // Collect unique sample IDs (realtime mode emits duplicates per batch)
         def ch_sample_ids = DEMULTIPLEXING.out.samples
             .map { meta, reads -> meta.id }
+            .unique()
             .collect()
 
         def effective_classifier = (params.kraken2_db && !params.skip_kraken2) ? (params.classifier ?: 'kraken2') : ""
@@ -580,13 +581,44 @@ workflow NANOMETANF {
         def effective_validation = (run_validation_effective && params.pathogen_genomes) ? (params.validation_method ?: 'blast') : ""
         def effective_mode = params.realtime_mode ? "realtime" : "batch"
 
+        // Collect canonical writer outputs so manifest runs after all files are published.
+        // Each subworkflow emits canonical outputs only when write_canonical is enabled.
+        def ch_canonical_done = Channel.empty()
+        if (!params.skip_fastp || !params.skip_nanoplot) {
+            ch_canonical_done = ch_canonical_done.mix(
+                QC_ANALYSIS.out.canonical_qc.map { meta, f -> f }
+            )
+        }
+        if (params.kraken2_db && !params.skip_kraken2) {
+            ch_canonical_done = ch_canonical_done.mix(
+                TAXONOMIC_CLASSIFICATION.out.canonical_classification.map { meta, f -> f }
+            )
+        }
+        if (params.enable_assembly) {
+            ch_canonical_done = ch_canonical_done.mix(
+                ASSEMBLY.out.canonical_assembly.map { meta, f -> f }
+            )
+        }
+        if (run_validation_effective && params.pathogen_genomes) {
+            ch_canonical_done = ch_canonical_done.mix(
+                VALIDATION.out.canonical_alignments.map { meta, f -> f }
+            )
+        }
+
+        // Wait for all canonical files before writing manifest
+        def ch_canonical_ready = ch_canonical_done
+            .collect()
+            .ifEmpty([])
+            .map { 'ready' }
+
         MANIFEST_WRITER (
             Channel.value(effective_classifier),
             Channel.value(effective_qc_tool),
             Channel.value(effective_assembler),
             Channel.value(effective_validation),
             ch_sample_ids,
-            Channel.value(effective_mode)
+            Channel.value(effective_mode),
+            ch_canonical_ready
         )
         ch_versions = ch_versions.mix(MANIFEST_WRITER.out.versions)
     }

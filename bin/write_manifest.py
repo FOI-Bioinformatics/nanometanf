@@ -95,18 +95,25 @@ def main():
         except (json.JSONDecodeError, IOError):
             existing = {}
 
-    # Discover available output files
-    classification_files = discover_files(
-        args.outdir, "classification", ".classification.json"
+    # Build expected file lists from samples and tool arguments.
+    # File discovery is unreliable because MANIFEST_WRITER runs in its own
+    # work directory, not the final publishDir. Instead, derive expected
+    # filenames from the known samples and active tools.
+    classification_files = (
+        sorted(f"{s}.classification.json" for s in samples)
+        if args.classifier else []
     )
-    qc_files = discover_files(
-        args.outdir, "qc", ".qc_stats.json"
+    qc_files = (
+        sorted(f"{s}.qc_stats.json" for s in samples)
+        if args.qc_tool else []
     )
-    validation_files = discover_files(
-        args.outdir, "validation", ".json"
-    )
-    assembly_files = discover_files(
-        args.outdir, "assembly", ".assembly_stats.json"
+    # Validation filenames include taxid and cannot be predicted from samples
+    # alone. Mark as available when validation is active; files can be
+    # discovered by the frontend from the validation/ directory.
+    validation_available = bool(args.validation_method)
+    assembly_files = (
+        sorted(f"{s}.assembly_stats.json" for s in samples)
+        if args.assembler else []
     )
 
     manifest = {
@@ -144,8 +151,8 @@ def main():
                 "files": qc_files,
             },
             "validation": {
-                "available": len(validation_files) > 0,
-                "files": validation_files,
+                "available": validation_available,
+                "files": [],
             },
             "assembly": {
                 "available": len(assembly_files) > 0,

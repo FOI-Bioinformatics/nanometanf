@@ -373,8 +373,11 @@ workflow TAXONOMIC_CLASSIFICATION {
     //
     ch_canonical_classification = Channel.empty()
     if (params.write_canonical != false) {
+        // Guard against empty input from failed upstream classification
+        def ch_reports_filtered = ch_raw_reports.filter { it instanceof List && it.size() >= 2 && it[1] != null }
+
         CANONICAL_CLASSIFICATION_WRITER (
-            ch_raw_reports,
+            ch_reports_filtered,
             Channel.value(classifier),
             Channel.value("auto")
         )

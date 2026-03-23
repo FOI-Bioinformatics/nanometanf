@@ -13,6 +13,7 @@ process MANIFEST_WRITER {
     val(validation_method)
     val(sample_ids)
     val(mode)
+    val(canonical_ready)
 
     output:
     path "_manifest.json",  emit: manifest

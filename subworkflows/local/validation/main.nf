@@ -201,8 +201,11 @@ workflow VALIDATION {
             )
         }
 
+        // Guard against empty input from failed upstream validation
+        def ch_for_canonical_filtered = ch_for_canonical.filter { it instanceof List && it.size() >= 2 && it[1] != null }
+
         CANONICAL_VALIDATION_WRITER (
-            ch_for_canonical
+            ch_for_canonical_filtered
         )
         ch_canonical_alignments = CANONICAL_VALIDATION_WRITER.out.canonical
         ch_versions = ch_versions.mix(CANONICAL_VALIDATION_WRITER.out.versions)
