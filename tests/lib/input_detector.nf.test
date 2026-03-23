@@ -76,14 +76,14 @@ nextflow_function {
         }
     }
 
-    test("extractSampleId should fall back to BarcodeUtils") {
+    test("extractSampleId should use BarcodeUtils in MinKNOW output dir") {
 
         function "extractSampleId"
 
         when {
             function {
                 """
-                input[0] = "/tmp/reads_barcode05.fastq.gz"
+                input[0] = "/data/fastq_pass/reads_barcode05.fastq.gz"
                 input[1] = null
                 input[2] = null
                 """
@@ -92,6 +92,25 @@ nextflow_function {
 
         then {
             assert function.result == "barcode05"
+        }
+    }
+
+    test("extractSampleId should not extract barcode from filename in flat dir") {
+
+        function "extractSampleId"
+
+        when {
+            function {
+                """
+                input[0] = "/tmp/LVS_1_barcode11_chunk_0000.fastq.gz"
+                input[1] = null
+                input[2] = null
+                """
+            }
+        }
+
+        then {
+            assert function.result == "LVS_1_barcode11_chunk_0000"
         }
     }
 }

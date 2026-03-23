@@ -70,10 +70,13 @@ class InputDetector {
             }
         }
 
-        // 3. BarcodeUtils extraction from filename
-        def barcode = BarcodeUtils.extractBarcodeFromFilename(stem)
-        if (barcode) {
-            return barcode
+        // 3. BarcodeUtils extraction from filename - only when parent suggests
+        //    a MinKNOW output structure, to avoid false positives in singleplex mode
+        if (parentName && parentName =~ /^(fastq_pass|fast5_pass|pod5_pass|output)$/) {
+            def barcode = BarcodeUtils.extractBarcodeFromFilename(stem)
+            if (barcode) {
+                return barcode
+            }
         }
 
         // 4. Fallback

@@ -300,7 +300,7 @@ workflow NANOMETANF {
             // Real-time FASTQ monitoring
             REALTIME_MONITORING (
                 params.nanopore_output_dir,
-                params.file_pattern ?: "**/*.fastq{,.gz}",
+                params.file_pattern ?: "**.fastq{,.gz}",
                 params.batch_size ?: 10,
                 params.batch_interval ?: "5min"
             )
