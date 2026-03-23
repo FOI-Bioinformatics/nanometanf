@@ -499,6 +499,23 @@
                     "default": true,
                     "description": "Trim barcodes during demultiplexing.",
                     "fa_icon": "fas fa-cut"
+                },
+                "dorado_basecall_speed": {
+                    "type": "string",
+                    "default": "fast",
+                    "description": "Dorado basecalling speed preset.",
+                    "fa_icon": "fas fa-tachometer-alt"
+                },
+                "dorado_local_path": {
+                    "type": "string",
+                    "description": "Path to a local Dorado binary (overrides container-provided binary).",
+                    "fa_icon": "fas fa-terminal"
+                },
+                "dorado_path_fix": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Enable Dorado PATH fix workaround for container environments.",
+                    "fa_icon": "fas fa-wrench"
                 }
             }
         },
@@ -617,6 +634,12 @@
                     "description": "Run MultiQC report generation only at the end of real-time processing (PromethION optimization).",
                     "fa_icon": "fas fa-stopwatch",
                     "help_text": "Leverages Nextflow .collect() operator to defer MultiQC execution until all batch files are available. Saves 3-9 minutes by avoiding redundant file parsing."
+                },
+                "fastp_streaming_extra_args": {
+                    "type": "string",
+                    "default": "",
+                    "description": "Additional arguments passed to FASTP in streaming mode.",
+                    "fa_icon": "fas fa-cog"
                 }
             }
         },
@@ -860,6 +883,24 @@
                     "description": "Deprecated: use taxids_to_validate instead.",
                     "fa_icon": "fas fa-list",
                     "hidden": true
+                },
+                "validation_only": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Run validation without re-running classification.",
+                    "fa_icon": "fas fa-check-double"
+                },
+                "kraken2_output_dir": {
+                    "type": "string",
+                    "format": "directory-path",
+                    "description": "Path to existing Kraken2 output directory (for validation_only mode).",
+                    "fa_icon": "fas fa-folder-open"
+                },
+                "reads_dir": {
+                    "type": "string",
+                    "format": "directory-path",
+                    "description": "Path to existing FASTQ files (for validation_only mode).",
+                    "fa_icon": "fas fa-folder"
                 }
             }
         },
@@ -985,6 +1026,9 @@
         },
         {
             "$ref": "#/$defs/assembly_options"
+        },
+        {
+            "$ref": "#/$defs/canonical_output_options"
         },
         {
             "$ref": "#/$defs/reporting_visualization_options"

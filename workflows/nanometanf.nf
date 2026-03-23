@@ -638,19 +638,13 @@ workflow NANOMETANF {
     // MODULE: Generate nanopore-specific MultiQC custom content (optional)
     //
     if (params.enable_nanopore_stats_mqc) {
-        // Collect sample statistics from QC outputs
-        ch_sample_stats = ch_qc_reports
-            .map { meta, report ->
-                [
-                    sample_id: meta.id,
-                    barcode: meta.barcode ?: 'unclassified',
-                    report_path: report.toString()
-                ]
-            }
+        // Collect SeqKit/FASTP stats as file inputs for nanopore statistics
+        ch_stats_files = QC_ANALYSIS.out.qc_json
+            .map { meta, stats_file -> stats_file }
             .collect()
 
         MULTIQC_NANOPORE_STATS (
-            ch_sample_stats,
+            ch_stats_files,
             'nanometanf'
         )
         ch_versions = ch_versions.mix(MULTIQC_NANOPORE_STATS.out.versions)

@@ -8,7 +8,7 @@ process MULTIQC_NANOPORE_STATS {
         'quay.io/biocontainers/multiqc:1.21--pyhdfd78af_0' }"
 
     input:
-    val(sample_stats)  // List of sample statistics from various sources
+    path(stats_files)  // SeqKit TSV or FASTP JSON files
     val(prefix)
 
     output:
@@ -21,45 +21,69 @@ process MULTIQC_NANOPORE_STATS {
     script:
     """
     #!/usr/bin/env python3
+    import csv
     import json
+    import os
     import sys
-    from collections import defaultdict
 
-    sample_stats = ${groovy.json.JsonOutput.toJson(sample_stats)}
+    # Parse SeqKit stats TSV files and FASTP JSON files
+    samples = {}
 
-    # Generate MultiQC custom content for nanopore statistics
-    # Format: https://multiqc.info/docs/#custom-content
+    for f in os.listdir('.'):
+        if f.endswith('.tsv'):
+            # SeqKit stats TSV format
+            with open(f) as fh:
+                reader = csv.DictReader(fh, delimiter='\\t')
+                for row in reader:
+                    # SeqKit stats columns: file, format, type, num_seqs, sum_len,
+                    # min_len, avg_len, max_len, Q1, Q2, Q3, sum_gap, N50, Q20(%), Q30(%)
+                    sample_id = os.path.splitext(f)[0]
+                    # Strip .chopped suffix if present
+                    sample_id = sample_id.replace('.chopped', '')
+                    samples[sample_id] = {
+                        'Total Reads': int(row.get('num_seqs', 0)),
+                        'Total Bases': int(row.get('sum_len', 0)),
+                        'Mean Read Length': round(float(row.get('avg_len', 0)), 1),
+                        'Min Read Length': int(row.get('min_len', 0)),
+                        'Max Read Length': int(row.get('max_len', 0)),
+                        'N50': int(row.get('N50', 0)),
+                        'Mean Quality': round(float(row.get('Q2', 0)), 1) if row.get('Q2') else 0,
+                    }
+        elif f.endswith('.json') and not f.endswith('_mqc.json'):
+            # FASTP JSON format
+            try:
+                with open(f) as fh:
+                    data = json.load(fh)
+                sample_id = os.path.splitext(f)[0].replace('.fastp', '')
+                summary = data.get('summary', {})
+                before = summary.get('before_filtering', {})
+                after = summary.get('after_filtering', {})
+                src = after if after else before
+                samples[sample_id] = {
+                    'Total Reads': src.get('total_reads', 0),
+                    'Total Bases': src.get('total_bases', 0),
+                    'Mean Read Length': round(src.get('total_bases', 0) / max(src.get('total_reads', 1), 1), 1),
+                    'Mean Quality': round(src.get('q30_rate', 0) * 30, 1),
+                    'Q20 Rate': round(src.get('q20_rate', 0) * 100, 1),
+                    'Q30 Rate': round(src.get('q30_rate', 0) * 100, 1),
+                }
+            except (json.JSONDecodeError, KeyError):
+                pass
 
-    # 1. General Statistics Table
+    # Generate MultiQC custom content
     general_stats = {
         "id": "nanopore_general_stats",
         "section_name": "Nanopore Sequencing Statistics",
-        "description": "Overview of Oxford Nanopore sequencing run metrics",
+        "description": "Overview of sequencing run metrics after quality filtering",
         "plot_type": "table",
         "pconfig": {
             "id": "nanopore_stats_table",
             "title": "Nanopore Run Summary"
         },
-        "data": {}
+        "data": samples
     }
 
-    # 2. Read Length Distribution
-    read_length_data = {
-        "id": "nanopore_read_length",
-        "section_name": "Read Length Distribution",
-        "description": "Distribution of read lengths across all samples",
-        "plot_type": "linegraph",
-        "pconfig": {
-            "id": "nanopore_read_length_plot",
-            "title": "Read Length Distribution",
-            "xlab": "Read Length (bp)",
-            "ylab": "Number of Reads",
-            "yLog": True
-        },
-        "data": {}
-    }
-
-    # 3. Quality Score Distribution
+    # Quality distribution bar graph
     quality_data = {
         "id": "nanopore_quality",
         "section_name": "Quality Score Distribution",
@@ -70,58 +94,17 @@ process MULTIQC_NANOPORE_STATS {
             "title": "Quality Score Distribution",
             "ylab": "Mean Quality Score"
         },
-        "data": {}
+        "data": {s: {"Quality Score": d.get("Mean Quality", 0)} for s, d in samples.items()}
     }
-
-    # Parse sample statistics
-    for sample in sample_stats:
-        sample_id = sample.get('sample_id', 'unknown')
-
-        # General stats
-        general_stats['data'][sample_id] = {
-            'Total Reads': sample.get('total_reads', 0),
-            'Total Bases': sample.get('total_bases', 0),
-            'Mean Read Length': sample.get('mean_length', 0),
-            'Median Read Length': sample.get('median_length', 0),
-            'N50': sample.get('n50', 0),
-            'Mean Quality': sample.get('mean_quality', 0)
-        }
-
-        # Read length distribution (if available)
-        if 'read_length_histogram' in sample:
-            read_length_data['data'][sample_id] = sample['read_length_histogram']
-
-        # Quality distribution
-        if 'mean_quality' in sample:
-            quality_data['data'][sample_id] = {
-                'Quality Score': sample['mean_quality']
-            }
 
     # Write MultiQC JSON files
     with open('${prefix}_nanopore_stats_mqc.json', 'w') as f:
         json.dump(general_stats, f, indent=2)
 
-    with open('${prefix}_read_length_mqc.json', 'w') as f:
-        json.dump(read_length_data, f, indent=2)
-
     with open('${prefix}_quality_mqc.json', 'w') as f:
         json.dump(quality_data, f, indent=2)
 
-    # Write YAML config for MultiQC
-    multiqc_config = {
-        'custom_data': {
-            'nanopore_stats': {
-                'file_format': 'json',
-                'section_name': 'Nanopore Sequencing',
-                'plot_type': 'table'
-            }
-        }
-    }
-
-    with open('${prefix}_multiqc_config_mqc.json', 'w') as f:
-        json.dump(multiqc_config, f, indent=2)
-
-    print(f"Generated MultiQC custom content for {len(sample_stats)} samples", file=sys.stderr)
+    print(f"Generated MultiQC custom content for {len(samples)} samples", file=sys.stderr)
 
     # Write versions
     with open('versions.yml', 'w') as f:
@@ -132,9 +115,7 @@ process MULTIQC_NANOPORE_STATS {
     stub:
     """
     touch ${prefix}_nanopore_stats_mqc.json
-    touch ${prefix}_read_length_mqc.json
     touch ${prefix}_quality_mqc.json
-    touch ${prefix}_multiqc_config_mqc.json
 
     cat <<-END_VERSIONS > versions.yml
 "${task.process}":
