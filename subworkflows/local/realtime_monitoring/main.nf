@@ -53,6 +53,28 @@ workflow REALTIME_MONITORING {
             existing_list = [existing_files]
         }
 
+        // Sort existing files with round-robin interleaving by parent directory
+        // (typically barcode directories). This ensures take(max_files) selects
+        // files fairly across all barcodes rather than in filesystem order.
+        def grouped = existing_list.groupBy { it.parent.name }
+        def sorted_list = []
+        if (grouped.size() > 1) {
+            // Multiple parent directories: interleave with round-robin
+            def sorted_groups = grouped.collect { k, v -> v.sort { it.name } }
+            def max_group_size = sorted_groups.collect { it.size() }.max()
+            for (int i = 0; i < max_group_size; i++) {
+                for (def group : sorted_groups) {
+                    if (i < group.size()) {
+                        sorted_list.add(group[i])
+                    }
+                }
+            }
+        } else {
+            // Single directory: simple alphabetical sort
+            sorted_list = existing_list.sort { it.name }
+        }
+        existing_list = sorted_list
+
         def existing_count = existing_list.size()
 
         if (existing_count > 0) {
@@ -88,6 +110,18 @@ workflow REALTIME_MONITORING {
             return true
         }
         def ch_all_files = ch_stable
+
+        // Log truncation warning if take() will exclude some existing files
+        if (params.max_files && existing_count > params.max_files.toInteger()) {
+            def limit = params.max_files.toInteger()
+            def included = existing_list.take(limit)
+            def excluded = existing_list.drop(limit)
+            def included_counts = included.countBy { it.parent.name }
+            def excluded_counts = excluded.countBy { it.parent.name }
+            log.warn "take(${limit}) will truncate ${existing_count} existing files"
+            log.warn "  Included per directory: ${included_counts}"
+            log.warn "  Excluded per directory: ${excluded_counts}"
+        }
 
         // Apply timeout or max_files limit
         // Note: Nextflow does not have .scan() operator for stateful streaming.
