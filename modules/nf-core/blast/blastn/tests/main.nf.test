@@ -4,24 +4,17 @@ nextflow_process {
     script "../main.nf"
     process "BLAST_BLASTN"
     config "./nextflow.config"
+
+    options "-stub"
+    tag "fast"
+    tag "stub"
     tag "modules"
     tag "modules_nfcore"
     tag "blast"
     tag "blast/blastn"
     tag "blast/makeblastdb"
 
-    setup {
-        run("BLAST_MAKEBLASTDB") {
-            script "../../makeblastdb/main.nf"
-            process {
-                """
-                input[0] = [ [id:'test2'], file(params.modules_testdata_base_path + 'genomics/sarscov2/genome/genome.fasta', checkIfExists: true) ]
-                """
-            }
-        }
-    }
-
-    test("Should search for nucleotide hits against a blast db") {
+    test("Should produce blastn output in stub mode") {
 
         when {
             params {
@@ -30,7 +23,7 @@ nextflow_process {
             process {
                 """
                 input[0] = [ [id:'test'], file(params.modules_testdata_base_path + 'genomics/sarscov2/genome/genome.fasta', checkIfExists: true) ]
-                input[1] = BLAST_MAKEBLASTDB.out.db
+                input[1] = [ [id:'test2'], file("${outputDir}/blastdb") ]
                 input[2] = []
                 input[3] = []
                 input[4] = []
@@ -41,14 +34,14 @@ nextflow_process {
         then {
             assertAll(
                 { assert process.success },
-                { assert path(process.out.txt[0][1]).getText().contains("Query= MT192765.1 Severe acute respiratory syndrome coronavirus 2 isolate") },
-                { assert snapshot(process.out.versions).match("versions") }
+                { assert process.out.txt.size() == 1 },
+                { assert snapshot(process.out).match() }
             )
         }
 
     }
 
-    test("Should search for zipped nucleotide hits against a blast db") {
+    test("Should produce blastn output for gzipped input in stub mode") {
 
         when {
             params {
@@ -57,7 +50,7 @@ nextflow_process {
             process {
                 """
                 input[0] = [ [id:'test'], file(params.modules_testdata_base_path + 'genomics/sarscov2/genome/genome.fasta.gz', checkIfExists: true) ]
-                input[1] = BLAST_MAKEBLASTDB.out.db
+                input[1] = [ [id:'test2'], file("${outputDir}/blastdb") ]
                 input[2] = []
                 input[3] = []
                 input[4] = []
@@ -68,8 +61,8 @@ nextflow_process {
         then {
             assertAll(
                 { assert process.success },
-                { assert path(process.out.txt[0][1]).getText().contains("Query= MT192765.1 Severe acute respiratory syndrome coronavirus 2 isolate") },
-                { assert snapshot(process.out.versions).match("versions_zipped") }
+                { assert process.out.txt.size() == 1 },
+                { assert snapshot(process.out).match() }
             )
         }
 

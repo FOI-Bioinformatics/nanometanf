@@ -2,6 +2,7 @@ nextflow_pipeline {
 
     name "Test pipeline"
     script "../main.nf"
+    tag "slow"
     tag "pipeline"
 
     test("-profile test") {

@@ -4,6 +4,7 @@ nextflow_function {
     name "Test Functions"
     script "../main.nf"
     config "subworkflows/nf-core/utils_nfcore_pipeline/tests/nextflow.config"
+    tag "medium"
     tag "subworkflows"
     tag "subworkflows_nfcore"
     tag "utils_nfcore_pipeline"

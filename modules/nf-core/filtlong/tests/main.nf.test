@@ -5,7 +5,9 @@ nextflow_process {
     process "FILTLONG"
 
     options "-stub"
+    tag "stub"
     config "./nextflow.config"
+    tag "fast"
     tag "filtlong"
     tag "modules"
     tag "modules_nfcore"
