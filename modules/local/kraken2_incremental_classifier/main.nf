@@ -12,6 +12,7 @@ process KRAKEN2_INCREMENTAL_CLASSIFIER {
     path  db
     val   save_output_fastqs
     val   save_reads_assignment
+    val   use_memory_mapping
 
     output:
     tuple val(meta), path('*.kraken2.output.txt')       , emit: raw_kraken2_output
@@ -36,6 +37,7 @@ process KRAKEN2_INCREMENTAL_CLASSIFIER {
     def classified_option = save_output_fastqs ? "--classified-out ${classified}" : ""
     def unclassified_option = save_output_fastqs ? "--unclassified-out ${unclassified}" : ""
     def readclassification_option = save_reads_assignment ? "--output ${prefix}.kraken2.classifiedreads.txt" : "--output /dev/null"
+    def memory_mapping = use_memory_mapping ? "--memory-mapping" : ""
 
     """
     #!/bin/bash
@@ -54,6 +56,7 @@ process KRAKEN2_INCREMENTAL_CLASSIFIER {
         --threads ${task.cpus} \\
         --report ${prefix}.kraken2.report.txt \\
         --gzip-compressed \\
+        $memory_mapping \\
         $unclassified_option \\
         $classified_option \\
         $readclassification_option \\
