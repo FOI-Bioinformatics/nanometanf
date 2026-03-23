@@ -401,6 +401,26 @@
                     "description": "Additional minutes to wait for downstream processing after file detection timeout.",
                     "fa_icon": "fas fa-hourglass-end",
                     "help_text": "Grace period after realtime_timeout_minutes expires to allow downstream processes to complete."
+                },
+                "report_write_interval": {
+                    "type": "integer",
+                    "default": 5,
+                    "minimum": 0,
+                    "description": "Write cumulative Kraken2 report every N batches (0 = every batch).",
+                    "fa_icon": "fas fa-pen"
+                },
+                "skip_fastqc_realtime": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Skip FastQC in real-time mode (SeqKit provides sufficient QC statistics).",
+                    "fa_icon": "fas fa-forward"
+                },
+                "validation_aggregate_interval": {
+                    "type": "integer",
+                    "default": 0,
+                    "minimum": 0,
+                    "description": "Emit intermediate validation results every N results (0 = end-of-session only).",
+                    "fa_icon": "fas fa-filter"
                 }
             }
         },

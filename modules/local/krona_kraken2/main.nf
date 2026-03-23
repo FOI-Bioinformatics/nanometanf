@@ -2,6 +2,7 @@ process KRONA_KRAKEN2 {
     tag "$meta.id"
     label 'process_single'
     maxForks 1
+    errorStrategy 'ignore'
 
     conda "${moduleDir}/environment.yml"
     container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
@@ -30,7 +31,13 @@ process KRONA_KRAKEN2 {
     # redundant downloads; maxForks 1 prevents concurrent access)
     KRONA_TAX_DIR=\$(dirname \$(which ktUpdateTaxonomy.sh))/../opt/krona/taxonomy
     if [ ! -s "\$KRONA_TAX_DIR/taxonomy.tab" ]; then
-        ktUpdateTaxonomy.sh
+        echo "Krona taxonomy database not found, attempting download..."
+        if ! ktUpdateTaxonomy.sh 2>&1; then
+            echo "WARNING: Krona taxonomy download failed (no internet?)." >&2
+            echo "Generating Krona plot without taxonomy names." >&2
+            mkdir -p "\$KRONA_TAX_DIR"
+            touch "\$KRONA_TAX_DIR/taxonomy.tab"
+        fi
     fi
 
     # Convert Kraken2 report to Krona input
