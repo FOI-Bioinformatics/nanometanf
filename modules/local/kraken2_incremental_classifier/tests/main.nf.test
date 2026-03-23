@@ -31,6 +31,7 @@ nextflow_process {
                 input[1] = file(params.modules_testdata_base_path + "genomics/sarscov2/genome/db/kraken2.tar.gz", checkIfExists: true)
                 input[2] = false
                 input[3] = false
+                input[4] = false
                 """
             }
         }
@@ -57,6 +58,7 @@ nextflow_process {
                 input[1] = file(params.modules_testdata_base_path + "genomics/sarscov2/genome/db/kraken2.tar.gz", checkIfExists: true)
                 input[2] = false
                 input[3] = false
+                input[4] = false
                 """
             }
         }
@@ -85,6 +87,7 @@ nextflow_process {
                 input[1] = file(params.modules_testdata_base_path + "genomics/sarscov2/genome/db/kraken2.tar.gz", checkIfExists: true)
                 input[2] = true
                 input[3] = false
+                input[4] = false
                 """
             }
         }
@@ -114,6 +117,7 @@ nextflow_process {
                 input[1] = file(params.modules_testdata_base_path + "genomics/sarscov2/genome/db/kraken2.tar.gz", checkIfExists: true)
                 input[2] = true
                 input[3] = false
+                input[4] = false
                 """
             }
         }
@@ -142,6 +146,7 @@ nextflow_process {
                 input[1] = file(params.modules_testdata_base_path + "genomics/sarscov2/genome/db/kraken2.tar.gz", checkIfExists: true)
                 input[2] = false
                 input[3] = true
+                input[4] = false
                 """
             }
         }
@@ -166,6 +171,7 @@ nextflow_process {
                 input[1] = file(params.modules_testdata_base_path + "genomics/sarscov2/genome/db/kraken2.tar.gz", checkIfExists: true)
                 input[2] = false
                 input[3] = false
+                input[4] = false
                 """
             }
         }

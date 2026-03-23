@@ -18,6 +18,7 @@
 include { KRAKEN2_KRAKEN2                } from "${projectDir}/modules/nf-core/kraken2/kraken2/main"
 include { KRAKEN2_OPTIMIZED              } from "${projectDir}/modules/local/kraken2_optimized/main"
 include { KRAKEN2_INCREMENTAL_CLASSIFIER } from "${projectDir}/modules/local/kraken2_incremental_classifier/main"
+include { KRAKEN2_DB_PRELOAD             } from "${projectDir}/modules/local/kraken2_db_preload/main"
 include { KRAKEN2_OUTPUT_MERGER          } from "${projectDir}/modules/local/kraken2_output_merger/main"
 include { KRAKEN2_REPORT_GENERATOR       } from "${projectDir}/modules/local/kraken2_report_generator/main"
 include { KRAKEN2_FINAL_AGGREGATOR       } from "${projectDir}/modules/local/kraken2_final_aggregator/main"
@@ -51,9 +52,13 @@ workflow TAXONOMIC_CLASSIFICATION {
     // Memory-mapping enables OS-level database caching, eliminating redundant disk I/O across batches
     //
     def auto_enable_optimizations = params.realtime_mode && !params.kraken2_use_optimizations
-    // Allow explicit override of memory mapping (e.g., for ARM Mac compatibility where mmap crashes)
-    // In real-time mode, default to true unless explicitly set to false
-    def use_memory_mapping = params.kraken2_memory_mapping
+    // Auto-disable memory-mapping on ARM (Apple Silicon / aarch64) where x86 emulation
+    // via Rosetta can cause SIGSEGV crashes with memory-mapped Kraken2 databases.
+    def is_arm = System.getProperty('os.arch')?.contains('aarch64') || System.getProperty('os.arch')?.contains('arm')
+    def use_memory_mapping = is_arm ? false : params.kraken2_memory_mapping
+    if (is_arm && params.kraken2_memory_mapping) {
+        log.warn "ARM architecture detected - disabling Kraken2 memory-mapping to avoid SIGSEGV under emulation"
+    }
     def use_optimizations = params.realtime_mode ? true : params.kraken2_use_optimizations
 
     if (auto_enable_optimizations && classifier == 'kraken2') {
@@ -77,6 +82,19 @@ workflow TAXONOMIC_CLASSIFICATION {
         log.info "  - Incremental taxid counting (no full file re-reads)"
         log.info "  - Concurrency limit: ${params.max_classification_forks ?: 8} parallel Kraken2 jobs"
         log.info "  - Final aggregation at end-of-session"
+    }
+
+    //
+    // DATABASE PRELOAD: Load hash.k2d into OS page cache before classification
+    // When memory-mapping is enabled, all Kraken2 forks share the cached pages.
+    // The preloaded db channel ensures classification waits for preload completion.
+    //
+    if (use_memory_mapping && classifier == 'kraken2') {
+        KRAKEN2_DB_PRELOAD(ch_db)
+        ch_db_ready = KRAKEN2_DB_PRELOAD.out.db
+        ch_versions = ch_versions.mix(KRAKEN2_DB_PRELOAD.out.versions)
+    } else {
+        ch_db_ready = ch_db
     }
 
     //
@@ -131,9 +149,10 @@ workflow TAXONOMIC_CLASSIFICATION {
                 //
                 KRAKEN2_INCREMENTAL_CLASSIFIER (
                     ch_reads_with_batch,
-                    ch_db,
+                    ch_db_ready,
                     params.save_output_fastqs ?: false,
-                    params.save_reads_assignment ?: false
+                    params.save_reads_assignment ?: false,
+                    use_memory_mapping
                 )
                 ch_versions = ch_versions.mix(KRAKEN2_INCREMENTAL_CLASSIFIER.out.versions.ifEmpty([]))
 
@@ -162,7 +181,7 @@ workflow TAXONOMIC_CLASSIFICATION {
                 //
                 KRAKEN2_REPORT_GENERATOR (
                     KRAKEN2_OUTPUT_MERGER.out.merger_output,
-                    ch_db
+                    ch_db_ready
                 )
                 ch_versions = ch_versions.mix(KRAKEN2_REPORT_GENERATOR.out.versions)
 
@@ -307,7 +326,7 @@ workflow TAXONOMIC_CLASSIFICATION {
 
                 KRAKEN2_OPTIMIZED (
                     ch_reads,
-                    ch_db,
+                    ch_db_ready,
                     params.save_output_fastqs ?: false,
                     params.save_reads_assignment ?: false,
                     use_memory_mapping,
@@ -325,7 +344,7 @@ workflow TAXONOMIC_CLASSIFICATION {
             } else {
                 KRAKEN2_KRAKEN2 (
                     ch_reads,
-                    ch_db,
+                    ch_db_ready,
                     params.save_output_fastqs ?: false,    // save_output_fastqs
                     params.save_reads_assignment ?: false  // save_reads_assignment
                 )
