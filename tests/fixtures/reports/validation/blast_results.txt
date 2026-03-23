@@ -1,0 +1,2 @@
+qseqid	sseqid	pident
+seq1	ref1	95.5
