@@ -1,6 +1,7 @@
 nextflow_process {
 
     name "Test Process NANOPLOT"
+    tag "fast"
     tag "modules_nfcore"
     tag "modules"
     tag "nanoplot"
@@ -8,6 +9,7 @@ nextflow_process {
     process "NANOPLOT"
 
     options "-stub"
+    tag "stub"
     test("NanoPlot summary") {
 
         when {

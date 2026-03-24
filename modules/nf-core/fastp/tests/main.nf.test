@@ -5,6 +5,8 @@ nextflow_process {
     process "FASTP"
 
     options "-stub"
+    tag "stub"
+    tag "fast"
     tag "modules"
     tag "modules_nfcore"
     tag "fastp"

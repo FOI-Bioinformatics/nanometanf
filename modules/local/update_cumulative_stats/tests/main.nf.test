@@ -5,6 +5,7 @@ nextflow_process {
     process "UPDATE_CUMULATIVE_STATS"
 
     options "-stub"
+    tag "stub"
     // Test Level & Component
     tag "module"
     tag "update_cumulative_stats"

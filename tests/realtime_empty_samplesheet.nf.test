@@ -83,16 +83,6 @@ nextflow_pipeline {
 
     test("Should handle real-time mode with pre-existing files") {
 
-        setup {
-            // Create test directory with FASTQ files
-            def testDir = file("$projectDir/tests/realtime_existing_files")
-            testDir.mkdirs()
-
-            // Create small test FASTQ files
-            file("${testDir}/test1.fastq.gz").text = ""
-            file("${testDir}/test2.fastq.gz").text = ""
-        }
-
         when {
             params {
                 input = false
@@ -102,7 +92,7 @@ nextflow_pipeline {
                 blast_validation = false
                 // Real-time mode with existing files
                 realtime_mode = true
-                nanopore_output_dir = "$projectDir/tests/realtime_existing_files"
+                nanopore_output_dir = "$projectDir/tests/fixtures/realtime"
                 file_pattern = "*.fastq.gz"
                 batch_size = 5
                 batch_interval = "5s"
@@ -121,14 +111,6 @@ nextflow_pipeline {
 
         then {
             assert workflow.success || workflow.failed
-        }
-
-        cleanup {
-            // Clean up test files
-            def testDir = file("$projectDir/tests/realtime_existing_files")
-            if (testDir.exists()) {
-                testDir.deleteDir()
-            }
         }
     }
 }

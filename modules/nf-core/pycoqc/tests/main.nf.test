@@ -6,6 +6,8 @@ nextflow_process {
     process "PYCOQC"
 
     options "-stub"
+    tag "stub"
+    tag "fast"
     tag "modules"
     tag "modules_nfcore"
     tag "pycoqc"

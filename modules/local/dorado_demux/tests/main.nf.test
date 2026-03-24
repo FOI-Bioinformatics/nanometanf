@@ -5,6 +5,7 @@ nextflow_process {
     process "DORADO_DEMUX"
 
     options "-stub"
+    tag "stub"
     // Test Level & Component
     tag "module"
     tag "dorado_demux"

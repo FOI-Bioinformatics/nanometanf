@@ -346,26 +346,17 @@ nextflow_workflow {
 
     test("Should handle edge cases with small or malformed files") {
 
-        setup {
-            """
-            # Create problematic files
-            echo -e "@read1\nATCG\n+\n!!!!" | gzip > $outputDir/tiny_sample.fastq.gz
-            touch $outputDir/empty_sample.fastq.gz
-            echo "not a fastq file" > $outputDir/malformed.txt
-            """
-        }
-
         when {
             workflow {
                 """
                 input[0] = [
                     [
                         [id: 'tiny_test', single_end: true],
-                        file('$outputDir/tiny_sample.fastq.gz')
+                        file('$projectDir/tests/fixtures/fastq/edge_cases/tiny_sample.fastq.gz')
                     ],
                     [
                         [id: 'empty_test', single_end: true],
-                        file('$outputDir/empty_sample.fastq.gz')
+                        file('$projectDir/tests/fixtures/fastq/edge_cases/empty_sample.fastq.gz')
                     ]
                 ]
                 """

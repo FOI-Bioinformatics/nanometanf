@@ -24,15 +24,6 @@ nextflow_process {
 
         tag "basecalling"
 
-        setup {
-            """
-            // Create test POD5 file structure (simulate with dummy files)
-            mkdir -p $outputDir/test_pod5_input
-            echo 'dummy pod5 content' > $outputDir/test_pod5_input/test.pod5
-            echo 'dummy pod5 content 2' > $outputDir/test_pod5_input/test2.pod5
-            """
-        }
-
         when {
             process {
                 """
@@ -42,7 +33,7 @@ nextflow_process {
                         single_end: true,
                         basecalling_model: 'dna_r10.4.1_e8.2_400bps_hac@v4.2.0'
                     ],
-                    file('$outputDir/test_pod5_input')
+                    file('$projectDir/tests/fixtures/pod5/multi_file')
                 ]
                 input[1] = 'dna_r10.4.1_e8.2_400bps_hac@v4.2.0'
                 """
@@ -59,13 +50,6 @@ nextflow_process {
 
     test("Should run dorado basecalling with demultiplexing") {
 
-        setup {
-            """
-            mkdir -p $outputDir/test_pod5_demux
-            echo 'dummy pod5 content' > $outputDir/test_pod5_demux/test.pod5
-            """
-        }
-
         when {
             params {
                 barcode_kit = 'SQK-RBK004'
@@ -80,7 +64,7 @@ nextflow_process {
                         single_end: true,
                         basecalling_model: 'dna_r10.4.1_e8.2_400bps_sup@v4.2.0'
                     ],
-                    file('$outputDir/test_pod5_demux')
+                    file('$projectDir/tests/fixtures/pod5/multi_file')
                 ]
                 input[1] = 'dna_r10.4.1_e8.2_400bps_sup@v4.2.0'
                 """
@@ -102,13 +86,6 @@ nextflow_process {
 
     test("Should handle different basecalling models") {
 
-        setup {
-            """
-            mkdir -p $outputDir/test_pod5_models
-            echo 'dummy pod5 content' > $outputDir/test_pod5_models/test.pod5
-            """
-        }
-
         when {
             process {
                 """
@@ -118,7 +95,7 @@ nextflow_process {
                         single_end: true,
                         basecalling_model: 'dna_r9.4.1_e8_fast@v3.4'
                     ],
-                    file('$outputDir/test_pod5_models')
+                    file('$projectDir/tests/fixtures/pod5/multi_file')
                 ]
                 input[1] = 'dna_r9.4.1_e8_fast@v3.4'
                 """
@@ -138,13 +115,6 @@ nextflow_process {
 
     test("Should handle empty POD5 directory gracefully") {
 
-        setup {
-            """
-            mkdir -p $outputDir/test_empty_pod5
-            # Create empty directory
-            """
-        }
-
         when {
             process {
                 """
@@ -154,7 +124,7 @@ nextflow_process {
                         single_end: true,
                         basecalling_model: 'dna_r10.4.1_e8.2_400bps_hac@v4.2.0'
                     ],
-                    file('$outputDir/test_empty_pod5')
+                    file('$projectDir/tests/fixtures/pod5/empty_dir')
                 ]
                 input[1] = 'dna_r10.4.1_e8.2_400bps_hac@v4.2.0'
                 """
