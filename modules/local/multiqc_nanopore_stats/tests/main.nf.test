@@ -5,6 +5,7 @@ nextflow_process {
     process "MULTIQC_NANOPORE_STATS"
 
     options "-stub"
+    tag "stub"
     // Test Level & Component
     tag "module"
     tag "multiqc_nanopore_stats"
