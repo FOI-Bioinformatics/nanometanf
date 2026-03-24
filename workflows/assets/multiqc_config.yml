@@ -12,3 +12,11 @@ report_section_order:
 export_plots: true
 
 disable_version_detection: true
+
+# Strip intermediate processing suffixes from sample names so that
+# all tools (Kraken2, SeqKit, FastQC, NanoPlot) report under a single
+# row per sample in General Statistics.  CHOPPER outputs files named
+# {sample}.chopped.fastq.gz and downstream tools propagate that suffix
+# into their own output filenames and internal data columns.
+extra_fn_clean_exts:
+  - ".chopped"

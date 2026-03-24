@@ -15,6 +15,10 @@
 - **BLAST**: Sequence validation
   > Camacho, C., Coulouris, G., Avagyan, V., Ma, N., Papadopoulos, J., Bealer, K., & Madden, T.L. (2009). BLAST+: architecture and applications. BMC Bioinformatics 10, 421. doi: [10.1186/1471-2105-10-421](https://doi.org/10.1186/1471-2105-10-421)
 
+- **Krona**: Interactive taxonomic visualization
+
+  > Ondov, B.D., Bergman, N.H., & Phillippy, A.M. (2011). Interactive metagenomic visualization in a Web browser. BMC Bioinformatics, 12, 385. doi: [10.1186/1471-2105-12-385](https://doi.org/10.1186/1471-2105-12-385)
+
 ### Quality Control
 
 - **FastP**: Read quality control and filtering
@@ -25,9 +29,17 @@
 
   > Andrews, S. (2010). FastQC: a quality control tool for high throughput sequence data. Available online at: http://www.bioinformatics.babraham.ac.uk/projects/fastqc
 
+- **Chopper**: Nanopore read quality filtering
+
+  > De Coster, W., & Rademakers, R. (2023). Chopper: quality filtering for nanopore reads. Bioinformatics, 39(5), btad311. doi: [10.1093/bioinformatics/btad311](https://doi.org/10.1093/bioinformatics/btad311)
+
 - **NanoPlot**: Nanopore-specific quality plots
 
   > De Coster, W., D'Hert, S., Schultz, D.T., Cruts, M., & Van Broeckhoven, C. (2018). NanoPack: visualizing and processing long-read sequencing data. Bioinformatics, 34(15), 2666-2669. doi: [10.1093/bioinformatics/bty149](https://doi.org/10.1093/bioinformatics/bty149)
+
+- **SeqKit**: Sequence statistics
+
+  > Shen, W., Le, S., Li, Y., & Hu, F. (2016). SeqKit: A Cross-Platform and Ultrafast Toolkit for FASTA/Q File Manipulation. PLoS ONE, 11(10), e0163962. doi: [10.1371/journal.pone.0163962](https://doi.org/10.1371/journal.pone.0163962)
 
 - **MultiQC**: Report aggregation
   > Ewels, P., Magnusson, M., Lundin, S., & Käller, M. (2016). MultiQC: summarize analysis results for multiple tools and samples in a single report. Bioinformatics, 32(19), 3047-3048. doi: [10.1093/bioinformatics/btw354](https://doi.org/10.1093/bioinformatics/btw354)
