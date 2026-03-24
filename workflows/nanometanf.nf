@@ -514,7 +514,8 @@ workflow NANOMETANF {
             log.info "Generating Krona interactive visualization"
 
             KRONA_KRAKEN2 (
-                TAXONOMIC_CLASSIFICATION.out.report
+                TAXONOMIC_CLASSIFICATION.out.report,
+                ch_classification_db
             )
             ch_versions = ch_versions.mix(KRONA_KRAKEN2.out.versions)
             ch_krona_reports = KRONA_KRAKEN2.out.html

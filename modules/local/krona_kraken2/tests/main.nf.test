@@ -28,6 +28,7 @@ nextflow_process {
                     [id: 'test_sample'],
                     file('$projectDir/tests/fixtures/outputs/classification/kraken2_report.txt')
                 ]
+                input[1] = file("${outputDir}", type: 'dir')
                 """
             }
         }

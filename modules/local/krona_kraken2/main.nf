@@ -11,6 +11,7 @@ process KRONA_KRAKEN2 {
 
     input:
     tuple val(meta), path(kraken_report)
+    path db
 
     output:
     tuple val(meta), path("*.html"), emit: html
@@ -25,29 +26,34 @@ process KRONA_KRAKEN2 {
     """
     # Convert Kraken2 report to Krona format
     # Kraken2 format: %reads, #reads_clade, #reads_taxon, rank, taxid, name
-    # Krona format: count taxid [taxid taxid...]
+    # Krona format: count taxid
 
-    # Import Krona taxonomy database (skip if already present to avoid
-    # redundant downloads; maxForks 1 prevents concurrent access)
+    # Build Krona taxonomy from Kraken2 database if available,
+    # fall back to download, or proceed without taxonomy names
     KRONA_TAX_DIR=\$(dirname \$(which ktUpdateTaxonomy.sh))/../opt/krona/taxonomy
+    mkdir -p "\$KRONA_TAX_DIR"
     if [ ! -s "\$KRONA_TAX_DIR/taxonomy.tab" ]; then
-        echo "Krona taxonomy database not found, attempting download..."
-        if ! ktUpdateTaxonomy.sh 2>&1; then
-            echo "WARNING: Krona taxonomy download failed (no internet?)." >&2
-            echo "Generating Krona plot without taxonomy names." >&2
-            mkdir -p "\$KRONA_TAX_DIR"
-            touch "\$KRONA_TAX_DIR/taxonomy.tab"
+        if [ -f "${db}/names.dmp" ] && [ -f "${db}/nodes.dmp" ]; then
+            echo "Building Krona taxonomy from Kraken2 database..." >&2
+            cp "${db}/names.dmp" "${db}/nodes.dmp" "\$KRONA_TAX_DIR/"
+            extractTaxonomy.pl "\$KRONA_TAX_DIR" >&2
+        else
+            echo "WARNING: No taxonomy files in Kraken2 DB, attempting download..." >&2
+            if ! ktUpdateTaxonomy.sh 2>&1; then
+                echo "WARNING: Krona taxonomy unavailable. Taxids shown as numbers." >&2
+                touch "\$KRONA_TAX_DIR/taxonomy.tab"
+            fi
         fi
     fi
 
-    # Convert Kraken2 report to Krona input
-    awk -F'\\t' '\$4 != "U" {print \$3"\\t"\$5}' ${kraken_report} > ${prefix}.krona.txt
+    # Convert Kraken2 report to Krona input (col 2 = reads_clade, col 5 = taxid)
+    awk -F'\\t' '\$4 != "U" {print \$2"\\t"\$5}' ${kraken_report} > ${prefix}.krona.txt
 
-    # Generate interactive Krona plot
+    # Generate interactive Krona plot (col 1 = count, col 2 = taxid)
     ktImportTaxonomy \\
         -o ${prefix}.krona.html \\
-        -t 5 \\
-        -m 3 \\
+        -t 2 \\
+        -m 1 \\
         ${prefix}.krona.txt
 
     cat <<-END_VERSIONS > versions.yml
