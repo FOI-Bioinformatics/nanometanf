@@ -24,10 +24,6 @@ process KRONA_KRAKEN2 {
     def args = task.ext.args ?: ''
     def prefix = task.ext.prefix ?: "${meta.id}"
     """
-    # Convert Kraken2 report to Krona format
-    # Kraken2 format: %reads, #reads_clade, #reads_taxon, rank, taxid, name
-    # Krona format: count taxid
-
     # Build Krona taxonomy from Kraken2 database if available,
     # fall back to download, or proceed without taxonomy names
     KRONA_TAX_DIR=\$(dirname \$(which ktUpdateTaxonomy.sh))/../opt/krona/taxonomy
@@ -46,15 +42,23 @@ process KRONA_KRAKEN2 {
         fi
     fi
 
-    # Convert Kraken2 report to Krona input (col 2 = reads_clade, col 5 = taxid)
-    awk -F'\\t' '\$4 != "U" {print \$2"\\t"\$5}' ${kraken_report} > ${prefix}.krona.txt
-
-    # Generate interactive Krona plot (col 1 = count, col 2 = taxid)
-    ktImportTaxonomy \\
-        -o ${prefix}.krona.html \\
-        -t 2 \\
-        -m 1 \\
-        ${prefix}.krona.txt
+    # Feed Kraken2 report directly to ktImportTaxonomy
+    # -t 5: taxid column (col 5 in Kraken2 report)
+    # -m 3: magnitude from reads_taxon (col 3, reads assigned at this node only)
+    # Krona builds the hierarchy from taxonomy.tab, so using reads_taxon
+    # avoids double-counting that occurs with reads_clade (col 2)
+    if awk -F'\\t' '\$4 != "U" && \$3 > 0 {found=1; exit} END {exit !found}' ${kraken_report}; then
+        ktImportTaxonomy \\
+            -t 5 \\
+            -m 3 \\
+            -o ${prefix}.krona.html \\
+            ${kraken_report}
+    else
+        echo "WARNING: No classified reads in report, generating empty Krona plot" >&2
+        ktImportTaxonomy \\
+            -o ${prefix}.krona.html \\
+            <(echo -e "0\\t1")
+    fi
 
     cat <<-END_VERSIONS > versions.yml
 "${task.process}":
