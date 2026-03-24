@@ -1,7 +1,6 @@
 process KRONA_KRAKEN2 {
     tag "$meta.id"
     label 'process_single'
-    maxForks 1
     errorStrategy 'ignore'
 
     conda "${moduleDir}/environment.yml"
