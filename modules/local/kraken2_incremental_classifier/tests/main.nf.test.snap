@@ -54,7 +54,7 @@
                     
                 ],
                 "7": [
-                    "versions.yml:md5,a6c7626386c24cc923d5b8432a5b2cb9"
+                    "versions.yml:md5,4475e49e8266df7cf70b1b056ac2652c"
                 ],
                 "batch_metadata": [
                     [
@@ -108,15 +108,15 @@
                     
                 ],
                 "versions": [
-                    "versions.yml:md5,a6c7626386c24cc923d5b8432a5b2cb9"
+                    "versions.yml:md5,4475e49e8266df7cf70b1b056ac2652c"
                 ]
             }
         ],
+        "timestamp": "2026-03-23T22:39:13.167706",
         "meta": {
-            "nf-test": "0.9.3",
-            "nextflow": "25.10.3"
-        },
-        "timestamp": "2026-02-03T09:17:38.096321"
+            "nf-test": "0.9.4",
+            "nextflow": "25.10.4"
+        }
     },
     "sarscov2 paired-end [fastq] - batch 1 - stub": {
         "content": [
@@ -151,13 +151,13 @@
                 ]
             ],
             [
-                "versions.yml:md5,a6c7626386c24cc923d5b8432a5b2cb9"
+                "versions.yml:md5,4475e49e8266df7cf70b1b056ac2652c"
             ]
         ],
+        "timestamp": "2026-03-23T22:39:19.389325",
         "meta": {
-            "nf-test": "0.9.3",
-            "nextflow": "25.10.3"
-        },
-        "timestamp": "2026-02-03T09:17:45.343528"
+            "nf-test": "0.9.4",
+            "nextflow": "25.10.4"
+        }
     }
 }

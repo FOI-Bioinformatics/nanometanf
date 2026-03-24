@@ -1,26 +1,68 @@
 {
-    "versions": {
+    "Should produce blastn output for gzipped input in stub mode": {
         "content": [
-            [
-                "versions.yml:md5,b3b43ce4f2b9804c1cf7d7a9924d9129"
-            ]
+            {
+                "0": [
+                    [
+                        {
+                            "id": "test"
+                        },
+                        "test.txt:md5,d41d8cd98f00b204e9800998ecf8427e"
+                    ]
+                ],
+                "1": [
+                    "versions.yml:md5,5fae2a97fa9820b65ba4ffc8415909bf"
+                ],
+                "txt": [
+                    [
+                        {
+                            "id": "test"
+                        },
+                        "test.txt:md5,d41d8cd98f00b204e9800998ecf8427e"
+                    ]
+                ],
+                "versions": [
+                    "versions.yml:md5,5fae2a97fa9820b65ba4ffc8415909bf"
+                ]
+            }
         ],
+        "timestamp": "2026-03-23T22:35:46.189925",
         "meta": {
-            "nf-test": "0.9.2",
-            "nextflow": "25.04.7"
-        },
-        "timestamp": "2025-10-03T20:25:25.895863"
+            "nf-test": "0.9.4",
+            "nextflow": "25.10.4"
+        }
     },
-    "versions_zipped": {
+    "Should produce blastn output in stub mode": {
         "content": [
-            [
-                "versions.yml:md5,b3b43ce4f2b9804c1cf7d7a9924d9129"
-            ]
+            {
+                "0": [
+                    [
+                        {
+                            "id": "test"
+                        },
+                        "test.txt:md5,d41d8cd98f00b204e9800998ecf8427e"
+                    ]
+                ],
+                "1": [
+                    "versions.yml:md5,5fae2a97fa9820b65ba4ffc8415909bf"
+                ],
+                "txt": [
+                    [
+                        {
+                            "id": "test"
+                        },
+                        "test.txt:md5,d41d8cd98f00b204e9800998ecf8427e"
+                    ]
+                ],
+                "versions": [
+                    "versions.yml:md5,5fae2a97fa9820b65ba4ffc8415909bf"
+                ]
+            }
         ],
+        "timestamp": "2026-03-23T22:35:39.972397",
         "meta": {
-            "nf-test": "0.9.2",
-            "nextflow": "25.04.7"
-        },
-        "timestamp": "2025-10-03T20:25:32.377736"
+            "nf-test": "0.9.4",
+            "nextflow": "25.10.4"
+        }
     }
 }

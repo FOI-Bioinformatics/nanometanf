@@ -300,17 +300,24 @@ The test suite is designed to run in stub mode without Docker or external tools.
 params blocks unless the test specifically exercises that feature in stub mode.
 
 ```bash
-# Quick validation
-nf-test test --tag core --tag fast
+# Quick validation (via test runner)
+./tests/run_tests.sh fast
+
+# Core tests
+./tests/run_tests.sh core
 
 # Full suite
-nf-test test
+./tests/run_tests.sh full
 
 # Specific test
 nf-test test tests/nanoseq_test.nf.test --verbose
 
 # Update snapshots after test changes
 nf-test test --update-snapshot
+
+# CI parallelism via sharding (e.g. split into 4 shards)
+NFT_SHARD=1/4 ./tests/run_tests.sh full
+NFT_SHARD=2/4 ./tests/run_tests.sh full
 ```
 
 ---
