@@ -261,7 +261,7 @@ workflow NANOMETANF {
                     .collect()
                     .map { files ->
                         def meta = [
-                            id: 'pod5_sample',
+                            id: params.sample_name ?: 'pod5_sample',
                             single_end: true,
                             barcode_kit: params.barcode_kit ?: null
                         ]
