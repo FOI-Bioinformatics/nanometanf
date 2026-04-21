@@ -47,6 +47,35 @@ nextflow_workflow {
         }
     }
 
+    test("Should default realtime_timeout_minutes to 60 (F12 regression)") {
+        // Regression for F12 (P2-10): the default was null, which caused
+        // unattended real-time runs to hang forever after the operator went
+        // home. A 60-minute idle timeout gives the pipeline a chance to stop
+        // itself cleanly.
+        when {
+            workflow {
+                """
+                input[0] = '$outputDir/test_watch_dir'     // watch_dir
+                input[1] = '**/*.fastq{,.gz}'              // file_pattern
+                input[2] = 5                               // batch_size
+                input[3] = '2.min'                         // batch_interval
+                """
+            }
+
+            params {
+                realtime_mode = false
+                max_cpus = 1
+                max_memory = '2.GB'
+                max_time = '1.min'
+            }
+        }
+
+        then {
+            assert workflow.success
+            assert params.realtime_timeout_minutes == 60
+        }
+    }
+
     test("Should validate parameters for real-time FASTQ monitoring") {
 
         when {

@@ -98,18 +98,16 @@ workflow REALTIME_MONITORING {
         //
         // TIMEOUT LOGIC: Intelligent inactivity timeout with grace period (v1.2.1+)
         //
-        // Filter out files still being written (mtime less than 1 second ago).
-        // Incomplete files are dropped from this emission but will be
-        // re-emitted by watchPath on the next modify event.
-        def ch_stable = ch_watched.filter { f ->
-            def age_ms = System.currentTimeMillis() - f.lastModified()
-            if (age_ms < 1000) {
-                log.debug "Deferring file (still settling): ${f.name}"
-                return false
-            }
-            return true
-        }
-        def ch_all_files = ch_stable
+        // NOTE: F6 fix -- the former `age_ms < 1000` settling filter dropped
+        // every watchPath emission that arrived within a second of file
+        // creation. Producers that use atomic rename (nanorunner `.tmp`
+        // rename, MinKNOW, rsync) always land in that window, and the macOS
+        // Java NIO WatchService does not reliably re-emit a stable file, so
+        // the filter stalled real-time runs indefinitely. Atomic writes are
+        // complete by the time watchPath sees them, so no settling is
+        // needed. Callers producing non-atomic appended writes should use
+        // a wrapper that renames into place instead of relying on settling.
+        def ch_all_files = ch_watched
 
         // Log truncation warning if take() will exclude some existing files
         if (params.max_files && existing_count > params.max_files.toInteger()) {
