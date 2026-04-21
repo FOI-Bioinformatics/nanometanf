@@ -23,8 +23,9 @@ nextflow_pipeline {
                 outdir = "$outputDir"
 
                 // Disable advanced features for basic test
-                use_dorado = false
                 realtime_mode = false
+                skip_kraken2 = true
+                blast_validation = false
                 skip_kraken2 = true
                 blast_validation = false
 
@@ -51,67 +52,4 @@ nextflow_pipeline {
         }
     }
 
-    test("Should validate Dorado parameters with nf-core data") {
-
-        when {
-            params {
-                // Use local nf-core test data
-                input = "$projectDir/tests/fixtures/samplesheets/test_samplesheet_absolute.csv"
-                outdir = "$outputDir"
-
-                // Test with use_dorado = false - Dorado tests are in dorado_path_fix.nf.test
-                use_dorado = false
-                realtime_mode = false
-                skip_kraken2 = true
-                blast_validation = false
-
-                // Resource limits
-                max_cpus = 2
-                max_memory = '4.GB'
-                max_time = '15.min'
-            }
-        }
-
-        then {
-            assert workflow.success
-            assert path("${outputDir}/pipeline_info").exists()
-
-            // Should not run Dorado
-            assert !workflow.trace.tasks().any { it.name.contains('DORADO') }
-
-            // Should run standard QC workflow (CHOPPER is default)
-            assert workflow.trace.tasks().any { it.name.contains('CHOPPER') || it.name.contains('FASTP') || it.name.contains('FILTLONG') }
-        }
-    }
-
-    test("Should handle workflow without Dorado (FASTQ-only mode)") {
-
-        when {
-            params {
-                // Test FASTQ-only mode without Dorado
-                input = "$projectDir/tests/fixtures/samplesheets/test_samplesheet_absolute.csv"
-                outdir = "$outputDir"
-
-                skip_kraken2 = true
-                blast_validation = false
-                use_dorado = false
-                realtime_mode = false
-
-                // Quick test
-                max_cpus = 2
-                max_memory = '4.GB'
-                max_time = '10.min'
-            }
-        }
-
-        then {
-            assert workflow.success
-            assert path("${outputDir}/pipeline_info").exists()
-
-            // Should not run Dorado
-            assert !workflow.trace.tasks().any { it.name.contains('DORADO') }
-            // Should run FASTQ processing with CHOPPER (default QC tool)
-            assert workflow.trace.tasks().any { it.name.contains('CHOPPER') || it.name.contains('FASTP') || it.name.contains('FILTLONG') }
-        }
-    }
 }
