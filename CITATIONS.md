@@ -4,10 +4,6 @@
 
 ### Core Analysis Tools
 
-- **Dorado**: ONT basecalling and demultiplexing
-
-  > Oxford Nanopore Technologies. (2023). Dorado. Retrieved from https://github.com/nanoporetech/dorado
-
 - **Kraken2**: Taxonomic classification
 
   > Wood, D.E., Lu, J. & Langmead, B. Improved metagenomic analysis with Kraken 2. Genome Biol 20, 257 (2019). doi: [10.1186/s13059-019-1891-0](https://doi.org/10.1186/s13059-019-1891-0)

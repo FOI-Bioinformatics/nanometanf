@@ -26,8 +26,6 @@ nextflow_pipeline {
                 realtime_mode = false
                 skip_kraken2 = true
                 blast_validation = false
-                skip_kraken2 = true
-                blast_validation = false
 
                 // Enable basic QC
                 skip_fastp = false

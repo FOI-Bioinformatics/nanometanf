@@ -10,8 +10,6 @@ report_section_order:
     order: -1002
   nanopore_sequencing:
     order: -950
-  dorado_basecalling:
-    order: -925
   kraken2_taxonomy:
     order: -920
   nanoplot:
@@ -38,12 +36,6 @@ custom_data:
     plot_type: "table"
     pconfig:
       namespace: "Nanopore"
-
-  dorado_basecalling:
-    file_format: "json"
-    section_name: "Dorado Basecalling Statistics"
-    description: "Dorado basecaller performance metrics and quality scores"
-    plot_type: "generalstats"
 
   kraken2_krona:
     file_format: "html"
@@ -72,10 +64,6 @@ sp:
   quality_dist:
     fn: "*_quality_mqc.json"
 
-  # Dorado statistics
-  dorado_stats:
-    fn: "*_dorado_mqc.json"
-
   # Kraken2 Krona plots
   krona:
     fn: "*.krona.html"
@@ -86,10 +74,6 @@ module_order:
       name: "Nanopore Sequencing"
       anchor: "nanopore_sequencing"
       info: "Comprehensive nanopore sequencing statistics"
-  - dorado:
-      name: "Dorado Basecalling"
-      anchor: "dorado_basecalling"
-      info: "Basecalling performance and quality metrics"
   - kraken2:
       name: "Kraken2 Classification"
       anchor: "kraken2_taxonomy"

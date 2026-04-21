@@ -37,8 +37,6 @@ speed:
 features:
   realtime:
     description: Real-time processing tests
-  basecalling:
-    description: Dorado basecalling tests
   qc:
     description: Quality control tests
   classification:

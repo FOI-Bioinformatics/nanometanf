@@ -26,7 +26,6 @@ nextflow_pipeline {
                 realtime_mode = false
 
                 // Disable heavy processing
-                use_dorado = false
                 skip_kraken2 = true
                 blast_validation = false
                 skip_fastp = true
@@ -58,7 +57,6 @@ nextflow_pipeline {
                 skip_nanoplot = true
                 skip_multiqc = true
                 skip_kraken2 = true
-                use_dorado = false
                 blast_validation = false
 
                 // Quick execution

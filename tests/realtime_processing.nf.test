@@ -34,7 +34,6 @@ nextflow_pipeline {
                 max_files = 10
 
                 // Disable other features
-                use_dorado = false
                 skip_kraken2 = true
                 blast_validation = false
 
@@ -62,7 +61,6 @@ input = false
                 nanopore_output_dir = "/non/existent/path"
 
                 // Disable other features
-                use_dorado = false
                 skip_kraken2 = true
                 blast_validation = false
 

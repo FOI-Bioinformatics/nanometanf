@@ -36,7 +36,6 @@ nextflow_pipeline {
                 // Disable resource-intensive steps
                 skip_kraken2 = true
                 blast_validation = false
-                use_dorado = false
                 realtime_mode = false
             }
         }
@@ -68,7 +67,6 @@ nextflow_pipeline {
                 // Disable resource-intensive steps
                 skip_kraken2 = true
                 blast_validation = false
-                use_dorado = false
                 realtime_mode = false
             }
         }
@@ -100,7 +98,6 @@ nextflow_pipeline {
                 // Disable resource-intensive steps
                 skip_kraken2 = true
                 blast_validation = false
-                use_dorado = false
                 realtime_mode = false
             }
         }
@@ -131,7 +128,6 @@ nextflow_pipeline {
                 // Disable resource-intensive steps
                 skip_kraken2 = true
                 blast_validation = false
-                use_dorado = false
                 realtime_mode = false
             }
         }
@@ -161,7 +157,6 @@ nextflow_pipeline {
                 // Disable resource-intensive steps
                 skip_kraken2 = true
                 blast_validation = false
-                use_dorado = false
                 realtime_mode = false
             }
         }
