@@ -1,0 +1,64 @@
+nextflow_process {
+
+    name "Test Process SEQKIT_MERGE_STATS"
+    script "../main.nf"
+    process "SEQKIT_MERGE_STATS"
+
+    tag "module"
+    tag "seqkit_merge_stats"
+    tag "qc"
+
+    test("Should merge three batch TSVs into cumulative stats (F10 regression)") {
+        // Regression for F10 (P2-6): in single_sample realtime mode each
+        // batch used to overwrite canonical/qc/{sample}.qc_stats.json with
+        // last-batch-only data because QC_ANALYSIS did not invoke
+        // SEQKIT_MERGE_STATS in realtime mode. That path is now enabled, so
+        // SEQKIT_MERGE_STATS must produce correct cumulative totals across
+        // N batches for the same sample.
+        when {
+            process {
+                """
+                def tmp = file("${outputDir}/batch_inputs")
+                tmp.mkdirs()
+
+                def header = 'file\\tformat\\ttype\\tnum_seqs\\tsum_len\\tmin_len\\tavg_len\\tmax_len\\tQ1\\tQ2\\tQ3\\tsum_gap\\tN50\\tN50_num\\tQ20(%)\\tQ30(%)\\tAvgQual\\tGC(%)\\tsum_n'
+
+                def b1 = file("${tmp}/batch1.tsv")
+                b1.text = header + '\\n' +
+                    'batch1.fastq.gz\\tFASTQ\\tDNA\\t100\\t120000\\t200\\t1200.0\\t9000\\t800\\t1200\\t1800\\t0\\t1500\\t50\\t98.5\\t90.0\\t22.3\\t44.0\\t0\\n'
+
+                def b2 = file("${tmp}/batch2.tsv")
+                b2.text = header + '\\n' +
+                    'batch2.fastq.gz\\tFASTQ\\tDNA\\t200\\t260000\\t180\\t1300.0\\t9500\\t900\\t1250\\t1900\\t0\\t1600\\t100\\t97.0\\t88.0\\t21.5\\t43.5\\t0\\n'
+
+                def b3 = file("${tmp}/batch3.tsv")
+                b3.text = header + '\\n' +
+                    'batch3.fastq.gz\\tFASTQ\\tDNA\\t150\\t180000\\t220\\t1200.0\\t8500\\t850\\t1220\\t1850\\t0\\t1550\\t75\\t98.0\\t89.0\\t22.0\\t43.8\\t0\\n'
+
+                input[0] = [
+                    [id: 'composite_sample'],
+                    [b1, b2, b3]
+                ]
+                """
+            }
+        }
+
+        then {
+            assert process.success
+
+            def cumulative_tsv = process.out.cumulative_stats[0][1]
+            def lines = file(cumulative_tsv).readLines()
+            assert lines.size() == 2, "Expected header + one cumulative row"
+
+            def fields = lines[1].split('\\t')
+            // Cumulative num_seqs = 100 + 200 + 150 = 450
+            assert fields[3] as int == 450
+            // Cumulative sum_len = 120000 + 260000 + 180000 = 560000
+            assert fields[4] as int == 560000
+            // min_len = min(200, 180, 220) = 180
+            assert fields[5] as int == 180
+            // max_len = max(9000, 9500, 8500) = 9500
+            assert fields[7] as int == 9500
+        }
+    }
+}
