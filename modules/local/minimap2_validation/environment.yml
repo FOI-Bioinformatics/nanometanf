@@ -5,4 +5,3 @@ channels:
   - bioconda
 dependencies:
   - bioconda::minimap2=2.28
-  - conda-forge::python=3.11

@@ -27,7 +27,6 @@ nextflow_pipeline {
                 max_time = '2.min'
 
                 // Disable heavy features for quick testing
-                use_dorado = false
                 skip_kraken2 = true
                 blast_validation = false
                 realtime_mode = false

@@ -40,7 +40,7 @@
                 "input_dir": {
                     "type": "string",
                     "format": "directory-path",
-                    "description": "Directory to scan for FASTQ or POD5 files. Auto-detects barcode subdirectories vs flat layout.",
+                    "description": "Directory to scan for FASTQ files. Auto-detects barcode subdirectories vs flat layout.",
                     "help_text": "Replaces --barcode_input_dir with unified auto-detection. Supports barcode subdirectories (barcode01/, barcode02/), flat directories with barcodes in filenames, and flat directories with custom sample prefixes (use --sample_regex).",
                     "fa_icon": "fas fa-folder-open"
                 },
@@ -424,101 +424,6 @@
                 }
             }
         },
-        "dorado_basecalling_options": {
-            "title": "Dorado basecalling options",
-            "type": "object",
-            "fa_icon": "fas fa-dna",
-            "description": "Parameters for Oxford Nanopore Technologies POD5 basecalling using Dorado.",
-            "help_text": "Dorado is ONT's official basecaller for converting raw POD5 signal data to FASTQ sequences. These parameters control basecalling and demultiplexing behavior.",
-            "properties": {
-                "use_dorado": {
-                    "type": "boolean",
-                    "default": false,
-                    "description": "Enable Dorado basecalling from POD5 files.",
-                    "fa_icon": "fas fa-power-off",
-                    "help_text": "Enable this when starting from raw POD5 files instead of pre-basecalled FASTQ files."
-                },
-                "dorado_path": {
-                    "type": "string",
-                    "default": "dorado",
-                    "description": "Path to dorado binary.",
-                    "fa_icon": "fas fa-terminal",
-                    "help_text": "Path to dorado binary. Defaults to 'dorado' (searches in PATH). Specify full path for custom installations."
-                },
-                "dorado_model": {
-                    "type": "string",
-                    "default": "dna_r10.4.1_e4.3_400bps_hac",
-                    "description": "Dorado basecalling model to use.",
-                    "fa_icon": "fas fa-microchip",
-                    "help_text": "Basecalling model (e.g., 'dna_r10.4.1_e4.3_400bps_hac'). Use simplified syntax without @version suffix for Dorado 1.1+. Common models: hac (high accuracy), sup (super accuracy), fast (speed optimized)."
-                },
-                "dorado_device": {
-                    "type": "string",
-                    "default": "auto",
-                    "description": "GPU device for Dorado basecalling.",
-                    "fa_icon": "fas fa-microchip",
-                    "help_text": "Device selection: 'auto' (automatic detection), 'cpu' (CPU-only), 'metal' (Apple Silicon), 'cuda:all' (all CUDA GPUs), or 'cuda:<device_id>' (specific CUDA device)."
-                },
-                "pod5_input_dir": {
-                    "type": "string",
-                    "format": "directory-path",
-                    "description": "Directory containing POD5 files for basecalling.",
-                    "fa_icon": "fas fa-folder"
-                },
-                "barcode_kit": {
-                    "type": "string",
-                    "description": "Barcode kit for demultiplexing.",
-                    "fa_icon": "fas fa-barcode",
-                    "help_text": "Barcode kit identifier (e.g., 'SQK-NBD114-24', 'SQK-RBK114-96'). Required when using --demultiplex."
-                },
-                "demultiplex": {
-                    "type": "boolean",
-                    "default": false,
-                    "description": "Enable demultiplexing during basecalling.",
-                    "fa_icon": "fas fa-split",
-                    "help_text": "Enable demultiplexing if your samples are barcoded. Requires --barcode_kit parameter."
-                },
-                "min_qscore": {
-                    "type": "integer",
-                    "default": 9,
-                    "minimum": 0,
-                    "maximum": 50,
-                    "description": "Minimum quality score for basecalling.",
-                    "fa_icon": "fas fa-filter",
-                    "help_text": "Phred quality score threshold. Reads below this score will be filtered during basecalling."
-                },
-                "trim_adapters": {
-                    "type": "boolean",
-                    "default": true,
-                    "description": "Trim adapters during basecalling using Dorado's built-in adapter trimming.",
-                    "fa_icon": "fas fa-cut",
-                    "help_text": "Recommended by ONT. Uses Dorado's built-in adapter detection and trimming."
-                },
-                "trim_barcodes": {
-                    "type": "boolean",
-                    "default": true,
-                    "description": "Trim barcodes during demultiplexing.",
-                    "fa_icon": "fas fa-cut"
-                },
-                "dorado_basecall_speed": {
-                    "type": "string",
-                    "default": "fast",
-                    "description": "Dorado basecalling speed preset.",
-                    "fa_icon": "fas fa-tachometer-alt"
-                },
-                "dorado_local_path": {
-                    "type": "string",
-                    "description": "Path to a local Dorado binary (overrides container-provided binary).",
-                    "fa_icon": "fas fa-terminal"
-                },
-                "dorado_path_fix": {
-                    "type": "boolean",
-                    "default": true,
-                    "description": "Enable Dorado PATH fix workaround for container environments.",
-                    "fa_icon": "fas fa-wrench"
-                }
-            }
-        },
         "quality_control_options": {
             "title": "Quality control options",
             "type": "object",
@@ -563,7 +468,7 @@
                     "default": false,
                     "description": "Enable nanopore adapter trimming with PORECHOP.",
                     "fa_icon": "fas fa-cut",
-                    "help_text": "Recommended for filtlong/chopper workflows. Dorado users should use --trim_adapters instead."
+                    "help_text": "Recommended for filtlong/chopper workflows. Disable for upstream basecaller-trimmed reads."
                 },
                 "enable_qc_benchmark": {
                     "type": "boolean",
@@ -1011,9 +916,6 @@
         },
         {
             "$ref": "#/$defs/realtime_processing_options"
-        },
-        {
-            "$ref": "#/$defs/dorado_basecalling_options"
         },
         {
             "$ref": "#/$defs/quality_control_options"

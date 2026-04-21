@@ -36,7 +36,6 @@ nextflow_pipeline {
                 realtime_processing_grace_period = 10
 
                 // Disable advanced features
-                use_dorado = false
                 skip_kraken2 = true
                 blast_validation = false
                 skip_nanoplot = true

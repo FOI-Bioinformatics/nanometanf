@@ -22,7 +22,6 @@ nextflow_pipeline {
                 outdir = "$outputDir"
 
                 // Test all key parameters
-                use_dorado = false
                 realtime_mode = false
                 skip_kraken2 = true
                 blast_validation = false

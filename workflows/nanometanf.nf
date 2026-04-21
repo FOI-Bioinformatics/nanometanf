@@ -12,11 +12,8 @@ include { methodsDescriptionText     } from '../subworkflows/local/utils_nfcore_
 
 // Import local subworkflows
 include { REALTIME_MONITORING        } from '../subworkflows/local/realtime_monitoring'
-include { REALTIME_POD5_MONITORING   } from '../subworkflows/local/realtime_pod5_monitoring'
-include { DORADO_BASECALLING         } from '../subworkflows/local/dorado_basecalling'
 include { BARCODE_DISCOVERY          } from '../subworkflows/local/barcode_discovery'
 include { INPUT_SCANNER              } from '../subworkflows/local/input_scanner'
-include { POD5_BARCODE_DISCOVERY    } from '../subworkflows/local/pod5_barcode_discovery'
 include { DEMULTIPLEXING             } from '../subworkflows/local/demultiplexing'
 include { QC_ANALYSIS                } from '../subworkflows/local/qc_analysis'
 include { ASSEMBLY                   } from '../subworkflows/local/assembly'
@@ -28,37 +25,7 @@ include { MANIFEST_WRITER           } from '../modules/local/manifest_writer/mai
 // Experimental feature imports (v1.5 planned)
 include { QC_BENCHMARK               } from '../subworkflows/local/qc_benchmark'
 include { REALTIME_STATISTICS        } from '../subworkflows/local/realtime_statistics'
-include { KRONA_KRAKEN2              } from '../modules/local/krona_kraken2/main'
 include { MULTIQC_NANOPORE_STATS     } from '../modules/local/multiqc_nanopore_stats/main'
-
-/*
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    HELPER FUNCTIONS
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-*/
-
-//
-// Detect POD5 directory structure: 'flat' or 'barcode_subdirs'
-// - flat: POD5 files directly in the directory (e.g., pod5_dir/*.pod5)
-// - barcode_subdirs: POD5 files in barcode subdirectories (e.g., pod5_dir/barcode01/*.pod5)
-//
-def detectPod5Structure(pod5_dir) {
-    def dir = file(pod5_dir)
-    def hasBarcodeDirs = false
-
-    // Check for barcode*/ subdirectories containing POD5 files
-    dir.eachFile { f ->
-        if (f.isDirectory() && f.name.startsWith('barcode')) {
-            def hasPod5 = false
-            f.eachFileMatch(~/.+\.pod5$/) { hasPod5 = true }
-            if (hasPod5) {
-                hasBarcodeDirs = true
-            }
-        }
-    }
-
-    return hasBarcodeDirs ? 'barcode_subdirs' : 'flat'
-}
 
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -99,7 +66,6 @@ workflow NANOMETANF {
     if (params.input) input_modes << '--input'
     if (params.input_dir) input_modes << '--input_dir'
     if (params.barcode_input_dir) input_modes << '--barcode_input_dir'
-    if (params.pod5_input_dir && params.use_dorado) input_modes << '--pod5_input_dir'
     if (params.realtime_mode && params.nanopore_output_dir) input_modes << '--realtime_mode'
 
     if (input_modes.size() > 1 && !params.realtime_mode) {
@@ -116,7 +82,6 @@ workflow NANOMETANF {
         log.error "  Please provide one of:"
         log.error "    --input samplesheet.csv"
         log.error "    --input_dir /path/to/barcode/folders"
-        log.error "    --pod5_input_dir /path/to/pod5 --use_dorado"
         log.error "    --realtime_mode --nanopore_output_dir /path/to/monitor"
         log.error "========================================================================="
         error "No input data specified. See above for options."
@@ -175,109 +140,11 @@ workflow NANOMETANF {
     }
 
     //
-    // WORKFLOW ROUTING: Determine if this is POD5 or FASTQ workflow
+    // WORKFLOW ROUTING: FASTQ-only pipeline
     //
-    def is_pod5_workflow = (params.pod5_input_dir && params.use_dorado) ||
-                          (params.realtime_mode && params.file_pattern?.contains('.pod5'))
     def is_barcode_discovery = params.barcode_input_dir
 
-    if (is_pod5_workflow) {
-        //
-        // POD5 WORKFLOW PATH
-        //
-        if (params.realtime_mode) {
-            // Real-time POD5 monitoring with Dorado basecalling
-            REALTIME_POD5_MONITORING (
-                params.pod5_input_dir,
-                "*.pod5",  // POD5 files in watch_dir (not subdirectories)
-                params.batch_size ?: 10,
-                params.batch_interval ?: "5min",
-                params.dorado_model
-            )
-            ch_processed_samples = REALTIME_POD5_MONITORING.out.samples
-            ch_versions = ch_versions.mix(REALTIME_POD5_MONITORING.out.versions.ifEmpty([]))
-
-            // Real-time statistics generation (optional)
-            if (params.enable_realtime_stats) {
-                def stats_config = [
-                    enable_quality_indicators: true,
-                    enable_source_analysis: true,
-                    enable_timing_analysis: true,
-                    quality_threshold_warnings: true,
-                    stats_interval: params.realtime_report_interval ?: 30000,
-                    report_format: 'html,json'
-                ]
-
-                REALTIME_STATISTICS (
-                    REALTIME_POD5_MONITORING.out.batches,
-                    stats_config
-                )
-                ch_versions = ch_versions.mix(REALTIME_STATISTICS.out.versions)
-                ch_realtime_stats = REALTIME_STATISTICS.out.realtime_reports
-            } else {
-                ch_realtime_stats = Channel.empty()
-            }
-
-        } else {
-            // Static POD5 basecalling
-            if (!params.pod5_input_dir) {
-                error "POD5 input directory is required when use_dorado is true and not in realtime mode"
-            }
-
-            // Auto-detect POD5 directory structure
-            def pod5_structure = detectPod5Structure(params.pod5_input_dir)
-            log.info "POD5 directory structure detected: ${pod5_structure}"
-
-            if (pod5_structure == 'barcode_subdirs') {
-                //
-                // PRE-DEMULTIPLEXED POD5: barcode subdirectories with POD5 files
-                // Each barcode is processed as a separate sample, demultiplexing is skipped
-                //
-                log.info "Processing pre-demultiplexed POD5 barcode directories"
-
-                POD5_BARCODE_DISCOVERY (
-                    params.pod5_input_dir
-                )
-
-                // Run basecalling for each barcode sample
-                DORADO_BASECALLING (
-                    POD5_BARCODE_DISCOVERY.out.samples,
-                    params.dorado_model
-                )
-
-                // Skip demultiplexing - samples are already per-barcode
-                ch_processed_samples = DORADO_BASECALLING.out.fastq
-                ch_versions = ch_versions.mix(DORADO_BASECALLING.out.versions)
-                ch_versions = ch_versions.mix(POD5_BARCODE_DISCOVERY.out.versions)
-
-            } else {
-                //
-                // FLAT POD5: all POD5 files in a single directory
-                // Process as single sample, optionally demultiplex after basecalling
-                //
-                log.info "Processing flat POD5 directory"
-
-                ch_pod5_files = Channel.fromPath("${params.pod5_input_dir}/*.pod5", checkIfExists: true)
-                    .collect()
-                    .map { files ->
-                        def meta = [
-                            id: 'pod5_sample',
-                            single_end: true,
-                            barcode_kit: params.barcode_kit ?: null
-                        ]
-                        [ meta, files ]
-                    }
-
-                DORADO_BASECALLING (
-                    ch_pod5_files,
-                    params.dorado_model
-                )
-                ch_processed_samples = DORADO_BASECALLING.out.fastq
-                ch_versions = ch_versions.mix(DORADO_BASECALLING.out.versions)
-            }
-        }
-
-    } else if (params.input_dir || is_barcode_discovery) {
+    if (params.input_dir || is_barcode_discovery) {
         //
         // UNIFIED DIRECTORY SCAN (replaces BARCODE_DISCOVERY)
         //
@@ -327,39 +194,8 @@ workflow NANOMETANF {
                 ch_realtime_stats = Channel.empty()
             }
         } else {
-            // Standard samplesheet input - detect and handle POD5 files
-            ch_samplesheet
-                .branch { meta, reads ->
-                    // Extract first file if reads is a list (from samplesheet parser)
-                    def fileToCheck = reads instanceof List ? reads[0] : reads
-                    // Get filename
-                    def fileName = fileToCheck instanceof java.nio.file.Path ? fileToCheck.getName() : fileToCheck.toString()
-                    // Check if it's a POD5 file
-                    pod5: fileName.endsWith('.pod5')
-                        return [meta, reads]
-                    fastq: true
-                        return [meta, reads]
-                }
-                .set { ch_branched_input }
-
-            // If POD5 files detected and Dorado enabled, basecall them
-            if (params.use_dorado) {
-                log.info "Checking for POD5 files in samplesheet for Dorado basecalling..."
-
-                DORADO_BASECALLING (
-                    ch_branched_input.pod5,
-                    params.dorado_model
-                )
-                ch_basecalled_pod5 = DORADO_BASECALLING.out.fastq
-                ch_versions = ch_versions.mix(DORADO_BASECALLING.out.versions)
-
-                // Combine basecalled POD5 samples with FASTQ samples
-                ch_processed_samples = ch_branched_input.fastq.mix(ch_basecalled_pod5)
-            } else {
-                // No basecalling - use samplesheet as-is
-                // POD5 files without use_dorado will fail downstream (expected)
-                ch_processed_samples = ch_samplesheet
-            }
+            // Standard samplesheet input - FASTQ only
+            ch_processed_samples = ch_samplesheet
         }
     }
 
@@ -505,23 +341,6 @@ workflow NANOMETANF {
         )
         ch_versions = ch_versions.mix(TAXONOMIC_CLASSIFICATION.out.versions)
         ch_multiqc_files = ch_multiqc_files.mix(TAXONOMIC_CLASSIFICATION.out.report.collect{it[1]})
-
-        //
-        // MODULE: Krona interactive visualization of taxonomic results
-        // Note: skip_krona parameter for ARM Mac compatibility (Krona container has permission issues)
-        //
-        if (params.enable_krona_plots && !params.skip_krona) {
-            log.info "Generating Krona interactive visualization"
-
-            KRONA_KRAKEN2 (
-                TAXONOMIC_CLASSIFICATION.out.report,
-                ch_classification_db
-            )
-            ch_versions = ch_versions.mix(KRONA_KRAKEN2.out.versions)
-            ch_krona_reports = KRONA_KRAKEN2.out.html
-        } else {
-            ch_krona_reports = Channel.empty()
-        }
 
         //
         // SUBWORKFLOW: Pathogen validation via BLAST and/or minimap2

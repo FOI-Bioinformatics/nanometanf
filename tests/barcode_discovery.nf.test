@@ -24,8 +24,6 @@ nextflow_pipeline {
 
                 // Provide required input parameter (empty samplesheet for barcode mode)
                 input = false
-                pod5_input_dir = null
-                use_dorado = false
                 realtime_mode = false
 
                 // Disable advanced features for focused testing
@@ -64,7 +62,6 @@ nextflow_pipeline {
                 outdir = "$outputDir"
 
                 skip_kraken2 = true
-                use_dorado = false
                 blast_validation = false
                 // Resource limits
                 max_cpus = 2

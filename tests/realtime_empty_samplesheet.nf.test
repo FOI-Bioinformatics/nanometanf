@@ -31,7 +31,6 @@ nextflow_pipeline {
                 max_files = 2  // Limit for testing
 
                 // Disable other features for focused test
-                use_dorado = false
                 skip_kraken2 = true
                 blast_validation = false
                 skip_fastp = false
@@ -61,7 +60,6 @@ nextflow_pipeline {
                 realtime_mode = true  // This is required for empty samplesheets
                 nanopore_output_dir = "/tmp/empty_test_dir" // Non-existent dir for testing
                 file_pattern = "*.fastq.gz"
-                use_dorado = false
 
                 // Quick timeout for this test
                 max_cpus = 1
@@ -99,7 +97,6 @@ nextflow_pipeline {
                 max_files = 2
 
                 // Quick processing
-                use_dorado = false
                 skip_fastp = true  // Skip processing to focus on file detection
                 skip_nanoplot = true
 

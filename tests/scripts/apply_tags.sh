@@ -56,7 +56,7 @@ Examples:
 Tag Categories (Required):
   1. Level:       module, subworkflow, workflow, pipeline, integration
   2. Name:        Component name (e.g., kraken2, qc_analysis)
-  3. Feature:     realtime, qc, classification, basecalling, validation
+  3. Feature:     realtime, qc, classification, validation
   4. Speed:       fast (<30s), medium (30s-5min), slow (>5min)
   5. Criticality: core (must pass), extended (should pass), experimental (may fail)
 
@@ -113,9 +113,6 @@ detect_feature_area() {
             ;;
         *kraken*|*classification*|*taxonomic*)
             echo "classification"
-            ;;
-        *dorado*|*basecall*|*pod5*)
-            echo "basecalling"
             ;;
         *qc*|*fastp*|*chopper*|*filtlong*|*nanoplot*|*fastqc*)
             echo "qc"
@@ -178,7 +175,7 @@ detect_criticality() {
 
     # Core features
     case "$feature" in
-        qc|classification|basecalling|realtime)
+        qc|classification|realtime)
             echo "core"
             ;;
         validation|barcode_discovery)

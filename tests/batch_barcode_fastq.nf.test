@@ -29,7 +29,6 @@ nextflow_pipeline {
 
                 // Disable real-time and advanced features
                 realtime_mode = false
-                use_dorado = false
                 skip_kraken2 = true
                 blast_validation = false
                 skip_nanoplot = true
@@ -56,7 +55,6 @@ nextflow_pipeline {
 
                 // Disable advanced features
                 realtime_mode = false
-                use_dorado = false
                 skip_kraken2 = true
                 blast_validation = false
                 skip_nanoplot = true

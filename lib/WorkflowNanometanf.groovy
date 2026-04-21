@@ -39,18 +39,16 @@ class WorkflowNanometanf {
             'samplesheet': params.input,
             'input_dir': params.input_dir,
             'barcode_discovery': params.barcode_input_dir,
-            'static_pod5': (!params.realtime_mode && params.use_dorado && params.pod5_input_dir),
-            'realtime_fastq': (params.realtime_mode && !params.use_dorado && params.nanopore_output_dir),
-            'realtime_pod5': (params.realtime_mode && params.use_dorado && params.pod5_input_dir)
+            'realtime_fastq': (params.realtime_mode && params.nanopore_output_dir)
         ]
 
         def active_modes = input_modes.findAll { k, v -> v }
 
         if (active_modes.size() == 0) {
             Nextflow.error("""
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-❌ ERROR: No input mode specified
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+===========================================================================
+ERROR: No input mode specified
+===========================================================================
 
 You must provide one of the following input methods:
 
@@ -60,77 +58,45 @@ You must provide one of the following input methods:
   2. Barcode discovery mode (pre-demultiplexed directories):
      --barcode_input_dir /path/to/barcodes/
 
-  3. Static POD5 basecalling:
-     --pod5_input_dir /path/to/pod5/ --use_dorado
-
-  4. Real-time FASTQ monitoring:
+  3. Real-time FASTQ monitoring:
      --realtime_mode --nanopore_output_dir /path/to/fastq/
 
-  5. Real-time POD5 monitoring + basecalling:
-     --realtime_mode --use_dorado --pod5_input_dir /path/to/pod5/
-
 For more details, see: https://github.com/foi-bioinformatics/nanometanf
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+===========================================================================
 """)
         }
 
         if (active_modes.size() > 1) {
             def mode_names = active_modes.keySet().join(', ')
             Nextflow.error("""
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-❌ ERROR: Multiple input modes detected
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+===========================================================================
+ERROR: Multiple input modes detected
+===========================================================================
 
 Conflicting input modes: ${mode_names}
 
 Only ONE input mode can be used per run. Please specify only one of:
-  --input, --barcode_input_dir, --pod5_input_dir, or --nanopore_output_dir
+  --input, --barcode_input_dir, or --nanopore_output_dir
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+===========================================================================
 """)
         }
 
         // Validate mode-specific required parameters
-        if (params.realtime_mode && params.use_dorado && !params.pod5_input_dir) {
+        if (params.realtime_mode && !params.nanopore_output_dir) {
             Nextflow.error("""
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-❌ ERROR: Real-time POD5 mode requires --pod5_input_dir
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-When using real-time POD5 monitoring with Dorado basecalling:
-  --realtime_mode --use_dorado --pod5_input_dir /path/to/pod5/
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-""")
-        }
-
-        if (params.realtime_mode && !params.use_dorado && !params.nanopore_output_dir) {
-            Nextflow.error("""
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-❌ ERROR: Real-time FASTQ mode requires --nanopore_output_dir
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+===========================================================================
+ERROR: Real-time mode requires --nanopore_output_dir
+===========================================================================
 
 When using real-time FASTQ monitoring:
   --realtime_mode --nanopore_output_dir /path/to/fastq/
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+===========================================================================
 """)
         }
 
-        if (params.use_dorado && !params.pod5_input_dir) {
-            Nextflow.error("""
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-❌ ERROR: Dorado basecalling requires --pod5_input_dir
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-When using Dorado basecalling:
-  --use_dorado --pod5_input_dir /path/to/pod5/
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-""")
-        }
-
-        log.info "✓ Input mode validation passed: ${active_modes.keySet().join()}"
+        log.info "Input mode validation passed: ${active_modes.keySet().join()}"
     }
 
     //

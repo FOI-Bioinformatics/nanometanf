@@ -40,7 +40,6 @@ nextflow_pipeline {
                 kraken2_save_output_fastqs = false
                 kraken2_save_readclassifications = false
 
-                use_dorado = false
                 realtime_mode = false
 
                 max_cpus = 2
@@ -137,7 +136,6 @@ nextflow_pipeline {
                 skip_kraken2 = true
                 blast_validation = false
 
-                use_dorado = false
                 realtime_mode = false
                 skip_nanoplot = false
 

@@ -38,7 +38,6 @@ nextflow_workflow {
             }
 
             params {
-                use_dorado = false
                 barcode_kit = null
                 max_cpus = 1
                 max_memory = '2.GB'
@@ -87,7 +86,6 @@ nextflow_workflow {
             }
 
             params {
-                use_dorado = false  // Disable for branching test
                 barcode_kit = 'SQK-NBD114-24'
                 max_cpus = 2
                 max_memory = '4.GB'
@@ -100,7 +98,7 @@ nextflow_workflow {
             assert snapshot(workflow.out.versions).match()
             assert workflow.out.samples
 
-            // When use_dorado is false, samples requiring demux should still pass through
+            // Samples requiring demultiplexing are passed through unchanged
             def samples = workflow.out.samples.toList()
             assert samples.size() >= 0  // May be empty or contain original samples
         }
@@ -129,7 +127,6 @@ nextflow_workflow {
             }
 
             params {
-                use_dorado = false
                 barcode_kit = 'SQK-NBD114-24'
                 max_cpus = 2
                 max_memory = '4.GB'
@@ -171,7 +168,6 @@ nextflow_workflow {
             }
 
             params {
-                use_dorado = false
                 barcode_kit = 'SQK-NBD114-24'  // Default kit
                 max_cpus = 2
                 max_memory = '4.GB'
@@ -213,7 +209,6 @@ nextflow_workflow {
             }
 
             params {
-                use_dorado = false
                 barcode_kit = 'SQK-NBD114-24'
                 max_cpus = 1
                 max_memory = '2.GB'
@@ -242,7 +237,6 @@ nextflow_workflow {
             }
 
             params {
-                use_dorado = false
                 barcode_kit = 'SQK-NBD114-24'
                 max_cpus = 1
                 max_memory = '2.GB'
@@ -303,7 +297,6 @@ nextflow_workflow {
             }
 
             params {
-                use_dorado = false
                 barcode_kit = 'SQK-NBD114-24'
                 max_cpus = 2
                 max_memory = '4.GB'
@@ -351,7 +344,6 @@ nextflow_workflow {
             }
 
             params {
-                use_dorado = false
                 barcode_kit = 'SQK-NBD114-24'
                 max_cpus = 4
                 max_memory = '8.GB'
@@ -392,7 +384,6 @@ nextflow_workflow {
             }
 
             params {
-                use_dorado = false
                 barcode_kit = 'SQK-RBK110-96'  // Different default kit
                 trim_barcodes = true
                 max_cpus = 2

@@ -141,32 +141,6 @@ class FixtureGenerator:
                 "file_details": []
             },
 
-            "pod5_typical.json": {
-                "sample_id": "pod5_test",
-                "analysis_timestamp": "2024-01-15T10:00:00",
-                "tool_context": {"basecalling_required": True},
-                "file_count": 10,
-                "total_size_bytes": 536870912,
-                "total_size_mb": 512.0,
-                "total_size_gb": 0.5,
-                "total_estimated_reads": 2500000,
-                "total_estimated_bases": 5000000000,
-                "average_file_size_mb": 51.2,
-                "estimated_coverage": "50x",
-                "complexity_metrics": {
-                    "overall_complexity": 0.85,
-                    "size_complexity": "high",
-                    "read_complexity": "high"
-                },
-                "processing_hints": {
-                    "recommended_parallelization": 6,
-                    "memory_intensive": True,
-                    "cpu_intensive": False,
-                    "io_intensive": False,
-                    "gpu_beneficial": True
-                },
-                "file_details": []
-            },
         }
 
         # Edge case characteristics
@@ -609,7 +583,6 @@ when {
 - `small_fastq.json` - 10MB file, 50k reads, low complexity
 - `medium_fastq.json` - 100MB file, 500k reads, medium complexity
 - `large_fastq.json` - 1GB file, 5M reads, high complexity
-- `pod5_typical.json` - POD5 input characteristics
 - `empty_file.json` - Empty file edge case
 - `minimal_file.json` - Minimal valid file (1KB)
 
