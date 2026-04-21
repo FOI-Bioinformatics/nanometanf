@@ -276,9 +276,19 @@ workflow QC_ANALYSIS {
             }
         }
 
+        // Skip NanoPlot for samples whose reads file is missing or empty.
+        // NanoPlot exits non-zero on zero-read FASTQ input (for example when
+        // every read was filtered out by an upstream QC step), which would
+        // otherwise abort the whole pipeline.
+        def ch_nanoplot_nonempty = ch_nanoplot_input.filter { meta, reads ->
+            reads != null && (reads instanceof List
+                ? reads.any { it != null && it.size() > 0 }
+                : reads.size() > 0)
+        }
+
         // Run NanoPlot on filtered samples
         NANOPLOT (
-            ch_nanoplot_input
+            ch_nanoplot_nonempty
         )
         ch_versions = ch_versions.mix(NANOPLOT.out.versions)
         ch_nanoplot_html = NANOPLOT.out.html

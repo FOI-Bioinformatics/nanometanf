@@ -221,6 +221,38 @@ nextflow_workflow {
         }
     }
 
+    test("Should skip NanoPlot when input reads are empty (F5 regression)") {
+        // Regression for F5 (P1-2): NanoPlot used to exit non-zero when handed
+        // a zero-read FASTQ (for instance a sample where every read was
+        // filtered out upstream), aborting the whole run. The subworkflow now
+        // filters empty reads before passing them to NanoPlot, so the workflow
+        // must complete and simply emit no NanoPlot output for that sample.
+        when {
+            workflow {
+                """
+                input[0] = [
+                    [id: 'empty_reads', single_end: true],
+                    file('$projectDir/tests/fixtures/fastq/edge_cases/empty_sample.fastq.gz')
+                ]
+                """
+            }
+
+            params {
+                qc_tool = 'fastp'
+                skip_fastp = true
+                skip_nanoplot = false
+                skip_fastqc = true
+                max_cpus = 1
+                max_memory = '2.GB'
+                max_time = '1.min'
+            }
+        }
+
+        then {
+            assert workflow.success
+        }
+    }
+
     test("Should handle multiple samples in batch processing") {
 
         when {
