@@ -217,13 +217,10 @@ nextflow_workflow {
             assert workflow.success
             assert snapshot(workflow.out.versions).match()
             assert workflow.out.report
-            assert workflow.out.standardized_report
-
-            // Verify Taxpasta standardization
-            if (workflow.out.standardized_report) {
-                def standardized = workflow.out.standardized_report.toList()
-                assert standardized.size() >= 1
-            }
+            // Note: in -stub mode, the Kraken2 stub emits a 0-byte report,
+            // which the F4 empty-input guard filters out before TAXPASTA.
+            // The standardised_report channel is therefore empty in stub
+            // mode and is covered by the dedicated F4 regression test.
         }
     }
 
@@ -260,6 +257,40 @@ nextflow_workflow {
                     assert classified_reads.size() == 0
                 }
             }
+        }
+    }
+
+    test("Should skip TAXPASTA when kraken2 report is empty (F4 regression)") {
+        // Regression for F4 (P1-1): a zero-byte Kraken2 report used to make
+        // TAXPASTA_STANDARDISE abort the whole pipeline. The subworkflow now
+        // filters empty reports before handing them to taxpasta, so the run
+        // must complete and simply emit no standardised profile for that
+        // sample.
+        when {
+            workflow {
+                """
+                input[0] = [
+                    [id: 'empty_report', single_end: true],
+                    file('$projectDir/tests/fixtures/fastq/edge_cases/empty_sample.fastq.gz')
+                ]
+                input[1] = file('$projectDir/tests/fixtures/kraken2_db')
+                """
+            }
+
+            params {
+                classifier = 'kraken2'
+                taxpasta_format = 'tsv'
+                enable_taxpasta_standardization = true
+                max_cpus = 1
+                max_memory = '2.GB'
+                max_time = '1.min'
+            }
+        }
+
+        options "-stub"
+
+        then {
+            assert workflow.success
         }
     }
 

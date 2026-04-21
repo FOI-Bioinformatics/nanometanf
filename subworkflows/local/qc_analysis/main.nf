@@ -202,30 +202,30 @@ workflow QC_ANALYSIS {
     def ch_final_seqkit_stats = ch_seqkit_stats
 
     if (enable_incremental && (qc_tool == 'chopper' || qc_tool == 'filtlong')) {
-        if (is_realtime_mode) {
-            // STREAMING-FIX: Skip groupTuple-based aggregation in realtime mode
-            // groupTuple() blocks indefinitely waiting for channel closure
-            // Instead, pass through individual batch stats - cumulative aggregation
-            // should be handled by the downstream dashboard or a streaming-compatible module
-            log.warn "Incremental QC stats aggregation disabled in realtime mode (groupTuple incompatible with watchPath)"
-            log.info "Individual batch statistics will be emitted instead of cumulative"
-            // ch_final_seqkit_stats remains as ch_seqkit_stats (individual batches)
-        } else {
-            // Non-realtime mode: safe to use groupTuple (channel will close)
-            log.info "Using incremental QC statistics aggregation for ${qc_tool}"
+        //
+        // F10 fix: realtime aggregation is enabled too, with groupTuple
+        // (remainder: true) so the merge fires once per sample when the
+        // watchPath channel closes (via the realtime_timeout_minutes idle
+        // timeout; see F12). Without this, single_sample realtime runs
+        // overwrote canonical/qc/{sample}.qc_stats.json with the last batch
+        // only and the QC tab reported a fraction of the real read count.
+        //
+        log.info "Using incremental QC statistics aggregation for ${qc_tool}"
 
-            // Group batch-level seqkit stats by sample ID
-            def ch_grouped_batch_stats = ch_seqkit_stats.groupTuple(by: 0)
+        // Group batch-level seqkit stats by sample ID. remainder: true lets
+        // partial groups flush on channel closure, which is how the realtime
+        // watchPath channel eventually terminates (idle timeout or end of
+        // batch input).
+        def ch_grouped_batch_stats = ch_seqkit_stats.groupTuple(by: 0, remainder: true)
 
-            // Merge batch statistics into cumulative statistics
-            SEQKIT_MERGE_STATS(
-                ch_grouped_batch_stats
-            )
-            ch_versions = ch_versions.mix(SEQKIT_MERGE_STATS.out.versions)
+        // Merge batch statistics into cumulative statistics
+        SEQKIT_MERGE_STATS(
+            ch_grouped_batch_stats
+        )
+        ch_versions = ch_versions.mix(SEQKIT_MERGE_STATS.out.versions)
 
-            // Use cumulative stats instead of batch stats
-            ch_final_seqkit_stats = SEQKIT_MERGE_STATS.out.cumulative_stats
-        }
+        // Use cumulative stats instead of batch stats
+        ch_final_seqkit_stats = SEQKIT_MERGE_STATS.out.cumulative_stats
     }
 
     //
@@ -276,9 +276,19 @@ workflow QC_ANALYSIS {
             }
         }
 
+        // Skip NanoPlot for samples whose reads file is missing or empty.
+        // NanoPlot exits non-zero on zero-read FASTQ input (for example when
+        // every read was filtered out by an upstream QC step), which would
+        // otherwise abort the whole pipeline.
+        def ch_nanoplot_nonempty = ch_nanoplot_input.filter { meta, reads ->
+            reads != null && (reads instanceof List
+                ? reads.any { it != null && it.size() > 0 }
+                : reads.size() > 0)
+        }
+
         // Run NanoPlot on filtered samples
         NANOPLOT (
-            ch_nanoplot_input
+            ch_nanoplot_nonempty
         )
         ch_versions = ch_versions.mix(NANOPLOT.out.versions)
         ch_nanoplot_html = NANOPLOT.out.html

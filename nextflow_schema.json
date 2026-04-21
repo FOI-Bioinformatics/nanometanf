@@ -389,10 +389,11 @@
                 },
                 "realtime_timeout_minutes": {
                     "type": "integer",
+                    "default": 60,
                     "minimum": 1,
                     "description": "Stop real-time monitoring after N minutes of inactivity (null = run indefinitely).",
                     "fa_icon": "fas fa-clock",
-                    "help_text": "Automatically stop the pipeline if no new files are detected for this duration. Useful for unattended sequencing runs."
+                    "help_text": "Automatically stop the pipeline if no new files are detected for this duration. Useful for unattended sequencing runs. The default value (60) is chosen to avoid indefinite hangs; set to null or a large value to keep monitoring forever."
                 },
                 "realtime_processing_grace_period": {
                     "type": "integer",

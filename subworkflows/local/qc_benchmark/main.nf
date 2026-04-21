@@ -196,8 +196,18 @@ workflow QC_BENCHMARK {
             ch_chopper_benchmark.map { meta, reads, log, stats -> [meta, reads] }
         )
 
+    // Skip NanoPlot for samples whose reads file is missing or empty.
+    // NanoPlot exits non-zero on zero-read FASTQ input (for example when
+    // every read was filtered out by an upstream QC step), which would
+    // otherwise abort the whole benchmark run.
+    ch_all_qc_outputs_nonempty = ch_all_qc_outputs.filter { meta, reads ->
+        reads != null && (reads instanceof List
+            ? reads.any { it != null && it.size() > 0 }
+            : reads.size() > 0)
+    }
+
     NANOPLOT (
-        ch_all_qc_outputs
+        ch_all_qc_outputs_nonempty
     )
     ch_versions = ch_versions.mix(NANOPLOT.out.versions.first())
 

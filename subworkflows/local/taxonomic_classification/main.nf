@@ -374,8 +374,16 @@ workflow TAXONOMIC_CLASSIFICATION {
         //
         def taxonomy_file = params.taxonomy_file ? file(params.taxonomy_file, checkIfExists: true) : []
 
+        // Skip TAXPASTA for samples whose classifier report is absent or empty.
+        // An empty Kraken2 report (for instance when every read was filtered
+        // out upstream) causes taxpasta to abort the pipeline. Filtering here
+        // lets the rest of the run continue and produce canonical outputs.
+        def ch_reports_for_taxpasta = ch_raw_reports.filter {
+            it instanceof List && it.size() >= 2 && it[1] != null && it[1].size() > 0
+        }
+
         TAXPASTA_STANDARDISE (
-            ch_raw_reports,
+            ch_reports_for_taxpasta,
             Channel.value(classifier),
             Channel.value(output_format),
             Channel.value(taxonomy_file)
