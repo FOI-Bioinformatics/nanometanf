@@ -46,6 +46,33 @@ workflow TAXONOMIC_CLASSIFICATION {
     def output_format = params.taxpasta_format ?: 'tsv'
 
     //
+    // EMPTY-FASTQ GUARD
+    //
+    // Upstream QC (chopper, fastp) can legitimately produce an output FASTQ
+    // with zero reads when every input read fails its quality or length
+    // thresholds. Passing such a file to Kraken2 wastes scheduler cycles and
+    // risks downstream failures in reporting tools that assume a non-empty
+    // report. A gzipped FASTQ containing zero records is typically under 50
+    // bytes (just the gzip framing), while a single minimal read gzips to
+    // more than that. Filter those entries out here, log a warning so the
+    // operator can see which sample was skipped, and let the channel
+    // continue with the remaining samples.
+    //
+    // This guard is deliberately applied to the shared `ch_reads` input so
+    // it covers all three classification paths (incremental, optimized,
+    // standard) with a single check.
+    //
+    def empty_fastq_threshold = 50L
+    ch_reads = ch_reads.filter { meta, reads ->
+        def reads_list = reads instanceof List ? reads : [reads]
+        def has_any = reads_list.any { f -> f != null && f.exists() && f.size() >= empty_fastq_threshold }
+        if (!has_any) {
+            log.warn "Skipping Kraken2 for sample '${meta.id}' - post-QC FASTQ contains no reads (size below ${empty_fastq_threshold} bytes)"
+        }
+        return has_any
+    }
+
+    //
     // PHASE 2 OPTIMIZATION: Automatic database preloading in real-time mode
     //
     // Enable Kraken2 optimizations automatically for PromethION real-time processing
