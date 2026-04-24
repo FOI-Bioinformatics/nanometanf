@@ -1,10 +1,12 @@
 //
 // Demultiplexing subworkflow for multiplexed nanopore samples
 //
-// Dorado-based demultiplexing was removed when POD5/Dorado inputs were dropped.
-// Samples are expected to arrive pre-demultiplexed (per-barcode directories) or as
-// single-sample FASTQ inputs. Any sample still flagged as needing demultiplexing is
-// passed through unchanged so downstream processes can handle or skip it.
+// The pipeline accepts FASTQ input only. Samples are expected to arrive
+// pre-demultiplexed as per-barcode directories or as single-sample FASTQ
+// inputs. This subworkflow currently performs no additional demultiplexing
+// and is retained as a pass-through stage so that downstream processes have
+// a stable channel contract and so that in-pipeline demultiplexing can be
+// re-introduced here later without further workflow wiring changes.
 //
 
 workflow DEMULTIPLEXING {
@@ -20,8 +22,8 @@ workflow DEMULTIPLEXING {
 
     //
     // Pass-through: FASTQ inputs are either already demultiplexed (per-barcode
-    // directories) or treated as single-sample inputs. Upstream demultiplexing is
-    // out of scope after the POD5/Dorado removal.
+    // directories) or treated as single-sample inputs. In-pipeline
+    // demultiplexing is currently out of scope.
     //
     ch_all_samples = input_channel
 
