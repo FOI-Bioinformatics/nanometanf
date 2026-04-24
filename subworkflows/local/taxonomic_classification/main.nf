@@ -63,11 +63,22 @@ workflow TAXONOMIC_CLASSIFICATION {
     // standard) with a single check.
     //
     // Accept both channels (production wiring) and plain Lists (nf-test
-    // compatibility). Tests pass either an empty list (no samples) or a
-    // single [meta, reads] tuple.
+    // compatibility). Tests pass three shapes:
+    //   - []                           -> no samples
+    //   - [meta, reads]                -> single sample tuple
+    //   - [[meta, reads], [meta, ...]] -> list of sample tuples
+    // Detect the single-tuple case by looking at the first element: a Map
+    // indicates a meta dict, so the outer list IS the tuple; otherwise the
+    // outer list is a collection of tuples.
     def ch_reads_input
     if (ch_reads instanceof List) {
-        ch_reads_input = ch_reads.isEmpty() ? Channel.empty() : Channel.of(ch_reads)
+        if (ch_reads.isEmpty()) {
+            ch_reads_input = Channel.empty()
+        } else if (ch_reads[0] instanceof Map) {
+            ch_reads_input = Channel.of(ch_reads)
+        } else {
+            ch_reads_input = Channel.fromList(ch_reads)
+        }
     } else {
         ch_reads_input = ch_reads
     }
