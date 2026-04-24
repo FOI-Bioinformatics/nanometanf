@@ -62,8 +62,17 @@ workflow TAXONOMIC_CLASSIFICATION {
     // it covers all three classification paths (incremental, optimized,
     // standard) with a single check.
     //
+    // Accept both channels (production wiring) and plain Lists (nf-test
+    // compatibility). Tests pass either an empty list (no samples) or a
+    // single [meta, reads] tuple.
+    def ch_reads_input
+    if (ch_reads instanceof List) {
+        ch_reads_input = ch_reads.isEmpty() ? Channel.empty() : Channel.of(ch_reads)
+    } else {
+        ch_reads_input = ch_reads
+    }
     def empty_fastq_threshold = 50L
-    ch_reads = ch_reads.filter { meta, reads ->
+    ch_reads = ch_reads_input.filter { meta, reads ->
         def reads_list = reads instanceof List ? reads : [reads]
         def has_any = reads_list.any { f -> f != null && f.exists() && f.size() >= empty_fastq_threshold }
         if (!has_any) {
