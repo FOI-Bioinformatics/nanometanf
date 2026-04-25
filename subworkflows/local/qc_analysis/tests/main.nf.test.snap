@@ -25,6 +25,20 @@
             "nextflow": "25.04.7"
         }
     },
+    "Should validate QC workflow with no input files": {
+        "content": [
+            [
+                [
+                    
+                ]
+            ]
+        ],
+        "timestamp": "2026-04-25T23:08:53.158843",
+        "meta": {
+            "nf-test": "0.9.4",
+            "nextflow": "25.10.4"
+        }
+    },
     "Should perform comprehensive nanopore QC with multiple tools": {
         "content": [
             [

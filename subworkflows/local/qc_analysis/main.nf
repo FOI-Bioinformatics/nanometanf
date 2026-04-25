@@ -288,7 +288,18 @@ workflow QC_ANALYSIS {
     def skip_intermediate = params.nanoplot_realtime_skip_intermediate ?: true
     def batch_interval = params.nanoplot_batch_interval ?: 10
 
-    def ch_nanoplot_input = ch_qc_reads
+    // The QC tool branches above attach `.ifEmpty([])` to ch_qc_reads so that
+    // top-level `assert workflow.out.reads` checks see an emission even when
+    // upstream produced none. That synthetic `[]` placeholder is shaped like
+    // a single ArrayList rather than a [meta, reads] tuple, and the
+    // downstream NanoPlot filters destructure their input into (meta, reads)
+    // -- on an empty list this raises "Invalid method invocation `call` with
+    // arguments: [] (java.util.ArrayList)" and aborts the run. Drop the
+    // placeholder before any tuple-destructuring filter sees it; real tuples
+    // pass through unchanged. Mirrors the guard already in place for the
+    // canonical writer below (line 377).
+    def ch_qc_reads_tuples = ch_qc_reads.filter { it instanceof List && it.size() >= 2 && it[0] instanceof Map }
+    def ch_nanoplot_input = ch_qc_reads_tuples
     def ch_nanoplot_html = Channel.empty()
     def ch_nanoplot_txt = Channel.empty()
     def ch_nanoplot_png = Channel.empty()
@@ -299,7 +310,7 @@ workflow QC_ANALYSIS {
             log.info "Real-time mode: NanoPlot will run every ${batch_interval} batches and on final batch"
 
             // Filter channel to only include samples that should run NanoPlot
-            ch_nanoplot_input = ch_qc_reads.filter { meta, reads ->
+            ch_nanoplot_input = ch_qc_reads_tuples.filter { meta, reads ->
                 // Always run on final batch
                 if (meta.is_final_batch == true) {
                     log.info "Running NanoPlot for ${meta.id} (final batch)"
