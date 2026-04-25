@@ -30,7 +30,52 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- ***
+- Cumulative QC statistics in incremental realtime mode no longer reflect the
+  last batch only. `QC_ANALYSIS` auto-promotes `qc_enable_incremental` whenever
+  `realtime_mode` and `kraken2_enable_incremental` are both on, the
+  group-by step is re-keyed by `meta.id` so per-batch `batch_time` stamps no
+  longer split groups, `SEQKIT_STATS` per-batch outputs are parked under
+  `seqkit/{sample}/batch_stats/` with disambiguated filenames, and
+  `SEQKIT_MERGE_STATS` publishes the cumulative TSV to the canonical flat
+  `seqkit/{sample}.tsv` path that the dashboard reads. Mirrors the
+  cumulative-kraken2 fix that landed on the nanometa_live side. Tests:
+  `modules/local/seqkit_merge_stats/tests/main.nf.test`.
+- `SEQKIT_MERGE_STATS` Python script no longer aborts on
+  `IndentationError: unexpected indent`. Nextflow preserves the leading
+  4-space indentation of every line in the rendered `.command.sh`, so the
+  inline shebang form was unusable. The body is now written via
+  `cat <<'PYEOF' > merge.py` and executed, which preserves indentation
+  literally.
+- `tests/nextflow.config` no longer force-enables docker globally.
+  Container engines are activated through profile-gated `docker`,
+  `singularity`, and `conda` blocks, so `nf-test ... --profile conda`
+  exercises the conda channel directives instead of attempting docker
+  pulls.
+- `QC_ANALYSIS` accepts plain Lists at its `ch_reads` input, mirroring the
+  `TAXONOMIC_CLASSIFICATION` guard. Empty lists become `Channel.empty()`,
+  single tuples (`[meta, reads]`) dispatch through `Channel.of`, and
+  list-of-tuples dispatch through `Channel.fromList`. Restores the
+  `qc_analysis` nf-test cases under Nextflow 25.10, which previously failed
+  with `Missing process or function map(...)`.
+
+### Known issues
+
+- `subworkflows/nf-core/utils_nfcore_pipeline/main.nf:82` calls
+  `org.yaml.snakeyaml.Yaml().load(yaml_file)` on a Nextflow `Path`. Under
+  Nextflow 25.10 the SnakeYAML overload resolution prefers the `Reader`
+  signature, which Nextflow's `Path` does not satisfy, and the call can
+  raise a method dispatch error during pipeline completion. The block
+  ships verbatim from the nf-core utils template, so the fix belongs
+  upstream rather than in this repository. As a workaround for local
+  runs, `NXF_OFFLINE=true` keeps Nextflow on the bundled SnakeYAML and
+  avoids the dispatch path -- this is the configuration the cycle 3 tests
+  use.
+- The `qc_analysis` test snapshots predate nf-test 0.9.4 / Nextflow
+  25.10.4 (they were captured under nf-test 0.9.2 / Nextflow 25.04.7);
+  the recorded `versions.yml` MD5s drift across that version bump and
+  will need a deliberate snapshot refresh once the toolchain stabilises.
+  Functional assertions (workflow.success, output channel shapes) still
+  pass.
 
 ## [1.4.0] - 2025-11-09
 
