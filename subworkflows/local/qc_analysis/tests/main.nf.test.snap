@@ -29,39 +29,40 @@
         "content": [
             [
                 "versions.yml:md5,289c30c0c8f1d0b00532329504572f16",
-                "versions.yml:md5,b20891e5d879f88cd6f63e9573d45c31"
+                "versions.yml:md5,b20891e5d879f88cd6f63e9573d45c31",
+                "versions.yml:md5,fd2d6a3dc80b87d778f7dbd3feaf60dd"
             ]
         ],
-        "timestamp": "2025-10-14T20:28:35.962374",
+        "timestamp": "2026-04-25T19:19:37.153021",
         "meta": {
-            "nf-test": "0.9.2",
-            "nextflow": "25.04.7"
+            "nf-test": "0.9.4",
+            "nextflow": "25.10.4"
         }
     },
     "Should perform basic FASTP quality control": {
         "content": [
             [
-                "versions.yml:md5,289c30c0c8f1d0b00532329504572f16",
-                "versions.yml:md5,b20891e5d879f88cd6f63e9573d45c31"
+                "versions.yml:md5,b20891e5d879f88cd6f63e9573d45c31",
+                "versions.yml:md5,fd2d6a3dc80b87d778f7dbd3feaf60dd"
             ]
         ],
-        "timestamp": "2025-10-14T20:19:56.74021",
+        "timestamp": "2026-04-25T19:12:59.218172",
         "meta": {
-            "nf-test": "0.9.2",
-            "nextflow": "25.04.7"
+            "nf-test": "0.9.4",
+            "nextflow": "25.10.4"
         }
     },
     "Should run minimal QC with skip options": {
         "content": [
             [
-                "versions.yml:md5,289c30c0c8f1d0b00532329504572f16",
-                "versions.yml:md5,b20891e5d879f88cd6f63e9573d45c31"
+                "versions.yml:md5,b20891e5d879f88cd6f63e9573d45c31",
+                "versions.yml:md5,fd2d6a3dc80b87d778f7dbd3feaf60dd"
             ]
         ],
-        "timestamp": "2025-10-14T20:29:27.84905",
+        "timestamp": "2026-04-25T21:00:09.098151",
         "meta": {
-            "nf-test": "0.9.2",
-            "nextflow": "25.04.7"
+            "nf-test": "0.9.4",
+            "nextflow": "25.10.4"
         }
     },
     "Should handle multiple samples in batch processing": {
@@ -85,11 +86,11 @@
         "content": [
             [
                 "versions.yml:md5,289c30c0c8f1d0b00532329504572f16",
-                "versions.yml:md5,4b09a5850cd4835ff7d59439ce0bd812",
-                "versions.yml:md5,fc9c37561b82c26a4f7126eff84900de"
+                "versions.yml:md5,915e609e636a21126fd2a58785a6099c",
+                "versions.yml:md5,fd2d6a3dc80b87d778f7dbd3feaf60dd"
             ]
         ],
-        "timestamp": "2026-03-24T05:33:54.308932",
+        "timestamp": "2026-04-25T19:23:53.150102",
         "meta": {
             "nf-test": "0.9.4",
             "nextflow": "25.10.4"
@@ -98,14 +99,14 @@
     "Should perform adapter trimming with PORECHOP": {
         "content": [
             [
-                "versions.yml:md5,289c30c0c8f1d0b00532329504572f16",
-                "versions.yml:md5,b20891e5d879f88cd6f63e9573d45c31"
+                "versions.yml:md5,b20891e5d879f88cd6f63e9573d45c31",
+                "versions.yml:md5,fd2d6a3dc80b87d778f7dbd3feaf60dd"
             ]
         ],
-        "timestamp": "2025-10-14T20:28:47.654786",
+        "timestamp": "2026-04-25T19:20:24.524811",
         "meta": {
-            "nf-test": "0.9.2",
-            "nextflow": "25.04.7"
+            "nf-test": "0.9.4",
+            "nextflow": "25.10.4"
         }
     }
 }
