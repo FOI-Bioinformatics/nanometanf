@@ -42,6 +42,32 @@ workflow QC_ANALYSIS {
     ch_fastqc_html = Channel.empty()
     ch_seqkit_stats = Channel.empty()
 
+    //
+    // INPUT NORMALISATION: accept plain Lists alongside Channels.
+    //
+    // nf-test cases pass three shapes for a workflow input:
+    //   - []                            -> no samples
+    //   - [meta, reads]                 -> single sample tuple
+    //   - [[meta, reads], [meta, ...]]  -> list of sample tuples
+    // Under Nextflow 25.10 a downstream `.map { meta, reads -> ... }` call
+    // on a literal ArrayList raises "Missing process or function map(...)".
+    // Detect the single-tuple case by looking at the first element: a Map
+    // indicates a meta dict, so the outer list IS the tuple; otherwise the
+    // outer list is a collection of tuples and is best dispatched through
+    // Channel.fromList. This mirrors the guard already in
+    // TAXONOMIC_CLASSIFICATION (commit 72a5702) and keeps the production
+    // wiring untouched, since real callers always pass a Channel.
+    //
+    if (ch_reads instanceof List) {
+        if (ch_reads.isEmpty()) {
+            ch_reads = Channel.empty()
+        } else if (ch_reads[0] instanceof Map) {
+            ch_reads = Channel.of(ch_reads)
+        } else {
+            ch_reads = Channel.fromList(ch_reads)
+        }
+    }
+
     // Set QC tool and validate parameters
     def qc_tool = (params.qc_tool ?: 'chopper').toLowerCase()
     def enable_adapter_trimming = params.enable_adapter_trimming ?: false
