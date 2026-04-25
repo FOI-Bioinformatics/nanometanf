@@ -82,6 +82,19 @@
             "nextflow": "25.10.4"
         }
     },
+    "Should handle FILTLONG nanopore-optimized filtering": {
+        "content": [
+            [
+                "versions.yml:md5,8dc6a4368368850f986ecec314cb37ed",
+                "versions.yml:md5,fd2d6a3dc80b87d778f7dbd3feaf60dd"
+            ]
+        ],
+        "timestamp": "2026-04-25T22:39:55.775048",
+        "meta": {
+            "nf-test": "0.9.4",
+            "nextflow": "25.10.4"
+        }
+    },
     "Should generate comprehensive nanopore statistics": {
         "content": [
             [
