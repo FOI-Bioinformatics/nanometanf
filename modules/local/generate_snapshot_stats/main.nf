@@ -4,6 +4,8 @@ process GENERATE_SNAPSHOT_STATS {
     // Standardized output path for Nanometa Live integration
     publishDir "${params.outdir}/realtime_batch_stats", mode: 'copy'
 
+    conda "conda-forge::python=3.11"
+
     input:
     tuple val(batch_meta), val(file_metas)
     val stats_config

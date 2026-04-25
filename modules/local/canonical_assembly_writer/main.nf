@@ -2,6 +2,8 @@ process CANONICAL_ASSEMBLY_WRITER {
     tag "$meta.id"
     label 'process_single'
 
+    conda "conda-forge::python=3.11"
+
     publishDir "${params.outdir}/canonical/assembly/",
         mode: params.publish_dir_mode,
         saveAs: { filename -> filename }

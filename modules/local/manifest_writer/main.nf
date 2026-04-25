@@ -2,6 +2,8 @@ process MANIFEST_WRITER {
     tag "manifest"
     label 'process_single'
 
+    conda "conda-forge::python=3.11"
+
     publishDir "${params.outdir}/canonical/",
         mode: params.publish_dir_mode,
         saveAs: { filename -> filename }

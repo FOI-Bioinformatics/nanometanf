@@ -46,6 +46,53 @@ workflow TAXONOMIC_CLASSIFICATION {
     def output_format = params.taxpasta_format ?: 'tsv'
 
     //
+    // EMPTY-FASTQ GUARD
+    //
+    // Upstream QC (chopper, fastp) can legitimately produce an output FASTQ
+    // with zero reads when every input read fails its quality or length
+    // thresholds. Passing such a file to Kraken2 wastes scheduler cycles and
+    // risks downstream failures in reporting tools that assume a non-empty
+    // report. A gzipped FASTQ containing zero records is typically under 50
+    // bytes (just the gzip framing), while a single minimal read gzips to
+    // more than that. Filter those entries out here, log a warning so the
+    // operator can see which sample was skipped, and let the channel
+    // continue with the remaining samples.
+    //
+    // This guard is deliberately applied to the shared `ch_reads` input so
+    // it covers all three classification paths (incremental, optimized,
+    // standard) with a single check.
+    //
+    // Accept both channels (production wiring) and plain Lists (nf-test
+    // compatibility). Tests pass three shapes:
+    //   - []                           -> no samples
+    //   - [meta, reads]                -> single sample tuple
+    //   - [[meta, reads], [meta, ...]] -> list of sample tuples
+    // Detect the single-tuple case by looking at the first element: a Map
+    // indicates a meta dict, so the outer list IS the tuple; otherwise the
+    // outer list is a collection of tuples.
+    def ch_reads_input
+    if (ch_reads instanceof List) {
+        if (ch_reads.isEmpty()) {
+            ch_reads_input = Channel.empty()
+        } else if (ch_reads[0] instanceof Map) {
+            ch_reads_input = Channel.of(ch_reads)
+        } else {
+            ch_reads_input = Channel.fromList(ch_reads)
+        }
+    } else {
+        ch_reads_input = ch_reads
+    }
+    def empty_fastq_threshold = 50L
+    ch_reads = ch_reads_input.filter { meta, reads ->
+        def reads_list = reads instanceof List ? reads : [reads]
+        def has_any = reads_list.any { f -> f != null && f.exists() && f.size() >= empty_fastq_threshold }
+        if (!has_any) {
+            log.warn "Skipping Kraken2 for sample '${meta.id}' - post-QC FASTQ contains no reads (size below ${empty_fastq_threshold} bytes)"
+        }
+        return has_any
+    }
+
+    //
     // PHASE 2 OPTIMIZATION: Automatic database preloading in real-time mode
     //
     // Enable Kraken2 optimizations automatically for PromethION real-time processing

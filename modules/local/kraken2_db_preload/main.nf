@@ -14,6 +14,8 @@ process KRAKEN2_DB_PRELOAD {
     tag "db_preload"
     label 'process_low'
 
+    conda "conda-forge::coreutils=9.5"
+
     input:
     path db
 
