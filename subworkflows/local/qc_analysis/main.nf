@@ -42,6 +42,32 @@ workflow QC_ANALYSIS {
     ch_fastqc_html = Channel.empty()
     ch_seqkit_stats = Channel.empty()
 
+    //
+    // INPUT NORMALISATION: accept plain Lists alongside Channels.
+    //
+    // nf-test cases pass three shapes for a workflow input:
+    //   - []                            -> no samples
+    //   - [meta, reads]                 -> single sample tuple
+    //   - [[meta, reads], [meta, ...]]  -> list of sample tuples
+    // Under Nextflow 25.10 a downstream `.map { meta, reads -> ... }` call
+    // on a literal ArrayList raises "Missing process or function map(...)".
+    // Detect the single-tuple case by looking at the first element: a Map
+    // indicates a meta dict, so the outer list IS the tuple; otherwise the
+    // outer list is a collection of tuples and is best dispatched through
+    // Channel.fromList. This mirrors the guard already in
+    // TAXONOMIC_CLASSIFICATION (commit 72a5702) and keeps the production
+    // wiring untouched, since real callers always pass a Channel.
+    //
+    if (ch_reads instanceof List) {
+        if (ch_reads.isEmpty()) {
+            ch_reads = Channel.empty()
+        } else if (ch_reads[0] instanceof Map) {
+            ch_reads = Channel.of(ch_reads)
+        } else {
+            ch_reads = Channel.fromList(ch_reads)
+        }
+    }
+
     // Set QC tool and validate parameters
     def qc_tool = (params.qc_tool ?: 'chopper').toLowerCase()
     def enable_adapter_trimming = params.enable_adapter_trimming ?: false
@@ -190,33 +216,54 @@ workflow QC_ANALYSIS {
     //
     // OPTIONAL: Incremental QC statistics aggregation (PromethION optimization)
     //
-    // For tools that use SEQKIT_STATS (chopper, filtlong), aggregate batch-level stats
-    // into cumulative statistics when incremental mode is enabled
+    // For tools that use SEQKIT_STATS (chopper, filtlong), aggregate batch-level
+    // stats into cumulative statistics when incremental mode is enabled.
     //
-    // STREAMING-FIX: groupTuple() waits for channel completion, which never happens
-    // with watchPath() in true streaming mode. This feature is incompatible with
-    // realtime streaming and should be disabled when realtime_mode is enabled.
+    // The realtime path closes the watchPath channel via the
+    // realtime_timeout_minutes idle timeout (see F12), at which point
+    // groupTuple(remainder: true) flushes the partial group and
+    // SEQKIT_MERGE_STATS fires once per sample. Auto-promote
+    // qc_enable_incremental when realtime_mode + kraken2_enable_incremental are
+    // both on -- without aggregation the per-batch SEQKIT_STATS overwrite
+    // each other on publish (default tokenizer publishDir, fixed filename
+    // ${meta.id}.tsv) and the published seqkit/{sample}.tsv ends up holding
+    // only the last batch's read count. This mirrors the cumulative kraken2
+    // report contract that the dashboard already relies on.
     //
-    def enable_incremental = params.qc_enable_incremental ?: false
     def is_realtime_mode = params.realtime_mode ?: false
+    def auto_qc_incremental = is_realtime_mode && (params.kraken2_enable_incremental ?: false)
+    def enable_incremental = (params.qc_enable_incremental ?: false) || auto_qc_incremental
+    if (auto_qc_incremental && !(params.qc_enable_incremental ?: false)) {
+        log.info "Realtime mode with kraken2_enable_incremental: auto-enabling QC stats aggregation"
+    }
     def ch_final_seqkit_stats = ch_seqkit_stats
 
     if (enable_incremental && (qc_tool == 'chopper' || qc_tool == 'filtlong')) {
-        //
-        // F10 fix: realtime aggregation is enabled too, with groupTuple
-        // (remainder: true) so the merge fires once per sample when the
-        // watchPath channel closes (via the realtime_timeout_minutes idle
-        // timeout; see F12). Without this, single_sample realtime runs
-        // overwrote canonical/qc/{sample}.qc_stats.json with the last batch
-        // only and the QC tab reported a fraction of the real read count.
-        //
         log.info "Using incremental QC statistics aggregation for ${qc_tool}"
 
-        // Group batch-level seqkit stats by sample ID. remainder: true lets
-        // partial groups flush on channel closure, which is how the realtime
-        // watchPath channel eventually terminates (idle timeout or end of
-        // batch input).
-        def ch_grouped_batch_stats = ch_seqkit_stats.groupTuple(by: 0, remainder: true)
+        // Group batch-level seqkit stats by sample id. The full meta map
+        // carries a per-batch batch_time stamp set in REALTIME_MONITORING
+        // (line 285), so two batches for the same sample compare unequal
+        // and groupTuple(by: 0) on the raw meta would never collapse them.
+        // Re-key by meta.id, then rebuild a stable sample-level meta from
+        // the first emitted item (id, single_end, optional barcode) so
+        // SEQKIT_MERGE_STATS receives the canonical per-sample tuple it
+        // expects. remainder: true flushes the partial group when the
+        // upstream watchPath channel finally closes.
+        def ch_grouped_batch_stats = ch_seqkit_stats
+            .map { meta, stats -> tuple(meta.id, meta, stats) }
+            .groupTuple(by: 0, remainder: true)
+            .map { sample_id, metas, stats_list ->
+                def base = metas[0] ?: [:]
+                def cumulative_meta = [
+                    id: sample_id,
+                    single_end: base.single_end != null ? base.single_end : true
+                ]
+                if (base.barcode) {
+                    cumulative_meta.barcode = base.barcode
+                }
+                tuple(cumulative_meta, stats_list)
+            }
 
         // Merge batch statistics into cumulative statistics
         SEQKIT_MERGE_STATS(

@@ -64,6 +64,23 @@
             "nextflow": "25.04.7"
         }
     },
+    "Should handle multiple samples in batch processing": {
+        "content": [
+            [
+                "versions.yml:md5,b20891e5d879f88cd6f63e9573d45c31",
+                "versions.yml:md5,b20891e5d879f88cd6f63e9573d45c31",
+                "versions.yml:md5,b20891e5d879f88cd6f63e9573d45c31",
+                "versions.yml:md5,fd2d6a3dc80b87d778f7dbd3feaf60dd",
+                "versions.yml:md5,fd2d6a3dc80b87d778f7dbd3feaf60dd",
+                "versions.yml:md5,fd2d6a3dc80b87d778f7dbd3feaf60dd"
+            ]
+        ],
+        "timestamp": "2026-04-25T17:39:12.196214",
+        "meta": {
+            "nf-test": "0.9.4",
+            "nextflow": "25.10.4"
+        }
+    },
     "Should generate comprehensive nanopore statistics": {
         "content": [
             [
