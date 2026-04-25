@@ -334,7 +334,7 @@
                     "minimum": 1,
                     "description": "Maximum number of files to process in real-time mode (limits watchPath file detection).",
                     "fa_icon": "fas fa-stop-circle",
-                    "help_text": "Set a limit on the total number of files to process. Useful for testing real-time workflows without processing an entire sequencing run."
+                    "help_text": "Set a limit on the total number of files to process. Useful for testing real-time workflows without processing an entire sequencing run. When combined with realtime_timeout_minutes, both bounds are enforced independently and whichever fires first terminates the watchPath stream."
                 },
                 "priority_samples": {
                     "type": "array",
@@ -391,9 +391,9 @@
                     "type": "integer",
                     "default": 60,
                     "minimum": 1,
-                    "description": "Stop real-time monitoring after N minutes of inactivity (null = run indefinitely).",
+                    "description": "Stop real-time monitoring after N minutes (wall-clock budget; null = run indefinitely).",
                     "fa_icon": "fas fa-clock",
-                    "help_text": "Automatically stop the pipeline if no new files are detected for this duration. Useful for unattended sequencing runs. The default value (60) is chosen to avoid indefinite hangs; set to null or a large value to keep monitoring forever."
+                    "help_text": "Automatically stop the pipeline after this many minutes (plus realtime_processing_grace_period) regardless of whether new files are still arriving. Useful for unattended sequencing runs. When combined with max_files the two bounds are enforced independently and whichever fires first stops the watchPath stream. The default (60) avoids indefinite hangs; set to null or a large value to keep monitoring forever."
                 },
                 "realtime_processing_grace_period": {
                     "type": "integer",

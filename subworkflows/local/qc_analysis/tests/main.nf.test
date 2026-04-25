@@ -253,6 +253,51 @@ nextflow_workflow {
         }
     }
 
+    test("Should skip NanoPlot for sub-50-byte gzip-only post-QC FASTQ (Task #12 regression)") {
+
+        tag "task12"
+
+        // Regression for Task #12: Chopper and fastp can emit a gzipped FASTQ
+        // that contains only the gzip framing (no records) when every input
+        // read fails the configured quality or length thresholds. The earlier
+        // guard relied on `size() > 0`, which let the ~20-40 byte framing pass
+        // through and caused NanoPlot to abort the pipeline with
+        // "Fatal: No reads found in input". The current guard uses the same
+        // 50-byte threshold as the TAXONOMIC_CLASSIFICATION entry guard
+        // (commit e8b8dfe), so the sample is dropped and the workflow
+        // completes successfully.
+        when {
+            workflow {
+                """
+                input[0] = [
+                    [id: 'barcode03_empty_post_qc', single_end: true],
+                    file('$projectDir/tests/fixtures/fastq/edge_cases/empty_post_qc.fastq.gz')
+                ]
+                """
+            }
+
+            params {
+                qc_tool = 'fastp'
+                skip_fastp = true
+                skip_nanoplot = false
+                skip_fastqc = true
+                max_cpus = 1
+                max_memory = '2.GB'
+                max_time = '1.min'
+            }
+        }
+
+        then {
+            assert workflow.success
+
+            // NanoPlot was skipped, so no html output for the empty sample.
+            if (workflow.out.nanoplot) {
+                def html_list = workflow.out.nanoplot.toList()
+                assert html_list.size() == 0
+            }
+        }
+    }
+
     test("Should handle multiple samples in batch processing") {
 
         when {

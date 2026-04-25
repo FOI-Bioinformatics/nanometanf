@@ -276,14 +276,33 @@ workflow QC_ANALYSIS {
             }
         }
 
-        // Skip NanoPlot for samples whose reads file is missing or empty.
-        // NanoPlot exits non-zero on zero-read FASTQ input (for example when
-        // every read was filtered out by an upstream QC step), which would
-        // otherwise abort the whole pipeline.
+        // Skip NanoPlot for samples whose post-QC FASTQ has no reads.
+        //
+        // NanoPlot exits non-zero ("Fatal: No reads found in input") on a
+        // zero-read FASTQ, which would otherwise abort the whole pipeline.
+        // An earlier guard relied on `size() > 0`, but Chopper and fastp
+        // can legitimately emit a gzipped FASTQ that contains only the
+        // gzip framing (typically under 50 bytes) when every input read
+        // fails the quality or length thresholds. Such files pass the
+        // size > 0 check but still cause NanoPlot to fail.
+        //
+        // The 50-byte threshold matches the equivalent guard at the
+        // entry of TAXONOMIC_CLASSIFICATION (commit e8b8dfe). It sits
+        // comfortably above an empty gzip stream and below a single
+        // minimal FASTQ record, so it skips empty samples without
+        // dropping any sample that contains real reads. Skipped samples
+        // continue through the rest of the pipeline; only NanoPlot is
+        // bypassed for them.
+        def empty_fastq_threshold = 50L
         def ch_nanoplot_nonempty = ch_nanoplot_input.filter { meta, reads ->
-            reads != null && (reads instanceof List
-                ? reads.any { it != null && it.size() > 0 }
-                : reads.size() > 0)
+            def reads_list = reads instanceof List ? reads : [reads]
+            def has_any = reads_list.any { f ->
+                f != null && f.exists() && f.size() >= empty_fastq_threshold
+            }
+            if (!has_any) {
+                log.warn "Skipping NanoPlot for sample '${meta.id}' - post-QC FASTQ contains no reads (size below ${empty_fastq_threshold} bytes)"
+            }
+            return has_any
         }
 
         // Run NanoPlot on filtered samples
