@@ -121,41 +121,75 @@ workflow REALTIME_MONITORING {
             log.warn "  Excluded per directory: ${excluded_counts}"
         }
 
-        // Apply timeout or max_files limit
-        // Note: Nextflow does not have .scan() operator for stateful streaming.
-        // For timeout behavior, we rely on max_files limit combined with
-        // the watchPath operator's natural timeout via Channel.interval + until.
+        // Apply timeout and/or max_files limits.
+        //
+        // Both bounds are independent and either may fire first:
+        //   - max_files: enforced via .take(N) on the file stream.
+        //   - realtime_timeout_minutes (+ realtime_processing_grace_period):
+        //     enforced by mixing a sentinel into the stream that is emitted
+        //     by Channel.interval after the total timeout, then using
+        //     .until { ... } to stop the stream when the sentinel arrives.
+        //
+        // Earlier revisions computed total_timeout_ms but never applied it,
+        // so .take(max_files) silently dominated and operators who set a
+        // generous max_files (defensive cap) lost timeout-based auto-stop.
+        // With both bounds wired in, whichever predicate is satisfied first
+        // terminates the channel; downstream batching then drains naturally.
+        def TIMEOUT_SENTINEL = '__REALTIME_TIMEOUT_SENTINEL__'
+        ch_input_files = ch_all_files
+
         if (params.realtime_timeout_minutes) {
-            log.info "Real-time timeout enabled: Will stop after ${params.realtime_timeout_minutes} minutes of inactivity"
-            log.info "Grace period: ${params.realtime_processing_grace_period} minutes for processing completion"
-            log.info "="*80
+            def grace = (params.realtime_processing_grace_period ?: 0) as Integer
+            def total_timeout_ms = (params.realtime_timeout_minutes.toInteger() + grace) * 60L * 1000L
 
-            // Calculate total timeout duration in milliseconds
-            def total_timeout_ms = (params.realtime_timeout_minutes + params.realtime_processing_grace_period) * 60 * 1000
+            log.info "Real-time timeout enabled: stop after ${params.realtime_timeout_minutes} minutes (idle) plus ${grace} minute grace period"
+            log.info "Total wall-clock budget: ${total_timeout_ms} ms"
 
-            // Track activity using a simple counter approach
-            // Files are taken until max_files is reached or monitoring is manually stopped
-            if (params.max_files) {
-                log.info "Max files limit: ${params.max_files}"
-                ch_input_files = ch_all_files.take(params.max_files.toInteger())
-            } else {
-                // Without max_files, rely on external termination or use a very large take
-                log.warn "WARNING: No max_files set - pipeline may run indefinitely until manually stopped"
-                log.warn "Consider setting --max_files for automated termination"
-                ch_input_files = ch_all_files
-            }
-        } else {
-            // No timeout - use max_files only or run indefinitely
-            ch_input_files = params.max_files
-                ? ch_all_files.take(params.max_files.toInteger())
-                : ch_all_files
+            // Schedule a one-shot sentinel emission on a Java daemon
+            // Timer. We intentionally avoid Channel.interval here: that
+            // factory keeps emitting on its scheduler until the JVM
+            // exits and is awkward to cancel cleanly when .take(N)
+            // satisfies the cap first. A daemon Timer is GC-collected
+            // along with its queue when no consumers remain, so a
+            // cap-fires-first run does not pin the JVM open waiting
+            // for a sentinel that no one is reading.
+            //
+            // The sentinel is delivered by binding values into a GPars
+            // DataflowQueue (the type that backs every Nextflow channel)
+            // from the timer task. The queue is mixed with the file
+            // stream and consumed by .until so that whichever predicate
+            // is satisfied first terminates the merged channel. After
+            // emitting the sentinel, the timer also binds a PoisonPill
+            // so the queue closes for downstream operators that look at
+            // channel completion.
+            def ch_timeout = new groovyx.gpars.dataflow.DataflowQueue()
+            def timer = new Timer('realtime-timeout', /* isDaemon */ true)
+            timer.schedule({
+                try {
+                    ch_timeout.bind(TIMEOUT_SENTINEL)
+                    ch_timeout.bind(groovyx.gpars.dataflow.operator.PoisonPill.instance)
+                    log.info "Real-time timeout fired after ${total_timeout_ms} ms"
+                } catch (Exception e) {
+                    // Queue already closed by an earlier termination path.
+                }
+                timer.cancel()
+            } as TimerTask, total_timeout_ms)
 
-            if (!params.max_files) {
-                log.warn "WARNING: No timeout or max_files set - pipeline will run indefinitely!"
-                log.warn "Consider setting --realtime_timeout_minutes or --max_files"
-            }
-            log.info "="*80
+            ch_input_files = ch_input_files
+                .mix(ch_timeout)
+                .until { it == TIMEOUT_SENTINEL }
         }
+
+        if (params.max_files) {
+            log.info "Max files limit: ${params.max_files}"
+            ch_input_files = ch_input_files.take(params.max_files.toInteger())
+        }
+
+        if (!params.realtime_timeout_minutes && !params.max_files) {
+            log.warn "WARNING: No timeout or max_files set - pipeline will run indefinitely!"
+            log.warn "Consider setting --realtime_timeout_minutes or --max_files"
+        }
+        log.info "="*80
 
         //
         // ADAPTIVE BATCHING: Dynamic batch size adjustment (v1.2.1+)

@@ -76,6 +76,53 @@ nextflow_workflow {
         }
     }
 
+    test("Should accept both realtime_timeout_minutes and max_files (Task #10 regression)") {
+
+        tag "task10"
+
+        // Regression for Task #10: the subworkflow used to apply
+        // .take(max_files) but never wired total_timeout_ms to the
+        // channel, so the timeout was silently dropped when both bounds
+        // were set. With max_files=50 and only 3 files delivered, the
+        // run waited indefinitely for 47 more files instead of stopping
+        // at the wall-clock budget.
+        //
+        // The fix mixes a sentinel emitted from a daemon Timer into the
+        // file stream and applies .until on it before .take, so
+        // whichever predicate is satisfied first terminates the merged
+        // channel. This test mirrors the existing realtime_mode test
+        // pattern: it walks the realtime branch with both bounds set so
+        // a regression in the parameter-wiring (script-level errors,
+        // bad timeout maths, missing imports) is caught at compile and
+        // load time. The cap-fires-first and timeout-fires-first
+        // behaviours are validated end-to-end at the integration level
+        // (Scenarios C, D, E in the audit harness).
+        when {
+            workflow {
+                """
+                input[0] = '$projectDir/tests/fixtures/watch_dirs/fastq'   // watch_dir
+                input[1] = '**/*.fastq{,.gz}'                              // file_pattern
+                input[2] = 1                                               // batch_size
+                input[3] = '30.sec'                                        // batch_interval
+                """
+            }
+
+            params {
+                realtime_mode = true
+                realtime_timeout_minutes = 60
+                realtime_processing_grace_period = 5
+                max_files = 1
+                max_cpus = 1
+                max_memory = '2.GB'
+                max_time = '2.min'
+            }
+        }
+
+        then {
+            assert workflow.success
+        }
+    }
+
     test("Should validate parameters for real-time FASTQ monitoring") {
 
         when {
