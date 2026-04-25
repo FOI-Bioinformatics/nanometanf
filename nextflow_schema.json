@@ -512,6 +512,44 @@
                     "description": "Number of bases to trim from read end (CHOPPER).",
                     "fa_icon": "fas fa-cut"
                 },
+                "filtlong_min_length": {
+                    "type": "integer",
+                    "default": 1000,
+                    "minimum": 1,
+                    "description": "Minimum read length for FILTLONG filtering.",
+                    "fa_icon": "fas fa-ruler"
+                },
+                "filtlong_max_length": {
+                    "type": "integer",
+                    "description": "Maximum read length for FILTLONG filtering (null = no limit).",
+                    "fa_icon": "fas fa-ruler"
+                },
+                "filtlong_keep_percent": {
+                    "type": "number",
+                    "default": 90,
+                    "minimum": 0,
+                    "maximum": 100,
+                    "description": "Keep top N percent of reads by quality (FILTLONG).",
+                    "fa_icon": "fas fa-percent"
+                },
+                "filtlong_target_bases": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "description": "Target total bases retained by FILTLONG (null = no cap).",
+                    "fa_icon": "fas fa-database"
+                },
+                "filtlong_min_mean_q": {
+                    "type": "number",
+                    "minimum": 0,
+                    "description": "Minimum mean read quality for FILTLONG (Phred).",
+                    "fa_icon": "fas fa-filter"
+                },
+                "filtlong_min_window_q": {
+                    "type": "number",
+                    "minimum": 0,
+                    "description": "Minimum window quality for FILTLONG (Phred).",
+                    "fa_icon": "fas fa-filter"
+                },
                 "qc_enable_incremental": {
                     "type": "boolean",
                     "default": false,

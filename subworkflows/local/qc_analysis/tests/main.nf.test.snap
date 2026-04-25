@@ -25,6 +25,20 @@
             "nextflow": "25.04.7"
         }
     },
+    "Should validate QC workflow with no input files": {
+        "content": [
+            [
+                [
+                    
+                ]
+            ]
+        ],
+        "timestamp": "2026-04-25T23:08:53.158843",
+        "meta": {
+            "nf-test": "0.9.4",
+            "nextflow": "25.10.4"
+        }
+    },
     "Should perform comprehensive nanopore QC with multiple tools": {
         "content": [
             [
@@ -82,6 +96,19 @@
             "nextflow": "25.10.4"
         }
     },
+    "Should handle FILTLONG nanopore-optimized filtering": {
+        "content": [
+            [
+                "versions.yml:md5,8dc6a4368368850f986ecec314cb37ed",
+                "versions.yml:md5,fd2d6a3dc80b87d778f7dbd3feaf60dd"
+            ]
+        ],
+        "timestamp": "2026-04-25T22:39:55.775048",
+        "meta": {
+            "nf-test": "0.9.4",
+            "nextflow": "25.10.4"
+        }
+    },
     "Should generate comprehensive nanopore statistics": {
         "content": [
             [
@@ -104,6 +131,21 @@
             ]
         ],
         "timestamp": "2026-04-25T19:20:24.524811",
+        "meta": {
+            "nf-test": "0.9.4",
+            "nextflow": "25.10.4"
+        }
+    },
+    "Should handle edge cases with small or malformed files": {
+        "content": [
+            [
+                "versions.yml:md5,b20891e5d879f88cd6f63e9573d45c31",
+                "versions.yml:md5,b20891e5d879f88cd6f63e9573d45c31",
+                "versions.yml:md5,fd2d6a3dc80b87d778f7dbd3feaf60dd",
+                "versions.yml:md5,fd2d6a3dc80b87d778f7dbd3feaf60dd"
+            ]
+        ],
+        "timestamp": "2026-04-25T22:33:36.515684",
         "meta": {
             "nf-test": "0.9.4",
             "nextflow": "25.10.4"
