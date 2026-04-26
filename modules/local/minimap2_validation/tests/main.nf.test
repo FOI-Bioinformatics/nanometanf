@@ -1,0 +1,48 @@
+nextflow_process {
+
+    name "Test Process MINIMAP2_VALIDATION"
+    script "../main.nf"
+    process "MINIMAP2_VALIDATION"
+
+    options "-stub"
+
+    tag "module"
+    tag "minimap2_validation"
+    tag "validation"
+    tag "stub"
+    tag "fast"
+
+    test("Should emit minimap2 validation stub outputs") {
+
+        setup {
+            file("${outputDir}").mkdirs()
+            file("${outputDir}/sample1_taxid562.fastq.gz").text = ""
+            file("${outputDir}/reference.fasta").text = ""
+        }
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id: 'sample1', taxid: 562 ],
+                    file("${outputDir}/sample1_taxid562.fastq.gz"),
+                    file("${outputDir}/reference.fasta")
+                ]
+                input[1] = 'map-ont'
+                input[2] = 10
+                input[3] = 0.5
+                input[4] = 90.0
+                """
+            }
+        }
+
+        then {
+            assertAll(
+                { assert process.success },
+                { assert process.out.alignments },
+                { assert process.out.stats },
+                { assert snapshot(process.out.versions).match() }
+            )
+        }
+    }
+}

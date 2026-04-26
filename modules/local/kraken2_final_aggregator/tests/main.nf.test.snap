@@ -1,0 +1,14 @@
+{
+    "Should emit cumulative Kraken2 stub outputs": {
+        "content": [
+            [
+                "versions.yml:md5,702ef28eccf275dd069fbe9424792ac3"
+            ]
+        ],
+        "timestamp": "2026-04-26T22:47:44.026299",
+        "meta": {
+            "nf-test": "0.9.4",
+            "nextflow": "25.04.7"
+        }
+    }
+}

@@ -1,0 +1,42 @@
+nextflow_process {
+
+    name "Test Process CANONICAL_QC_WRITER"
+    script "../main.nf"
+    process "CANONICAL_QC_WRITER"
+
+    options "-stub"
+
+    tag "module"
+    tag "canonical_qc_writer"
+    tag "canonical"
+    tag "qc"
+    tag "stub"
+    tag "fast"
+
+    test("Should emit canonical QC stub outputs") {
+
+        setup {
+            file("${outputDir}").mkdirs()
+            file("${outputDir}/sample1.qc.tsv").text = "metric\tvalue\nreads\t0\n"
+        }
+
+        when {
+            process {
+                """
+                input[0] = [ [ id: 'sample1' ], file("${outputDir}/sample1.qc.tsv") ]
+                input[1] = 'fastp'
+                input[2] = '0.23.4'
+                """
+            }
+        }
+
+        then {
+            assertAll(
+                { assert process.success },
+                { assert process.out.canonical },
+                { assert process.out.sidecar },
+                { assert snapshot(process.out.versions).match() }
+            )
+        }
+    }
+}

@@ -1,0 +1,40 @@
+nextflow_process {
+
+    name "Test Process KRAKEN2_DB_PRELOAD"
+    script "../main.nf"
+    process "KRAKEN2_DB_PRELOAD"
+
+    options "-stub"
+
+    tag "module"
+    tag "kraken2_db_preload"
+    tag "classification"
+    tag "stub"
+    tag "fast"
+
+    test("Should pass through Kraken2 database under -stub") {
+
+        setup {
+            def db = file("${outputDir}/kraken2_db_stub")
+            db.mkdirs()
+            file("${db}/hash.k2d").text = ""
+            file("${db}/taxo.k2d").text = ""
+            file("${db}/opts.k2d").text = ""
+        }
+
+        when {
+            process {
+                """
+                input[0] = file("${outputDir}/kraken2_db_stub")
+                """
+            }
+        }
+
+        then {
+            assertAll(
+                { assert process.success },
+                { assert snapshot(process.out.versions).match() }
+            )
+        }
+    }
+}

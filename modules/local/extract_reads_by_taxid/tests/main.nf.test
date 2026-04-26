@@ -1,0 +1,45 @@
+nextflow_process {
+
+    name "Test Process EXTRACT_READS_BY_TAXID"
+    script "../main.nf"
+    process "EXTRACT_READS_BY_TAXID"
+
+    options "-stub"
+
+    tag "module"
+    tag "extract_reads_by_taxid"
+    tag "validation"
+    tag "stub"
+    tag "fast"
+
+    test("Should emit per-taxid read extraction stub outputs") {
+
+        setup {
+            file("${outputDir}").mkdirs()
+            file("${outputDir}/sample1.fastq.gz").text = ""
+            file("${outputDir}/sample1.kraken2.classifiedreads.txt").text = ""
+        }
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id: 'sample1' ],
+                    file("${outputDir}/sample1.fastq.gz"),
+                    file("${outputDir}/sample1.kraken2.classifiedreads.txt"),
+                    562
+                ]
+                """
+            }
+        }
+
+        then {
+            assertAll(
+                { assert process.success },
+                { assert process.out.reads },
+                { assert process.out.stats },
+                { assert snapshot(process.out.versions).match() }
+            )
+        }
+    }
+}

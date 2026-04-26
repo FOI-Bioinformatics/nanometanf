@@ -1,0 +1,14 @@
+{
+    "Should emit canonical validation stub outputs": {
+        "content": [
+            [
+                "versions.yml:md5,e3634a3909414bf3ce8c292d18e196c9"
+            ]
+        ],
+        "timestamp": "2026-04-26T22:40:27.586199",
+        "meta": {
+            "nf-test": "0.9.4",
+            "nextflow": "25.04.7"
+        }
+    }
+}

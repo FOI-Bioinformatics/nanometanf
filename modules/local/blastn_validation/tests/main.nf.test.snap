@@ -1,0 +1,14 @@
+{
+    "Should emit blastn validation stub outputs": {
+        "content": [
+            [
+                "versions.yml:md5,c3df5178514f51ab60619969d6f1c9de"
+            ]
+        ],
+        "timestamp": "2026-04-26T22:45:06.407597",
+        "meta": {
+            "nf-test": "0.9.4",
+            "nextflow": "25.04.7"
+        }
+    }
+}

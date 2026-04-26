@@ -1,0 +1,46 @@
+nextflow_process {
+
+    name "Test Process KRAKEN2_FINAL_AGGREGATOR"
+    script "../main.nf"
+    process "KRAKEN2_FINAL_AGGREGATOR"
+
+    options "-stub"
+
+    tag "module"
+    tag "kraken2_final_aggregator"
+    tag "classification"
+    tag "realtime"
+    tag "stub"
+    tag "fast"
+
+    test("Should emit cumulative Kraken2 stub outputs") {
+
+        setup {
+            file("${outputDir}").mkdirs()
+            file("${outputDir}/batch_001.kraken2.output.txt").text = ""
+            file("${outputDir}/batch_001.kraken2.report.txt").text = ""
+        }
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id: 'sample1', batch_count: 1 ],
+                    [ file("${outputDir}/batch_001.kraken2.output.txt") ],
+                    [ file("${outputDir}/batch_001.kraken2.report.txt") ]
+                ]
+                """
+            }
+        }
+
+        then {
+            assertAll(
+                { assert process.success },
+                { assert process.out.cumulative_output },
+                { assert process.out.cumulative_report },
+                { assert process.out.stats },
+                { assert snapshot(process.out.versions).match() }
+            )
+        }
+    }
+}

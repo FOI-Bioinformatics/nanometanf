@@ -1,0 +1,44 @@
+nextflow_process {
+
+    name "Test Process CANONICAL_VALIDATION_WRITER"
+    script "../main.nf"
+    process "CANONICAL_VALIDATION_WRITER"
+
+    options "-stub"
+
+    tag "module"
+    tag "canonical_validation_writer"
+    tag "canonical"
+    tag "validation"
+    tag "stub"
+    tag "fast"
+
+    test("Should emit canonical validation stub outputs") {
+
+        setup {
+            file("${outputDir}").mkdirs()
+            file("${outputDir}/sample1_taxid562.tsv").text = ""
+        }
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id: 'sample1', taxid: 562 ],
+                    file("${outputDir}/sample1_taxid562.tsv"),
+                    'minimap2',
+                    'paf'
+                ]
+                """
+            }
+        }
+
+        then {
+            assertAll(
+                { assert process.success },
+                { assert process.out.canonical },
+                { assert snapshot(process.out.versions).match() }
+            )
+        }
+    }
+}
