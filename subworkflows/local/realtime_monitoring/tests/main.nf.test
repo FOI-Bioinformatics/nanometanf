@@ -79,6 +79,7 @@ nextflow_workflow {
     test("Should accept both realtime_timeout_minutes and max_files (Task #10 regression)") {
 
         tag "task10"
+        tag "hangs-on-jvm-cleanup"
 
         // Regression for Task #10: the subworkflow used to apply
         // .take(max_files) but never wired total_timeout_ms to the
@@ -124,6 +125,8 @@ nextflow_workflow {
     }
 
     test("Should validate parameters for real-time FASTQ monitoring") {
+
+        tag "hangs-on-jvm-cleanup"
 
         when {
             workflow {

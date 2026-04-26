@@ -36,6 +36,18 @@
 # upstream resolves the issue, and stays harmless for the
 # non-realtime tests that make up the bulk of the suite.
 #
+# Cycle 9 (2026-04-26) tagged the two affected nf-tests (the
+# realtime_mode = true cases in
+# subworkflows/local/realtime_monitoring/tests/main.nf.test) with
+# "hangs-on-jvm-cleanup" so they can be located mechanically.
+# nf-test 0.9.4 does not provide an --exclude-tag flag (only an
+# inclusive --tag), so the tag is currently advisory: operators
+# running the whole suite should omit the realtime_monitoring test
+# file from the path arguments until upstream lands a fix. The
+# upstream-issue text and the jstack capture used to file the
+# upstream report live in
+# docs/upstream-issues/26-watchpath-cleanup-hang.md.
+#
 # What it does
 # ------------
 # 1. Exports NXF_VER=25.04.7 -- the last release whose timeout
