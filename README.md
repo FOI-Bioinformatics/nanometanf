@@ -13,17 +13,16 @@
 
 ## Introduction
 
-**nanometanf** is a bioinformatics pipeline for Oxford Nanopore long-read sequencing data analysis with real-time processing capabilities. It serves as the computational backend for Nanometa Live, supporting POD5 basecalling (Dorado), quality control (Chopper, FASTP, NanoPlot), taxonomic classification (Kraken2), and validation workflows (BLAST/minimap2).
+**nanometanf** is a bioinformatics pipeline for Oxford Nanopore long-read sequencing data analysis with real-time processing capabilities. It serves as the computational backend for Nanometa Live, covering quality control (Chopper, FASTP, NanoPlot), taxonomic classification (Kraken2), and validation workflows (BLAST, minimap2) for metagenomics and genomics applications.
 
 **Key Features:**
 
-- Real-time POD5/FASTQ monitoring during active sequencing
+- Real-time FASTQ monitoring during active sequencing
 - Scalable streaming architecture for high-throughput runs (v1.5+)
-- Seven execution modes supporting diverse laboratory workflows
-- Dual POD5 folder structure support (flat or pre-demultiplexed barcodes)
-- Metal GPU acceleration support for Apple Silicon (macOS)
+- Multiple execution modes supporting diverse laboratory workflows
+- Pre-demultiplexed barcode directory support (flat FASTQ or per-barcode layout)
 - Intelligent resource optimization and backpressure control
-- Production-ready with 55 nf-tests and full nf-core compliance (96/100)
+- Production-ready with full nf-core compliance and an extensive nf-test suite
 
 ## Quick Start
 
@@ -53,17 +52,9 @@ nextflow run foi-bioinformatics/nanometanf -profile test,docker --outdir test_re
 ```
 
 <details>
-<summary>More examples (POD5 basecalling, real-time monitoring)</summary>
+<summary>More examples (real-time monitoring)</summary>
 
 ```bash
-# POD5 basecalling with Dorado
-nextflow run foi-bioinformatics/nanometanf \
-  --use_dorado \
-  --pod5_input_dir /path/to/pod5 \
-  --dorado_model dna_r10.4.1_e4.3_400bps_hac \
-  --outdir results \
-  -profile docker
-
 # Real-time FASTQ monitoring during sequencing
 nextflow run foi-bioinformatics/nanometanf \
   --realtime_mode \
@@ -165,19 +156,18 @@ For production deployments requiring additional resource tuning, see
 ## Pipeline Summary
 
 ```
-Input -> Basecalling -> QC -> Classification -> Validation -> Reports
-  |          |          |         |               |            |
-POD5      Dorado     Chopper   Kraken2         BLAST       MultiQC
-FASTQ                FASTP     (scalable)                   JSON
-Barcodes            NanoPlot   Taxpasta                    HTML
+Input -> QC -> Classification -> Validation -> Reports
+  |       |         |               |            |
+FASTQ  Chopper   Kraken2         BLAST       MultiQC
+       FASTP    (scalable)       minimap2     JSON
+       NanoPlot Taxpasta                      HTML
 ```
 
 **Supported Input Types:**
 
 1. FASTQ samplesheet (standard batch analysis)
 2. Pre-demultiplexed barcode directories (automated discovery)
-3. POD5 files with Dorado basecalling (singleplex or multiplex)
-4. Real-time monitoring (POD5 or FASTQ, during sequencing)
+3. Real-time FASTQ monitoring (during sequencing)
 
 See [Usage Guide](docs/user/usage.md) for detailed instructions.
 
@@ -188,7 +178,6 @@ nanometanf was originally written by Andreas Sjodin ([@andreassjodin](https://gi
 We thank the following people for their extensive assistance in the development of this pipeline:
 
 - The nf-core community for the excellent framework and tools
-- Oxford Nanopore Technologies for Dorado and POD5 format
 - All tool developers whose software is integrated in this pipeline
 
 ## Citations

@@ -3,7 +3,7 @@ process UPDATE_CUMULATIVE_STATS {
     label 'process_single'
     publishDir "${params.outdir}/realtime_stats", mode: 'copy'
 
-    conda "conda-forge::python=3.11"
+    conda "${moduleDir}/environment.yml"
 
     input:
     tuple val(batch_meta), path(snapshot_stats), path(previous_cumulative)

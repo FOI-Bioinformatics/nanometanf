@@ -1,0 +1,47 @@
+name: kraken2_db_preload
+description: |
+  Reads the Kraken2 database hash and taxonomy files into the operating
+  system page cache before any classification process runs. When the
+  Kraken2 modules use memory-mapped database loading, the cached pages
+  are shared across processes, reducing total memory consumption and
+  shortening start-up time for parallel classification forks.
+keywords:
+  - kraken2
+  - taxonomy
+  - cache
+  - preload
+  - performance
+tools:
+  - dd:
+      description: |
+        GNU coreutils dd, used here for sequential reads of the Kraken2
+        hash and taxonomy files into the OS page cache.
+      homepage: https://www.gnu.org/software/coreutils/
+      documentation: https://www.gnu.org/software/coreutils/manual/html_node/dd-invocation.html
+      licence: ["GPL-3.0-or-later"]
+      identifier: ""
+input:
+  - - db:
+        type: directory
+        description: |
+          Path to the Kraken2 database directory. Expected to contain
+          the standard `hash.k2d`, `taxo.k2d`, and `opts.k2d` files.
+output:
+  db:
+    - db:
+        type: directory
+        description: |
+          The same database directory passed in, emitted unchanged so
+          downstream classification processes can chain off the cached
+          state.
+  versions:
+    - versions.yml:
+        type: file
+        description: File containing software versions
+        pattern: "versions.yml"
+        ontologies:
+          - edam: http://edamontology.org/format_3750 # YAML
+authors:
+  - "@andreassjodin"
+maintainers:
+  - "@andreassjodin"

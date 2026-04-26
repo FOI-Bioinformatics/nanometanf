@@ -63,6 +63,10 @@
 
   > Wick, R. (2018). Porechop. Retrieved from https://github.com/rrwick/Porechop
 
+- **Seqtk**: FASTQ/FASTA manipulation (used inside the BLAST validation module to convert reads to FASTA)
+
+  > Li, H. (2018). Seqtk: a fast and lightweight toolkit for FASTA/Q file manipulation. Retrieved from https://github.com/lh3/seqtk
+
 - **PycoQC**: Nanopore QC metrics
 
   > Leger, A., & Leonardi, T. (2019). pycoQC, interactive quality control for Oxford Nanopore Sequencing. Journal of Open Source Software, 4(34), 1236. doi: [10.21105/joss.01236](https://doi.org/10.21105/joss.01236)
