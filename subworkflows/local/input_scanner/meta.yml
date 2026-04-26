@@ -1,0 +1,40 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/nf-core/modules/master/subworkflows/yaml-schema.json
+name: "input_scanner"
+description: Auto-detect input directory layout and group FASTQ files by sample
+keywords:
+  - nanopore
+  - oxford nanopore
+  - sequencing
+  - input
+  - barcoding
+authors:
+  - "@foi-bioinformatics"
+input:
+  - input_dir:
+      type: directory
+      description: |
+        Input directory holding FASTQ files. The subworkflow auto-detects two
+        layouts: a barcode-subdirectory layout produced by MinKNOW
+        (one barcodeNN directory per sample, optionally with an unclassified
+        directory) and a flat layout where every FASTQ file lives in the
+        directory root.
+  - sample_regex:
+      type: string
+      description: |
+        Optional regular expression with one capture group used to extract a
+        sample identifier from each filename in flat-layout mode. Set to null
+        to fall back to the InputDetector defaults.
+output:
+  - samples:
+      type: tuple
+      description: |
+        Per-sample channel of [meta, [reads]] tuples. The meta map carries
+        id, single_end, demux_source, and (for the barcode-subdirectory
+        layout) barcode and demultiplexed flags.
+  - versions:
+      type: file
+      description: |
+        Software versions placeholder; the subworkflow does not call any
+        external tools, so this channel is intentionally empty.
+      pattern: "versions.yml"
+components: []

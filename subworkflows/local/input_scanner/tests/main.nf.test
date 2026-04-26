@@ -1,0 +1,129 @@
+nextflow_workflow {
+
+    name "Test INPUT_SCANNER"
+    script "../main.nf"
+    workflow "INPUT_SCANNER"
+
+    // Test Level & Component
+    tag "subworkflow"
+    tag "input_scanner"
+
+    // Feature Area
+    tag "input"
+
+    // Execution Speed & Criticality
+    tag "fast"
+    tag "core"
+
+    // Test Type
+    tag "snapshot"
+
+    test("Should detect barcode subdirectories and emit one sample per barcode") {
+
+        when {
+            params {
+                sample_name = null
+                outdir = "$outputDir"
+            }
+            workflow {
+                """
+                input[0] = "$projectDir/tests/fixtures/minknow_output"
+                input[1] = null
+                """
+            }
+        }
+
+        then {
+            assert workflow.success
+
+            // Two barcode dirs in the fixture, no unclassified dir, so two samples.
+            def samples = workflow.out.samples.collect { it }
+            assert samples.size() == 2
+
+            def metas = samples.collect { it[0] }
+            def ids = metas.collect { it.id }.sort()
+            assert ids == ["barcode01", "barcode02"]
+
+            // Every barcode meta should be marked demultiplexed and tagged
+            // with the input_scanner demux source.
+            metas.each { meta ->
+                assert meta.barcode == meta.id
+                assert meta.demultiplexed == true
+                assert meta.demux_source == "input_scanner"
+                assert meta.single_end == true
+            }
+
+            // versions channel is intentionally empty (the subworkflow does
+            // not call any tools); snapshot it to lock that contract in.
+            assert snapshot(workflow.out.versions).match()
+        }
+    }
+
+    test("Should include the unclassified directory alongside barcode dirs") {
+
+        when {
+            params {
+                sample_name = null
+                outdir = "$outputDir"
+            }
+            workflow {
+                """
+                input[0] = "$projectDir/tests/fixtures/barcode_structure"
+                input[1] = null
+                """
+            }
+        }
+
+        then {
+            assert workflow.success
+
+            // Fixture has barcode01, barcode02, and an unclassified dir.
+            def samples = workflow.out.samples.collect { it }
+            assert samples.size() == 3
+
+            def ids = samples.collect { it[0].id }.sort()
+            assert ids == ["barcode01", "barcode02", "unclassified"]
+
+            // Unclassified entry should still carry the demultiplexed flag
+            // because it represents the unclassified bucket of a demuxed run.
+            def unclassified = samples.find { it[0].id == "unclassified" }[0]
+            assert unclassified.barcode == "unclassified"
+            assert unclassified.demultiplexed == true
+            assert unclassified.demux_source == "input_scanner"
+        }
+    }
+
+    test("Should group flat-layout files by sample regex") {
+
+        when {
+            params {
+                sample_name = null
+                outdir = "$outputDir"
+            }
+            workflow {
+                """
+                input[0] = "$projectDir/tests/fixtures/flat_multisample"
+                input[1] = "(sample[A-Z])_"
+                """
+            }
+        }
+
+        then {
+            assert workflow.success
+
+            def samples = workflow.out.samples.collect { it }
+            assert samples.size() == 2
+
+            def ids = samples.collect { it[0].id }.sort()
+            assert ids == ["sampleA", "sampleB"]
+
+            // Flat-layout samples are not demultiplexed.
+            samples.each { entry ->
+                def meta = entry[0]
+                assert meta.demux_source == "input_scanner"
+                assert meta.single_end == true
+                assert meta.demultiplexed == null || meta.demultiplexed == false
+            }
+        }
+    }
+}
