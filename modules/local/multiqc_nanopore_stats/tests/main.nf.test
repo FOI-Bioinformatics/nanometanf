@@ -4,8 +4,6 @@ nextflow_process {
     script "../main.nf"
     process "MULTIQC_NANOPORE_STATS"
 
-    options "-stub"
-    tag "stub"
     // Test Level & Component
     tag "module"
     tag "multiqc_nanopore_stats"
@@ -20,30 +18,33 @@ nextflow_process {
     // Test Type
     tag "snapshot"
 
-    test("multiqc_nanopore_stats - basic functionality") {
+    // The module declares its first input as `path(stats_files)` and
+    // accepts either SeqKit stats TSV files or FASTP JSON files. The
+    // runtime caller (workflows/nanometanf.nf) collects QC_ANALYSIS.out.qc_json
+    // (paths) and passes them in. These tests stage matching fixtures
+    // on disk so the type matches the module declaration under
+    // Nextflow 25.04+ which enforces strict path typing.
+
+    test("multiqc_nanopore_stats - basic functionality (two SeqKit TSV samples)") {
+
+        setup {
+            def tmp = file("${outputDir}/basic_inputs")
+            tmp.mkdirs()
+
+            def header = 'file\tformat\ttype\tnum_seqs\tsum_len\tmin_len\tavg_len\tmax_len\tQ1\tQ2\tQ3\tsum_gap\tN50\tN50_num\tQ20(%)\tQ30(%)\tAvgQual\tGC(%)\tsum_n'
+
+            file("${tmp}/sample1.tsv").text = header + '\n' +
+                'sample1.fastq.gz\tFASTQ\tDNA\t10000\t50000000\t100\t5000.0\t12000\t3000\t12.5\t8000\t0\t6500\t2500\t95.0\t85.0\t12.5\t44.0\t0\n'
+            file("${tmp}/sample2.tsv").text = header + '\n' +
+                'sample2.fastq.gz\tFASTQ\tDNA\t15000\t75000000\t100\t5000.0\t13000\t3500\t13.2\t8500\t0\t7000\t3500\t96.0\t86.0\t13.2\t43.5\t0\n'
+        }
 
         when {
             process {
                 """
                 input[0] = [
-                    [
-                        sample_id: 'sample1',
-                        total_reads: 10000,
-                        total_bases: 50000000,
-                        mean_length: 5000,
-                        median_length: 4800,
-                        n50: 6500,
-                        mean_quality: 12.5
-                    ],
-                    [
-                        sample_id: 'sample2',
-                        total_reads: 15000,
-                        total_bases: 75000000,
-                        mean_length: 5000,
-                        median_length: 4900,
-                        n50: 7000,
-                        mean_quality: 13.2
-                    ]
+                    file("${outputDir}/basic_inputs/sample1.tsv"),
+                    file("${outputDir}/basic_inputs/sample2.tsv")
                 ]
                 input[1] = 'test_nanopore'
                 """
@@ -58,21 +59,23 @@ nextflow_process {
 
     }
 
-    test("multiqc_nanopore_stats - single sample") {
+    test("multiqc_nanopore_stats - single sample (SeqKit TSV)") {
+
+        setup {
+            def tmp = file("${outputDir}/single_inputs")
+            tmp.mkdirs()
+
+            def header = 'file\tformat\ttype\tnum_seqs\tsum_len\tmin_len\tavg_len\tmax_len\tQ1\tQ2\tQ3\tsum_gap\tN50\tN50_num\tQ20(%)\tQ30(%)\tAvgQual\tGC(%)\tsum_n'
+
+            file("${tmp}/single_sample.tsv").text = header + '\n' +
+                'single_sample.fastq.gz\tFASTQ\tDNA\t5000\t25000000\t100\t5000.0\t11000\t3000\t11.8\t7500\t0\t6000\t1500\t94.0\t84.0\t11.8\t44.0\t0\n'
+        }
 
         when {
             process {
                 """
                 input[0] = [
-                    [
-                        sample_id: 'single_sample',
-                        total_reads: 5000,
-                        total_bases: 25000000,
-                        mean_length: 5000,
-                        median_length: 4700,
-                        n50: 6000,
-                        mean_quality: 11.8
-                    ]
+                    file("${outputDir}/single_inputs/single_sample.tsv")
                 ]
                 input[1] = 'single_test'
                 """
@@ -87,33 +90,41 @@ nextflow_process {
 
     }
 
-    test("multiqc_nanopore_stats - with histogram data") {
+    test("multiqc_nanopore_stats - FASTP JSON input") {
+
+        setup {
+            def tmp = file("${outputDir}/fastp_inputs")
+            tmp.mkdirs()
+
+            // Minimal FASTP JSON with the keys the module reads:
+            // summary.before_filtering / after_filtering -> total_reads,
+            // total_bases, q20_rate, q30_rate.
+            file("${tmp}/fastp_sample.fastp.json").text = '''{
+  "summary": {
+    "before_filtering": {
+      "total_reads": 8500,
+      "total_bases": 42000000,
+      "q20_rate": 0.94,
+      "q30_rate": 0.85
+    },
+    "after_filtering": {
+      "total_reads": 8000,
+      "total_bases": 40000000,
+      "q20_rate": 0.95,
+      "q30_rate": 0.86
+    }
+  }
+}
+'''
+        }
 
         when {
             process {
                 """
                 input[0] = [
-                    [
-                        sample_id: 'histogram_sample',
-                        total_reads: 8000,
-                        total_bases: 40000000,
-                        mean_length: 5000,
-                        median_length: 4850,
-                        n50: 6200,
-                        mean_quality: 12.1,
-                        read_length_histogram: [
-                            1000: 100,
-                            2000: 250,
-                            3000: 400,
-                            4000: 500,
-                            5000: 600,
-                            6000: 450,
-                            7000: 300,
-                            8000: 150
-                        ]
-                    ]
+                    file("${outputDir}/fastp_inputs/fastp_sample.fastp.json")
                 ]
-                input[1] = 'histogram_test'
+                input[1] = 'fastp_test'
                 """
             }
         }
@@ -127,19 +138,25 @@ nextflow_process {
     }
 
     test("multiqc_nanopore_stats - stub run") {
+
+        options "-stub"
+        tag "stub"
+
+        setup {
+            def tmp = file("${outputDir}/stub_inputs")
+            tmp.mkdirs()
+
+            def header = 'file\tformat\ttype\tnum_seqs\tsum_len\tmin_len\tavg_len\tmax_len\tQ1\tQ2\tQ3\tsum_gap\tN50\tN50_num\tQ20(%)\tQ30(%)\tAvgQual\tGC(%)\tsum_n'
+
+            file("${tmp}/stub_sample.tsv").text = header + '\n' +
+                'stub_sample.fastq.gz\tFASTQ\tDNA\t1000\t5000000\t100\t5000.0\t11000\t3000\t12.0\t7500\t0\t6000\t300\t94.0\t84.0\t12.0\t44.0\t0\n'
+        }
+
         when {
             process {
                 """
                 input[0] = [
-                    [
-                        sample_id: 'stub_sample',
-                        total_reads: 1000,
-                        total_bases: 5000000,
-                        mean_length: 5000,
-                        median_length: 4800,
-                        n50: 6000,
-                        mean_quality: 12.0
-                    ]
+                    file("${outputDir}/stub_inputs/stub_sample.tsv")
                 ]
                 input[1] = 'stub_test'
                 """
@@ -175,19 +192,21 @@ nextflow_process {
 
     test("multiqc_nanopore_stats - high quality reads") {
 
+        setup {
+            def tmp = file("${outputDir}/highq_inputs")
+            tmp.mkdirs()
+
+            def header = 'file\tformat\ttype\tnum_seqs\tsum_len\tmin_len\tavg_len\tmax_len\tQ1\tQ2\tQ3\tsum_gap\tN50\tN50_num\tQ20(%)\tQ30(%)\tAvgQual\tGC(%)\tsum_n'
+
+            file("${tmp}/high_quality.tsv").text = header + '\n' +
+                'high_quality.fastq.gz\tFASTQ\tDNA\t12000\t60000000\t100\t5000.0\t13500\t3500\t15.5\t8500\t0\t7500\t2400\t98.0\t90.0\t15.5\t44.0\t0\n'
+        }
+
         when {
             process {
                 """
                 input[0] = [
-                    [
-                        sample_id: 'high_quality',
-                        total_reads: 12000,
-                        total_bases: 60000000,
-                        mean_length: 5000,
-                        median_length: 4900,
-                        n50: 7500,
-                        mean_quality: 15.5
-                    ]
+                    file("${outputDir}/highq_inputs/high_quality.tsv")
                 ]
                 input[1] = 'high_quality_test'
                 """
