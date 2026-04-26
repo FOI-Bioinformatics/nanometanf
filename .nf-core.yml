@@ -12,6 +12,11 @@ lint:
     - .github/ISSUE_TEMPLATE/config.yml
     - .github/workflows/awstest.yml
     - .github/workflows/awsfulltest.yml
+    # Community-template CI files not used by this internal pipeline (is_nfcore: false)
+    - .github/workflows/branch.yml
+    - .github/workflows/linting_comment.yml
+    - .github/actions/get-shards/action.yml
+    - .github/actions/nf-test/action.yml
   files_unchanged:
     - CODE_OF_CONDUCT.md
     - LICENSE
@@ -35,11 +40,32 @@ lint:
     - validation.summary.afterText
   multiqc_config:
     - report_comment
-
-update:
-  https://github.com/nf-core/modules.git:
-    nf-core:
-      blast/blastn: False  # LOCAL MODIFICATION: export BLASTDB=${db} required before DB discovery
+  # Pipeline-level integration tests (nextflow_pipeline {}) do not snapshot
+  # a single versions.yml channel the way module/subworkflow tests do, so
+  # the nf_test_content rule does not apply cleanly. The subworkflow-local
+  # tests under subworkflows/**/tests/ remain subject to the rule.
+  nf_test_content:
+    - tests/realtime_statistics_modules.nf.test
+    - tests/realtime_empty_samplesheet.nf.test
+    - tests/barcode_discovery.nf.test
+    - tests/main_workflow.nf.test
+    - tests/default.nf.test
+    - tests/realtime_barcode_fastq.nf.test
+    - tests/nanoseq_test.nf.test
+    - tests/parameter_validation.nf.test
+    - tests/realtime_flat_fastq.nf.test
+    - tests/batch_flat_fastq.nf.test
+    - tests/batch_barcode_fastq.nf.test
+    - tests/chopper_specific.nf.test
+    - tests/input_scanner.nf.test
+    - tests/realtime_processing.nf.test
+    - tests/qc_tool_integration.nf.test
+    - tests/full_pipeline_stubmode.nf.test
+  # The .github/workflows/nf-test.yml in this repo is a customised CI matrix
+  # (see bin/run-nf-tests.sh for the pinned NXF_VER 25.04.7 workaround) and
+  # does not match the nf-core community-template event triggers. The
+  # divergence is intentional, so disable the check.
+  actions_nf_test: false
 
 template:
   org: foi-bioinformatics
