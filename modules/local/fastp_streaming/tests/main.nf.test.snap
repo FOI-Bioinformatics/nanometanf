@@ -1,0 +1,14 @@
+{
+    "Should emit fastp streaming stub outputs for single-end input": {
+        "content": [
+            [
+                "versions.yml:md5,a7940aae536a459b9e53a2759649aadd"
+            ]
+        ],
+        "timestamp": "2026-04-26T22:47:17.893135",
+        "meta": {
+            "nf-test": "0.9.4",
+            "nextflow": "25.04.7"
+        }
+    }
+}

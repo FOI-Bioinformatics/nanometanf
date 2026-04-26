@@ -1,0 +1,53 @@
+nextflow_process {
+
+    name "Test Process KRAKEN2_OPTIMIZED"
+    script "../main.nf"
+    process "KRAKEN2_OPTIMIZED"
+
+    options "-stub"
+
+    tag "module"
+    tag "kraken2_optimized"
+    tag "classification"
+    tag "stub"
+    tag "fast"
+
+    test("Should emit Kraken2 report and performance metrics under -stub") {
+
+        setup {
+            file("${outputDir}").mkdirs()
+            file("${outputDir}/sample1.fastq.gz").text = ""
+            def db = file("${outputDir}/kraken2_db_stub")
+            db.mkdirs()
+            file("${db}/hash.k2d").text = ""
+            file("${db}/taxo.k2d").text = ""
+            file("${db}/opts.k2d").text = ""
+        }
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id: 'sample1', single_end: true ],
+                    file("${outputDir}/sample1.fastq.gz")
+                ]
+                input[1] = file("${outputDir}/kraken2_db_stub")
+                input[2] = false
+                input[3] = false
+                input[4] = false
+                input[5] = 0.0
+                input[6] = 0
+                """
+            }
+        }
+
+        then {
+            assertAll(
+                { assert process.success },
+                { assert process.out.report },
+                { assert process.out.performance_metrics },
+                { assert snapshot(process.out.versions).match() }
+            )
+        }
+    }
+}
