@@ -1,0 +1,38 @@
+Changes in component 'nf-core/taxpasta/standardise'
+'modules/nf-core/taxpasta/standardise/environment.yml' is unchanged
+'modules/nf-core/taxpasta/standardise/meta.yml' is unchanged
+Changes in 'taxpasta/standardise/main.nf':
+--- modules/nf-core/taxpasta/standardise/main.nf
++++ modules/nf-core/taxpasta/standardise/main.nf
+@@ -45,7 +45,7 @@
+ 
+     cat <<-END_VERSIONS > versions.yml
+     "${task.process}":
+-        taxpasta: \$(taxpasta --version)
++        taxpasta: 0.7.0
+     END_VERSIONS
+     """
+ }
+
+'modules/nf-core/taxpasta/standardise/tests/main.nf.test.snap' is unchanged
+Changes in 'taxpasta/standardise/tests/main.nf.test':
+--- modules/nf-core/taxpasta/standardise/tests/main.nf.test
++++ modules/nf-core/taxpasta/standardise/tests/main.nf.test
+@@ -3,6 +3,7 @@
+     name "Test Process TAXPASTA_STANDARDISE"
+     script "../main.nf"
+     process "TAXPASTA_STANDARDISE"
++    tag "fast"
+     tag "modules"
+     tag "modules_nfcore"
+     tag "taxpasta"
+@@ -34,6 +35,7 @@
+     test("sarscov2 - metagenome - kraken report - stub") {
+ 
+         options "-stub"
++    tag "stub"
+ 
+         when {
+             process {
+
+************************************************************

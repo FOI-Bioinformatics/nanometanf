@@ -1,0 +1,14 @@
+{
+    "Should detect barcode subdirectories and emit one sample per barcode": {
+        "content": [
+            [
+                
+            ]
+        ],
+        "timestamp": "2026-04-26T23:32:23.433451",
+        "meta": {
+            "nf-test": "0.9.4",
+            "nextflow": "25.04.7"
+        }
+    }
+}
