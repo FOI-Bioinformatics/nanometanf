@@ -1,0 +1,48 @@
+nextflow_process {
+
+    name "Test Process AGGREGATE_VALIDATION_RESULTS"
+    script "../main.nf"
+    process "AGGREGATE_VALIDATION_RESULTS"
+
+    options "-stub"
+
+    tag "module"
+    tag "aggregate_validation_results"
+    tag "validation"
+    tag "stub"
+    tag "fast"
+
+    test("Should emit aggregated validation stub outputs") {
+
+        setup {
+            file("${outputDir}").mkdirs()
+            file("${outputDir}/blast_stub.json").text = "{}"
+            file("${outputDir}/minimap2_stub.json").text = "{}"
+            file("${outputDir}/extraction_stub.json").text = "{}"
+            file("${outputDir}/kraken_stub.report.txt").text = ""
+        }
+
+        when {
+            process {
+                """
+                input[0] = file("${outputDir}/blast_stub.json")
+                input[1] = file("${outputDir}/minimap2_stub.json")
+                input[2] = file("${outputDir}/extraction_stub.json")
+                input[3] = file("${outputDir}/kraken_stub.report.txt")
+                input[4] = 'blast'
+                input[5] = 0.5
+                input[6] = 90.0
+                """
+            }
+        }
+
+        then {
+            assertAll(
+                { assert process.success },
+                { assert process.out.json },
+                { assert process.out.summary },
+                { assert snapshot(process.out.versions).match() }
+            )
+        }
+    }
+}

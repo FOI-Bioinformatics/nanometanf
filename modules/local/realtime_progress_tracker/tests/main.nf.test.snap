@@ -1,0 +1,14 @@
+{
+    "Should emit progress dashboard stub outputs": {
+        "content": [
+            [
+                "versions.yml:md5,492f3cbe1d7455bca67ab1c84ad03fd0"
+            ]
+        ],
+        "timestamp": "2026-04-26T22:43:24.486894",
+        "meta": {
+            "nf-test": "0.9.4",
+            "nextflow": "25.04.7"
+        }
+    }
+}

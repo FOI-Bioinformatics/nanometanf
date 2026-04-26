@@ -1,0 +1,49 @@
+nextflow_process {
+
+    name "Test Process BLASTN_VALIDATION"
+    script "../main.nf"
+    process "BLASTN_VALIDATION"
+
+    options "-stub"
+
+    tag "module"
+    tag "blastn_validation"
+    tag "validation"
+    tag "stub"
+    tag "fast"
+
+    test("Should emit blastn validation stub outputs") {
+
+        setup {
+            file("${outputDir}").mkdirs()
+            file("${outputDir}/sample1_taxid562.fastq.gz").text = ""
+            file("${outputDir}/reference.fasta").text = ""
+        }
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id: 'sample1', taxid: 562 ],
+                    file("${outputDir}/sample1_taxid562.fastq.gz"),
+                    file("${outputDir}/reference.fasta")
+                ]
+                input[1] = '1e-10'
+                input[2] = 90
+                input[3] = 1
+                input[4] = 0.5
+                input[5] = 90.0
+                """
+            }
+        }
+
+        then {
+            assertAll(
+                { assert process.success },
+                { assert process.out.results },
+                { assert process.out.stats },
+                { assert snapshot(process.out.versions).match() }
+            )
+        }
+    }
+}
