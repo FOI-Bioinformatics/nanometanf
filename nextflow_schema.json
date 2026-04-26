@@ -664,7 +664,7 @@
                 },
                 "kraken2_memory_mapping": {
                     "type": "boolean",
-                    "default": false,
+                    "default": true,
                     "description": "Use memory-mapped database loading (faster, less memory).",
                     "fa_icon": "fas fa-memory"
                 },
@@ -702,7 +702,7 @@
                 },
                 "max_classification_forks": {
                     "type": "integer",
-                    "default": 8,
+                    "default": 4,
                     "minimum": 1,
                     "maximum": 64,
                     "description": "Maximum parallel Kraken2 classification jobs.",
