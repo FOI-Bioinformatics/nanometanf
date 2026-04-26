@@ -577,12 +577,6 @@
                     "description": "Run MultiQC report generation only at the end of real-time processing (PromethION optimization).",
                     "fa_icon": "fas fa-stopwatch",
                     "help_text": "Leverages Nextflow .collect() operator to defer MultiQC execution until all batch files are available. Saves 3-9 minutes by avoiding redundant file parsing."
-                },
-                "fastp_streaming_extra_args": {
-                    "type": "string",
-                    "default": "",
-                    "description": "Additional arguments passed to FASTP in streaming mode.",
-                    "fa_icon": "fas fa-cog"
                 }
             }
         },
