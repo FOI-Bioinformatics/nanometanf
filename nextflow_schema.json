@@ -341,7 +341,6 @@
                     "items": {
                         "type": "string"
                     },
-                    "default": [],
                     "description": "List of high-priority sample IDs for expedited processing.",
                     "fa_icon": "fas fa-star",
                     "help_text": "Specify sample IDs as a list. On the command line, use --priority_samples 'sample1,sample2'."
