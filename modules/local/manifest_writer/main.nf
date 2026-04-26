@@ -2,7 +2,7 @@ process MANIFEST_WRITER {
     tag "manifest"
     label 'process_single'
 
-    conda "conda-forge::python=3.11"
+    conda "${moduleDir}/environment.yml"
     container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
         'https://depot.galaxyproject.org/singularity/python:3.11' :
         'quay.io/biocontainers/python:3.11' }"

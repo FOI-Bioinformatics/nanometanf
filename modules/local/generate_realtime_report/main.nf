@@ -3,7 +3,7 @@ process GENERATE_REALTIME_REPORT {
     label 'process_single'
     publishDir "${params.outdir}/realtime_reports", mode: 'copy'
 
-    conda "conda-forge::python=3.11"
+    conda "${moduleDir}/environment.yml"
 
     input:
     tuple val(batch_meta), path(snapshot_stats), path(cumulative_stats)
