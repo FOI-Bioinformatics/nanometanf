@@ -10,6 +10,19 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
+# NXF_VER pin (task #26 workaround): Nextflow 25.10.x does not release
+# the DirWatcherV2 thread after a real-time timeout sentinel fires, so
+# any realtime_mode=true nf-test hangs indefinitely once the run logically
+# completes. nf-test 0.9.4 has no exact-version pin, so the runtime is
+# selected via the NXF_VER environment variable. 25.04.7 is the last
+# release whose post-timeout shutdown path completes cleanly. NXF_OFFLINE
+# avoids the 25.10-line String.format plugin loader regression and keeps
+# the runtime self-contained once jars are cached. Mirror this pin in
+# bin/run-nf-tests.sh for local invocations.
+env:
+  NXF_VER: "25.04.7"
+  NXF_OFFLINE: "true"
+
 jobs:
   test:
     name: Run nf-test (stub)
@@ -21,12 +34,12 @@ jobs:
       - name: Install Nextflow
         uses: nf-core/setup-nextflow@v2
         with:
-          version: "25.10.0"
+          version: "25.04.7"
 
       - name: Install nf-test
         uses: nf-core/setup-nf-test@v1
         with:
-          version: "0.9.2"
+          version: "0.9.4"
 
       - name: Run nf-test
         run: nf-test test --profile test

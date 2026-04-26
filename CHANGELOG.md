@@ -14,6 +14,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Five `bin/` scripts for format conversion: `kreport_to_canonical.py`, `qc_to_canonical.py`, `alignment_to_canonical.py`, `assembly_to_canonical.py`, `write_manifest.py`
 - Parameter `write_canonical` (default: true) to control canonical output generation
 - Manifest file (`_manifest.json`) indexing all canonical outputs per run
+- `bin/run-nf-tests.sh` wrapper that pins `NXF_VER=25.04.7` and
+  `NXF_OFFLINE=true` and forwards arguments to nf-test. Same pin
+  mirrored as a workflow-env block in
+  `.github/workflows/nf-test.yml`. The pin is the local workaround
+  for task #26 (Nextflow 25.10 DirWatcherV2 cleanup hangs after a
+  realtime sentinel fires). Cycle 6 verification showed 25.04.7
+  releases the FileAlterationMonitor cleanly only on the
+  timeout-fires-first path; the take-fires-first path
+  (`take(max_files)` completing before any timeout) still hangs the
+  JVM under 25.04.7, with jstack confirming the same Apache
+  commons-io `FileAlterationMonitor.run` non-daemon thread keeps
+  the JVM alive. Task #26 therefore remains open for the upstream
+  fix; the wrapper is retained as the canonical entry point so the
+  pin can be flipped centrally when upstream lands a fix.
 
 ### Changed
 
