@@ -15,6 +15,9 @@ process KRAKEN2_DB_PRELOAD {
     label 'process_low'
 
     conda "conda-forge::coreutils=9.5"
+    container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
+        'https://depot.galaxyproject.org/singularity/ubuntu:22.04' :
+        'nf-core/ubuntu:22.04' }"
 
     input:
     path db
