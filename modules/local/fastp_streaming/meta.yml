@@ -1,0 +1,128 @@
+name: fastp_streaming
+description: |
+  Streaming-mode wrapper around fastp that accepts a list of one or more
+  FASTQ files per sample and concatenates them before quality trimming.
+  Required for the watchPath architecture, which delivers batched reads
+  as multiple files per sample per batch cycle. The upstream nf-core
+  fastp module remains the choice for non-streaming batch runs.
+keywords:
+  - trimming
+  - quality control
+  - fastq
+  - streaming
+  - realtime
+tools:
+  - fastp:
+      description: |
+        A tool designed to provide fast all-in-one preprocessing for
+        FastQ files. Supports multithreading for high performance.
+      documentation: https://github.com/OpenGene/fastp
+      doi: 10.1093/bioinformatics/bty560
+      licence: ["MIT"]
+      identifier: biotools:fastp
+input:
+  - - meta:
+        type: map
+        description: |
+          Groovy Map containing sample information. Use 'single_end: true'
+          for single-end or interleaved input. Use 'single_end: false' for
+          paired-end reads.
+          e.g. [ id:'test', single_end:true ]
+    - reads:
+        type: file
+        description: |
+          List of one or more input FASTQ files for the sample. When the
+          list contains more than one file, they are concatenated before
+          fastp processes them.
+        ontologies:
+          - edam: http://edamontology.org/format_1930 # FASTQ
+    - adapter_fasta:
+        type: file
+        description: File in FASTA format containing possible adapters to remove.
+        pattern: "*.{fasta,fna,fas,fa}"
+        ontologies: []
+  - discard_trimmed_pass:
+      type: boolean
+      description: |
+        Specify true to skip writing reads that pass trimming. Used when
+        only the fastp report is needed.
+  - save_trimmed_fail:
+      type: boolean
+      description: |
+        Specify true to save reads that failed trimming to files ending
+        in `*.fail.fastq.gz`.
+  - save_merged:
+      type: boolean
+      description: |
+        Specify true to save merged paired-end reads to a file ending
+        in `*.merged.fastq.gz`.
+output:
+  reads:
+    - - meta:
+          type: map
+          description: Groovy Map containing sample information
+      - "*.fastp.fastq.gz":
+          type: file
+          description: Trimmed FASTQ reads
+          pattern: "*.fastp.fastq.gz"
+          ontologies:
+            - edam: http://edamontology.org/format_3989 # GZIP format
+  json:
+    - - meta:
+          type: map
+          description: Groovy Map containing sample information
+      - "*.json":
+          type: file
+          description: fastp report in JSON format
+          pattern: "*.json"
+          ontologies:
+            - edam: http://edamontology.org/format_3464 # JSON
+  html:
+    - - meta:
+          type: map
+          description: Groovy Map containing sample information
+      - "*.html":
+          type: file
+          description: fastp report in HTML format
+          pattern: "*.html"
+          ontologies: []
+  log:
+    - - meta:
+          type: map
+          description: Groovy Map containing sample information
+      - "*.log":
+          type: file
+          description: fastp log file
+          pattern: "*.log"
+          ontologies: []
+  reads_fail:
+    - - meta:
+          type: map
+          description: Groovy Map containing sample information
+      - "*.fail.fastq.gz":
+          type: file
+          description: Reads that failed quality trimming
+          pattern: "*.fail.fastq.gz"
+          ontologies:
+            - edam: http://edamontology.org/format_3989 # GZIP format
+  reads_merged:
+    - - meta:
+          type: map
+          description: Groovy Map containing sample information
+      - "*.merged.fastq.gz":
+          type: file
+          description: Successfully merged paired-end reads
+          pattern: "*.merged.fastq.gz"
+          ontologies:
+            - edam: http://edamontology.org/format_3989 # GZIP format
+  versions:
+    - versions.yml:
+        type: file
+        description: File containing software versions
+        pattern: "versions.yml"
+        ontologies:
+          - edam: http://edamontology.org/format_3750 # YAML
+authors:
+  - "@andreassjodin"
+maintainers:
+  - "@andreassjodin"
