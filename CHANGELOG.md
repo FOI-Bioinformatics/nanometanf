@@ -28,6 +28,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the JVM alive. Task #26 therefore remains open for the upstream
   fix; the wrapper is retained as the canonical entry point so the
   pin can be flipped centrally when upstream lands a fix.
+- `docs/upstream-issues/26-watchpath-cleanup-hang.md` capturing the
+  full upstream issue text (affected versions, reproducer,
+  jstack-backed diagnostic evidence, behaviour matrix, suggested
+  fix). The two `realtime_mode = true` cases in
+  `subworkflows/local/realtime_monitoring/tests/main.nf.test` carry
+  the new `hangs-on-jvm-cleanup` tag so they can be located
+  mechanically. nf-test 0.9.4 does not provide an `--exclude-tag`
+  flag, so the tag is currently advisory: operators running the
+  whole suite should omit the realtime_monitoring test file from
+  the path arguments until upstream lands a fix.
 
 ### Changed
 

@@ -2,66 +2,97 @@
     "Should handle multiple classification formats": {
         "content": [
             [
-                "versions.yml:md5,47cea2c8122ce1997cb90d2dfcb64f57",
-                "versions.yml:md5,b4e713197270631d10fc1b5c0697869c"
+                "versions.yml:md5,1ff71baa7b75ae556d2bbb257164a2dc",
+                "versions.yml:md5,2a76abe3730755e7196b7ab4e28e196f"
             ]
         ],
+        "timestamp": "2026-04-26T08:42:27.539828",
         "meta": {
-            "nf-test": "0.9.2",
+            "nf-test": "0.9.4",
             "nextflow": "25.04.7"
-        },
-        "timestamp": "2025-10-15T16:22:30.137745"
+        }
+    },
+    "Should process multiple samples in batch": {
+        "content": [
+            [
+                "versions.yml:md5,1ff71baa7b75ae556d2bbb257164a2dc",
+                "versions.yml:md5,1ff71baa7b75ae556d2bbb257164a2dc",
+                "versions.yml:md5,1ff71baa7b75ae556d2bbb257164a2dc",
+                "versions.yml:md5,2a76abe3730755e7196b7ab4e28e196f",
+                "versions.yml:md5,2a76abe3730755e7196b7ab4e28e196f",
+                "versions.yml:md5,2a76abe3730755e7196b7ab4e28e196f"
+            ]
+        ],
+        "timestamp": "2026-04-26T08:43:18.879391",
+        "meta": {
+            "nf-test": "0.9.4",
+            "nextflow": "25.04.7"
+        }
     },
     "Should perform basic Kraken2 taxonomic classification": {
         "content": [
             [
-                "versions.yml:md5,47cea2c8122ce1997cb90d2dfcb64f57",
-                "versions.yml:md5,b4e713197270631d10fc1b5c0697869c"
+                "versions.yml:md5,1ff71baa7b75ae556d2bbb257164a2dc",
+                "versions.yml:md5,2a76abe3730755e7196b7ab4e28e196f"
             ]
         ],
+        "timestamp": "2026-04-26T08:41:35.741761",
         "meta": {
-            "nf-test": "0.9.2",
+            "nf-test": "0.9.4",
             "nextflow": "25.04.7"
-        },
-        "timestamp": "2025-10-15T16:20:17.787946"
+        }
     },
     "Should support different Kraken2 database types": {
         "content": [
             [
-                "versions.yml:md5,47cea2c8122ce1997cb90d2dfcb64f57",
-                "versions.yml:md5,b4e713197270631d10fc1b5c0697869c"
+                "versions.yml:md5,1ff71baa7b75ae556d2bbb257164a2dc",
+                "versions.yml:md5,2a76abe3730755e7196b7ab4e28e196f"
             ]
         ],
+        "timestamp": "2026-04-26T08:46:04.858245",
         "meta": {
-            "nf-test": "0.9.2",
+            "nf-test": "0.9.4",
             "nextflow": "25.04.7"
-        },
-        "timestamp": "2025-10-15T16:23:06.073322"
+        }
     },
     "Should handle classification confidence thresholds": {
         "content": [
             [
-                "versions.yml:md5,47cea2c8122ce1997cb90d2dfcb64f57",
-                "versions.yml:md5,b4e713197270631d10fc1b5c0697869c"
+                "versions.yml:md5,1ff71baa7b75ae556d2bbb257164a2dc",
+                "versions.yml:md5,2a76abe3730755e7196b7ab4e28e196f"
             ]
         ],
+        "timestamp": "2026-04-26T08:44:10.568791",
         "meta": {
-            "nf-test": "0.9.2",
+            "nf-test": "0.9.4",
             "nextflow": "25.04.7"
-        },
-        "timestamp": "2025-10-15T16:22:43.972488"
+        }
+    },
+    "Should handle empty input gracefully": {
+        "content": [
+            [
+                [
+                    
+                ]
+            ]
+        ],
+        "timestamp": "2026-04-26T08:45:09.24298",
+        "meta": {
+            "nf-test": "0.9.4",
+            "nextflow": "25.04.7"
+        }
     },
     "Should standardize output with Taxpasta": {
         "content": [
             [
-                "versions.yml:md5,47cea2c8122ce1997cb90d2dfcb64f57",
-                "versions.yml:md5,b4e713197270631d10fc1b5c0697869c"
+                "versions.yml:md5,1ff71baa7b75ae556d2bbb257164a2dc",
+                "versions.yml:md5,2a76abe3730755e7196b7ab4e28e196f"
             ]
         ],
+        "timestamp": "2026-04-26T08:45:04.751614",
         "meta": {
-            "nf-test": "0.9.2",
+            "nf-test": "0.9.4",
             "nextflow": "25.04.7"
-        },
-        "timestamp": "2025-10-15T16:22:52.528962"
+        }
     }
 }
