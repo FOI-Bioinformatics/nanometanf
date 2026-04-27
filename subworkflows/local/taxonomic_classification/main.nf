@@ -395,7 +395,8 @@ workflow TAXONOMIC_CLASSIFICATION {
                     params.save_output_fastqs ?: false,    // save_output_fastqs
                     params.save_reads_assignment ?: false  // save_reads_assignment
                 )
-                ch_versions = ch_versions.mix(KRAKEN2_KRAKEN2.out.versions.ifEmpty([]))
+                // KRAKEN2_KRAKEN2 uses topic: versions pattern - no .out.versions channel.
+                // Versions are aggregated via Channel.topic('versions') in workflows/nanometanf.nf
 
                 // Collect outputs
                 ch_classified_reads = KRAKEN2_KRAKEN2.out.classified_reads_fastq.ifEmpty([])

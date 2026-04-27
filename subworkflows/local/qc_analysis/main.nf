@@ -110,6 +110,7 @@ workflow QC_ANALYSIS {
                     false,        // save_trimmed_fail
                     false         // save_merged
                 )
+                // FASTP_STREAMING is a local module that still emits versions.yml
                 ch_versions = ch_versions.mix(FASTP_STREAMING.out.versions.ifEmpty([]))
                 ch_qc_reads = FASTP_STREAMING.out.reads.ifEmpty([])
                 ch_qc_reports = FASTP_STREAMING.out.html.ifEmpty([])
@@ -122,7 +123,8 @@ workflow QC_ANALYSIS {
                     false,        // save_trimmed_fail
                     false         // save_merged
                 )
-                ch_versions = ch_versions.mix(FASTP.out.versions.ifEmpty([]))
+                // FASTP uses topic: versions pattern - no .out.versions channel.
+                // Versions are aggregated via Channel.topic('versions') in workflows/nanometanf.nf
                 ch_qc_reads = FASTP.out.reads.ifEmpty([])
                 ch_qc_reports = FASTP.out.html.ifEmpty([])
                 ch_qc_logs = FASTP.out.log.ifEmpty([])
@@ -180,7 +182,8 @@ workflow QC_ANALYSIS {
                 ch_adapter_trimmed,
                 []  // No contamination filtering fasta
             )
-            ch_versions = ch_versions.mix(CHOPPER.out.versions.ifEmpty([]))
+            // CHOPPER uses topic: versions pattern - no .out.versions channel.
+            // Versions are aggregated via Channel.topic('versions') in workflows/nanometanf.nf
 
             //
             // Enhanced reporting for CHOPPER: Add FastQC and SeqKit stats

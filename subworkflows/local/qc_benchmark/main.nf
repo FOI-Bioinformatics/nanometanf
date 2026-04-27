@@ -52,7 +52,8 @@ workflow QC_BENCHMARK {
         false,        // save_trimmed_fail
         false         // save_merged
     )
-    ch_versions = ch_versions.mix(FASTP.out.versions)
+    // FASTP uses topic: versions pattern - no .out.versions channel.
+    // Versions are aggregated via Channel.topic('versions') in workflows/nanometanf.nf
 
     // Run FastQC on FASTP output for comparison
     FASTQC (
@@ -158,7 +159,8 @@ workflow QC_BENCHMARK {
         ch_reads,
         []  // No contamination filtering fasta
     )
-    ch_versions = ch_versions.mix(CHOPPER.out.versions.first())
+    // CHOPPER uses topic: versions pattern - no .out.versions channel.
+    // Versions are aggregated via Channel.topic('versions') in workflows/nanometanf.nf
 
     // Run FastQC on CHOPPER output for comprehensive reporting
     FASTQC (
