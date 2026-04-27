@@ -188,7 +188,7 @@ If you use nanometanf for your analysis, please cite:
 >
 > Andreas Sjodin
 >
-> _GitHub_ 2025. doi: [10.5281/zenodo.XXXXXXX](https://doi.org/10.5281/zenodo.XXXXXXX)
+> _GitHub_ 2025. DOI: TBD upon Zenodo deposit.
 
 An extensive list of references for the tools used by the pipeline can be found in [CITATIONS.md](CITATIONS.md).
 
