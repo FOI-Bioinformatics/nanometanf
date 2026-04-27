@@ -1,16 +1,14 @@
 // LOCAL MODIFICATION: Hardcoded version in stub block instead of calling NanoPlot binary
 // Reason: Stub tests should not require real tool binaries to be installed
-// Last verified against nf-core remote: 2026-03-01
-// ACTION REQUIRED: Run 'nf-core modules update nanoplot' - upstream now uses the same
-//                  hardcoded stub convention. Remove this comment after re-sync.
+// Last verified against nf-core remote: 2026-04-27
 process NANOPLOT {
     tag "$meta.id"
     label 'process_low'
 
     conda "${moduleDir}/environment.yml"
-    container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
+    container "${ workflow.containerEngine in ['singularity', 'apptainer'] && !task.ext.singularity_pull_docker_container ?
         'https://depot.galaxyproject.org/singularity/nanoplot:1.46.1--pyhdfd78af_0' :
-        'biocontainers/nanoplot:1.46.1--pyhdfd78af_0' }"
+        'quay.io/biocontainers/nanoplot:1.46.1--pyhdfd78af_0' }"
 
     input:
     tuple val(meta), path(ontfile)

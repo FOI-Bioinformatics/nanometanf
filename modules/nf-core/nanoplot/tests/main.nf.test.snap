@@ -66,11 +66,11 @@
                 ]
             }
         ],
-        "timestamp": "2025-08-29T11:06:10.291228562",
         "meta": {
             "nf-test": "0.9.2",
             "nextflow": "25.04.6"
-        }
+        },
+        "timestamp": "2025-08-29T11:06:10.291228562"
     },
     "NanoPlot FASTQ": {
         "content": [
@@ -89,20 +89,26 @@
                 "versions.yml:md5,1dcb7bfda282d447bdf7fff8f83e0076"
             ]
         ],
-        "timestamp": "2025-08-28T16:57:47.664858879",
         "meta": {
             "nf-test": "0.9.2",
             "nextflow": "25.04.6"
-        }
+        },
+        "timestamp": "2025-08-28T16:57:47.664858879"
     },
     "NanoPlot summary": {
         "content": [
             [
-                "LengthvsQualityScatterPlot_dot.html",
-                "LengthvsQualityScatterPlot_kde.html",
+                "ActivePores_Over_Time.html",
+                "ActivityMap_ReadsPerChannel.html",
+                "CumulativeYieldPlot_Gigabases.html",
+                "CumulativeYieldPlot_NumberOfReads.html",
                 "NanoPlot-report.html",
                 "Non_weightedHistogramReadlength.html",
                 "Non_weightedLogTransformed_HistogramReadlength.html",
+                "NumberOfReads_Over_Time.html",
+                "TimeLengthViolinPlot.html",
+                "TimeQualityViolinPlot.html",
+                "TimeSequencingSpeed_ViolinPlot.html",
                 "WeightedHistogramReadlength.html",
                 "WeightedLogTransformed_HistogramReadlength.html",
                 "Yield_By_Length.html"
@@ -112,10 +118,10 @@
                 "versions.yml:md5,1dcb7bfda282d447bdf7fff8f83e0076"
             ]
         ],
-        "timestamp": "2026-03-23T22:44:43.90284",
         "meta": {
-            "nf-test": "0.9.4",
-            "nextflow": "25.10.4"
-        }
+            "nf-test": "0.9.2",
+            "nextflow": "25.04.6"
+        },
+        "timestamp": "2025-08-28T16:57:35.686031695"
     }
 }
