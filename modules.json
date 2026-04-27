@@ -93,7 +93,7 @@
                     },
                     "taxpasta/standardise": {
                         "branch": "master",
-                        "git_sha": "d7accc83ceb8eee42e69bcd68e207a41e2ee9824",
+                        "git_sha": "6d46786420b4d7bc88eba026eb389c0c5535d120",
                         "installed_by": ["modules"],
                         "patch": "modules/nf-core/taxpasta/standardise/taxpasta-standardise.diff"
                     },
