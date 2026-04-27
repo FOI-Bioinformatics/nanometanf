@@ -1,19 +1,83 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/nf-core/modules/master/subworkflows/yaml-schema.json
 name: "validation"
-description: BLAST-based validation for targeted species confirmation
+description: BLAST and minimap2 validation for targeted species confirmation
 keywords:
   - nanopore
   - oxford nanopore
   - sequencing
+  - validation
+  - blast
+  - minimap2
 authors:
   - "@foi-bioinformatics"
-output:
-  - txt:
+components:
+  - extract/reads/by/taxid
+  - blastn/validation
+  - minimap2/validation
+  - aggregate/validation/results
+  - canonical/validation/writer
+input:
+  - ch_classified_reads:
+      type: tuple
+      description: |
+        Per-sample channel of [meta, fastq] tuples produced by the
+        taxonomic_classification subworkflow.
+  - ch_kraken_output:
+      type: tuple
+      description: |
+        Per-sample channel of [meta, txt] tuples carrying the Kraken2
+        per-read C/U output. Required so reads can be extracted by taxid.
+  - ch_kraken_reports:
+      type: tuple
+      description: |
+        Per-sample channel of [meta, report] tuples used to look up species
+        names and read counts during result aggregation.
+  - pathogen_genomes:
       type: file
-      description: BLAST validation results
-      pattern: "*.txt"
+      description: |
+        Path to a JSON file mapping taxid (string) to reference genome
+        FASTA path. Relative paths are resolved against the JSON file's
+        parent directory.
+      pattern: "*.json"
+  - taxids_to_validate:
+      type: string
+      description: |
+        Comma-separated taxid list, or the literal "auto"/"all" to run
+        validation for every taxid present in the pathogen_genomes JSON.
+  - validation_method:
+      type: string
+      description: |
+        Validation backend to run: "blast", "minimap2", or "both".
+output:
+  - validation_json:
+      type: file
+      description: Aggregated validation results in Nanometa Live JSON format
+      pattern: "validation_results.json"
+  - validation_summary:
+      type: file
+      description: Per-taxid validation summary
+      pattern: "validation_summary.tsv"
+  - extraction_stats:
+      type: tuple
+      description: |
+        Per-sample read-extraction statistics emitted as
+        [meta, json] tuples by EXTRACT_READS_BY_TAXID.
+  - blast_results:
+      type: tuple
+      description: |
+        Per-sample BLAST hit tables as [meta, tsv] tuples. Empty when
+        validation_method excludes blast.
+  - minimap2_results:
+      type: tuple
+      description: |
+        Per-sample minimap2 alignments as [meta, paf] tuples. Empty when
+        validation_method excludes minimap2.
+  - canonical_alignments:
+      type: tuple
+      description: |
+        Tool-agnostic alignment TSV produced by CANONICAL_VALIDATION_WRITER
+        with named columns shared across BLAST and minimap2 outputs.
   - versions:
       type: file
       description: Software versions
       pattern: "versions.yml"
-components: []
