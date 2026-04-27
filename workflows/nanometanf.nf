@@ -446,7 +446,34 @@ workflow NANOMETANF {
     //
     // Collate and save software versions
     //
-    softwareVersionsToYAML(ch_versions)
+    // Bridges two emission patterns coexisting in this pipeline:
+    //   1. Legacy: modules with `path "versions.yml"` (collected via ch_versions)
+    //   2. Topic channel: modules emitting (process, tool, version) tuples on the
+    //      'versions' topic (e.g. fastp, chopper, kraken2/kraken2 from upstream
+    //      master, plus fastqc and seqkit/stats which already use this pattern).
+    //
+    // Mirrors the upstream nf-core pipeline-template aggregator so both kinds of
+    // emissions land in a single nanometanf_software_mqc_versions.yml file.
+    //
+    def topic_versions = Channel.topic('versions')
+        .distinct()
+        .branch { entry ->
+            versions_file:  entry instanceof Path
+            versions_tuple: true
+        }
+
+    def topic_versions_string = topic_versions.versions_tuple
+        .map { process, tool, version ->
+            [ process[(process.lastIndexOf(':') + 1)..-1], "  ${tool}: ${version}" ]
+        }
+        .groupTuple(by: 0)
+        .map { process, tool_versions ->
+            tool_versions.unique().sort()
+            "${process}:\n${tool_versions.join('\n')}"
+        }
+
+    softwareVersionsToYAML(ch_versions.mix(topic_versions.versions_file))
+        .mix(topic_versions_string)
         .collectFile(
             storeDir: "${params.outdir}/pipeline_info",
             name:  'nanometanf_software_'  + 'mqc_'  + 'versions.yml',
