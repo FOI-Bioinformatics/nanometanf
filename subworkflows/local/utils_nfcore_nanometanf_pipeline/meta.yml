@@ -41,3 +41,10 @@ components:
   - utils_nfschema_plugin
   - utils_nfcore_pipeline
   - utils_nextflow_pipeline
+  # Helper functions imported from utils_nfcore_pipeline. nf-core lint
+  # parses each include statement as a separate component name, so we
+  # list them here to satisfy the meta_include rule even though they
+  # share the utils_nfcore_pipeline subworkflow.
+  - completionemail
+  - completionsummary
+  - imnotification
