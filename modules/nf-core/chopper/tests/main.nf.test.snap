@@ -2,67 +2,37 @@
     "chopper without reference - stub": {
         "content": [
             {
-                "0": [
+                "versions_chopper": [
                     [
-                        {
-                            "id": "test_out"
-                        },
-                        "test_out.chopped.fastq.gz:md5,68b329da9893e34099c7d8ad5cb9c940"
+                        "CHOPPER",
+                        "chopper",
+                        "0.12.0"
                     ]
-                ],
-                "1": [
-                    "versions.yml:md5,ccc0f345849cc9f26fde8d2024cd1cd2"
-                ],
-                "fastq": [
-                    [
-                        {
-                            "id": "test_out"
-                        },
-                        "test_out.chopped.fastq.gz:md5,68b329da9893e34099c7d8ad5cb9c940"
-                    ]
-                ],
-                "versions": [
-                    "versions.yml:md5,ccc0f345849cc9f26fde8d2024cd1cd2"
                 ]
             }
         ],
-        "timestamp": "2026-03-23T22:37:35.364878",
+        "timestamp": "2026-04-27T20:39:50.73558",
         "meta": {
-            "nf-test": "0.9.4",
-            "nextflow": "25.10.4"
+            "nf-test": "0.9.5",
+            "nextflow": "25.04.7"
         }
     },
     "chopper with reference - stub": {
         "content": [
             {
-                "0": [
+                "versions_chopper": [
                     [
-                        {
-                            "id": "test_out"
-                        },
-                        "test_out.chopped.fastq.gz:md5,68b329da9893e34099c7d8ad5cb9c940"
+                        "CHOPPER",
+                        "chopper",
+                        "0.12.0"
                     ]
-                ],
-                "1": [
-                    "versions.yml:md5,ccc0f345849cc9f26fde8d2024cd1cd2"
-                ],
-                "fastq": [
-                    [
-                        {
-                            "id": "test_out"
-                        },
-                        "test_out.chopped.fastq.gz:md5,68b329da9893e34099c7d8ad5cb9c940"
-                    ]
-                ],
-                "versions": [
-                    "versions.yml:md5,ccc0f345849cc9f26fde8d2024cd1cd2"
                 ]
             }
         ],
-        "timestamp": "2026-03-23T22:37:29.921688",
+        "timestamp": "2026-04-27T20:39:26.568828",
         "meta": {
-            "nf-test": "0.9.4",
-            "nextflow": "25.10.4"
+            "nf-test": "0.9.5",
+            "nextflow": "25.04.7"
         }
     }
 }

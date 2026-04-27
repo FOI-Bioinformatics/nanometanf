@@ -2,232 +2,76 @@
     "sarscov2 illumina single end [fastq] + save_reads_assignment - stub": {
         "content": [
             {
-                "0": [
-                    
-                ],
-                "1": [
-                    
-                ],
-                "2": [
+                "versions_kraken2": [
                     [
-                        {
-                            "id": "test",
-                            "single_end": true
-                        },
-                        "test.kraken2.classifiedreads.txt:md5,d41d8cd98f00b204e9800998ecf8427e"
+                        "KRAKEN2_KRAKEN2",
+                        "kraken2",
+                        "2.1.6"
                     ]
                 ],
-                "3": [
+                "versions_pigz": [
                     [
-                        {
-                            "id": "test",
-                            "single_end": true
-                        },
-                        "test.kraken2.report.txt:md5,d41d8cd98f00b204e9800998ecf8427e"
+                        "KRAKEN2_KRAKEN2",
+                        "pigz",
+                        "2.8"
                     ]
-                ],
-                "4": [
-                    "versions.yml:md5,79adf2ca1cfc625cb77e391b27142c43"
-                ],
-                "classified_reads_assignment": [
-                    [
-                        {
-                            "id": "test",
-                            "single_end": true
-                        },
-                        "test.kraken2.classifiedreads.txt:md5,d41d8cd98f00b204e9800998ecf8427e"
-                    ]
-                ],
-                "classified_reads_fastq": [
-                    
-                ],
-                "report": [
-                    [
-                        {
-                            "id": "test",
-                            "single_end": true
-                        },
-                        "test.kraken2.report.txt:md5,d41d8cd98f00b204e9800998ecf8427e"
-                    ]
-                ],
-                "unclassified_reads_fastq": [
-                    
-                ],
-                "versions": [
-                    "versions.yml:md5,79adf2ca1cfc625cb77e391b27142c43"
                 ]
             }
         ],
-        "timestamp": "2026-03-23T22:36:29.251885",
+        "timestamp": "2026-04-27T20:47:46.810355",
         "meta": {
-            "nf-test": "0.9.4",
-            "nextflow": "25.10.4"
+            "nf-test": "0.9.5",
+            "nextflow": "25.04.7"
         }
     },
     "sarscov2 illumina single end [fastq] - stub": {
         "content": [
             {
-                "0": [
+                "versions_kraken2": [
                     [
-                        {
-                            "id": "test",
-                            "single_end": true
-                        },
-                        "/Users/andreassjodin/Code/nanometanf/.claude/worktrees/fix-take-barcode-skipping/.nf-test/tests/3eb111969d857f30602f6a895a15fd56/work/0a/cfcb1b3fa1c6cded05bbb41f3d8185/test.classified.fastq.gz"
+                        "KRAKEN2_KRAKEN2",
+                        "kraken2",
+                        "2.1.6"
                     ]
                 ],
-                "1": [
+                "versions_pigz": [
                     [
-                        {
-                            "id": "test",
-                            "single_end": true
-                        },
-                        "/Users/andreassjodin/Code/nanometanf/.claude/worktrees/fix-take-barcode-skipping/.nf-test/tests/3eb111969d857f30602f6a895a15fd56/work/0a/cfcb1b3fa1c6cded05bbb41f3d8185/test.unclassified.fastq.gz"
+                        "KRAKEN2_KRAKEN2",
+                        "pigz",
+                        "2.8"
                     ]
-                ],
-                "2": [
-                    
-                ],
-                "3": [
-                    [
-                        {
-                            "id": "test",
-                            "single_end": true
-                        },
-                        "test.kraken2.report.txt:md5,d41d8cd98f00b204e9800998ecf8427e"
-                    ]
-                ],
-                "4": [
-                    "versions.yml:md5,79adf2ca1cfc625cb77e391b27142c43"
-                ],
-                "classified_reads_assignment": [
-                    
-                ],
-                "classified_reads_fastq": [
-                    [
-                        {
-                            "id": "test",
-                            "single_end": true
-                        },
-                        "/Users/andreassjodin/Code/nanometanf/.claude/worktrees/fix-take-barcode-skipping/.nf-test/tests/3eb111969d857f30602f6a895a15fd56/work/0a/cfcb1b3fa1c6cded05bbb41f3d8185/test.classified.fastq.gz"
-                    ]
-                ],
-                "report": [
-                    [
-                        {
-                            "id": "test",
-                            "single_end": true
-                        },
-                        "test.kraken2.report.txt:md5,d41d8cd98f00b204e9800998ecf8427e"
-                    ]
-                ],
-                "unclassified_reads_fastq": [
-                    [
-                        {
-                            "id": "test",
-                            "single_end": true
-                        },
-                        "/Users/andreassjodin/Code/nanometanf/.claude/worktrees/fix-take-barcode-skipping/.nf-test/tests/3eb111969d857f30602f6a895a15fd56/work/0a/cfcb1b3fa1c6cded05bbb41f3d8185/test.unclassified.fastq.gz"
-                    ]
-                ],
-                "versions": [
-                    "versions.yml:md5,79adf2ca1cfc625cb77e391b27142c43"
                 ]
             }
         ],
-        "timestamp": "2026-03-24T05:25:39.247336",
+        "timestamp": "2026-04-27T20:46:39.026313",
         "meta": {
-            "nf-test": "0.9.4",
-            "nextflow": "25.10.4"
+            "nf-test": "0.9.5",
+            "nextflow": "25.04.7"
         }
     },
     "sarscov2 illumina paired end [fastq] - stub": {
         "content": [
             {
-                "0": [
+                "versions_kraken2": [
                     [
-                        {
-                            "id": "test",
-                            "single_end": false
-                        },
-                        [
-                            "/Users/andreassjodin/Code/nanometanf/.claude/worktrees/fix-take-barcode-skipping/.nf-test/tests/40eb3978f43197dfca527e80e6010468/work/c2/900062366eee43d7900aaaa541a62f/test.classified_1.fastq.gz",
-                            "/Users/andreassjodin/Code/nanometanf/.claude/worktrees/fix-take-barcode-skipping/.nf-test/tests/40eb3978f43197dfca527e80e6010468/work/c2/900062366eee43d7900aaaa541a62f/test.classified_2.fastq.gz"
-                        ]
+                        "KRAKEN2_KRAKEN2",
+                        "kraken2",
+                        "2.1.6"
                     ]
                 ],
-                "1": [
+                "versions_pigz": [
                     [
-                        {
-                            "id": "test",
-                            "single_end": false
-                        },
-                        [
-                            "/Users/andreassjodin/Code/nanometanf/.claude/worktrees/fix-take-barcode-skipping/.nf-test/tests/40eb3978f43197dfca527e80e6010468/work/c2/900062366eee43d7900aaaa541a62f/test.unclassified_1.fastq.gz",
-                            "/Users/andreassjodin/Code/nanometanf/.claude/worktrees/fix-take-barcode-skipping/.nf-test/tests/40eb3978f43197dfca527e80e6010468/work/c2/900062366eee43d7900aaaa541a62f/test.unclassified_2.fastq.gz"
-                        ]
+                        "KRAKEN2_KRAKEN2",
+                        "pigz",
+                        "2.8"
                     ]
-                ],
-                "2": [
-                    
-                ],
-                "3": [
-                    [
-                        {
-                            "id": "test",
-                            "single_end": false
-                        },
-                        "test.kraken2.report.txt:md5,d41d8cd98f00b204e9800998ecf8427e"
-                    ]
-                ],
-                "4": [
-                    "versions.yml:md5,79adf2ca1cfc625cb77e391b27142c43"
-                ],
-                "classified_reads_assignment": [
-                    
-                ],
-                "classified_reads_fastq": [
-                    [
-                        {
-                            "id": "test",
-                            "single_end": false
-                        },
-                        [
-                            "/Users/andreassjodin/Code/nanometanf/.claude/worktrees/fix-take-barcode-skipping/.nf-test/tests/40eb3978f43197dfca527e80e6010468/work/c2/900062366eee43d7900aaaa541a62f/test.classified_1.fastq.gz",
-                            "/Users/andreassjodin/Code/nanometanf/.claude/worktrees/fix-take-barcode-skipping/.nf-test/tests/40eb3978f43197dfca527e80e6010468/work/c2/900062366eee43d7900aaaa541a62f/test.classified_2.fastq.gz"
-                        ]
-                    ]
-                ],
-                "report": [
-                    [
-                        {
-                            "id": "test",
-                            "single_end": false
-                        },
-                        "test.kraken2.report.txt:md5,d41d8cd98f00b204e9800998ecf8427e"
-                    ]
-                ],
-                "unclassified_reads_fastq": [
-                    [
-                        {
-                            "id": "test",
-                            "single_end": false
-                        },
-                        [
-                            "/Users/andreassjodin/Code/nanometanf/.claude/worktrees/fix-take-barcode-skipping/.nf-test/tests/40eb3978f43197dfca527e80e6010468/work/c2/900062366eee43d7900aaaa541a62f/test.unclassified_1.fastq.gz",
-                            "/Users/andreassjodin/Code/nanometanf/.claude/worktrees/fix-take-barcode-skipping/.nf-test/tests/40eb3978f43197dfca527e80e6010468/work/c2/900062366eee43d7900aaaa541a62f/test.unclassified_2.fastq.gz"
-                        ]
-                    ]
-                ],
-                "versions": [
-                    "versions.yml:md5,79adf2ca1cfc625cb77e391b27142c43"
                 ]
             }
         ],
-        "timestamp": "2026-03-24T05:25:45.437048",
+        "timestamp": "2026-04-27T20:47:13.027483",
         "meta": {
-            "nf-test": "0.9.4",
-            "nextflow": "25.10.4"
+            "nf-test": "0.9.5",
+            "nextflow": "25.04.7"
         }
     }
 }
