@@ -66,6 +66,17 @@ lint:
   # does not match the nf-core community-template event triggers. The
   # divergence is intentional, so disable the check.
   actions_nf_test: false
+  # The pipeline-level lint config below cannot suppress subworkflow-internal
+  # checks (main_nf_include_versions, meta_name, subworkflow_include) because
+  # the subworkflow linter does not honour per-rule ignores. The residual
+  # warnings on subworkflows/local/utils_nfcore_nanometanf_pipeline are
+  # inherent to the nf-core utility-subworkflow pattern: the helper functions
+  # imported from utils_nfcore_pipeline (completionEmail, completionSummary,
+  # imNotification) and the UTILS_* subworkflows do not expose `.out.versions`
+  # via the legacy versions channel because they use topic channels instead,
+  # and the file declares two workflow blocks (PIPELINE_INITIALISATION and
+  # PIPELINE_COMPLETION) so meta.yml's single name cannot match both. These
+  # warnings are accepted as documented divergences from the lint defaults.
 
 template:
   org: foi-bioinformatics
