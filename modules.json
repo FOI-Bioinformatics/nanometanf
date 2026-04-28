@@ -38,7 +38,7 @@
                     },
                     "flye": {
                         "branch": "master",
-                        "git_sha": "1ab453187e9eada07bdd98609ce770971bfe86e4",
+                        "git_sha": "6d46786420b4d7bc88eba026eb389c0c5535d120",
                         "installed_by": ["modules"]
                     },
                     "kraken2/kraken2": {
