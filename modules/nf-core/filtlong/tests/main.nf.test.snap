@@ -1,20 +1,60 @@
 {
     "sarscov2 nanopore [fastq]": {
         "content": [
-            [
-                [
-                    {
-                        "id": "test",
-                        "single_end": false
-                    },
-                    "test.filtlong.fastq.gz:md5,7567d853ada6ac142332619d0b541d76"
+            {
+                "0": [
+                    [
+                        {
+                            "id": "test",
+                            "single_end": false
+                        },
+                        "test.filtlong.fastq.gz:md5,6eb7d42082eb7d9b03d39c485409723b"
+                    ]
+                ],
+                "1": [
+                    [
+                        {
+                            "id": "test",
+                            "single_end": false
+                        },
+                        "test.filtlong.log:md5,e0fdbd63325c20cfa11ece090ea315b2"
+                    ]
+                ],
+                "2": [
+                    [
+                        "FILTLONG",
+                        "filtlong",
+                        "0.2.1"
+                    ]
+                ],
+                "log": [
+                    [
+                        {
+                            "id": "test",
+                            "single_end": false
+                        },
+                        "test.filtlong.log:md5,e0fdbd63325c20cfa11ece090ea315b2"
+                    ]
+                ],
+                "reads": [
+                    [
+                        {
+                            "id": "test",
+                            "single_end": false
+                        },
+                        "test.filtlong.fastq.gz:md5,6eb7d42082eb7d9b03d39c485409723b"
+                    ]
+                ],
+                "versions_filtlong": [
+                    [
+                        "FILTLONG",
+                        "filtlong",
+                        "0.2.1"
+                    ]
                 ]
-            ],
-            [
-                "versions.yml:md5,af5988f30157282acdb0ac50ebb4c8cc"
-            ]
+            }
         ],
-        "timestamp": "2026-04-27T19:48:32.716663",
+        "timestamp": "2026-04-28T07:04:34.237964",
         "meta": {
             "nf-test": "0.9.5",
             "nextflow": "25.04.7"
@@ -22,20 +62,60 @@
     },
     "sarscov2 nanopore [fastq] + Illumina paired-end [fastq]": {
         "content": [
-            [
-                [
-                    {
-                        "id": "test",
-                        "single_end": false
-                    },
-                    "test.filtlong.fastq.gz:md5,7567d853ada6ac142332619d0b541d76"
+            {
+                "0": [
+                    [
+                        {
+                            "id": "test",
+                            "single_end": false
+                        },
+                        "test.filtlong.fastq.gz:md5,6eb7d42082eb7d9b03d39c485409723b"
+                    ]
+                ],
+                "1": [
+                    [
+                        {
+                            "id": "test",
+                            "single_end": false
+                        },
+                        "test.filtlong.log:md5,06b0e9e8dbb7d20b70c2d71a65529acf"
+                    ]
+                ],
+                "2": [
+                    [
+                        "FILTLONG",
+                        "filtlong",
+                        "0.2.1"
+                    ]
+                ],
+                "log": [
+                    [
+                        {
+                            "id": "test",
+                            "single_end": false
+                        },
+                        "test.filtlong.log:md5,06b0e9e8dbb7d20b70c2d71a65529acf"
+                    ]
+                ],
+                "reads": [
+                    [
+                        {
+                            "id": "test",
+                            "single_end": false
+                        },
+                        "test.filtlong.fastq.gz:md5,6eb7d42082eb7d9b03d39c485409723b"
+                    ]
+                ],
+                "versions_filtlong": [
+                    [
+                        "FILTLONG",
+                        "filtlong",
+                        "0.2.1"
+                    ]
                 ]
-            ],
-            [
-                "versions.yml:md5,af5988f30157282acdb0ac50ebb4c8cc"
-            ]
+            }
         ],
-        "timestamp": "2026-04-27T19:49:03.350674",
+        "timestamp": "2026-04-28T07:05:05.915255",
         "meta": {
             "nf-test": "0.9.5",
             "nextflow": "25.04.7"
@@ -43,20 +123,60 @@
     },
     "sarscov2 nanopore [fastq] + Illumina single-end [fastq]": {
         "content": [
-            [
-                [
-                    {
-                        "id": "test",
-                        "single_end": true
-                    },
-                    "test.filtlong.fastq.gz:md5,7567d853ada6ac142332619d0b541d76"
+            {
+                "0": [
+                    [
+                        {
+                            "id": "test",
+                            "single_end": true
+                        },
+                        "test.filtlong.fastq.gz:md5,6eb7d42082eb7d9b03d39c485409723b"
+                    ]
+                ],
+                "1": [
+                    [
+                        {
+                            "id": "test",
+                            "single_end": true
+                        },
+                        "test.filtlong.log:md5,9704dc5efb5a3f1e1c5e351797cdb19b"
+                    ]
+                ],
+                "2": [
+                    [
+                        "FILTLONG",
+                        "filtlong",
+                        "0.2.1"
+                    ]
+                ],
+                "log": [
+                    [
+                        {
+                            "id": "test",
+                            "single_end": true
+                        },
+                        "test.filtlong.log:md5,9704dc5efb5a3f1e1c5e351797cdb19b"
+                    ]
+                ],
+                "reads": [
+                    [
+                        {
+                            "id": "test",
+                            "single_end": true
+                        },
+                        "test.filtlong.fastq.gz:md5,6eb7d42082eb7d9b03d39c485409723b"
+                    ]
+                ],
+                "versions_filtlong": [
+                    [
+                        "FILTLONG",
+                        "filtlong",
+                        "0.2.1"
+                    ]
                 ]
-            ],
-            [
-                "versions.yml:md5,af5988f30157282acdb0ac50ebb4c8cc"
-            ]
+            }
         ],
-        "timestamp": "2026-04-27T19:48:47.936054",
+        "timestamp": "2026-04-28T07:04:50.097817",
         "meta": {
             "nf-test": "0.9.5",
             "nextflow": "25.04.7"
