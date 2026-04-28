@@ -8,7 +8,7 @@ plot_type: "html"
 data: |
   <h4>Methods</h4>
   <p>Oxford Nanopore Technologies sequencing data was processed using foi-bioinformatics/nanometanf v${workflow.manifest.version} ${doi_text}, a comprehensive real-time nanopore sequencing analysis pipeline following nf-core standards (<a href="https://doi.org/10.1038/s41587-020-0439-x">Ewels <em>et al.</em>, 2020</a>). The pipeline utilises reproducible software environments from the Bioconda (<a href="https://doi.org/10.1038/s41592-018-0046-7">Grüning <em>et al.</em>, 2018</a>) and Biocontainers (<a href="https://doi.org/10.1093/bioinformatics/btx192">da Veiga Leprevost <em>et al.</em>, 2017</a>) projects.</p>
-  <p>The analysis workflow included: real-time basecalling with Dorado, quality control with FastP and NanoPlot, taxonomic classification using Kraken2, and validation through BLAST searches. Dynamic resource allocation optimized computational efficiency throughout the pipeline execution.</p>
+  <p>The analysis workflow took basecalled FASTQ as input and applied: quality control with FastP or Chopper plus NanoPlot, taxonomic classification using Kraken2, and validation through BLAST and minimap2 searches. Dynamic resource allocation optimised computational efficiency throughout the pipeline execution.</p>
   <p>The pipeline was executed with Nextflow v${workflow.nextflow.version} (<a href="https://doi.org/10.1038/nbt.3820">Di Tommaso <em>et al.</em>, 2017</a>) with the following command:</p>
   <pre><code>${workflow.commandLine}</code></pre>
   <p>${tool_citations}</p>
