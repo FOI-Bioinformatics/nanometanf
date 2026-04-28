@@ -79,7 +79,7 @@
                     },
                     "seqkit/stats": {
                         "branch": "master",
-                        "git_sha": "28935b89b7e1f19e835f8c6e4c8322d4b505dded",
+                        "git_sha": "6d46786420b4d7bc88eba026eb389c0c5535d120",
                         "installed_by": ["modules"]
                     },
                     "taxpasta/merge": {
