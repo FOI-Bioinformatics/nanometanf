@@ -28,7 +28,6 @@ import statistics
 from pathlib import Path
 from datetime import datetime
 from typing import Dict, List, Tuple
-import tempfile
 
 
 class PerformanceBenchmark:
