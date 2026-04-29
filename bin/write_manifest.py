@@ -22,7 +22,7 @@ def write_atomic(filepath, data):
         with os.fdopen(fd, "w") as f:
             json.dump(data, f, indent=2)
             f.write("\n")
-        os.rename(tmp_path, filepath)
+        os.replace(tmp_path, filepath)
     except Exception:
         if os.path.exists(tmp_path):
             os.unlink(tmp_path)
