@@ -685,6 +685,15 @@
                     "fa_icon": "fas fa-rocket",
                     "help_text": "Cache batch-level .kraken2 outputs and merge at the end instead of re-classifying the growing dataset. Eliminates O(n\u00b2) complexity. Saves 30-90 minutes for 30-batch runs."
                 },
+                "kraken2_memory_gb": {
+                    "type": "integer",
+                    "default": 12,
+                    "minimum": 4,
+                    "maximum": 256,
+                    "description": "RAM (GB) requested for the Kraken2 process; sized for the database.",
+                    "fa_icon": "fas fa-memory",
+                    "help_text": "Sets the memory request for the Kraken2 classifier process. The default of 12 GB matches the k2_pluspfp_08_GB database; larger databases (k2_pluspf_16gb, k2_standard_64gb) need a correspondingly larger value. Used by conf/modules.config to scale the KRAKEN2 memory directive per task attempt."
+                },
                 "max_concurrent_batches": {
                     "type": "integer",
                     "default": 4,
