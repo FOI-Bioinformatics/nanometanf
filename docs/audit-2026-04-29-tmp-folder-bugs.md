@@ -15,7 +15,15 @@ specific deployment profiles, four are reliability bugs, three are
 polish. The most likely root cause of an operator-visible "tmp folder
 error" stack trace is **F1** (canonical writers in `bin/` raising
 `FileNotFoundError` from `tempfile.mkstemp` when the destination
-directory does not exist). That class is fixed in this same change set.
+directory does not exist).
+
+**Status update (2026-04-29):** F1 was fixed in the original change
+set. F2, F3, F4, F5, F6, F7, F11, F12, F13, F14 fixed in
+`fix/tmp-folder-followups-2026-04-29` on nanometanf; F8 fixed in
+`nanometa_live.core.workflow.nextflow_manager._build_nextflow_env`.
+F9 was a stale citation -- the dorado basecaller module was removed
+in an earlier cleanup pass and no module currently contains a
+hardcoded `sort -T /tmp`; finding withdrawn.
 
 ## P0 (run-blocker on the affected profile)
 
