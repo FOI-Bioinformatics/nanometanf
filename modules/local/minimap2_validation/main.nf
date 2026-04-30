@@ -133,23 +133,29 @@ process MINIMAP2_VALIDATION {
         else
             status = "rejected"
 
-        printf "{\n" > out_file
-        printf "  \\"sample_id\\": \\"%s\\",\n", sample_id > out_file
-        printf "  \\"taxid\\": %s,\n", taxid > out_file
-        printf "  \\"validation_method\\": \\"minimap2\\",\n" > out_file
-        printf "  \\"total_reads\\": %d,\n", total_reads > out_file
-        printf "  \\"mapped_reads\\": %d,\n", hits > out_file
-        printf "  \\"hit_rate\\": %.6f,\n", hit_rate > out_file
-        printf "  \\"avg_mapq\\": %.2f,\n", avg_mapq > out_file
-        printf "  \\"avg_identity\\": %.2f,\n", avg_id > out_file
-        printf "  \\"avg_coverage\\": %.4f,\n", avg_cov > out_file
-        printf "  \\"validation_status\\": \\"%s\\",\n", status > out_file
-        printf "  \\"ref_name\\": \\"%s\\",\n", ref_max_name > out_file
-        printf "  \\"ref_length\\": %d,\n", ref_max_len > out_file
-        printf "  \\"parameters\\": {\\"preset\\": \\"%s\\", \\"min_mapq\\": %s}\n", preset, min_mapq > out_file
-        printf "}\n" > out_file
+        # Newline escapes here MUST be doubled. Groovy unescapes one
+        # level when expanding the script block, so backslash-backslash-n
+        # in the source reaches bash as backslash-n, which awk then
+        # interprets as a newline. A single backslash-n in the source
+        # would expand to a literal newline at Groovy parse time and
+        # break the awk string literal.
+        printf "{\\n" > out_file
+        printf "  \\"sample_id\\": \\"%s\\",\\n", sample_id > out_file
+        printf "  \\"taxid\\": %s,\\n", taxid > out_file
+        printf "  \\"validation_method\\": \\"minimap2\\",\\n" > out_file
+        printf "  \\"total_reads\\": %d,\\n", total_reads > out_file
+        printf "  \\"mapped_reads\\": %d,\\n", hits > out_file
+        printf "  \\"hit_rate\\": %.6f,\\n", hit_rate > out_file
+        printf "  \\"avg_mapq\\": %.2f,\\n", avg_mapq > out_file
+        printf "  \\"avg_identity\\": %.2f,\\n", avg_id > out_file
+        printf "  \\"avg_coverage\\": %.4f,\\n", avg_cov > out_file
+        printf "  \\"validation_status\\": \\"%s\\",\\n", status > out_file
+        printf "  \\"ref_name\\": \\"%s\\",\\n", ref_max_name > out_file
+        printf "  \\"ref_length\\": %d,\\n", ref_max_len > out_file
+        printf "  \\"parameters\\": {\\"preset\\": \\"%s\\", \\"min_mapq\\": %s}\\n", preset, min_mapq > out_file
+        printf "}\\n" > out_file
 
-        printf "Minimap2 validation: %d/%d mapped (%.1f%%), avg identity %.1f%%, status: %s\n", \
+        printf "Minimap2 validation: %d/%d mapped (%.1f%%), avg identity %.1f%%, status: %s\\n", \
             hits, total_reads, hit_rate * 100, avg_id, status > "/dev/stderr"
     }' "${prefix}.paf"
 
