@@ -73,13 +73,21 @@ workflow VALIDATION {
     //
     // Filter genome mapping based on taxids_to_validate parameter
     //
+    // Coerce to string before .split(): Nextflow's CLI parser auto-
+    // promotes ``--taxids_to_validate 9606`` to Integer when the value
+    // is all-digit, even though the schema declares it as string. Once
+    // it lands here as Integer, .split(',') throws "Unknown method
+    // invocation `split` on Integer type". The .toString() guard makes
+    // this robust to both single-taxid and comma-list invocations,
+    // including the GUI's nextflow run -resume on-demand path.
     ch_filtered_genomes = ch_genome_mapping
         .filter { taxid, genome ->
-            if (taxids_to_validate == 'auto' || taxids_to_validate == 'all') {
+            def t = taxids_to_validate.toString()
+            if (t == 'auto' || t == 'all') {
                 return true  // Include all taxids from JSON
             } else {
                 // Only include requested taxids
-                def requested = taxids_to_validate.split(',').collect { it.trim() }
+                def requested = t.split(',').collect { it.trim() }
                 return requested.contains(taxid)
             }
         }
