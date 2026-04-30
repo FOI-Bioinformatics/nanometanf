@@ -109,8 +109,17 @@ from pathlib import Path
 blast_file = "${prefix}.blast.tsv"
 total_reads = \$TOTAL_READS
 
-# Parse BLAST results
+# Parse BLAST results.
+# Dedupe by qseqid (column 0): blastn keeps unlimited HSPs per query
+# by default, so a single read can contribute multiple rows. Counting
+# every row inflates hit_rate beyond 1.0 (observed 1.31 = 654 HSPs /
+# 499 reads on 2026-04-30 e2e), and the dashboard renders that as
+# "1.3% Confirmed" -- counter-intuitive in clinical use. Counting
+# only the first HSP per qseqid matches the minimap2 module's
+# per-read deduplication (seen set at minimap2_validation/main.nf:88)
+# and bounds hit_rate to [0, 1].
 hits = 0
+seen = set()
 identities = []
 coverages = []
 evalues = []
@@ -119,6 +128,10 @@ with open(blast_file) as f:
     for line in f:
         cols = line.strip().split('\\t')
         if len(cols) >= 15:
+            qseqid = cols[0]
+            if qseqid in seen:
+                continue
+            seen.add(qseqid)
             hits += 1
             identities.append(float(cols[2]))  # pident
             coverages.append(float(cols[14]) / 100.0)  # qcovs (convert % to fraction)
