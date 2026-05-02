@@ -124,6 +124,68 @@ nextflow_workflow {
         }
     }
 
+    test("Should flush partial batches on batch_timeout (BatchUtils 2026-05-01)") {
+
+        tag "task26"
+        tag "batchutils"
+        tag "hangs-on-jvm-cleanup"
+
+        // Regression for the 2026-05-01 update-frequency audit:
+        // BatchUtils.batchWithTimeout used to ignore its timeoutSeconds
+        // argument and fall back to plain buffer(size: N, remainder: true),
+        // which only emits when the size threshold is reached or the
+        // upstream channel closes. On low-throughput runs (single barcode,
+        // slow MinKNOW release) a partial batch would sit at e.g. 0/10
+        // forever, with no Kraken2 report produced until realtime_timeout
+        // fired the upstream PoisonPill 60 minutes later.
+        //
+        // The test uses batch_size=2 with three fixture files. The first
+        // two trigger the size-threshold flush (batch #1); the remaining
+        // single file is held in the deque and emerges via the periodic
+        // batch_timeout=2 timer (batch #2). Without the fix the third
+        // file would wait until take(N) closed the upstream stream,
+        // exercising only the close-flush path -- so we set
+        // batch_timeout much shorter than the wall-clock window the
+        // close path could otherwise hide it inside.
+        //
+        // We bound the run with max_files instead of
+        // realtime_timeout_minutes because the latter triggers a known
+        // JVM cleanup hang (see bin/run-nf-tests.sh / nf-test.config
+        // for the 25.10.4 -> 25.04.7 mitigation), which would obscure
+        // any actual test failure under noise.
+
+        when {
+            workflow {
+                """
+                input[0] = '$projectDir/tests/fixtures/watch_dirs/fastq'   // watch_dir
+                input[1] = '**.fastq{,.gz}'                                // file_pattern (matches root + subdir)
+                input[2] = 2                                               // batch_size
+                input[3] = '30.sec'                                        // batch_interval
+                """
+            }
+
+            params {
+                realtime_mode = true
+                batch_timeout = 2
+                max_files = 3
+                max_cpus = 1
+                max_memory = '2.GB'
+                max_time = '2.min'
+            }
+        }
+
+        then {
+            assert workflow.success
+            // Three fixture files end up in the samples channel regardless
+            // of how many batches BatchUtils chunked them into.
+            if (workflow.out.samples) {
+                def samples = workflow.out.samples.toList()
+                assert samples.size() == 3 :
+                    "expected 3 sample emissions across both batches, got ${samples.size()}"
+            }
+        }
+    }
+
     test("Should validate parameters for real-time FASTQ monitoring") {
 
         tag "hangs-on-jvm-cleanup"
