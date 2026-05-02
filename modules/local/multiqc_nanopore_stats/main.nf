@@ -8,7 +8,13 @@ process MULTIQC_NANOPORE_STATS {
         'quay.io/biocontainers/multiqc:1.21--pyhdfd78af_0' }"
 
     input:
-    path(stats_files)  // SeqKit TSV or FASTP JSON files
+    // stageAs: '?/*' isolates each input file in its own numbered
+    // subdirectory so realtime mode can emit multiple per-sample
+    // stats files (one per batch) with the same basename without
+    // hitting Nextflow's "input file name collision" abort. Mirrors
+    // the upstream nf-core MULTIQC module's pattern at
+    // modules/nf-core/multiqc/main.nf:11.
+    path(stats_files, stageAs: '?/*')  // SeqKit TSV or FASTP JSON files
     val(prefix)
 
     output:
@@ -22,53 +28,66 @@ process MULTIQC_NANOPORE_STATS {
     """
     #!/usr/bin/env python3
     import csv
+    import glob
     import json
     import os
     import sys
 
-    # Parse SeqKit stats TSV files and FASTP JSON files
+    # Parse SeqKit stats TSV files and FASTP JSON files. Inputs are
+    # staged under numbered subdirectories (stageAs: '?/*') so multiple
+    # per-batch files for the same sample do not collide. We walk every
+    # subdirectory and key by sample_id; later batches overwrite earlier
+    # ones for the same sample, leaving the final/cumulative stats
+    # visible to MultiQC. This matches the realtime-mode contract where
+    # the operator wants the latest per-sample numbers, not a per-batch
+    # history.
     samples = {}
 
-    for f in os.listdir('.'):
-        if f.endswith('.tsv'):
-            # SeqKit stats TSV format
-            with open(f) as fh:
-                reader = csv.DictReader(fh, delimiter='\\t')
-                for row in reader:
-                    # SeqKit stats columns: file, format, type, num_seqs, sum_len,
-                    # min_len, avg_len, max_len, Q1, Q2, Q3, sum_gap, N50, Q20(%), Q30(%)
-                    sample_id = os.path.splitext(f)[0]
-                    # Strip .chopped suffix if present
-                    sample_id = sample_id.replace('.chopped', '')
-                    samples[sample_id] = {
-                        'Total Reads': int(row.get('num_seqs', 0)),
-                        'Total Bases': int(row.get('sum_len', 0)),
-                        'Mean Read Length': round(float(row.get('avg_len', 0)), 1),
-                        'Min Read Length': int(row.get('min_len', 0)),
-                        'Max Read Length': int(row.get('max_len', 0)),
-                        'N50': int(row.get('N50', 0)),
-                        'Mean Quality': round(float(row.get('Q2', 0)), 1) if row.get('Q2') else 0,
-                    }
-        elif f.endswith('.json') and not f.endswith('_mqc.json'):
-            # FASTP JSON format
-            try:
-                with open(f) as fh:
-                    data = json.load(fh)
-                sample_id = os.path.splitext(f)[0].replace('.fastp', '')
-                summary = data.get('summary', {})
-                before = summary.get('before_filtering', {})
-                after = summary.get('after_filtering', {})
-                src = after if after else before
+    tsv_files = sorted(glob.glob('*/*.tsv'))
+    json_files = sorted(glob.glob('*/*.json'))
+
+    for f in tsv_files:
+        # SeqKit stats TSV format
+        with open(f) as fh:
+            reader = csv.DictReader(fh, delimiter='\\t')
+            for row in reader:
+                # SeqKit stats columns: file, format, type, num_seqs, sum_len,
+                # min_len, avg_len, max_len, Q1, Q2, Q3, sum_gap, N50, Q20(%), Q30(%)
+                sample_id = os.path.splitext(os.path.basename(f))[0]
+                # Strip .chopped suffix if present
+                sample_id = sample_id.replace('.chopped', '')
                 samples[sample_id] = {
-                    'Total Reads': src.get('total_reads', 0),
-                    'Total Bases': src.get('total_bases', 0),
-                    'Mean Read Length': round(src.get('total_bases', 0) / max(src.get('total_reads', 1), 1), 1),
-                    'Mean Quality': round(src.get('q30_rate', 0) * 30, 1),
-                    'Q20 Rate': round(src.get('q20_rate', 0) * 100, 1),
-                    'Q30 Rate': round(src.get('q30_rate', 0) * 100, 1),
+                    'Total Reads': int(row.get('num_seqs', 0)),
+                    'Total Bases': int(row.get('sum_len', 0)),
+                    'Mean Read Length': round(float(row.get('avg_len', 0)), 1),
+                    'Min Read Length': int(row.get('min_len', 0)),
+                    'Max Read Length': int(row.get('max_len', 0)),
+                    'N50': int(row.get('N50', 0)),
+                    'Mean Quality': round(float(row.get('Q2', 0)), 1) if row.get('Q2') else 0,
                 }
-            except (json.JSONDecodeError, KeyError):
-                pass
+
+    for f in json_files:
+        if os.path.basename(f).endswith('_mqc.json'):
+            continue
+        # FASTP JSON format
+        try:
+            with open(f) as fh:
+                data = json.load(fh)
+            sample_id = os.path.splitext(os.path.basename(f))[0].replace('.fastp', '')
+            summary = data.get('summary', {})
+            before = summary.get('before_filtering', {})
+            after = summary.get('after_filtering', {})
+            src = after if after else before
+            samples[sample_id] = {
+                'Total Reads': src.get('total_reads', 0),
+                'Total Bases': src.get('total_bases', 0),
+                'Mean Read Length': round(src.get('total_bases', 0) / max(src.get('total_reads', 1), 1), 1),
+                'Mean Quality': round(src.get('q30_rate', 0) * 30, 1),
+                'Q20 Rate': round(src.get('q20_rate', 0) * 100, 1),
+                'Q30 Rate': round(src.get('q30_rate', 0) * 100, 1),
+            }
+        except (json.JSONDecodeError, KeyError):
+            pass
 
     # Generate MultiQC custom content
     general_stats = {
