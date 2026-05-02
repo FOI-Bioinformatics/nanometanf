@@ -402,6 +402,14 @@
                     "fa_icon": "fas fa-hourglass-end",
                     "help_text": "Grace period after realtime_timeout_minutes expires to allow downstream processes to complete."
                 },
+                "max_avg_file_age_minutes": {
+                    "type": "integer",
+                    "default": 1000000,
+                    "minimum": 0,
+                    "description": "Threshold (minutes) for the average input file age above which UPDATE_CUMULATIVE_STATS records a 'high file age' alert.",
+                    "fa_icon": "fas fa-history",
+                    "help_text": "Consumed inside modules/local/update_cumulative_stats/main.nf as part of the realtime threshold dictionary. The default of one million minutes effectively disables the alert; set lower (e.g. 60) on live runs to detect when input files have started lagging behind sequencing wall-clock. Declared explicitly so the GUI's parameter_mapping.create_nextflow_params output passes strict schema validation; the GUI emits this key from nanometa_live/core/config/parameter_mapping.py."
+                },
                 "report_write_interval": {
                     "type": "integer",
                     "default": 5,
