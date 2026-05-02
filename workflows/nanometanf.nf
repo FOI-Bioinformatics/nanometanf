@@ -12,7 +12,6 @@ include { methodsDescriptionText     } from '../subworkflows/local/utils_nfcore_
 
 // Import local subworkflows
 include { REALTIME_MONITORING        } from '../subworkflows/local/realtime_monitoring'
-include { BARCODE_DISCOVERY          } from '../subworkflows/local/barcode_discovery'
 include { INPUT_SCANNER              } from '../subworkflows/local/input_scanner'
 include { DEMULTIPLEXING             } from '../subworkflows/local/demultiplexing'
 include { QC_ANALYSIS                } from '../subworkflows/local/qc_analysis'
