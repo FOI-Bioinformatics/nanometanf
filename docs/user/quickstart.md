@@ -1,13 +1,13 @@
 # Quick Start Tutorial
 
-Get started with nanometanf in 5 minutes using real example datasets.
+A short walkthrough using example datasets.
 
 ## Prerequisites
 
 ```bash
 # Required
 - Nextflow >= 25.10.0
-- Docker or Singularity (or Conda)
+- Conda (recommended), or Docker / Singularity
 - Java 11+ (for Nextflow)
 
 # Set up Java environment (if using Conda)
@@ -67,7 +67,7 @@ EOF
 nextflow run foi-bioinformatics/nanometanf \
     --input samplesheet.csv \
     --outdir results \
-    -profile docker
+    -profile conda
 
 # 3. View results
 open results/multiqc/multiqc_report.html
@@ -97,7 +97,7 @@ nextflow run foi-bioinformatics/nanometanf \
     --min_qscore 9 \
     --trim_adapters \
     --outdir results \
-    -profile docker
+    -profile conda
 
 # 3. Check basecalling summary
 cat results/dorado/*/summary.txt
@@ -124,7 +124,7 @@ nextflow run foi-bioinformatics/nanometanf \
     --barcode_kit SQK-NBD114-24 \
     --trim_barcodes \
     --outdir results \
-    -profile docker
+    -profile conda
 
 # Results organized by barcode
 ls results/demultiplexing/
@@ -155,7 +155,7 @@ nextflow run foi-bioinformatics/nanometanf \
     --kraken2_db kraken2_db/ \
     --enable_krona_plots \
     --outdir results \
-    -profile docker
+    -profile conda
 
 # 3. View taxonomic results
 open results/taxonomy/*/krona.html
@@ -182,7 +182,7 @@ nextflow run foi-bioinformatics/nanometanf \
     --batch_size 10 \
     --batch_interval "5min" \
     --outdir results \
-    -profile docker \
+    -profile conda \
     -bg  # Run in background
 
 # Monitor progress
@@ -221,8 +221,8 @@ tail -f results/realtime_reports/progress.txt
 --blast_validation       # Enable BLAST validation
 
 # Performance
---optimization_profile balanced    # Resource optimization
---enable_dynamic_resources        # Intelligent resource allocation
+--optimization_profile balanced    # Resource optimization profile
+--enable_dynamic_resources        # Dynamic per-task resource allocation
 ```
 
 ---
@@ -236,7 +236,7 @@ nextflow run foi-bioinformatics/nanometanf \
     -stub \
     --outdir test_results
 
-# Full test with nf-core test data (~ 5 minutes)
+# Full test with nf-core test data (~ 5 minutes; CI uses docker per nf-core convention)
 nextflow run foi-bioinformatics/nanometanf \
     -profile test,docker \
     --outdir test_results
@@ -250,7 +250,7 @@ nextflow run foi-bioinformatics/nanometanf \
 
 ```bash
 # Check Nextflow version
-nextflow -version  # Must be >= 23.04.0
+nextflow -version  # Must be >= 25.10.0
 
 # Check Java
 java -version      # Must be 11+
@@ -276,7 +276,7 @@ For more troubleshooting, see [Troubleshooting Guide](troubleshooting.md).
 
 ## Next Steps
 
-- **Full documentation**: See [Usage Guide](usage.md)
+- **Full documentation**: See [Usage Guide](../usage.md)
 - **QC interpretation**: See [QC Guide](qc_guide.md)
 - **Production deployment**: See [Production Deployment](../development/production_deployment.md)
 - **Performance tuning**: See [Performance Tuning](performance_tuning.md)

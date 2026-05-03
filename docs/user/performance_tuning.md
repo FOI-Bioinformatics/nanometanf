@@ -1,6 +1,6 @@
 # Performance Tuning Guide
 
-Optimize nanometanf for production workloads and large-scale processing.
+Tuning options for production workloads and large-scale processing.
 
 ## Performance Profiles Overview
 
@@ -10,20 +10,20 @@ nextflow run ... --optimization_profile auto
 
 # Available profiles:
 # - auto                  : Automatic selection
-# - high_throughput      : Maximum speed (high resources)
-# - balanced             : Default production settings
-# - resource_conservative: Minimal resource usage
-# - gpu_optimized        : GPU-accelerated workloads
-# - realtime_optimized   : Low-latency real-time processing
+# - high_throughput       : Higher resource ceilings
+# - balanced              : Default production settings
+# - resource_conservative : Lower resource usage
+# - gpu_optimized         : GPU-accelerated workloads
+# - realtime_optimized    : Lower latency for real-time runs
 ```
 
 ---
 
-## Quick Wins (5-minute optimizations)
+## Quick Wins (5-minute changes)
 
 ### 1. Enable Dynamic Resource Allocation
 
-**Impact**: 20-40% faster execution, 30% better resource utilization
+**Typical impact in our testing**: 20-40% faster wall time, ~30% better resource utilisation.
 
 ```bash
 nextflow run ... \
@@ -33,7 +33,7 @@ nextflow run ... \
 
 ### 2. Use Local Disk for Work Directory
 
-**Impact**: 2-3x faster I/O, especially on network filesystems
+**Typical impact**: 2-3x faster I/O on network filesystems.
 
 ```bash
 nextflow run ... \
@@ -43,7 +43,7 @@ nextflow run ... \
 
 ### 3. Enable Process Caching
 
-**Impact**: Instant resume of failed runs
+**Impact**: resume picks up cached tasks rather than reprocessing them.
 
 ```bash
 # Always use -resume
@@ -88,10 +88,10 @@ EOF
 )
 ```
 
-**Benchmarks** (typical runtimes):
+**Indicative runtimes (in our testing):**
 
-- Kraken2 (10GB database, 1M reads): 4 CPUs = 10min, 16 CPUs = 3min
-- FASTP (1M reads): 4 CPUs = 2min, 16 CPUs = 1.5min
+- Kraken2 (10GB database, 1M reads): 4 CPUs ~10 min, 16 CPUs ~3 min
+- FASTP (1M reads): 4 CPUs ~2 min, 16 CPUs ~1.5 min
 
 ---
 
@@ -201,7 +201,7 @@ EOF
 - Apple M1/M2: `--batchsize 192`
 - CPU only: `--batchsize 128`
 
-**Performance** (HAC model, POD5 → FASTQ):
+**Indicative throughput (HAC model, POD5 → FASTQ):**
 
 - A100: ~40-50M bases/sec
 - V100: ~25-30M bases/sec
@@ -490,9 +490,9 @@ cat trace.txt | awk '{print $1, $6, $10}' | sort -k2 -n
 
 ---
 
-## Performance Metrics (Reference)
+## Reference Throughput
 
-**Typical throughput** (balanced profile, 16 CPU, 64GB RAM):
+**Indicative throughput, balanced profile on a 16-CPU / 64GB host:**
 
 - FASTQ QC (NanoPlot): ~500K reads/min
 - Kraken2 classification: ~200K reads/min (50GB DB)
@@ -510,7 +510,7 @@ cat trace.txt | awk '{print $1, $6, $10}' | sort -k2 -n
 
 ## Additional Resources
 
-- [Best Practices](best_practices.md) - Workflow optimization strategies
+- [Best Practices](best_practices.md) - Workflow optimisation strategies
 - [Troubleshooting](troubleshooting.md) - Resolve performance issues
 - [Production Deployment](../development/production_deployment.md) - Enterprise setup
-- [Developer Documentation](../development/) - Custom optimization
+- [Developer Documentation](../development/) - Custom tuning

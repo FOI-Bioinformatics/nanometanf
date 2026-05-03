@@ -1,8 +1,8 @@
-# QC Tools Guide for nanometanf Pipeline
+# QC Tools Guide for nanometanf
 
 ## Overview
 
-The nanometanf pipeline implements an advanced multi-tool QC framework that allows users to easily switch between different quality control tools optimized for nanopore sequencing data. This guide provides comprehensive recommendations for choosing the right QC approach for your data and use case.
+nanometanf supports multiple QC tools tuned for nanopore data and lets you switch between them via parameters or named profiles. This guide describes the trade-offs and gives recommendations per use case.
 
 ## Quick Start
 
@@ -23,42 +23,42 @@ nextflow run foi-bioinformatics/nanometanf --input samplesheet.csv --outdir resu
 
 ```bash
 # Stringent QC for genomics/variant calling
-nextflow run foi-bioinformatics/nanometanf -profile docker,nanopore_strict --input samplesheet.csv --outdir results
+nextflow run foi-bioinformatics/nanometanf -profile conda,nanopore_strict --input samplesheet.csv --outdir results
 
-# Optimized for metagenomics
-nextflow run foi-bioinformatics/nanometanf -profile docker,nanopore_metagenomics --input samplesheet.csv --outdir results
+# Tuned for metagenomics
+nextflow run foi-bioinformatics/nanometanf -profile conda,nanopore_metagenomics --input samplesheet.csv --outdir results
 
-# Optimized for genome assembly
-nextflow run foi-bioinformatics/nanometanf -profile docker,nanopore_assembly --input samplesheet.csv --outdir results
+# Tuned for genome assembly
+nextflow run foi-bioinformatics/nanometanf -profile conda,nanopore_assembly --input samplesheet.csv --outdir results
 ```
 
 ## QC Tools Comparison
 
-### FASTP (General-Purpose)
+### FASTP (general-purpose)
 
-- **Best for**: Cross-platform compatibility, detailed reporting, RNA data
-- **Strengths**: Rich HTML reports, JSON output, comprehensive statistics
-- **Optimal use cases**: Mixed sequencing technologies, transcriptomics, detailed QC analysis
-- **Performance**: Moderate speed, moderate memory usage
+- **Best for**: cross-platform compatibility, HTML/JSON reports, RNA data
+- **Strengths**: rich HTML report, JSON output, broad statistics
+- **Use cases**: mixed sequencing technologies, transcriptomics, detailed QC review
+- **Performance**: moderate speed and memory
 
-### FILTLONG (Nanopore-Optimized)
+### FILTLONG (nanopore-tuned)
 
-- **Best for**: Nanopore data, length-based filtering, speed
-- **Strengths**: Nanopore-specific algorithms, length-weighted quality scoring, fast processing
-- **Optimal use cases**: Genomics, metagenomics, assembly projects
-- **Performance**: Fast processing, low memory usage
-- **Enhanced reporting**: Automatically includes FastQC and SeqKit statistics
+- **Best for**: nanopore data, length-based filtering, speed
+- **Strengths**: length-weighted quality scoring, fast processing
+- **Use cases**: genomics, metagenomics, assembly projects
+- **Performance**: fast, low memory
+- **Reporting**: pipeline adds FastQC and SeqKit stats alongside
 
-### PORECHOP + FILTLONG (Enhanced)
+### PORECHOP + FILTLONG
 
-- **Best for**: High-quality requirements, contaminated samples
-- **Strengths**: Adapter removal, highest quality output
-- **Optimal use cases**: Critical applications, contaminated samples, publication-quality data
-- **Performance**: Slower due to two-step process, highest quality output
+- **Best for**: contaminated samples, applications that prioritise final read quality
+- **Strengths**: adapter removal followed by length/quality filtering
+- **Use cases**: contaminated samples, publication-grade data
+- **Performance**: slower (two-step), produces the highest-quality reads of the three
 
 ## QC Strategy Profiles
 
-The pipeline includes pre-configured QC profiles optimized for different use cases:
+Pre-configured QC profiles for common use cases:
 
 ### nanopore_strict
 
@@ -182,13 +182,13 @@ nextflow run foi-bioinformatics/nanometanf \
   --enable_qc_benchmark true
 ```
 
-This will run all QC tools on your data and generate a comprehensive comparison report including:
+This runs each QC tool on your data and generates a comparison report including:
 
-- Processing time comparison
-- Memory usage analysis
+- Processing time
+- Memory usage
 - Read retention rates
 - Quality improvement metrics
-- Tool-specific recommendations
+- Per-tool recommendations
 
 ### Benchmark Analysis
 
@@ -317,7 +317,7 @@ my_custom_profile {
 
 ```bash
 nextflow run foi-bioinformatics/nanometanf \
-  -profile docker,nanopore_strict,my_custom_profile \
+  -profile conda,nanopore_strict,my_custom_profile \
   --input samplesheet.csv --outdir results
 ```
 
@@ -325,22 +325,22 @@ nextflow run foi-bioinformatics/nanometanf \
 
 ### FILTLONG + Enhanced Reporting
 
-- **FILTLONG log**: Filtering statistics and decisions
-- **FastQC HTML**: Comprehensive sequence quality reports
-- **SeqKit stats**: Detailed sequence statistics
-- **NanoPlot HTML**: Nanopore-specific visualizations
+- **FILTLONG log**: filtering statistics and decisions
+- **FastQC HTML**: sequence quality reports
+- **SeqKit stats**: sequence statistics
+- **NanoPlot HTML**: nanopore-specific plots
 
 ### FASTP Reporting
 
-- **FASTP HTML**: Rich interactive QC report
-- **FASTP JSON**: Machine-readable statistics
-- **NanoPlot HTML**: Additional nanopore visualizations
+- **FASTP HTML**: interactive QC report
+- **FASTP JSON**: machine-readable statistics
+- **NanoPlot HTML**: nanopore-specific plots
 
 ### Benchmark Reports
 
-- **Performance comparison**: Processing time, memory usage
-- **Quality metrics**: Read retention, quality improvement
-- **Recommendations**: Tool selection guidance
+- **Performance**: processing time, memory usage
+- **Quality**: read retention, quality improvement
+- **Recommendations**: tool selection guidance
 
 ## Integration with Downstream Analysis
 
@@ -362,8 +362,6 @@ nextflow run foi-bioinformatics/nanometanf \
 - Enable adapter trimming
 - Maximize quality metrics
 
-## Conclusion
+## Further Help
 
-The multi-tool QC framework in nanometanf provides flexible, optimized quality control for diverse nanopore sequencing applications. By choosing the appropriate QC strategy and parameters, users can achieve optimal results for their specific use case while maintaining the ease of use through pre-configured profiles.
-
-For additional support or questions about QC tool selection, please refer to the pipeline documentation or create an issue on the GitHub repository.
+For questions about QC tool selection, see the pipeline documentation or open an issue on the GitHub repository.

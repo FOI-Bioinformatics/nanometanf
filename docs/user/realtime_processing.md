@@ -1,10 +1,8 @@
 # Real-time Processing Guide
 
-**Comprehensive guide for live sequencing analysis with nanometanf**
+Live sequencing analysis with nanometanf during active Oxford Nanopore runs.
 
-This guide covers everything you need to know about using nanometanf for real-time analysis during active Oxford Nanopore sequencing runs.
-
-**Prerequisites:** Basic familiarity with [usage.md](usage.md) and ONT sequencing workflows.
+**Prerequisites:** Familiarity with [usage.md](../usage.md) and ONT sequencing workflows.
 
 ---
 
@@ -25,14 +23,14 @@ This guide covers everything you need to know about using nanometanf for real-ti
 
 ### What is Real-time Processing?
 
-Real-time processing enables continuous analysis of sequencing data **during** an active sequencing run, providing results as soon as data becomes available.
+Real-time processing analyses sequencing data **during** an active run, returning results as files arrive rather than after the run completes.
 
-**Key Benefits:**
+**Use cases:**
 
-- **Immediate results**: See classifications minutes after reads are generated
-- **Early decision making**: Stop runs early if targets detected/not detected
-- **Resource efficiency**: No need to wait for run completion
-- **Iterative analysis**: Adjust parameters based on incoming data
+- See classifications minutes after reads are generated
+- Stop runs early once a target is detected (or ruled out)
+- Avoid waiting for run completion before downstream work
+- Adjust parameters based on incoming data
 
 ### How It Works
 
@@ -51,20 +49,20 @@ Sequencing Device → File Generation → nanometanf Monitor → Analysis → Re
 
 ### When to Use Real-time Mode
 
-**✅ Good Use Cases:**
+Suitable for:
 
 - Clinical pathogen detection (urgent diagnosis)
 - Contamination screening (early detection)
-- Adaptive sequencing decisions (run until target coverage)
-- Live dashboard visualization (Nanometa Live)
-- Quality monitoring during run
+- Adaptive sequencing decisions (run until target coverage reached)
+- Live dashboard visualisation (Nanometa Live)
+- Quality monitoring during the run
 
-**❌ Not Recommended:**
+Not recommended for:
 
 - Archival data analysis (use standard mode)
-- Batch processing multiple completed runs
-- When deterministic results required (order-dependent)
-- Resource-constrained systems (real-time is CPU-intensive)
+- Batch processing of multiple completed runs
+- Workflows that require deterministic, order-independent results
+- Resource-constrained systems (real-time mode is CPU-intensive)
 
 ---
 
@@ -80,7 +78,7 @@ nextflow run foi-bioinformatics/nanometanf \
   --kraken2_db /databases/k2_standard \
   --realtime_timeout_minutes 30 \
   --outdir results/live_run \
-  -profile docker
+  -profile conda
 ```
 
 ### Real-time POD5 with Basecalling
@@ -95,7 +93,7 @@ nextflow run foi-bioinformatics/nanometanf \
   --kraken2_db /databases/k2_standard \
   --realtime_timeout_minutes 30 \
   --outdir results/live_run \
-  -profile docker
+  -profile conda
 ```
 
 **What happens:**
@@ -122,7 +120,7 @@ nextflow run foi-bioinformatics/nanometanf \
   --batch_size 20 \
   --batch_interval "2min" \
   --outdir results/fastq_monitor \
-  -profile docker
+  -profile conda
 ```
 
 **Parameters explained:**
@@ -146,7 +144,7 @@ nextflow run foi-bioinformatics/nanometanf \
   --dorado_device auto \
   --batch_size 10 \
   --outdir results/pod5_monitor \
-  -profile docker
+  -profile conda
 ```
 
 **GPU acceleration:** Use `--dorado_device auto` to automatically detect GPU
@@ -161,7 +159,7 @@ nextflow run foi-bioinformatics/nanometanf \
   --nanopore_output_dir /data/sequencing/run_001/fastq_pass \
   --file_pattern "**/barcode??/*.fastq.gz" \
   --outdir results/barcode_monitor \
-  -profile docker
+  -profile conda
 ```
 
 **File pattern matches:**
@@ -174,11 +172,9 @@ nextflow run foi-bioinformatics/nanometanf \
 
 ## Advanced Features
 
-### Intelligent Timeout with Grace Period (v1.3.3+)
+### Two-stage Timeout with Grace Period (v1.3.3+)
 
-**Problem:** Simple timeouts stop processing prematurely while downstream tasks still running.
-
-**Solution:** 2-stage timeout system:
+A single timeout can stop processing while downstream tasks are still running. The two-stage system separates file-detection timeout from a grace period that waits for in-flight processing.
 
 ```bash
 nextflow run foi-bioinformatics/nanometanf \
@@ -187,7 +183,7 @@ nextflow run foi-bioinformatics/nanometanf \
   --realtime_timeout_minutes 15 \
   --realtime_processing_grace_period 10 \
   --outdir results \
-  -profile docker
+  -profile conda
 ```
 
 **How it works:**
@@ -214,9 +210,7 @@ Grace period complete. All processing finished. Stopping gracefully.
 
 ### Adaptive Batching (v1.3.3+)
 
-**Problem:** Fixed batch sizes inefficient for varying file arrival rates.
-
-**Solution:** Dynamic batch size adjustment:
+Fixed batch sizes do not adapt to varying file arrival rates. Adaptive batching adjusts batch size dynamically.
 
 ```bash
 nextflow run foi-bioinformatics/nanometanf \
@@ -226,7 +220,7 @@ nextflow run foi-bioinformatics/nanometanf \
   --max_batch_size 50 \
   --batch_size_factor 1.5 \
   --outdir results \
-  -profile docker
+  -profile conda
 ```
 
 **How it works:**
@@ -248,16 +242,14 @@ Batch N: 50 files (capped at max_batch_size)
 
 ### Priority Sample Routing (v1.3.3+)
 
-**Problem:** Urgent samples processed in same queue as routine samples.
-
-**Solution:** Priority routing for high-priority samples:
+By default urgent and routine samples share one queue. Priority routing pulls listed samples to the front of the queue.
 
 ```bash
 nextflow run foi-bioinformatics/nanometanf \
   --realtime_mode \
   --priority_samples "patient_ICU_01,patient_ICU_02,positive_control" \
   --outdir results \
-  -profile docker
+  -profile conda
 ```
 
 **How it works:**
@@ -282,21 +274,18 @@ Result: MATCH (substring contains) → Priority queue
 
 ### Per-Barcode Metadata Extraction (v1.3.3+)
 
-**Problem:** Manual barcode tracking difficult in real-time.
-
-**Solution:** Automatic barcode extraction from filenames:
+Barcode identifiers are extracted from filenames and stored in `meta.barcode`, removing the need for manual tracking.
 
 ```bash
 # Files like: /path/to/barcode01/reads.fastq.gz
-# Automatically extracts: barcode = "barcode01"
-# Stored in: meta.barcode field
+# Extracted as: meta.barcode = "barcode01"
 
 nextflow run foi-bioinformatics/nanometanf \
   --realtime_mode \
   --nanopore_output_dir /data/barcoded_run \
   --file_pattern "**/barcode??/*.fastq.gz" \
   --outdir results \
-  -profile docker
+  -profile conda
 ```
 
 **Pattern recognized:**
@@ -322,22 +311,22 @@ nextflow run foi-bioinformatics/nanometanf \
   --realtime_mode \
   --nanopore_output_dir /data/minion_run \
   --outdir results \
-  -profile minion,docker
+  -profile minion,conda
 ```
 
-**Optimizations:**
+**Settings:**
 
-- 8 CPUs per Kraken2 task (maximum per-sample speed)
+- 8 CPUs per Kraken2 task (maximises per-sample speed)
 - 4 CPUs per FASTP task
-- NanoPlot every 5th batch (frequent feedback)
-- Queue size: 8 (low parallelism for speed)
+- NanoPlot every 5th batch
+- Queue size: 8
 
 **Best for:**
 
 - Urgent pathogen ID
 - Single patient samples
 - Clinical diagnostics
-- Rapid turnaround priority
+- Rapid turnaround
 
 #### Profile: promethion_8
 
@@ -348,15 +337,15 @@ nextflow run foi-bioinformatics/nanometanf \
   --realtime_mode \
   --nanopore_output_dir /data/promethion_run \
   --outdir results \
-  -profile promethion_8,docker
+  -profile promethion_8,conda
 ```
 
-**Optimizations:**
+**Settings:**
 
-- 6 CPUs per Kraken2 task (balanced)
+- 6 CPUs per Kraken2 task
 - 3 CPUs per FASTP task
 - NanoPlot every 7th batch
-- Queue size: 24 (4 samples parallel on 24-core)
+- Queue size: 24 (4 samples in parallel on a 24-core host)
 
 **Best for:**
 
@@ -373,35 +362,35 @@ nextflow run foi-bioinformatics/nanometanf \
   --realtime_mode \
   --nanopore_output_dir /data/promethion_run \
   --outdir results \
-  -profile promethion,docker
+  -profile promethion,conda
 ```
 
-**Optimizations:**
+**Settings:**
 
 - 4 CPUs per Kraken2 task (high parallelism)
 - 2 CPUs per FASTP task
-- NanoPlot every 10th batch (less frequent)
-- Queue size: 48 (6-12 samples parallel)
+- NanoPlot every 10th batch
+- Queue size: 48 (6-12 samples in parallel)
 
 **Best for:**
 
 - City-wide wastewater surveillance
 - Large-scale studies
-- Maximum throughput priority
+- Throughput-priority workloads
 
-### Performance Benchmarks
+### Benchmarks (internal, indicative)
 
 | Profile          | Samples Parallel | Per-Sample Time  | Total Throughput |
 | ---------------- | ---------------- | ---------------- | ---------------- |
-| **minion**       | 3                | Fastest (2.5 hr) | 1.7x baseline    |
-| **promethion_8** | 4                | Balanced (3 hr)  | 1.9x baseline    |
-| **promethion**   | 6-12             | Slower (4 hr)    | 2.0x baseline    |
+| **minion**       | 3                | Fastest (~2.5 h) | ~1.7x baseline   |
+| **promethion_8** | 4                | Balanced (~3 h)  | ~1.9x baseline   |
+| **promethion**   | 6-12             | Slower (~4 h)    | ~2.0x baseline   |
 
-**With all optimizations (30-batch run):**
+**With all optimisations enabled (30-batch internal run):**
 
-- Without: 324 minutes (5.4 hours)
-- With: 18 minutes (0.3 hours)
-- **Speedup: 18x** (94% reduction)
+- Without: ~324 minutes (~5.4 hours)
+- With: ~18 minutes (~0.3 hours)
+- Approximately 18x faster on this scenario; figures are scenario-specific.
 
 ---
 
@@ -486,7 +475,7 @@ nextflow run foi-bioinformatics/nanometanf \
 ```bash
 --max_cpus 8
 --max_memory 16.GB
--profile minion,docker  # Lower parallelism
+-profile minion,conda  # Lower parallelism
 ```
 
 **High-performance systems:**
@@ -494,7 +483,7 @@ nextflow run foi-bioinformatics/nanometanf \
 ```bash
 --max_cpus 48
 --max_memory 128.GB
--profile promethion,docker  # Higher parallelism
+-profile promethion,conda  # Higher parallelism
 ```
 
 ### 5. Monitoring Progress
@@ -598,7 +587,7 @@ Process KRAKEN2 failed: Out of memory
 --max_cpus 16  # Lower than system max
 
 # Or use resource-conservative profile
--profile minion,docker  # Lower parallelism
+-profile minion,conda  # Lower parallelism
 ```
 
 ### Issue: Files not detected
@@ -627,11 +616,9 @@ find /path/to/data -name "*.fastq.gz"
 
 ## Performance Tuning
 
-### Scalable Streaming Architecture (v1.5+)
+### Streaming Kraken2 Architecture (v1.5+)
 
-**Problem:** Previous architecture had global serialization bottlenecks with `maxForks 1`, limiting throughput for runs with many barcodes (>10).
-
-**Solution:** Per-sample parallelism with append-only batch storage.
+The previous architecture used `maxForks 1` for cumulative classification, which serialised work across samples and capped throughput on multi-barcode runs (>10 barcodes). The streaming architecture replaces this with per-sample parallelism and append-only batch storage.
 
 ```bash
 nextflow run foi-bioinformatics/nanometanf \
@@ -640,21 +627,21 @@ nextflow run foi-bioinformatics/nanometanf \
   --max_concurrent_batches 4 \
   --max_classification_forks 8 \
   --outdir results \
-  -profile docker
+  -profile conda
 ```
 
-**Key improvements:**
+**What changed:**
 
-- Per-sample parallelism (no global serialization)
+- Per-sample parallelism (no global serialisation)
 - Append-only batch files (O(1) per batch instead of O(n) rewrites)
 - Incremental taxid counting (no cumulative file re-reads)
 - Backpressure control to prevent queue saturation
 
-**Performance gain:**
+**Throughput in internal benchmarks:**
 
-- CPU utilization: 15-20% -> 70-90%
-- Throughput: 10-15 files/sec -> 50-75 files/sec
-- 4-5x improvement for runs with 12+ barcodes
+- CPU utilisation: ~15-20% -> ~70-90%
+- File throughput: ~10-15 files/sec -> ~50-75 files/sec
+- Roughly 4-5x improvement on internal benchmarks for runs with 12+ barcodes; smaller runs see less gain.
 
 **New parameters:**
 | Parameter | Default | Description |
@@ -672,32 +659,27 @@ outdir/kraken2/{sample_id}/
 └── taxid_counts.json
 ```
 
-**Nanometa Live compatibility:** JSON outputs unchanged; dashboard polling continues to work.
+**Nanometa Live compatibility:** JSON outputs are unchanged; dashboard polling continues to work.
 
 ### Incremental Kraken2 (v1.3.2+)
 
-**Problem:** Re-classifying all reads in cumulative mode is O(n^2) complexity.
-
-**Solution:** Incremental classification (classify only new reads per batch).
+Re-classifying all reads each batch in cumulative mode scales as O(n^2). Incremental classification only processes new reads per batch.
 
 ```bash
 nextflow run foi-bioinformatics/nanometanf \
   --realtime_mode \
   --kraken2_enable_incremental true \
   --outdir results \
-  -profile docker
+  -profile conda
 ```
 
-**Performance gain:**
+**Internal benchmark:** roughly 90% reduction in Kraken2 time on 30-batch runs (~30-90 minutes saved).
 
-- 93% reduction in Kraken2 time
-- 30-90 minutes saved for 30-batch runs
-
-**Note:** Combined with scalable streaming (v1.5+) for optimal performance.
+**Note:** Combine with the streaming architecture (v1.5+) for the largest gains.
 
 ### Conditional NanoPlot Execution
 
-Skip intermediate NanoPlot runs to save time:
+Skip intermediate NanoPlot runs to save wall-clock time:
 
 ```bash
 nextflow run foi-bioinformatics/nanometanf \
@@ -705,23 +687,21 @@ nextflow run foi-bioinformatics/nanometanf \
   --nanoplot_realtime_skip_intermediate true \
   --nanoplot_batch_interval 10 \
   --outdir results \
-  -profile docker
+  -profile conda
 ```
 
-**Effect:** NanoPlot runs every 10th batch + final batch only
+**Effect:** NanoPlot runs every 10th batch plus the final batch.
 
-**Time savings:** 54-81 minutes for 30-batch run
+**Internal benchmark:** approximately 54-81 minutes saved on a 30-batch run.
 
 ### Memory-mapped Database Loading
 
-Automatic in real-time mode (no configuration needed):
+Enabled automatically in real-time mode.
 
-**How it works:**
+- First batch loads the Kraken2 DB (~3 min)
+- Subsequent batches reuse the OS page cache (near-instant)
 
-- First batch: Loads Kraken2 DB (~3 min)
-- Subsequent batches: Reuse OS page cache (~instant)
-
-**Time savings:** 30-90 minutes for 30-batch run
+**Internal benchmark:** approximately 30-90 minutes saved on a 30-batch run.
 
 ---
 
@@ -745,30 +725,30 @@ nextflow run foi-bioinformatics/nanometanf \
   --realtime_timeout_minutes 15 \
   --realtime_processing_grace_period 10 \
   --outdir results/patient_001_urgent \
-  -profile minion,docker
+  -profile minion,conda
 ```
 
-**Features:**
+**What this configures:**
 
-- POD5 basecalling with GPU
-- Small batches (5 files) for fast results
-- Priority routing for patient
-- 15-minute timeout + 10-minute grace
-- MinION profile (maximum per-sample speed)
+- POD5 basecalling on GPU
+- Small batches (5 files) for fast turnaround
+- Priority routing for the patient sample
+- 15-minute detection timeout + 10-minute grace period
+- MinION profile (maximises per-sample speed)
 
-**Expected:** First results in ~10-15 minutes
+**Expected:** First results within roughly 10-15 minutes.
 
 ---
 
 ## Related Documentation
 
-- **[Usage Guide](usage.md)** - Complete parameter reference
-- **[Performance Tuning](performance_tuning.md)** - Advanced optimization
-- **[Platform Optimizations](OPTIMIZATIONS_QUICK_REFERENCE.md)** - Platform-specific tips
+- **[Usage Guide](../usage.md)** - Complete parameter reference
+- **[Performance Tuning](performance_tuning.md)** - Advanced optimisation
+- **[Platform Optimisations](OPTIMIZATIONS_QUICK_REFERENCE.md)** - Platform-specific tips
 - **[Troubleshooting](troubleshooting.md)** - General troubleshooting
 
 ---
 
 **Last Updated:** 2025-01-26
-**Version:** 1.5.0 (scalable streaming requires v1.5.0+, basic features work with v1.2.0+)
+**Version:** 1.5.0 (streaming architecture requires v1.5.0+; basic real-time features work with v1.2.0+)
 **Maintainer:** foi-bioinformatics team

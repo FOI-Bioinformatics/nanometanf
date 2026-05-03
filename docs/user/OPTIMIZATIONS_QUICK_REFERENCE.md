@@ -1,17 +1,18 @@
-# PromethION Optimizations - Quick Reference
+# PromethION Optimisations - Quick Reference
 
-**Version:** v1.3.0dev
-**Status:** Implementation Complete ✅
+**Pipeline version (introduced):** 1.3.0
 **Date:** 2025-10-19
 
 ---
 
-## Performance at a Glance
+## Performance at a Glance (internal benchmark, 30 batches)
 
-| Metric                              | Without Optimizations | With All Optimizations | Improvement       |
-| ----------------------------------- | --------------------- | ---------------------- | ----------------- |
-| **Computational Time** (30 batches) | 324 min (5.4 hrs)     | 18 min (0.3 hrs)       | **94% reduction** |
-| **Time Saved**                      | -                     | 306 min (5.1 hrs)      | 18x faster        |
+| Metric                       | Baseline           | With optimisations | Change            |
+| ---------------------------- | ------------------ | ------------------ | ----------------- |
+| **Compute time** (30 batches) | ~324 min (~5.4 h) | ~18 min (~0.3 h)   | ~94% reduction    |
+| **Time saved**               | -                  | ~306 min (~5.1 h)  | ~18x speedup      |
+
+Figures are from a single internal scenario with 30 batches; smaller runs see less gain.
 
 ---
 
@@ -53,32 +54,32 @@ nextflow run foi-bioinformatics/nanometanf \
 | **promethion_8** | 5-12         | 6            | 4                          | Environmental surveys, metagenomic studies      |
 | **promethion**   | 12-24+       | 4            | 6                          | Wastewater monitoring, large-scale surveillance |
 
-**Throughput Comparison** (720 tasks):
+**Throughput, 720-task internal scenario:**
 
-- **minion**: 12 hours (1.7x speedup)
-- **promethion_8**: 10.5 hours (1.9x speedup)
-- **promethion**: 10 hours (2.0x speedup)
+- **minion**: ~12 hours (~1.7x speedup)
+- **promethion_8**: ~10.5 hours (~1.9x speedup)
+- **promethion**: ~10 hours (~2.0x speedup)
 
 ---
 
-## Optimization Phases
+## Optimisation Phases
 
-### Phase 1: Core Processing (Automatic)
+### Phase 1: Core Processing (automatic with `--realtime_mode`)
 
-| Optimization                 | Time Savings | Auto-Enabled         |
-| ---------------------------- | ------------ | -------------------- |
-| **1.1** Incremental Kraken2  | 30-90 min    | ✅ `--realtime_mode` |
-| **1.2** QC Stats Aggregation | 5-15 min     | ✅ `--realtime_mode` |
-| **1.3** Conditional NanoPlot | 54-81 min    | ✅ `--realtime_mode` |
-| **1.4** Deferred MultiQC     | 3-9 min      | ✅ `--realtime_mode` |
+| Optimisation                 | Internal-benchmark savings | Auto-enabled        |
+| ---------------------------- | -------------------------- | ------------------- |
+| **1.1** Incremental Kraken2  | ~30-90 min                 | yes (`--realtime_mode`) |
+| **1.2** QC stats aggregation | ~5-15 min                  | yes (`--realtime_mode`) |
+| **1.3** Conditional NanoPlot | ~54-81 min                 | yes (`--realtime_mode`) |
+| **1.4** Deferred MultiQC     | ~3-9 min                   | yes (`--realtime_mode`) |
 
-### Phase 2: Database Preloading (Automatic)
+### Phase 2: Database Preloading (automatic)
 
-| Feature                        | Time Savings | Auto-Enabled         |
-| ------------------------------ | ------------ | -------------------- |
-| Memory-mapped database loading | 30-90 min    | ✅ `--realtime_mode` |
+| Feature                        | Internal-benchmark savings | Auto-enabled        |
+| ------------------------------ | -------------------------- | ------------------- |
+| Memory-mapped database loading | ~30-90 min                 | yes (`--realtime_mode`) |
 
-### Phase 3: Platform Profiles (Manual Selection)
+### Phase 3: Platform Profiles (manual selection)
 
 | Profile      | Resource Strategy    | When to Use                      |
 | ------------ | -------------------- | -------------------------------- |
@@ -90,19 +91,19 @@ nextflow run foi-bioinformatics/nanometanf \
 
 ## Automatic vs Manual Control
 
-### Fully Automatic (No Configuration Needed)
+### Automatic (no configuration)
 
-When you use `--realtime_mode` OR any platform profile:
+When you use `--realtime_mode` or any platform profile:
 
-- ✅ Incremental Kraken2 classification
-- ✅ QC statistics aggregation
-- ✅ Conditional NanoPlot execution
-- ✅ Deferred MultiQC
-- ✅ Memory-mapped database loading
+- Incremental Kraken2 classification
+- QC statistics aggregation
+- Conditional NanoPlot execution
+- Deferred MultiQC
+- Memory-mapped database loading
 
-**Just add**: `-profile minion` or `-profile promethion_8` or `-profile promethion`
+Just add: `-profile minion`, `-profile promethion_8`, or `-profile promethion`.
 
-### Manual Override (Advanced Users)
+### Manual Override
 
 ```bash
 # Disable specific optimizations
@@ -143,49 +144,44 @@ When you use `--realtime_mode` OR any platform profile:
 
 ---
 
-## Performance Metrics by Phase
+## Per-Phase Notes (internal benchmark, 30 batches)
 
 ### Phase 1.1: Incremental Kraken2
 
-- **Problem**: O(n²) re-classification complexity
-- **Solution**: Batch-level caching + final merge
-- **Savings**: 30-90 minutes (30 batches)
-- **Example**: 30 batches × 4 min each = 120 min → 4 min final merge
+- **Problem**: O(n^2) re-classification complexity
+- **Approach**: batch-level caching + final merge
+- **Savings**: ~30-90 minutes
+- **Example**: 30 batches x 4 min each = 120 min -> ~4 min final merge
 
 ### Phase 1.2: QC Stats Aggregation
 
-- **Problem**: Redundant SeqKit recalculations
-- **Solution**: Weighted statistical merging
-- **Savings**: 5-15 minutes (30 batches)
-- **Method**: Weighted averages by sequence length
+- **Problem**: redundant SeqKit recalculations
+- **Approach**: weighted statistical merging (weights by sequence length)
+- **Savings**: ~5-15 minutes
 
 ### Phase 1.3: Conditional NanoPlot
 
-- **Problem**: NanoPlot every batch (3 min × 30 = 90 min)
-- **Solution**: Skip intermediate batches
-- **Savings**: 54-81 minutes (30 batches)
-- **Result**: 90 min → 9 min (every 10th batch)
+- **Problem**: NanoPlot ran every batch (~3 min x 30 = ~90 min)
+- **Approach**: run only every Nth batch + final
+- **Savings**: ~54-81 minutes (~90 min -> ~9 min at every 10th batch)
 
 ### Phase 1.4: Deferred MultiQC
 
-- **Problem**: Redundant file parsing
-- **Solution**: `.collect()` operator waits for completion
-- **Savings**: 3-9 minutes (30 batches)
-- **Result**: 18 sec × 30 batches → 1 final run
+- **Problem**: repeated file parsing
+- **Approach**: `.collect()` waits for completion, MultiQC runs once
+- **Savings**: ~3-9 minutes (~18 sec x 30 batches -> 1 final run)
 
 ### Phase 2: Database Preloading
 
-- **Problem**: Database loaded 30× from disk (3 min each)
-- **Solution**: Memory-mapped loading, OS page cache
-- **Savings**: 30-90 minutes (30 batches)
-- **Result**: 3 min first load, ~instant for subsequent
+- **Problem**: Kraken2 DB loaded each batch (~3 min each)
+- **Approach**: memory-mapped loading via OS page cache
+- **Savings**: ~30-90 minutes (first load ~3 min, subsequent near-instant)
 
 ### Phase 3: Platform Profiles
 
-- **Problem**: One-size-fits-all resource allocation
-- **Solution**: Platform-specific CPU/memory tuning
-- **Savings**: 2-6x throughput improvement
-- **Result**: Optimal parallelism for hardware
+- **Problem**: one-size-fits-all resource allocation
+- **Approach**: platform-specific CPU/memory tuning
+- **Effect**: roughly 2-6x throughput improvement on the corresponding workloads
 
 ---
 
@@ -240,18 +236,18 @@ When you use `--realtime_mode` OR any platform profile:
 
 ## Validation
 
-**Correctness Guarantees:**
+**Correctness:**
 
-- ✅ Final Kraken2 reports identical to non-incremental mode
-- ✅ QC statistics match full recalculation (within floating-point precision)
-- ✅ NanoPlot results consistent with full runs
-- ✅ MultiQC report contains all expected sections
+- Final Kraken2 reports match non-incremental mode
+- QC statistics match a full recalculation within floating-point precision
+- NanoPlot results match full runs
+- MultiQC report contains the expected sections
 
-**Performance Guarantees:**
+**Performance (in our testing):**
 
-- ✅ Linear scaling with batch count (not quadratic)
-- ✅ 94% reduction in computational time
-- ✅ 2-6x throughput improvement with platform profiles
+- Linear, not quadratic, scaling with batch count
+- ~94% reduction in compute time on the 30-batch scenario
+- ~2-6x throughput improvement with platform profiles
 
 ---
 
@@ -267,5 +263,4 @@ When you use `--realtime_mode` OR any platform profile:
 
 - **Implementation**: Andreas Sjödin (FOI)
 - **Date**: 2025-10-19
-- **Version**: v1.3.0dev
-- **Status**: Production Ready ✅
+- **Pipeline version (introduced)**: 1.3.0

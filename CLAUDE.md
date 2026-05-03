@@ -1,42 +1,49 @@
 # CLAUDE.md
 
-**AI-Assisted Development Guide for nanometanf**
+Developer guidance for nanometanf, the Nextflow backend for
+[Nanometa Live](https://github.com/FOI-Bioinformatics/nanometa_live). For
+end-user documentation see [docs/user/usage.md](docs/user/usage.md); for
+contributor documentation see
+[docs/development/README.md](docs/development/README.md).
 
-This file provides guidance for AI assistants working on the nanometanf pipeline. For complete developer documentation, see [docs/development/README.md](docs/development/README.md).
+The recommended development environment is the `nf-core` conda environment.
 
 ---
 
-## Pipeline Overview
+## Pipeline overview
 
-**nanometanf** is an nf-core compliant Nextflow pipeline for Oxford Nanopore Technologies (ONT) sequencing data analysis, serving as the computational backend for Nanometa Live.
-
-**Core Capabilities:**
+`nanometanf` is an nf-core compliant Nextflow pipeline for Oxford Nanopore
+sequencing data analysis. It covers:
 
 - Real-time analysis during active sequencing (POD5 or FASTQ monitoring)
-- POD5 basecalling with Dorado (GPU-accelerated)
+- POD5 basecalling via Dorado (GPU optional)
 - Pre-demultiplexed barcode directory processing
-- Taxonomic classification with Kraken2 (incremental mode with scalable streaming)
-- Quality control (Chopper, FASTP, NanoPlot) and validation (BLAST/minimap2)
-- Platform-specific optimizations (MinION, PromethION profiles)
+- Taxonomic classification with Kraken2 (streaming or batch)
+- Quality control (Chopper, FASTP, NanoPlot) and validation (BLAST, minimap2)
+- Platform-specific resource profiles (MinION, PromethION)
 
-**Current Version:** 1.5.0
-**nf-core Compliance:** 96/100
+**Current version:** 1.5.1dev (development); 1.5.0 (released)
+**nf-core lint score:** 96/100
 
 ---
 
-## Critical Architecture: Scalable Streaming (v1.5+)
+## Streaming classification architecture (v1.5+)
 
-### Problem Solved
+### Background
 
-The previous architecture had global serialization bottlenecks:
+The previous architecture serialised work globally, with three observed
+bottlenecks:
 
-- `maxForks 1` in merger/report modules serialized ALL batches from ALL samples
-- O(n^2) file I/O: each batch re-read entire cumulative file before appending
-- No backpressure: unlimited batch queuing when downstream was slow
+- `maxForks 1` on the merger and report modules serialised every batch from
+  every sample.
+- O(n^2) file I/O: each batch re-read the full cumulative file before
+  appending.
+- No backpressure: batches queued without bound when downstream was slow.
 
-**Impact:** CPU utilization dropped to 15-20%, throughput limited to ~10-15 files/sec with >10 barcodes.
+In internal benchmarks, CPU utilisation fell to 15--20% and throughput plateaued
+at roughly 10--15 files per second with more than ten barcodes.
 
-### New Architecture
+### Current architecture
 
 | Component            | Before                                        | After                             |
 | -------------------- | --------------------------------------------- | --------------------------------- |
@@ -106,9 +113,9 @@ Corresponding `bin/` scripts handle the format conversion: `kreport_to_canonical
 
 ---
 
-## Critical Files for Development
+## Key files
 
-### Entry Points
+### Entry points
 
 - `main.nf` - Pipeline entry point
 - `workflows/nanometanf.nf` - Main workflow orchestration
@@ -121,7 +128,7 @@ Corresponding `bin/` scripts handle the format conversion: `kreport_to_canonical
 - `conf/modules.config` - Module-specific configurations (includes maxForks settings)
 - `conf/minion.config`, `conf/promethion.config`, `conf/promethion_8.config` - Platform profiles
 
-### Critical Subworkflows (subworkflows/local/)
+### Subworkflows (subworkflows/local/)
 
 - **`input_scanner/main.nf`** - Unified input directory scanning (v1.5+)
   - Replaces separate barcode_input_dir handling
@@ -253,7 +260,7 @@ for taxid, data in batch_taxa.items():
 
 ### 3. Test Fixtures Pattern
 
-**CRITICAL**: Pipeline validation runs BEFORE nf-test `setup{}` blocks. Always use pre-created fixtures:
+Pipeline validation runs before nf-test `setup{}` blocks. Always reference pre-created fixtures rather than building them in `setup`:
 
 ```groovy
 // CORRECT - uses pre-existing fixture
@@ -335,7 +342,7 @@ NFT_SHARD=2/4 ./tests/run_tests.sh full
 
 - `--realtime_mode` - Enable real-time monitoring
 - `--nanopore_output_dir` - Directory to monitor
-- `--max_files` - **CRITICAL FOR TESTS** - Limit files
+- `--max_files` - hard cap on files processed; required for bounded tests
 - `--batch_size` - Files per batch (default: 10)
 - `--realtime_timeout_minutes` - Inactivity timeout
 - `--realtime_processing_grace_period` - Processing completion wait
@@ -426,28 +433,31 @@ gh pr create --title "Title" --body "Description"
 
 ---
 
-**Last Updated:** 2026-03-01
-**Version:** 1.5.0
+**Last updated:** 2026-05-03
+**Version:** 1.5.1dev (development); 1.5.0 (released)
 **Maintainer:** foi-bioinformatics team (@andreassjodin)
 
-**Recent Changes (v1.5.0):**
+### Recent changes (v1.5.0)
 
-- Scalable streaming architecture with per-sample parallelism
-- Append-only batch storage (O(1) per batch)
+- Streaming classification architecture with per-sample parallelism
+- Append-only batch storage with atomic JSON index (O(1) per batch)
 - Incremental taxid counting (no cumulative re-reads)
 - End-of-session aggregation module
 - Backpressure control parameters
-- Expected 4-5x throughput improvement for high-barcode runs
-- Unified input handling: INPUT_SCANNER subworkflow with InputDetector
-- BatchUtils refactoring: replaced deprecated `Channel.create()` with `buffer()`
-- Test suite fixes: 55 active tests (17 pipeline + 38 module) with stub mode compatibility
+- Roughly four to five times higher throughput on high-barcode runs in
+  internal benchmarks
+- Unified input handling via the `INPUT_SCANNER` subworkflow and `InputDetector`
+- `BatchUtils` refactoring: replaced deprecated `Channel.create()` with `buffer()`
+- Test suite: 55 active tests (17 pipeline, 38 module), stub-mode compatible
 
-**Production hardening (2026-03-01):**
+### Hardening notes (2026-03-01)
 
-- FASTP_STREAMING local module: multi-file concatenation for watchPath mode, upstream fastp restored
-- MULTIQC updated to single-tuple input API
-- FASTQC/SEQKIT_STATS version channel fixes (topic: versions pattern)
-- kraken2_optimized: division-by-zero guard, output declaration fix
-- Stub block fixes across 15+ modules (hardcoded versions, proper output files)
-- nf-core module maintenance strategy: `.nf-core.yml` skip list, ACTION REQUIRED comments
+- `FASTP_STREAMING` local module: multi-file concatenation for `watchPath`
+  mode; upstream `fastp` module restored unchanged
+- `MULTIQC` updated to single-tuple input API
+- `FASTQC` and `SEQKIT_STATS` version channel fixes (`topic: versions`)
+- `kraken2_optimized`: division-by-zero guard and output declaration fix
+- Stub-block fixes across 15+ modules (hardcoded versions, output files)
+- nf-core module maintenance: `.nf-core.yml` skip list with
+  `ACTION REQUIRED` comments
 - Removed Unicode from Nextflow files (project policy)
