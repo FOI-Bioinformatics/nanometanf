@@ -3,9 +3,15 @@ process CHOPPER {
     label 'process_medium'
 
     conda "${moduleDir}/environment.yml"
+    // The Seqera community image for chopper 0.12.0b ships chopper alone --
+    // no gzip/gunzip -- and the script below pipes through `gunzip -c | gzip`.
+    // The biocontainers/galaxy build is debian-based and includes coreutils,
+    // so it works under apptainer/singularity on Linux without extra config.
+    // macOS development continues to use the conda env (which now pins
+    // conda-forge::gzip explicitly).
     container "${ workflow.containerEngine in ['singularity', 'apptainer'] && !task.ext.singularity_pull_docker_container ?
-        'https://community-cr-prod.seqera.io/docker/registry/v2/blobs/sha256/f4/f4a12f8d5bb8a08aa9a0a14377465521422e7274bcb6be56daa6a06f30ac0bf7/data':
-        'community.wave.seqera.io/library/chopper:0.12.0b--f39108dd84394289' }"
+        'https://depot.galaxyproject.org/singularity/chopper:0.12.0b--hdcadc20_0':
+        'biocontainers/chopper:0.12.0b--hdcadc20_0' }"
 
     input:
     tuple val(meta), path(fastq)
