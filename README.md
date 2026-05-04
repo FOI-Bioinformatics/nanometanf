@@ -184,7 +184,7 @@ Supported inputs:
 2. Pre-demultiplexed barcode directories (automated discovery)
 3. Real-time FASTQ monitoring (during sequencing)
 
-See the [usage guide](docs/user/usage.md) for parameter details.
+See the [usage guide](docs/usage.md) for parameter details.
 
 ## Credits
 

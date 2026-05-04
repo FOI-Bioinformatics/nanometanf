@@ -269,7 +269,6 @@ nextflow run ... -with-report report.html
 input: /data/samplesheet.csv
 outdir: /results
 kraken2_db: /databases/kraken2
-optimization_profile: balanced
 enable_dynamic_resources: true
 ```
 
@@ -312,7 +311,6 @@ nextflow run foi-bioinformatics/nanometanf \
     --kraken2_db "$DB_PATH" \
     \
     --enable_dynamic_resources \
-    --optimization_profile balanced \
     \
     -profile conda \
     -w "$WORK_DIR" \

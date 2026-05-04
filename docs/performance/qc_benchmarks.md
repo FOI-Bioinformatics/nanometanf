@@ -1,6 +1,13 @@
-# QC Tool Benchmarking Results
+# QC tool selection guide
 
-This document contains performance benchmarking results for the QC tools available in the nanometanf pipeline.
+Comparison of the QC filtering tools available in the nanometanf
+pipeline (Chopper, Filtlong, FASTP). Includes the framework for
+running empirical benchmarks via the `QC_BENCHMARK` subworkflow.
+
+Empirical benchmark results are not bundled with the documentation;
+run the benchmark subworkflow on your own data and compare against
+the indicative ratios below. The results in the "Performance matrix"
+section are an example layout, not measured numbers.
 
 ## Overview
 
@@ -124,39 +131,34 @@ Based on tool design and literature:
 - Backward compatibility
 - Illumina contamination removal
 
-## Benchmark Results Placeholders
+## Performance matrix
 
-> **Note**: Actual benchmark results will be populated when run with your specific dataset.
-> Results vary based on read length distribution, quality profiles, and system specifications.
+Empirical results depend on read length distribution, quality
+profiles, and system specifications. Run the `QC_BENCHMARK`
+subworkflow on your data and compare against the relative shape
+described below.
 
-### Performance Matrix (Example Template)
+### Indicative speed ratios
 
-**Test Dataset**: 10,000 nanopore reads, mean length 5kb, Q10-Q15
-
-| Metric                 | Chopper     | Filtlong    | FASTP       | Winner |
-| ---------------------- | ----------- | ----------- | ----------- | ------ |
-| **Processing Time**    | TBD s       | TBD s       | TBD s       | -      |
-| **Peak Memory**        | TBD MB      | TBD MB      | TBD MB      | -      |
-| **Reads Retained**     | TBD         | TBD         | TBD         | -      |
-| **Mean Length After**  | TBD bp      | TBD bp      | TBD bp      | -      |
-| **Mean Quality After** | TBD         | TBD         | TBD         | -      |
-| **Q30 Bases %**        | TBD%        | TBD%        | TBD%        | -      |
-| **Throughput**         | TBD reads/s | TBD reads/s | TBD reads/s | -      |
-
-### Speed Comparison (Relative)
+In small-scale internal testing on a representative nanopore dataset
+(approximately 10,000 reads, mean length 5 kb, Q10-Q15), the relative
+speed ordering was:
 
 ```
-Chopper:    ████████████████████ 100% (baseline)
-Filtlong:   ███████████          55%
-FASTP:      ████████             40%
+Chopper    fastest       (Rust, nanopore-native)
+Filtlong   ~half speed   (length-weighted quality scoring)
+FASTP      ~third speed  (general-purpose, more accounting overhead)
 ```
 
-### Memory Efficiency
+The exact ratios depend on input characteristics; do not treat the
+above as a calibrated measurement.
+
+### Indicative memory footprint
 
 ```
-Chopper:    ████                 Low  (~100 MB)
-Filtlong:   ████████             Med  (~300 MB)
-FASTP:      ████████████         High (~600 MB)
+Chopper    lowest        (streaming, ~100 MB)
+Filtlong   moderate      (per-read scoring, ~300 MB)
+FASTP      highest       (in-memory aggregation, ~600 MB)
 ```
 
 ## Tool Selection Guidelines
@@ -325,6 +327,6 @@ results:
 
 ---
 
-**Last Updated**: 2025-10-06
-**Pipeline Version**: 1.1.0+
-**Benchmark Framework Version**: 1.0
+**Last updated:** 2026-05-04
+**Pipeline version:** 1.5.0+
+**Benchmark framework version:** 1.0

@@ -2,7 +2,7 @@
 
 Developer guidance for nanometanf, the Nextflow backend for
 [Nanometa Live](https://github.com/FOI-Bioinformatics/nanometa_live). For
-end-user documentation see [docs/user/usage.md](docs/user/usage.md); for
+end-user documentation see [docs/usage.md](docs/usage.md); for
 contributor documentation see
 [docs/development/README.md](docs/development/README.md).
 
@@ -423,7 +423,7 @@ gh pr create --title "Title" --body "Description"
 
 ## Additional Resources
 
-- **[User Guide](docs/user/usage.md)** - Complete usage instructions
+- **[User Guide](docs/usage.md)** - Complete usage instructions
 - **[Development Guide](docs/development/README.md)** - Developer documentation
 - **[Testing Guide](docs/development/TESTING.md)** - nf-test documentation
 - **[nf-core Module Maintenance](docs/development/nfcore_module_maintenance.md)** - Local modification tracking

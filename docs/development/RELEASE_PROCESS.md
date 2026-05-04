@@ -199,7 +199,7 @@ None (or list if any)
 
 ## Migration Guide
 
-See [Migration Guide](MIGRATION_GUIDE.md#from-v120-to-v121) for upgrade instructions.
+See [Migration Guide](../releases/MIGRATION_GUIDE.md) for upgrade instructions.
 
 ## Known Issues
 

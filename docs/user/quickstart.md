@@ -221,7 +221,6 @@ tail -f results/realtime_reports/progress.txt
 --blast_validation       # Enable BLAST validation
 
 # Performance
---optimization_profile balanced    # Resource optimization profile
 --enable_dynamic_resources        # Dynamic per-task resource allocation
 ```
 
@@ -266,8 +265,8 @@ nextflow run ... --dorado_path /full/path/to/dorado
 **Out of memory**:
 
 ```bash
-# Use resource-conservative profile
-nextflow run ... --optimization_profile resource_conservative
+# Reduce resource allocation
+nextflow run ... --max_memory 8.GB --max_cpus 4
 ```
 
 For more troubleshooting, see [Troubleshooting Guide](troubleshooting.md).

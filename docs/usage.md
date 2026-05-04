@@ -304,37 +304,6 @@ nextflow run foi-bioinformatics/nanometanf \
 - Want real-time basecalling + analysis
 - Need immediate pathogen detection
 
-### Mode 7: Dynamic Resource Optimization
-
-**Use case**: adaptive resource allocation
-
-```bash
-nextflow run foi-bioinformatics/nanometanf \
-  --input samplesheet.csv \
-  --optimization_profile auto \
-  --enable_performance_logging \
-  --outdir results \
-  -profile conda
-```
-
-**Optimization profiles:**
-
-| Profile                 | CPU          | Memory       | Use Case                          |
-| ----------------------- | ------------ | ------------ | --------------------------------- |
-| `auto`                  | Adaptive     | Adaptive     | Unknown workload (recommended)    |
-| `high_throughput`       | High (80%)   | High (80%)   | Batch processing, many samples    |
-| `balanced`              | Medium (60%) | Medium (60%) | General use, mixed workloads      |
-| `resource_conservative` | Low (40%)    | Low (40%)    | Shared systems, limited resources |
-| `gpu_optimized`         | High + GPU   | High         | Dorado basecalling with GPU       |
-| `realtime_optimized`    | Medium       | Medium       | Low-latency real-time analysis    |
-| `development_testing`   | Low          | Low          | Development, quick tests          |
-
-**When to use:**
-
-- Uncertain about optimal resource allocation
-- Want automatic performance tuning
-- Processing varies between runs
-
 ## Parameter Reference
 
 ### Core Parameters
@@ -456,7 +425,6 @@ nextflow run foi-bioinformatics/nanometanf \
 #### Resource Optimization
 
 ```bash
---optimization_profile <profile>    # auto, high_throughput, balanced, etc.
 --enable_dynamic_resources          # Enable resource optimization
 --resource_safety_factor <float>    # Safety factor 0.0-1.0 (default: 0.8)
 --enable_performance_logging        # Detailed performance logs
@@ -590,7 +558,6 @@ find /path/to/monitor -name "*.fastq.gz"
 
 ```bash
 # Reduce resource allocation
---optimization_profile resource_conservative \
 --max_memory 8.GB \
 --max_cpus 4
 ```
@@ -610,7 +577,6 @@ ls ~/.cache/dorado/models/
 **For faster processing:**
 
 ```bash
---optimization_profile high_throughput \
 --max_cpus 16 \
 --max_memory 32.GB \
 --skip_nanoplot  # If QC plots not needed
@@ -619,7 +585,6 @@ ls ~/.cache/dorado/models/
 **For limited resources:**
 
 ```bash
---optimization_profile resource_conservative \
 --max_cpus 4 \
 --max_memory 8.GB \
 --skip_fastp \
@@ -629,7 +594,6 @@ ls ~/.cache/dorado/models/
 **For real-time analysis:**
 
 ```bash
---optimization_profile realtime_optimized \
 --batch_size 5 \
 --batch_interval 5min \
 --skip_nanoplot  # Reduce processing time
@@ -638,9 +602,9 @@ ls ~/.cache/dorado/models/
 ## Next Steps
 
 - Review [Output Structure](output.md) to understand results
-- See [Production Deployment](../development/production_deployment.md) for cluster setup
-- Check [Testing Guide](../development/TESTING.md) for validation
-- Read [QC Guide](qc_guide.md) for result interpretation
+- See [Production Deployment](development/production_deployment.md) for cluster setup
+- Check [Testing Guide](development/TESTING.md) for validation
+- Read [QC Guide](user/qc_guide.md) for result interpretation
 
 ---
 

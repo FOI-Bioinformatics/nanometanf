@@ -2,23 +2,6 @@
 
 Tuning options for production workloads and large-scale processing.
 
-## Performance Profiles Overview
-
-```bash
-# Auto-select optimal profile (recommended)
-nextflow run ... --optimization_profile auto
-
-# Available profiles:
-# - auto                  : Automatic selection
-# - high_throughput       : Higher resource ceilings
-# - balanced              : Default production settings
-# - resource_conservative : Lower resource usage
-# - gpu_optimized         : GPU-accelerated workloads
-# - realtime_optimized    : Lower latency for real-time runs
-```
-
----
-
 ## Quick Wins (5-minute changes)
 
 ### 1. Enable Dynamic Resource Allocation
@@ -27,8 +10,7 @@ nextflow run ... --optimization_profile auto
 
 ```bash
 nextflow run ... \
-    --enable_dynamic_resources \
-    --optimization_profile auto
+    --enable_dynamic_resources
 ```
 
 ### 2. Use Local Disk for Work Directory
@@ -97,17 +79,17 @@ EOF
 
 ### Memory Optimization
 
-**Memory profiles**:
+**Memory ceilings**:
 
 ```bash
 # Conservative (8GB total)
-nextflow run ... --optimization_profile resource_conservative
+nextflow run ... --max_memory 8.GB --max_cpus 4
 
 # Balanced (32GB total)
-nextflow run ... --optimization_profile balanced
+nextflow run ... --max_memory 32.GB --max_cpus 8
 
 # High-throughput (128GB+ total)
-nextflow run ... --optimization_profile high_throughput
+nextflow run ... --max_memory 128.GB --max_cpus 32
 ```
 
 **Per-process memory**:
@@ -176,8 +158,7 @@ nextflow run ... --outdir results --publish_dir_mode symlink
 ```bash
 # Automatic GPU detection and optimization
 nextflow run ... \
-    --use_dorado \
-    --optimization_profile gpu_optimized
+    --use_dorado
 
 # Manual GPU tuning
 nextflow run ... \
@@ -250,7 +231,6 @@ nextflow run ... \
 ```bash
 nextflow run ... \
     --realtime_mode \
-    --optimization_profile realtime_optimized \
     --batch_size 5              # Smaller batches
     --batch_interval "2min"     # Faster intervals
 ```
@@ -305,7 +285,6 @@ EOF
 ```bash
 nextflow run ... \
     -profile awsbatch \
-    --optimization_profile high_throughput \
     --outdir s3://my-bucket/results \
     -w s3://my-bucket/work
 ```
@@ -323,7 +302,6 @@ nextflow run ... \
 ```bash
 nextflow run ... \
     -profile slurm \
-    --optimization_profile high_throughput \
     -c <(cat << 'EOF'
 process {
     executor = 'slurm'
@@ -405,7 +383,6 @@ nextflow run foi-bioinformatics/nanometanf \
     --kraken2_db /databases/kraken2 \
     \
     --enable_dynamic_resources \
-    --optimization_profile balanced \
     \
     -profile docker \
     -w /local/nvme/work \
@@ -424,7 +401,6 @@ nextflow run foi-bioinformatics/nanometanf \
 
 ```bash
 nextflow run ... \
-    --optimization_profile high_throughput \
     --enable_dynamic_resources \
     \
     -c <(cat << 'EOF'
@@ -483,7 +459,7 @@ cat trace.txt | awk '{print $1, $6, $10}' | sort -k2 -n
 
 **Solutions**:
 
-- Use `--optimization_profile resource_conservative`
+- Lower `--max_memory` and `--max_cpus`
 - Reduce `kraken2_batch_size`
 - Enable `kraken2_memory_mapping`
 - Process fewer samples concurrently
@@ -492,7 +468,7 @@ cat trace.txt | awk '{print $1, $6, $10}' | sort -k2 -n
 
 ## Reference Throughput
 
-**Indicative throughput, balanced profile on a 16-CPU / 64GB host:**
+**Indicative throughput on a 16-CPU / 64GB host:**
 
 - FASTQ QC (NanoPlot): ~500K reads/min
 - Kraken2 classification: ~200K reads/min (50GB DB)

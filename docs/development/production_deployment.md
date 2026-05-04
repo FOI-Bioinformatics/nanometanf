@@ -245,8 +245,8 @@ process {
    # Increase memory allocation
    nextflow run ... --max_memory '512.GB'
 
-   # Enable memory optimization
-   nextflow run ... --optimization_profile resource_conservative
+   # Or lower ceilings to fit a constrained host
+   nextflow run ... --max_memory 8.GB --max_cpus 4
    ```
 
 2. **Disk Space Issues**

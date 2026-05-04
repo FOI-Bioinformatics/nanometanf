@@ -666,7 +666,6 @@ Complete parameter record for reproducibility:
   "use_dorado": false,
   "realtime_mode": true,
   "batch_size": 10,
-  "optimization_profile": "auto",
   "max_cpus": 16,
   "max_memory": "32.GB",
   "pipeline_version": "1.0.0",
@@ -1006,7 +1005,7 @@ ls -l results/kraken2/
 
 ## Next Steps
 
-- **Interpret Results**: See [QC Guide](qc_guide.md) for detailed metric interpretation
+- **Interpret Results**: See [QC Guide](user/qc_guide.md) for detailed metric interpretation
 - **Advanced Analysis**: Downstream statistical analysis with R/Python
 - **Share Results**: MultiQC reports are self-contained and portable
 - **Troubleshoot Issues**: Check [Usage Guide](usage.md#troubleshooting) for common problems

@@ -12,40 +12,40 @@ This directory contains comprehensive documentation for developers working on th
 ### Architecture & Implementation
 
 - [PROMETHION_OPTIMIZATIONS.md](PROMETHION_OPTIMIZATIONS.md) - Platform-specific performance optimizations
-- [incremental_kraken2_implementation.md](incremental_kraken2_implementation.md) - Kraken2 incremental classification
-- [PHASE_1.1_STATUS.md](PHASE_1.1_STATUS.md) - Incremental Kraken2 feature status
-- **Scalable Streaming (v1.5+)** - See [CLAUDE.md](../../CLAUDE.md) for architecture details
+- [incremental_kraken2_implementation.md](incremental_kraken2_implementation.md) - Kraken2 streaming classification architecture (v1.5+)
+- **Streaming Kraken2 (v1.5+)** - see [CLAUDE.md](../../CLAUDE.md) for the architectural overview
 
 ### Deployment & Operations
 
 - [production_deployment.md](production_deployment.md) - Production deployment guide
 - [developer_api.md](developer_api.md) - Developer API reference
 
-### Project Organization
+### Archived design and status documents
 
-- [test_organization.md](test_organization.md) - Test suite organization
-- [v1_0_roadmap.md](v1_0_roadmap.md) - Version 1.0 roadmap
+The Phase 1.1 status, v1.0 roadmap, test-organisation cleanup plan,
+and the v1.0 implementation plan / evaluation summary have been moved
+to `archive/` (`archive/phases/`, `archive/`). They are historical
+records; the current pipeline state is the source of truth.
 
 ## Documentation Structure
 
 ```
 development/
-├── README.md                          # This file
-├── TESTING.md                         # Comprehensive testing guide
-├── RELEASE_PROCESS.md                 # Release workflow for maintainers
-├── PROMETHION_OPTIMIZATIONS.md        # Performance optimizations
-├── incremental_kraken2_implementation.md  # Kraken2 architecture
-├── PHASE_1.1_STATUS.md                # Feature status
-├── production_deployment.md           # Deployment guide
-├── developer_api.md                   # API reference
-├── test_organization.md               # Test structure
-├── v1_0_roadmap.md                    # Roadmap
-├── EVALUATION_SUMMARY.md              # Production readiness assessment
-└── archive/                           # Historical documents
-    ├── sessions/                      # Development session notes (incl. code quality)
-    ├── progress/                      # Historical progress reports
-    ├── phases/                        # Completed development phases
-    └── v1.3.3/                        # v1.3.3 development history
+|-- README.md                              # This file
+|-- TESTING.md                             # Comprehensive testing guide
+|-- RELEASE_PROCESS.md                     # Release workflow for maintainers
+|-- PROMETHION_OPTIMIZATIONS.md            # Performance optimizations
+|-- incremental_kraken2_implementation.md  # Kraken2 streaming architecture (v1.5+)
+|-- production_deployment.md               # Deployment guide
+|-- developer_api.md                       # Internal API reference
+|-- nfcore_module_maintenance.md           # Local nf-core module modifications
+`-- archive/                               # Historical documents
+    |-- sessions/                          # Development session notes
+    |-- progress/                          # Historical progress reports
+    |-- phases/                            # Completed development phases (incl. PHASE_1.1, v1.0 roadmap, IMPLEMENTATION_PLAN)
+    |-- test_organization.md               # Test cleanup plan (Phase 2)
+    |-- EVALUATION_SUMMARY.md              # v1.2.0 production-readiness report
+    `-- v1.3.3/                            # v1.3.3 development history
 ```
 
 ## Getting Started with Development
@@ -166,7 +166,7 @@ The pipeline supports 6 execution modes:
 5. Real-time FASTQ monitoring
 6. Real-time POD5 processing
 
-See [../user/usage.md](../user/usage.md) for detailed usage instructions.
+See [../usage.md](../usage.md) for detailed usage instructions.
 
 ### Workflow Components
 
@@ -278,6 +278,6 @@ These documents are preserved for historical reference but are not actively main
 
 ---
 
-**Last Updated:** 2026-02-03
+**Last updated:** 2026-05-04
 **Maintainer:** Andreas Sjodin (@andreassjodin)
-**Version:** 1.5.0
+**Version:** 1.5.1dev (development); 1.5.0 (released)

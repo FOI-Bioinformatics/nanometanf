@@ -189,8 +189,8 @@ nextflow run ...
 **Solutions**:
 
 ```bash
-# Option 1: Use resource-conservative profile
-nextflow run ... --optimization_profile resource_conservative
+# Option 1: Lower resource ceilings
+nextflow run ... --max_memory 8.GB --max_cpus 4
 
 # Option 2: Increase memory for specific process
 nextflow run ... \
@@ -385,8 +385,8 @@ nextflow run ... -with-trace
 # Check trace.txt for memory usage
 grep -A 5 "exit: 137" trace.txt
 
-# Increase memory or use lighter profile
-nextflow run ... --optimization_profile resource_conservative
+# Lower resource ceilings to fit available memory
+nextflow run ... --max_memory 8.GB --max_cpus 4
 ```
 
 ---
@@ -437,7 +437,6 @@ open timeline.html
 ```bash
 nextflow run ... \
     --enable_dynamic_resources \
-    --optimization_profile high_throughput \
     -w /local/fast/disk/work
 ```
 
