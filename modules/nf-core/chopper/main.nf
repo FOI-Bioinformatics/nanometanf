@@ -27,15 +27,15 @@ process CHOPPER {
 
     if ("$fastq" == "${prefix}.fastq.gz") error "Input and output names are the same, set prefix in module configuration to disambiguate!"
     // Use `gunzip -c` rather than `zcat`. macOS BSD `zcat` only handles
-    // legacy `.Z` files and fails on `.fastq.gz` inputs with "can't
-    // stat: file.fastq.gz (file.fastq.gz.Z): No such file or directory"
-    // -- the conda profile installs chopper but not GNU coreutils, so
-    // this restores the macOS fix from commit 0da485e ("Fix macOS ARM
-    // compatibility and report overwrite issues") that the topic-
-    // channel bump in 982a70b accidentally reverted. Filed locally
-    // because the upstream nf-core module is the same shape; if the
-    // upstream module ever ships its own gunzip-c version, this can
-    // be removed at the next `nf-core modules update`.
+    // legacy `.Z` files and fails on `.fastq.gz` inputs. The companion
+    // environment.yml lists `conda-forge::gzip` alongside chopper so that
+    // GNU gzip/gunzip is on PATH on both macOS and Linux, including when
+    // the seqera wave service rebuilds the container from this env file
+    // (the original community image is too slim to include coreutils).
+    // Filed locally because the upstream nf-core module is the same
+    // shape; if the upstream module ever ships its own gunzip-c version
+    // and pins gzip in the env, this comment can be removed at the next
+    // `nf-core modules update`.
     """
     gunzip -c \\
         $args \\
