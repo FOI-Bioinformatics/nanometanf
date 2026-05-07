@@ -22,6 +22,7 @@ include { KRAKEN2_DB_PRELOAD             } from "${projectDir}/modules/local/kra
 include { KRAKEN2_OUTPUT_MERGER          } from "${projectDir}/modules/local/kraken2_output_merger/main"
 include { KRAKEN2_REPORT_GENERATOR       } from "${projectDir}/modules/local/kraken2_report_generator/main"
 include { KRAKEN2_FINAL_AGGREGATOR       } from "${projectDir}/modules/local/kraken2_final_aggregator/main"
+include { EMIT_EMPTY_KRAKEN2_REPORT     } from "${projectDir}/modules/local/emit_empty_kraken2_report/main"
 include { TAXPASTA_STANDARDISE           } from "${projectDir}/modules/nf-core/taxpasta/standardise/main"
 include { CANONICAL_CLASSIFICATION_WRITER } from "${projectDir}/modules/local/canonical_classification_writer/main"
 
@@ -83,14 +84,24 @@ workflow TAXONOMIC_CLASSIFICATION {
         ch_reads_input = ch_reads
     }
     def empty_fastq_threshold = 50L
-    ch_reads = ch_reads_input.filter { meta, reads ->
+    // Split into two streams: samples with classifiable reads go to the
+    // real Kraken2 path; samples whose post-QC FASTQ is empty (every
+    // read filtered upstream) go to the placeholder path. The
+    // placeholder still emits a well-formed Kraken2 report so MULTIQC,
+    // TAXPASTA and the GUI loaders see all samples uniformly with a
+    // 0-classified / 0-unclassified accounting -- previously these
+    // samples vanished from every downstream channel.
+    def ch_branched = ch_reads_input.branch { meta, reads ->
         def reads_list = reads instanceof List ? reads : [reads]
         def has_any = reads_list.any { f -> f != null && f.exists() && f.size() >= empty_fastq_threshold }
         if (!has_any) {
-            log.warn "Skipping Kraken2 for sample '${meta.id}' - post-QC FASTQ contains no reads (size below ${empty_fastq_threshold} bytes)"
+            log.warn "Empty post-QC FASTQ for sample '${meta.id}' - emitting placeholder Kraken2 report (0 reads, all unclassified)"
         }
-        return has_any
+        pass: has_any
+        skip: !has_any
     }
+    ch_reads = ch_branched.pass
+    def ch_empty_samples = ch_branched.skip
 
     //
     // PHASE 2 OPTIMIZATION: Automatic database preloading in real-time mode
@@ -412,6 +423,18 @@ workflow TAXONOMIC_CLASSIFICATION {
     }
 
     //
+    // PLACEHOLDER REPORTS: synthesize a 0-read Kraken2 report for any
+    // sample whose post-QC FASTQ was empty. Mixed into ch_raw_reports
+    // after the classifier ran so MULTIQC, TAXPASTA and the Nanometa
+    // Live GUI loaders see all samples uniformly. The TAXPASTA filter
+    // below already drops zero-byte reports defensively, but the
+    // GUI's per-sample table is now complete.
+    //
+    EMIT_EMPTY_KRAKEN2_REPORT(ch_empty_samples)
+    ch_raw_reports = ch_raw_reports.mix(EMIT_EMPTY_KRAKEN2_REPORT.out.report)
+    ch_versions = ch_versions.mix(EMIT_EMPTY_KRAKEN2_REPORT.out.versions)
+
+    //
     // MODULE: Standardize classification reports with taxpasta
     //
     if (params.enable_taxpasta_standardization != false) {
@@ -422,12 +445,18 @@ workflow TAXONOMIC_CLASSIFICATION {
         //
         def taxonomy_file = params.taxonomy_file ? file(params.taxonomy_file, checkIfExists: true) : []
 
-        // Skip TAXPASTA for samples whose classifier report is absent or empty.
-        // An empty Kraken2 report (for instance when every read was filtered
-        // out upstream) causes taxpasta to abort the pipeline. Filtering here
-        // lets the rest of the run continue and produce canonical outputs.
+        // Skip TAXPASTA for samples whose classifier report is absent,
+        // empty, or the EMIT_EMPTY_KRAKEN2_REPORT placeholder. An
+        // empty or placeholder report (for instance when every read
+        // was filtered out upstream) causes taxpasta to abort the
+        // pipeline. The placeholder is ~30 bytes (one unclassified
+        // line); a genuine Kraken2 report carries at minimum the
+        // root + cellular-organisms + domain rows for hundreds of
+        // bytes even on a single classified read, so a 100-byte
+        // floor cleanly separates real from placeholder without
+        // requiring metadata flags.
         def ch_reports_for_taxpasta = ch_raw_reports.filter {
-            it instanceof List && it.size() >= 2 && it[1] != null && it[1].size() > 0
+            it instanceof List && it.size() >= 2 && it[1] != null && it[1].size() > 100
         }
 
         TAXPASTA_STANDARDISE (
