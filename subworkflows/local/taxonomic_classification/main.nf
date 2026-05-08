@@ -373,7 +373,6 @@ workflow TAXONOMIC_CLASSIFICATION {
                 // Use final cumulative report for downstream (TAXPASTA, KRONA, MultiQC)
                 // Per-batch reports would produce 720 files for 24 barcodes x 30 batches
                 ch_raw_reports = KRAKEN2_FINAL_AGGREGATOR.out.cumulative_report
-                ch_batch_reports = KRAKEN2_REPORT_GENERATOR.out.report
                 ch_performance_metrics = KRAKEN2_REPORT_GENERATOR.out.stats
 
             } else if (use_optimizations == true) {
