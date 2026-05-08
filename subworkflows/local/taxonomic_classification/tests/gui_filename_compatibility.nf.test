@@ -1,0 +1,283 @@
+/*
+ * Regression coverage for the Nanometa Live GUI loader filename
+ * exclusion rules.
+ *
+ * The downstream loader at
+ * nanometa_live/core/utils/classification_loaders.py:443-455 selects
+ * Kraken2 reports by glob and then drops basenames matching any of
+ *   - contains '.cumulative.'
+ *   - contains '_batch'
+ *   - contains '.batch_'
+ *   - starts with 'batch_'
+ *
+ * The canonical emission paths in this subworkflow must therefore
+ * publish at least one file whose basename does NOT match any of the
+ * above when the operator runs:
+ *   - per_file with an empty post-QC FASTQ (placeholder path)
+ *   - single_sample with one or more reads
+ *   - by_barcode in batch mode (KRAKEN2_KRAKEN2 path)
+ *   - by_barcode in real-time / incremental mode (cumulative report)
+ *
+ * The cumulative report carries '.cumulative.' on purpose -- the GUI
+ * loader picks it up via a separate, higher-priority glob -- so this
+ * test only checks that an unfiltered final report exists where one
+ * is expected.
+ *
+ * Tests run with -stub so they finish in seconds without requiring a
+ * full Kraken2 database. The placeholder path uses the real
+ * EMIT_EMPTY_KRAKEN2_REPORT module, which is lightweight and runs
+ * end-to-end under -profile conda.
+ */
+
+nextflow_workflow {
+
+    name "Test TAXONOMIC_CLASSIFICATION GUI filename compatibility"
+    script "../main.nf"
+    workflow "TAXONOMIC_CLASSIFICATION"
+
+    tag "subworkflow"
+    tag "taxonomic_classification"
+    tag "classification"
+    tag "gui_compat"
+
+    // Helper closures evaluated inside the assertion block. Mirrors the
+    // GUI's exclusion rules verbatim so any drift between backend and
+    // loader becomes a test failure.
+    //
+    // Returns true when the basename would be RETAINED by the GUI's
+    // top-level standard-report filter.
+    def passes_standard_filter = { String basename ->
+        return !basename.contains('.cumulative.') \
+            && !basename.contains('_batch') \
+            && !basename.contains('.batch_') \
+            && !basename.startsWith('batch_')
+    }
+
+    test("per_file with empty post-QC FASTQ emits placeholder visible to GUI") {
+        // Mix one populated sample with one empty FASTQ. The populated
+        // sample keeps the classifier branch alive so workflow.out.report
+        // never collapses to a single [] sentinel -- avoids an
+        // IndexOutOfBoundsException raised by nf-test 0.9.5 when it tries
+        // to serialise a `[[]]` shaped channel output. The placeholder
+        // path is still exercised by the empty sample.
+        when {
+            workflow {
+                """
+                input[0] = [
+                    [
+                        [id: 'per_file_populated', single_end: true],
+                        file('$projectDir/tests/fixtures/fastq/test_sample.fastq.gz')
+                    ],
+                    [
+                        [id: 'per_file_empty', single_end: true],
+                        file('$projectDir/tests/fixtures/fastq/edge_cases/empty_sample.fastq.gz')
+                    ]
+                ]
+                input[1] = file('$projectDir/tests/fixtures/kraken2_db')
+                """
+            }
+
+            params {
+                classifier = 'kraken2'
+                taxpasta_format = 'tsv'
+                kraken2_enable_incremental = false
+                realtime_mode = false
+                max_cpus = 2
+                max_memory = '4.GB'
+                max_time = '2.min'
+            }
+        }
+
+        options "-stub"
+
+        then {
+            assert workflow.success
+            assert workflow.out.report
+
+            // Both the placeholder (from EMIT_EMPTY_KRAKEN2_REPORT) and the
+            // populated stub report from KRAKEN2_KRAKEN2 must show up on the
+            // shared `report` channel with GUI-compatible names.
+            def names = workflow.out.report
+                .flatten()
+                .findAll { it instanceof String || it instanceof java.nio.file.Path || it instanceof File }
+                .collect { it.toString().tokenize('/').last() }
+                .findAll { it.endsWith('.kraken2.report.txt') }
+
+            assert names.contains('per_file_empty.kraken2.report.txt'),
+                "Placeholder filename missing; got ${names}"
+
+            // None of the published basenames should be hidden by the GUI exclusion filter.
+            names.each { n ->
+                assert !n.contains('.cumulative.'), "Unexpected cumulative tag in standard path: ${n}"
+                assert !n.contains('_batch'),       "Unexpected _batch tag in standard path: ${n}"
+                assert !n.contains('.batch_'),      "Unexpected .batch_ tag in standard path: ${n}"
+                assert !n.startsWith('batch_'),     "Unexpected batch_ prefix in standard path: ${n}"
+            }
+        }
+    }
+
+    test("single_sample multi-file emits one report per sample with GUI-visible name") {
+
+        when {
+            workflow {
+                """
+                input[0] = [
+                    [id: 'singleplex_flat', single_end: true],
+                    file('$projectDir/tests/fixtures/fastq/test_sample.fastq.gz')
+                ]
+                input[1] = file('$projectDir/tests/fixtures/kraken2_db')
+                """
+            }
+
+            params {
+                classifier = 'kraken2'
+                taxpasta_format = 'tsv'
+                kraken2_enable_incremental = false
+                realtime_mode = false
+                max_cpus = 2
+                max_memory = '4.GB'
+                max_time = '2.min'
+            }
+        }
+
+        options "-stub"
+
+        then {
+            assert workflow.success
+            assert workflow.out.report
+
+            def reports = workflow.out.report.findAll { it instanceof List && it.size() >= 2 }
+            assert reports.size() >= 1
+
+            def names = reports.collect { (it[1] instanceof List ? it[1][0] : it[1]).toString().tokenize('/').last() }
+
+            // At least one published basename must pass the GUI top-level filter.
+            def visible = names.findAll { n ->
+                !n.contains('.cumulative.') && !n.contains('_batch') \
+                    && !n.contains('.batch_') && !n.startsWith('batch_')
+            }
+            assert visible.size() >= 1, "No GUI-visible standard report; got ${names}"
+        }
+    }
+
+    test("by_barcode batch mode emits per-sample reports visible to GUI") {
+
+        when {
+            workflow {
+                """
+                input[0] = [
+                    [
+                        [id: 'barcode01', single_end: true],
+                        file('$projectDir/tests/fixtures/fastq/test_sample.fastq.gz')
+                    ],
+                    [
+                        [id: 'barcode02', single_end: true],
+                        file('$projectDir/tests/fixtures/fastq/test_sample.fastq.gz')
+                    ],
+                    [
+                        [id: 'barcode03', single_end: true],
+                        file('$projectDir/tests/fixtures/fastq/test_sample.fastq.gz')
+                    ]
+                ]
+                input[1] = file('$projectDir/tests/fixtures/kraken2_db')
+                """
+            }
+
+            params {
+                classifier = 'kraken2'
+                taxpasta_format = 'tsv'
+                kraken2_enable_incremental = false
+                realtime_mode = false
+                max_cpus = 2
+                max_memory = '4.GB'
+                max_time = '3.min'
+            }
+        }
+
+        options "-stub"
+
+        then {
+            assert workflow.success
+            assert workflow.out.report
+
+            def reports = workflow.out.report.findAll { it instanceof List && it.size() >= 2 }
+            assert reports.size() >= 3, "Expected at least 3 per-barcode reports; got ${reports.size()}"
+
+            def names = reports.collect { (it[1] instanceof List ? it[1][0] : it[1]).toString().tokenize('/').last() }
+
+            // Every barcode must have at least one GUI-visible standard report.
+            ['barcode01', 'barcode02', 'barcode03'].each { bc ->
+                def hits = names.findAll { it.startsWith(bc) \
+                    && !it.contains('.cumulative.') && !it.contains('_batch') \
+                    && !it.contains('.batch_') && !it.startsWith('batch_') }
+                assert hits.size() >= 1, "No GUI-visible standard report for ${bc}; got ${names}"
+            }
+        }
+    }
+
+    test("by_barcode realtime mode emits cumulative reports for GUI consumption") {
+        // Real-time (incremental) mode publishes per-batch reports under
+        // kraken2/<sample>/batch_reports/ -- those are deliberately
+        // filtered out by the GUI's top-level globs because the loader
+        // prefers the *.cumulative.kraken2.report.txt produced by
+        // KRAKEN2_FINAL_AGGREGATOR. This test asserts the final
+        // cumulative report is emitted with the canonical name.
+        //
+        // We exercise the incremental code path with realtime_mode=false
+        // to avoid the watchPath JVM-cleanup hang documented in
+        // nf-test.config; setting kraken2_enable_incremental=true alone
+        // is enough to route through KRAKEN2_INCREMENTAL_CLASSIFIER and
+        // KRAKEN2_FINAL_AGGREGATOR.
+        when {
+            workflow {
+                """
+                input[0] = [
+                    [
+                        [id: 'barcode01', single_end: true],
+                        file('$projectDir/tests/fixtures/fastq/test_sample.fastq.gz')
+                    ],
+                    [
+                        [id: 'barcode02', single_end: true],
+                        file('$projectDir/tests/fixtures/fastq/test_sample.fastq.gz')
+                    ]
+                ]
+                input[1] = file('$projectDir/tests/fixtures/kraken2_db')
+                """
+            }
+
+            params {
+                classifier = 'kraken2'
+                taxpasta_format = 'tsv'
+                kraken2_enable_incremental = true
+                realtime_mode = false
+                max_cpus = 2
+                max_memory = '4.GB'
+                max_time = '3.min'
+            }
+        }
+
+        options "-stub"
+
+        then {
+            assert workflow.success
+            // The final_report channel carries the cumulative kreport
+            // emitted by KRAKEN2_FINAL_AGGREGATOR. In stub mode this is
+            // an empty placeholder file but the filename is the live
+            // value from the publishDir saveAs and is what the GUI
+            // loader will glob against.
+            assert workflow.out.final_report
+
+            def finals = workflow.out.final_report.findAll { it instanceof List && it.size() >= 2 }
+            assert finals.size() >= 2, "Expected per-sample cumulative reports; got ${finals.size()}"
+
+            def names = finals.collect { (it[1] instanceof List ? it[1][0] : it[1]).toString().tokenize('/').last() }
+
+            // Every cumulative basename must carry the '.cumulative.kraken2.report.txt' suffix
+            // because the GUI loader's primary glob is exactly that pattern.
+            names.each { n ->
+                assert n.endsWith('.cumulative.kraken2.report.txt'), \
+                    "Cumulative report '${n}' does not match the GUI's primary pattern"
+            }
+        }
+    }
+}
