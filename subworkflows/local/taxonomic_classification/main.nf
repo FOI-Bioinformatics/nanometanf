@@ -396,7 +396,7 @@ workflow TAXONOMIC_CLASSIFICATION {
                 ch_classified_reads = KRAKEN2_OPTIMIZED.out.classified_reads_fastq.ifEmpty([])
                 ch_unclassified_reads = KRAKEN2_OPTIMIZED.out.unclassified_reads_fastq.ifEmpty([])
                 ch_reads_assignment = KRAKEN2_OPTIMIZED.out.classified_reads_assignment.ifEmpty([])
-                ch_raw_reports = KRAKEN2_OPTIMIZED.out.report.ifEmpty([])
+                ch_raw_reports = KRAKEN2_OPTIMIZED.out.report
                 ch_performance_metrics = KRAKEN2_OPTIMIZED.out.performance_metrics.ifEmpty([])
             } else {
                 KRAKEN2_KRAKEN2 (
@@ -412,7 +412,7 @@ workflow TAXONOMIC_CLASSIFICATION {
                 ch_classified_reads = KRAKEN2_KRAKEN2.out.classified_reads_fastq.ifEmpty([])
                 ch_unclassified_reads = KRAKEN2_KRAKEN2.out.unclassified_reads_fastq.ifEmpty([])
                 ch_reads_assignment = KRAKEN2_KRAKEN2.out.classified_reads_assignment.ifEmpty([])
-                ch_raw_reports = KRAKEN2_KRAKEN2.out.report.ifEmpty([])
+                ch_raw_reports = KRAKEN2_KRAKEN2.out.report
                 ch_performance_metrics = Channel.empty()
             }
             break
