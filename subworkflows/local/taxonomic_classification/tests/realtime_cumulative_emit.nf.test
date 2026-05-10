@@ -1,0 +1,127 @@
+// Real-time cumulative kraken2 report emission under live watchPath.
+//
+// Closes a coverage gap left by gui_filename_compatibility.nf.test, which
+// exercises the incremental classifier path with realtime_mode = false to
+// avoid the DirWatcherV2 / FileAlterationMonitor cleanup hang documented
+// in nf-test.config (Task #26). This test runs the pipeline end-to-end
+// with realtime_mode = true so the .subscribe writer in
+// subworkflows/local/taxonomic_classification/main.nf (lines 261-326) is
+// exercised against a real Channel.watchPath stream, and asserts that at
+// least one *.cumulative.kraken2.report.txt file lands at
+// <outdir>/kraken2/ matching the GUI loader's primary glob.
+//
+// MANUAL TAG -- excluded from CI by default.
+//
+// Two reasons the test cannot run under the standard CI matrix:
+//
+//   1. The cumulative .subscribe writer fires only when the kraken2
+//      incremental classifier produces a real batch_taxid_counts.json,
+//      which requires a real Kraken2 database. The repository's
+//      tests/fixtures/kraken2_db/ ships stub *.k2d files that fail
+//      parameter parsing inside the kraken2 binary. Operators set
+//      NANOMETANF_TEST_KRAKEN2_DB to point at a real database.
+//
+//   2. Running with -stub bypasses the kraken2 binary, but in pipeline
+//      mode the chopper module's `eval()`-based versions topic emits a
+//      non-Path value that crashes processVersionsFromYAML in
+//      subworkflows/nf-core/utils_nfcore_pipeline/main.nf. That is a
+//      separate stub-mode bug filed for later, not addressed here.
+//
+// Bounded with max_files, realtime_timeout_minutes and
+// report_write_interval = 1 so the cumulative writer fires on the first
+// batch and the watchPath sentinel completes the channel quickly.
+
+nextflow_pipeline {
+
+    name "Test cumulative kraken2 report emission under live watchPath"
+    script "../../../../main.nf"
+
+    tag "pipeline"
+    tag "integration"
+    tag "realtime"
+    tag "classification"
+    tag "gui_compat"
+    tag "slow"
+    tag "extended"
+    // Manual tag because the test requires a real Kraken2 database and
+    // is not safe under the JVM-cleanup hang described in nf-test.config.
+    tag "manual"
+
+    test("Should emit cumulative kraken2 report during real-time run") {
+
+        when {
+            params {
+                input = false
+
+                // Live watchPath against the existing barcode fixture.
+                realtime_mode = true
+                nanopore_output_dir = "$projectDir/tests/fixtures/barcode_structure"
+                file_pattern = "**/*.fastq.gz"
+                outdir = "$outputDir"
+
+                // Real kraken2 DB path supplied by the operator. The
+                // env var lookup avoids hard-coding a developer-machine
+                // path into the repository.
+                skip_kraken2 = false
+                kraken2_db = System.getenv('NANOMETANF_TEST_KRAKEN2_DB') ?: \
+                    "$projectDir/tests/fixtures/kraken2_db"
+                kraken2_enable_incremental = true
+
+                // Cumulative writer fires every batch.
+                report_write_interval = 1
+
+                // Bound the watchPath stream so the sentinel closes the
+                // channel and the run completes well before max_time.
+                max_files = 2
+                batch_size = 1
+                realtime_timeout_minutes = 1
+                realtime_processing_grace_period = 10
+
+                // Trim the rest of the pipeline to keep wallclock low.
+                blast_validation = false
+                skip_nanoplot = true
+                skip_multiqc = true
+                enable_realtime_stats = false
+
+                max_cpus = 2
+                max_memory = '4.GB'
+                max_time = '10.min'
+            }
+        }
+
+        then {
+            assert workflow.success
+
+            // Cumulative report directory must exist.
+            def kraken2_dir = path("${outputDir}/kraken2")
+            assert kraken2_dir.exists(), "kraken2 publish dir missing"
+
+            // At least one cumulative report file with the canonical
+            // basename pattern Nanometa Live's loader globs against.
+            def cumulative = new File("${outputDir}/kraken2")
+                .listFiles()
+                .findAll { it.isFile() && it.name.endsWith('.cumulative.kraken2.report.txt') }
+            assert cumulative.size() >= 1, \
+                "No cumulative kraken2 report emitted; got ${new File("${outputDir}/kraken2").list() as List}"
+
+            // Filename must match the GUI loader's primary glob exactly.
+            cumulative.each { f ->
+                assert f.name ==~ /.+\.cumulative\.kraken2\.report\.txt$/, \
+                    "Cumulative report '${f.name}' does not match the GUI primary pattern"
+            }
+
+            // File must be non-empty and shaped like a kraken2 report
+            // row: pct \t cumul \t reads \t rank \t taxid \t name.
+            def first = cumulative[0]
+            assert first.length() > 0, "Cumulative report '${first.name}' is empty"
+
+            def first_line = first.text.readLines().find { it.trim() }
+            assert first_line, "Cumulative report '${first.name}' has no data rows"
+            def cols = first_line.split('\t')
+            assert cols.size() >= 6, \
+                "Cumulative report row has ${cols.size()} columns, expected at least 6: '${first_line}'"
+            assert cols[4] ==~ /\d+/, \
+                "Cumulative report taxid column is not numeric: '${cols[4]}'"
+        }
+    }
+}
