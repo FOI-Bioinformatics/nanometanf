@@ -9,15 +9,21 @@ concurrency:
 
 jobs:
   verify:
-    name: Verify Pipeline
+    name: Verify Pipeline (${{ matrix.NXF_VER }})
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        NXF_VER:
+          - "26.04.0"
+          - "latest-everything"
     steps:
       - uses: actions/checkout@v4
 
       - name: Install Nextflow
         uses: nf-core/setup-nextflow@v2
         with:
-          version: "26.04.0"
+          version: "${{ matrix.NXF_VER }}"
 
       - name: Verify syntax (dry-run)
         run: |

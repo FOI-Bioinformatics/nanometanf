@@ -10,17 +10,24 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
-# Nextflow 26.04.0 is the floor. The pipeline has been ported to the
-# strict v2 grammar (default in Nextflow 26+), so no parser opt-in is
-# needed.
+# Nextflow 26.04.0 is the floor (manifest in nextflow.config). The
+# pipeline parses under the strict v2 grammar (default in 26+); no
+# parser opt-in is needed. The matrix exercises the floor and the
+# moving "latest-everything" target so regressions in either are
+# caught at PR time.
 env:
-  NXF_VER: "26.04.0"
   NXF_OFFLINE: "true"
 
 jobs:
   test:
-    name: Run nf-test (stub)
+    name: Run nf-test (${{ matrix.NXF_VER }})
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        NXF_VER:
+          - "26.04.0"
+          - "latest-everything"
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -28,7 +35,7 @@ jobs:
       - name: Install Nextflow
         uses: nf-core/setup-nextflow@v2
         with:
-          version: "26.04.0"
+          version: "${{ matrix.NXF_VER }}"
 
       - name: Install nf-test
         uses: nf-core/setup-nf-test@v1
