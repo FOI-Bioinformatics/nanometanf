@@ -36,6 +36,25 @@ import groovyx.gpars.dataflow.operator.PoisonPill
 class BatchUtils {
 
     /**
+     * Run a closure under synchronization on the given lock target.
+     *
+     * The Nextflow strict grammar (NXF_SYNTAX_PARSER=v2, default in 26+)
+     * rejects `synchronized` and `finally` keywords in script scope, so
+     * `.nf` callers cannot use them directly. This helper lives in a
+     * Groovy class (parsed by the Groovy compiler, not Nextflow's
+     * grammar) and provides a v2-safe wrapper.
+     *
+     * @param lockTarget  The object to synchronize on
+     * @param action      Closure to invoke under the lock
+     * @return            The closure's return value
+     */
+    static def withLock(Object lockTarget, Closure action) {
+        synchronized(lockTarget) {
+            return action.call()
+        }
+    }
+
+    /**
      * Create a channel that batches items by count or by elapsed time.
      *
      * @param ch_input         Input channel of individual items

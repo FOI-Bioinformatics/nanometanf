@@ -10,16 +10,12 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
-# Nextflow 26.04.0 is the floor. The watchPath / FileAlterationMonitor
-# cleanup hang that bit 25.10.x is no longer reproducible, so the
-# 25.04.7 NXF_VER pin (task #26) is gone. NXF_SYNTAX_PARSER=v1 keeps the
-# legacy Groovy idioms still present in several subworkflows parseable
-# under the new strict grammar in 26 -- mirror this in
-# bin/run-nf-tests.sh for local invocations.
+# Nextflow 26.04.0 is the floor. The pipeline has been ported to the
+# strict v2 grammar (default in Nextflow 26+), so no parser opt-in is
+# needed.
 env:
   NXF_VER: "26.04.0"
   NXF_OFFLINE: "true"
-  NXF_SYNTAX_PARSER: "v1"
 
 jobs:
   test:

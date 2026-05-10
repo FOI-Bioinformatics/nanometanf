@@ -17,16 +17,16 @@
 ----------------------------------------------------------------------------------------
 */
 
-include { FASTP                   } from "${projectDir}/modules/nf-core/fastp/main"
-include { FASTP_STREAMING         } from "${projectDir}/modules/local/fastp_streaming/main"
-include { FILTLONG                } from "${projectDir}/modules/nf-core/filtlong/main"
-include { CHOPPER                 } from "${projectDir}/modules/nf-core/chopper/main"
-include { PORECHOP_PORECHOP       } from "${projectDir}/modules/nf-core/porechop/porechop/main"
-include { NANOPLOT                } from "${projectDir}/modules/nf-core/nanoplot/main"
-include { FASTQC                  } from "${projectDir}/modules/nf-core/fastqc/main"
-include { SEQKIT_STATS            } from "${projectDir}/modules/nf-core/seqkit/stats/main"
-include { SEQKIT_MERGE_STATS      } from "${projectDir}/modules/local/seqkit_merge_stats/main"
-include { CANONICAL_QC_WRITER    } from "${projectDir}/modules/local/canonical_qc_writer/main"
+include { FASTP                   } from '../../../modules/nf-core/fastp/main'
+include { FASTP_STREAMING         } from '../../../modules/local/fastp_streaming/main'
+include { FILTLONG                } from '../../../modules/nf-core/filtlong/main'
+include { CHOPPER                 } from '../../../modules/nf-core/chopper/main'
+include { PORECHOP_PORECHOP       } from '../../../modules/nf-core/porechop/porechop/main'
+include { NANOPLOT                } from '../../../modules/nf-core/nanoplot/main'
+include { FASTQC                  } from '../../../modules/nf-core/fastqc/main'
+include { SEQKIT_STATS            } from '../../../modules/nf-core/seqkit/stats/main'
+include { SEQKIT_MERGE_STATS      } from '../../../modules/local/seqkit_merge_stats/main'
+include { CANONICAL_QC_WRITER    } from '../../../modules/local/canonical_qc_writer/main'
 
 workflow QC_ANALYSIS {
 
@@ -89,8 +89,7 @@ workflow QC_ANALYSIS {
     //
     // BRANCH: Route to appropriate QC tool
     //
-    switch(qc_tool) {
-        case 'fastp':
+    if (qc_tool == 'fastp') {
             //
             // MODULE: Run FASTP for general-purpose quality filtering and QC
             //
@@ -130,9 +129,7 @@ workflow QC_ANALYSIS {
                 ch_qc_logs = FASTP.out.log.ifEmpty([])
                 ch_qc_json = FASTP.out.json.ifEmpty([])
             }
-            break
-
-        case 'filtlong':
+    } else if (qc_tool == 'filtlong') {
             //
             // MODULE: Run FILTLONG for nanopore-optimized quality filtering
             //
@@ -171,9 +168,7 @@ workflow QC_ANALYSIS {
             ch_qc_reports = ch_fastqc_html              // Use FastQC HTML reports for FILTLONG
             ch_qc_logs = FILTLONG.out.log.ifEmpty([])
             ch_qc_json = ch_seqkit_stats                // Use SeqKit stats as JSON-like structured output
-            break
-
-        case 'chopper':
+    } else if (qc_tool == 'chopper') {
             //
             // MODULE: Run CHOPPER for nanopore-native quality filtering
             //
@@ -210,10 +205,8 @@ workflow QC_ANALYSIS {
             ch_qc_reports = ch_fastqc_html              // Use FastQC HTML reports for CHOPPER
             ch_qc_logs = Channel.empty()                // CHOPPER has no log output
             ch_qc_json = ch_seqkit_stats                // Use SeqKit stats as JSON-like structured output
-            break
-
-        default:
-            error "Unsupported QC tool: ${qc_tool}. Currently supported: fastp, filtlong, chopper"
+    } else {
+        error "Unsupported QC tool: ${qc_tool}. Currently supported: fastp, filtlong, chopper"
     }
 
     //
