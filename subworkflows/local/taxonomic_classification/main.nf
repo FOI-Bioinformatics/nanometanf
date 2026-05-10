@@ -15,16 +15,16 @@
 ----------------------------------------------------------------------------------------
 */
 
-include { KRAKEN2_KRAKEN2                } from "${projectDir}/modules/nf-core/kraken2/kraken2/main"
-include { KRAKEN2_OPTIMIZED              } from "${projectDir}/modules/local/kraken2_optimized/main"
-include { KRAKEN2_INCREMENTAL_CLASSIFIER } from "${projectDir}/modules/local/kraken2_incremental_classifier/main"
-include { KRAKEN2_DB_PRELOAD             } from "${projectDir}/modules/local/kraken2_db_preload/main"
-include { KRAKEN2_OUTPUT_MERGER          } from "${projectDir}/modules/local/kraken2_output_merger/main"
-include { KRAKEN2_REPORT_GENERATOR       } from "${projectDir}/modules/local/kraken2_report_generator/main"
-include { KRAKEN2_FINAL_AGGREGATOR       } from "${projectDir}/modules/local/kraken2_final_aggregator/main"
-include { EMIT_EMPTY_KRAKEN2_REPORT     } from "${projectDir}/modules/local/emit_empty_kraken2_report/main"
-include { TAXPASTA_STANDARDISE           } from "${projectDir}/modules/nf-core/taxpasta/standardise/main"
-include { CANONICAL_CLASSIFICATION_WRITER } from "${projectDir}/modules/local/canonical_classification_writer/main"
+include { KRAKEN2_KRAKEN2                } from '../../../modules/nf-core/kraken2/kraken2/main'
+include { KRAKEN2_OPTIMIZED              } from '../../../modules/local/kraken2_optimized/main'
+include { KRAKEN2_INCREMENTAL_CLASSIFIER } from '../../../modules/local/kraken2_incremental_classifier/main'
+include { KRAKEN2_DB_PRELOAD             } from '../../../modules/local/kraken2_db_preload/main'
+include { KRAKEN2_OUTPUT_MERGER          } from '../../../modules/local/kraken2_output_merger/main'
+include { KRAKEN2_REPORT_GENERATOR       } from '../../../modules/local/kraken2_report_generator/main'
+include { KRAKEN2_FINAL_AGGREGATOR       } from '../../../modules/local/kraken2_final_aggregator/main'
+include { EMIT_EMPTY_KRAKEN2_REPORT     } from '../../../modules/local/emit_empty_kraken2_report/main'
+include { TAXPASTA_STANDARDISE           } from '../../../modules/nf-core/taxpasta/standardise/main'
+include { CANONICAL_CLASSIFICATION_WRITER } from '../../../modules/local/canonical_classification_writer/main'
 
 workflow TAXONOMIC_CLASSIFICATION {
 
@@ -158,8 +158,7 @@ workflow TAXONOMIC_CLASSIFICATION {
     //
     // BRANCH: Route to appropriate classifier
     //
-    switch(classifier) {
-        case 'kraken2':
+    if (classifier == 'kraken2') {
             //
             // MODULE: Run Kraken2 for taxonomic classification
             // Three modes: incremental (batch caching), optimized (memory-mapping), or standard
@@ -194,9 +193,11 @@ workflow TAXONOMIC_CLASSIFICATION {
 
                         // Thread-safe counter increment per sample
                         // Ensures sequential batch numbering: 0, 1, 2... for each sample
-                        synchronized(sample_batch_counters) {
+                        // BatchUtils.withLock keeps `synchronized` out of the strict
+                        // v2 grammar's reach (script scope rejects the keyword).
+                        BatchUtils.withLock(sample_batch_counters) {
                             meta_with_batch.batch_id = sample_batch_counters[sample_id]
-                            sample_batch_counters[sample_id]++
+                            sample_batch_counters[sample_id] = sample_batch_counters[sample_id] + 1
                         }
 
                         return tuple(meta_with_batch, reads)
@@ -267,7 +268,7 @@ workflow TAXONOMIC_CLASSIFICATION {
                             def sample_id = meta.id
                             sample_label = sample_id
 
-                            synchronized(cumulative_taxa_state) {
+                            BatchUtils.withLock(cumulative_taxa_state) {
                                 def batch_counts = new groovy.json.JsonSlurper().parseText(taxid_file.text)
                                 def state = cumulative_taxa_state[sample_id]
 
@@ -286,7 +287,7 @@ workflow TAXONOMIC_CLASSIFICATION {
                                 state.classified_reads += (batch_counts.classified_reads as int)
                                 state.unclassified_reads += (batch_counts.unclassified_reads as int)
 
-                                batch_write_counter[sample_id]++
+                                batch_write_counter[sample_id] = batch_write_counter[sample_id] + 1
 
                                 // Write only every N batches or on final batch
                                 if (write_interval <= 0
@@ -415,10 +416,8 @@ workflow TAXONOMIC_CLASSIFICATION {
                 ch_raw_reports = KRAKEN2_KRAKEN2.out.report
                 ch_performance_metrics = Channel.empty()
             }
-            break
-
-        default:
-            error "Unsupported classifier: ${classifier}. Currently supported: kraken2"
+    } else {
+        error "Unsupported classifier: ${classifier}. Currently supported: kraken2"
     }
 
     //

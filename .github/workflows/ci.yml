@@ -19,9 +19,6 @@ jobs:
         with:
           version: "26.04.0"
 
-      - name: Configure parser
-        run: echo "NXF_SYNTAX_PARSER=v1" >> "$GITHUB_ENV"
-
       - name: Verify syntax (dry-run)
         run: |
           nextflow run main.nf \

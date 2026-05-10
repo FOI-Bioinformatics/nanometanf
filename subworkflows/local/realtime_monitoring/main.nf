@@ -62,8 +62,8 @@ workflow REALTIME_MONITORING {
             // Multiple parent directories: interleave with round-robin
             def sorted_groups = grouped.collect { k, v -> v.sort { it.name } }
             def max_group_size = sorted_groups.collect { it.size() }.max()
-            for (int i = 0; i < max_group_size; i++) {
-                for (def group : sorted_groups) {
+            (0..<max_group_size).each { i ->
+                sorted_groups.each { group ->
                     if (i < group.size()) {
                         sorted_list.add(group[i])
                     }

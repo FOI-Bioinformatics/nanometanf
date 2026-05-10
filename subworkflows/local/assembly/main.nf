@@ -16,10 +16,10 @@
 ----------------------------------------------------------------------------------------
 */
 
-include { FLYE              } from "${projectDir}/modules/nf-core/flye/main"
-include { MINIMAP2_ALIGN    } from "${projectDir}/modules/nf-core/minimap2/align/main"
-include { MINIASM           } from "${projectDir}/modules/nf-core/miniasm/main"
-include { CANONICAL_ASSEMBLY_WRITER } from "${projectDir}/modules/local/canonical_assembly_writer/main"
+include { FLYE              } from '../../../modules/nf-core/flye/main'
+include { MINIMAP2_ALIGN    } from '../../../modules/nf-core/minimap2/align/main'
+include { MINIASM           } from '../../../modules/nf-core/miniasm/main'
+include { CANONICAL_ASSEMBLY_WRITER } from '../../../modules/local/canonical_assembly_writer/main'
 
 workflow ASSEMBLY {
 
@@ -40,56 +40,51 @@ workflow ASSEMBLY {
     //
     // BRANCH: Route to appropriate assembler
     //
-    switch(assembler) {
-        case 'flye':
-            //
-            // MODULE: Run Flye for long-read assembly
-            //
-            FLYE (
-                ch_reads,
-                sequencing_mode
-            )
-            ch_versions = ch_versions.mix(FLYE.out.versions.ifEmpty([]))
+    if (assembler == 'flye') {
+        //
+        // MODULE: Run Flye for long-read assembly
+        //
+        FLYE (
+            ch_reads,
+            sequencing_mode
+        )
+        ch_versions = ch_versions.mix(FLYE.out.versions.ifEmpty([]))
 
-            // Collect standardized outputs
-            ch_assembly = FLYE.out.fasta.ifEmpty([])
-            ch_assembly_graph = FLYE.out.gfa.ifEmpty([])
-            ch_assembly_info = FLYE.out.txt.ifEmpty([])
-            break
+        // Collect standardized outputs
+        ch_assembly = FLYE.out.fasta.ifEmpty([])
+        ch_assembly_graph = FLYE.out.gfa.ifEmpty([])
+        ch_assembly_info = FLYE.out.txt.ifEmpty([])
+    } else if (assembler == 'miniasm') {
+        //
+        // MODULE: Run Minimap2 for overlap detection (miniasm prerequisite)
+        //
+        MINIMAP2_ALIGN (
+            ch_reads,                    // reads
+            ch_reads,                    // reference (self-alignment for overlap)
+            false,                       // bam_format
+            false,                       // bam_index_extension
+            false,                       // cigar_paf_format
+            false                        // cigar_bam
+        )
+        ch_versions = ch_versions.mix(MINIMAP2_ALIGN.out.versions)
 
-        case 'miniasm':
-            //
-            // MODULE: Run Minimap2 for overlap detection (miniasm prerequisite)
-            //
-            MINIMAP2_ALIGN (
-                ch_reads,                    // reads
-                ch_reads,                    // reference (self-alignment for overlap)
-                false,                       // bam_format
-                false,                       // bam_index_extension
-                false,                       // cigar_paf_format
-                false                        // cigar_bam
-            )
-            ch_versions = ch_versions.mix(MINIMAP2_ALIGN.out.versions)
+        //
+        // MODULE: Run Miniasm for ultra-fast assembly
+        //
+        ch_miniasm_input = ch_reads
+            .join(MINIMAP2_ALIGN.out.paf, remainder: true)
 
-            //
-            // MODULE: Run Miniasm for ultra-fast assembly
-            //
-            ch_miniasm_input = ch_reads
-                .join(MINIMAP2_ALIGN.out.paf, remainder: true)
+        MINIASM (
+            ch_miniasm_input
+        )
+        ch_versions = ch_versions.mix(MINIASM.out.versions.ifEmpty([]))
 
-            MINIASM (
-                ch_miniasm_input
-            )
-            ch_versions = ch_versions.mix(MINIASM.out.versions.ifEmpty([]))
-
-            // Collect standardized outputs
-            ch_assembly = MINIASM.out.assembly.ifEmpty([])
-            ch_assembly_graph = MINIASM.out.gfa.ifEmpty([])
-            ch_assembly_info = Channel.empty()  // Miniasm doesn't provide assembly stats
-            break
-
-        default:
-            error "Unsupported assembler: ${assembler}. Currently supported: flye, miniasm"
+        // Collect standardized outputs
+        ch_assembly = MINIASM.out.assembly.ifEmpty([])
+        ch_assembly_graph = MINIASM.out.gfa.ifEmpty([])
+        ch_assembly_info = Channel.empty()  // Miniasm doesn't provide assembly stats
+    } else {
+        error "Unsupported assembler: ${assembler}. Currently supported: flye, miniasm"
     }
 
     //
