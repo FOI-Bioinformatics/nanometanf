@@ -6,7 +6,7 @@ A short walkthrough using example datasets.
 
 ```bash
 # Required
-- Nextflow >= 25.10.0
+- Nextflow >= 26.04.0
 - Conda (recommended), or Docker / Singularity
 - Java 11+ (for Nextflow)
 
@@ -249,7 +249,7 @@ nextflow run foi-bioinformatics/nanometanf \
 
 ```bash
 # Check Nextflow version
-nextflow -version  # Must be >= 25.10.0
+nextflow -version  # Must be >= 26.04.0
 
 # Check Java
 java -version      # Must be 11+
