@@ -190,12 +190,18 @@ Corresponding `bin/` scripts handle the format conversion: `kreport_to_canonical
 # Nextflow (>= 26.04.0)
 nextflow -version
 
-# nf-test (>= 0.9.0)
+# nf-test (>= 0.9.5)
 nf-test version
 
 # Java environment for nf-test
 export JAVA_HOME=$CONDA_PREFIX/lib/jvm
 export PATH=$JAVA_HOME/bin:$PATH
+
+# Required: legacy parser opt-in. Several subworkflows still use
+# Groovy idioms (C-style for-loops, switch/case, "${projectDir}"
+# include interpolation) that the strict v2 grammar in Nextflow 26
+# rejects. bin/run-nf-tests.sh and CI export this automatically.
+export NXF_SYNTAX_PARSER=v1
 ```
 
 ---
