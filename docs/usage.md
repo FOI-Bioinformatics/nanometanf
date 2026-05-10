@@ -16,7 +16,7 @@ Usage instructions for execution modes and configuration options.
 
 ### Prerequisites
 
-- Nextflow >=25.10.0
+- Nextflow >=26.04.0
 - Java >=11
 - Conda (recommended), Docker, or Singularity
 

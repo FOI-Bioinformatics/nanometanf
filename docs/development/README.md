@@ -52,7 +52,7 @@ development/
 
 ### Prerequisites
 
-1. **Nextflow** (>= 25.10.0)
+1. **Nextflow** (>= 26.04.0)
 2. **nf-test** (>= 0.9.0)
 3. **Java** (>= 11)
 4. **nf-core tools**

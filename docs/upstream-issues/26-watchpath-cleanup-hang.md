@@ -1,5 +1,13 @@
 # Upstream issue: watchPath cleanup leaves a non-daemon FileAlterationMonitor thread
 
+> **Status: resolved in Nextflow 26.04.0.** Verification on 2026-05-10
+> ran the realtime nf-test against the real Kraken2 DB under
+> Nextflow 26.04.0 and the JVM exited cleanly through the failure
+> path in 55 s (no leaked thread). The `NXF_VER=25.04.7` workaround
+> pin in `bin/run-nf-tests.sh` and `.github/workflows/nf-test.yml`
+> has been removed; `nextflow.config` floor is now `>=26.04.0`. The
+> historical issue text below is retained for context.
+
 This document holds the issue text we want to file against
 [nextflow-io/nextflow](https://github.com/nextflow-io/nextflow). Filing
 the issue itself is a manual user action (the local workflow does not

@@ -187,7 +187,7 @@ Corresponding `bin/` scripts handle the format conversion: `kreport_to_canonical
 ## Development Prerequisites
 
 ```bash
-# Nextflow (>= 25.10.0)
+# Nextflow (>= 26.04.0)
 nextflow -version
 
 # nf-test (>= 0.9.0)
