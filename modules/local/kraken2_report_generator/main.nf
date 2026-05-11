@@ -12,7 +12,6 @@ process KRAKEN2_REPORT_GENERATOR {
 
     input:
     tuple val(meta), path(batch_output), path(batch_report)
-    path  db
 
     output:
     tuple val(meta), path("${meta.id}_batch${meta.batch_id}.kraken2.report.txt"), emit: report
