@@ -38,8 +38,12 @@ process KRAKEN2_OPTIMIZED {
     def readclassification_option = save_reads_assignment ? "--output ${prefix}.kraken2.classifiedreads.txt" : "--output /dev/null"
     def compress_reads_command = save_output_fastqs ? "pigz -p $task.cpus *.fastq" : ""
 
-    // Kraken2 optimization flags
-    def memory_mapping = use_memory_mapping ? "--memory-mapping" : ""
+    // Kraken2 optimization flags. --memory-mapping is dropped on retry:
+    // mmap'd hash.k2d pages return invalid data on some shared filesystems
+    // (NFS, GlusterFS, CIFS) and trigger SIGSEGV (exit 139). modules.config
+    // sets errorStrategy + maxRetries so the retry without --memory-mapping
+    // kicks in automatically.
+    def memory_mapping = (use_memory_mapping && task.attempt == 1) ? "--memory-mapping" : ""
     def confidence = confidence_threshold > 0 ? "--confidence ${confidence_threshold}" : ""
     def min_hit_groups = minimum_hit_groups > 0 ? "--minimum-hit-groups ${minimum_hit_groups}" : ""
 
