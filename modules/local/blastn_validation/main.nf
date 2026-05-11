@@ -178,11 +178,19 @@ with open("${prefix}.blast_stats.json", "w") as out:
 print(f"BLAST validation: {hits}/{total_reads} hits ({hit_rate*100:.1f}%), avg identity {avg_identity:.1f}%, status: {status}", file=sys.stderr)
 EOF
 
+    # versions.yml: each value MUST be a single line. seqtk writes its
+    # help (Version: 1.4-rNNN ...) to stderr; on some builds the help
+    # mentions "Version:" more than once, so grep -oE returned a multi-
+    # line scalar that broke the YAML parser at the next module's
+    # `python:` key (the embedded newline pushed the python line to an
+    # over-indented position relative to the mapping). ``head -n1``
+    # constrains the substitution to the first match; ``tr -d '\\n'``
+    # is belt-and-braces against any trailing whitespace from sed.
     cat <<-END_VERSIONS > versions.yml
 "${task.process}":
-    blastn: \$(blastn -version 2>&1 | head -1 | sed 's/blastn: //')
-    seqtk: \$(seqtk 2>&1 | grep -oE 'Version: [0-9.]+' | sed 's/Version: //' || echo "1.4")
-    python: \$(python3 --version | sed 's/Python //')
+    blastn: \$(blastn -version 2>&1 | head -n1 | sed 's/blastn: //' | tr -d '\\n')
+    seqtk: \$(seqtk 2>&1 | grep -oE 'Version: [0-9.]+' | head -n1 | sed 's/Version: //' | tr -d '\\n' || echo "1.4")
+    python: \$(python3 --version 2>&1 | head -n1 | sed 's/Python //' | tr -d '\\n')
 END_VERSIONS
     """
 
