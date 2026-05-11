@@ -37,7 +37,15 @@ process KRAKEN2_INCREMENTAL_CLASSIFIER {
     def classified_option = save_output_fastqs ? "--classified-out ${classified}" : ""
     def unclassified_option = save_output_fastqs ? "--unclassified-out ${unclassified}" : ""
     def readclassification_option = save_reads_assignment ? "--output ${prefix}.kraken2.classifiedreads.txt" : "--output /dev/null"
-    def memory_mapping = use_memory_mapping ? "--memory-mapping" : ""
+    // Drop --memory-mapping on retry. kraken2 with --memory-mapping
+    // mmap()s the hash.k2d file; on certain filesystems (NFS, GlusterFS,
+    // CIFS, FUSE) the mmap'd pages may return invalid data once the
+    // process touches them, producing a SIGSEGV (exit 139). Falling back
+    // to ordinary read() loads the DB into per-process RAM and avoids
+    // the page-fault contract entirely. Modules.config sets
+    // errorStrategy = { task.exitStatus == 139 ? 'retry' : 'finish' }
+    // and maxRetries = 1 so the retry kicks in automatically.
+    def memory_mapping = (use_memory_mapping && task.attempt == 1) ? "--memory-mapping" : ""
 
     """
     #!/bin/bash
@@ -50,6 +58,9 @@ process KRAKEN2_INCREMENTAL_CLASSIFIER {
     # Run Kraken2 on batch reads only
     echo "Running incremental Kraken2 classification on batch ${meta.batch_id ?: 0}" >&2
     echo "Sample: ${meta.id}" >&2
+    if [ "${task.attempt}" -gt 1 ]; then
+        echo "Retry attempt ${task.attempt}: --memory-mapping disabled (previous attempt segfaulted, likely NFS mmap issue)" >&2
+    fi
 
     kraken2 \\
         --db ${db} \\
