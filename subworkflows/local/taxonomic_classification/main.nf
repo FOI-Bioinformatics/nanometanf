@@ -239,8 +239,7 @@ workflow TAXONOMIC_CLASSIFICATION {
                 // MODULE: Process per-batch report (stateless, no cumulative state)
                 //
                 KRAKEN2_REPORT_GENERATOR (
-                    KRAKEN2_OUTPUT_MERGER.out.merger_output,
-                    ch_db_ready
+                    KRAKEN2_OUTPUT_MERGER.out.merger_output
                 )
                 ch_versions = ch_versions.mix(KRAKEN2_REPORT_GENERATOR.out.versions)
 

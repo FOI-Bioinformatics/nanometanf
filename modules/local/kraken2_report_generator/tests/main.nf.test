@@ -38,9 +38,6 @@ nextflow_process {
                     batch_output,
                     batch_report
                 ]
-
-                // Mock database directory
-                input[1] = file(params.modules_testdata_base_path + "genomics/sarscov2/genome/db/kraken2.tar.gz", checkIfExists: true)
                 """
             }
         }
@@ -70,8 +67,6 @@ nextflow_process {
                     batch_output,
                     batch_report
                 ]
-
-                input[1] = file(params.modules_testdata_base_path + "genomics/sarscov2/genome/db/kraken2.tar.gz", checkIfExists: true)
                 """
             }
         }
