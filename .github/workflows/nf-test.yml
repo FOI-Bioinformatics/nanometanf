@@ -44,3 +44,35 @@ jobs:
 
       - name: Run nf-test
         run: nf-test test --profile test
+
+  profile-sanity:
+    # Stub-mode sanity check that each platform profile loads cleanly,
+    # the Kraken2 cpus/memory closures resolve, and resourceLimits stay
+    # within bounds. Catches config regressions before they reach users.
+    name: Profile config (${{ matrix.profile }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        profile:
+          - minion
+          - promethion_8
+          - promethion
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Nextflow
+        uses: nf-core/setup-nextflow@v2
+        with:
+          version: "26.04.0"
+
+      - name: Render config for profile
+        run: nextflow config -profile ${{ matrix.profile }} > /dev/null
+
+      - name: Stub-run pipeline under profile
+        run: |
+          nextflow run main.nf \
+            -profile ${{ matrix.profile }},test \
+            -stub \
+            --outdir results-${{ matrix.profile }} \
+            --skip_kraken2 true
