@@ -315,7 +315,7 @@
                 "max_time": {
                     "type": "string",
                     "default": "240.h",
-                    "pattern": "^(\\d+\\.?\\d*\\.?\\s*(s|m|h|d|day)\\s*)+$",
+                    "pattern": "^(\\d+\\.?\\d*\\.?\\s*(ms|s|sec|m|min|h|hr|hour|d|day)s?\\s*)+$",
                     "description": "Maximum wall time the pipeline may request for any single task.",
                     "fa_icon": "fas fa-stopwatch",
                     "help_text": "Used as the resourceLimits ceiling in platform profiles."
