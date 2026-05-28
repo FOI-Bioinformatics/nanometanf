@@ -1,2 +1,2 @@
 sample,fastq,barcode
-pooled_sample,/Users/andreassjodin/Code/nanometanf/tests/fixtures/fastq/sample_minimal.fastq.gz,
+pooled_sample,https://raw.githubusercontent.com/nf-core/test-datasets/modules/data/genomics/sarscov2/nanopore/fastq/test.fastq.gz,
