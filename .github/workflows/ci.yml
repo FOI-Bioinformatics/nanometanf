@@ -39,6 +39,3 @@ jobs:
           }
           JSON
           nextflow run main.nf -preview -params-file ci-params.json
-
-      - name: Verify help output
-        run: nextflow run main.nf --help

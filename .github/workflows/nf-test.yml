@@ -15,8 +15,11 @@ concurrency:
 # parser opt-in is needed. The matrix exercises the floor and the
 # moving "latest-everything" target so regressions in either are
 # caught at PR time.
-env:
-  NXF_OFFLINE: "true"
+#
+# NXF_OFFLINE is intentionally NOT set: nf-schema (declared in
+# nextflow.config) must be downloaded before validateParameters() can
+# run, and the GitHub runner has no Nextflow plugin cache to satisfy
+# the offline mode.
 
 jobs:
   test:
