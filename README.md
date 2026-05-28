@@ -119,13 +119,13 @@ Hardware-specific profiles set resource defaults for different sequencer
 platforms and deployment scenarios. Combine with an execution-engine profile
 (`conda`, `docker`, or `singularity`).
 
-| Profile         | Use case              | Description |
-|-----------------|-----------------------|-------------|
-| `test`          | CI and validation     | Minimal dataset with reduced resources for fast tests |
-| `minion`        | MinION / Mk1C         | Conservative memory and CPU allocation |
-| `promethion`    | PromethION (standard) | Higher throughput defaults |
-| `promethion_8`  | PromethION (8-barcode)| Tuned for multiplexed PromethION runs |
-| `field`         | Field deployments     | Reduced resource footprint for laptops |
+| Profile        | Use case               | Description                                           |
+| -------------- | ---------------------- | ----------------------------------------------------- |
+| `test`         | CI and validation      | Minimal dataset with reduced resources for fast tests |
+| `minion`       | MinION / Mk1C          | Conservative memory and CPU allocation                |
+| `promethion`   | PromethION (standard)  | Higher throughput defaults                            |
+| `promethion_8` | PromethION (8-barcode) | Tuned for multiplexed PromethION runs                 |
+| `field`        | Field deployments      | Reduced resource footprint for laptops                |
 
 Examples:
 

@@ -12,12 +12,12 @@ Actions completed: 2026-03-01
 
 ## Summary
 
-| Module | Divergence | Can use ext.args | Status |
-|---|---|---|---|
-| `nf-core/fastp` | Script logic (multi-file concat) | No | DONE: Streaming logic moved to `modules/local/fastp_streaming`; upstream module restored |
-| `nf-core/blast/blastn` | Environment variable export | No | DONE: Protected via `.nf-core.yml` update skip list; comment updated with re-apply instructions |
-| `nf-core/kraken2/kraken2` | Container SHA + stub hardcoding | N/A | Pending: Run `nf-core modules update kraken2/kraken2` |
-| `nf-core/nanoplot` | Stub hardcoding only | N/A | Pending: Run `nf-core modules update nanoplot` |
+| Module                    | Divergence                       | Can use ext.args | Status                                                                                          |
+| ------------------------- | -------------------------------- | ---------------- | ----------------------------------------------------------------------------------------------- |
+| `nf-core/fastp`           | Script logic (multi-file concat) | No               | DONE: Streaming logic moved to `modules/local/fastp_streaming`; upstream module restored        |
+| `nf-core/blast/blastn`    | Environment variable export      | No               | DONE: Protected via `.nf-core.yml` update skip list; comment updated with re-apply instructions |
+| `nf-core/kraken2/kraken2` | Container SHA + stub hardcoding  | N/A              | Pending: Run `nf-core modules update kraken2/kraken2`                                           |
+| `nf-core/nanoplot`        | Stub hardcoding only             | N/A              | Pending: Run `nf-core modules update nanoplot`                                                  |
 
 ---
 

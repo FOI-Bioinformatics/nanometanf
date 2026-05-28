@@ -151,10 +151,10 @@ Structural warnings about subworkflow patterns:
 
 Background test suite execution showed stable performance:
 
-| Test Category                     | Passing | Failing | Notes                |
-| --------------------------------- | ------- | ------- | -------------------- |
-| **DORADO_BASECALLER**             | 1/5     | 4       | Binary dependency    |
-| **DORADO_DEMUX**                  | 1/2     | 1       | Binary dependency    |
+| Test Category         | Passing | Failing | Notes             |
+| --------------------- | ------- | ------- | ----------------- |
+| **DORADO_BASECALLER** | 1/5     | 4       | Binary dependency |
+| **DORADO_DEMUX**      | 1/2     | 1       | Binary dependency |
 
 **Note:** The resource allocation modules (ANALYZE_INPUT_CHARACTERISTICS, APPLY_DYNAMIC_RESOURCES) referenced in the original v1.2.0 evaluation have been removed in subsequent cleanup phases. Dorado test failures are not functional issues -- tests require the dorado binary in PATH or a Docker image. Functionality verified manually.
 

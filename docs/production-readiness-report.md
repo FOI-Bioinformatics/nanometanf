@@ -179,6 +179,7 @@
 ### 4.1 Error Isolation + Frontend Compatibility
 
 The error isolation config ignores exit codes 1 and 2, causing failed samples to produce empty outputs. The frontend handles this correctly:
+
 - `classification_loaders.py` returns empty DataFrames when no report files are found.
 - `qc_loaders.py` returns `_empty_fastp_stats()` / `_empty_nanoplot_stats()` when directories are missing.
 - `sample_detector.py` gracefully handles missing subdirectories via `os.path.exists()` checks.

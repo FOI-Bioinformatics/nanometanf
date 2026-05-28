@@ -6,42 +6,42 @@ the [usage guide](usage.md) for parameters and execution modes, or the
 
 ## User documentation
 
-| Document                                              | Purpose |
-|-------------------------------------------------------|---------|
-| [Quick start](user/quickstart.md)                     | Scenario-based walkthrough |
-| [Usage guide](usage.md)                               | Parameters and execution modes |
-| [Output reference](output.md)                         | Output directory layout and file formats |
-| [Real-time processing](user/realtime_processing.md)   | Advanced features for live monitoring |
-| [QC guide](user/qc_guide.md)                          | Quality metrics |
-| [Performance tuning](user/performance_tuning.md)      | Resource optimisation |
-| [Best practices](user/best_practices.md)              | Workflow recommendations |
-| [Troubleshooting](user/troubleshooting.md)            | Common issues and resolutions |
+| Document                                            | Purpose                                  |
+| --------------------------------------------------- | ---------------------------------------- |
+| [Quick start](user/quickstart.md)                   | Scenario-based walkthrough               |
+| [Usage guide](usage.md)                             | Parameters and execution modes           |
+| [Output reference](output.md)                       | Output directory layout and file formats |
+| [Real-time processing](user/realtime_processing.md) | Advanced features for live monitoring    |
+| [QC guide](user/qc_guide.md)                        | Quality metrics                          |
+| [Performance tuning](user/performance_tuning.md)    | Resource optimisation                    |
+| [Best practices](user/best_practices.md)            | Workflow recommendations                 |
+| [Troubleshooting](user/troubleshooting.md)          | Common issues and resolutions            |
 
 `docs/usage.md` and `docs/output.md` follow the nf-core convention and
 are the canonical references for parameters and output respectively.
 
 ## Developer documentation
 
-| Document                                                | Purpose |
-|---------------------------------------------------------|---------|
-| [Development guide](development/README.md)              | Developer index |
-| [Testing guide](development/TESTING.md)                 | nf-test conventions and runner |
-| [Developer API](development/developer_api.md)           | Internal APIs and helpers |
-| [Streaming Kraken2 implementation](development/incremental_kraken2_implementation.md) | v1.5+ classification architecture |
-| [nf-core module maintenance](development/nfcore_module_maintenance.md) | Local modifications to upstream modules |
-| [PromethION optimisations](development/PROMETHION_OPTIMIZATIONS.md) | Platform-specific tuning notes |
-| [Production deployment](development/production_deployment.md) | Deployment guide |
-| [Release process](development/RELEASE_PROCESS.md)       | Release procedures |
+| Document                                                                              | Purpose                                 |
+| ------------------------------------------------------------------------------------- | --------------------------------------- |
+| [Development guide](development/README.md)                                            | Developer index                         |
+| [Testing guide](development/TESTING.md)                                               | nf-test conventions and runner          |
+| [Developer API](development/developer_api.md)                                         | Internal APIs and helpers               |
+| [Streaming Kraken2 implementation](development/incremental_kraken2_implementation.md) | v1.5+ classification architecture       |
+| [nf-core module maintenance](development/nfcore_module_maintenance.md)                | Local modifications to upstream modules |
+| [PromethION optimisations](development/PROMETHION_OPTIMIZATIONS.md)                   | Platform-specific tuning notes          |
+| [Production deployment](development/production_deployment.md)                         | Deployment guide                        |
+| [Release process](development/RELEASE_PROCESS.md)                                     | Release procedures                      |
 
 ## Release information
 
-| Document                                            | Purpose |
-|-----------------------------------------------------|---------|
-| [Current version](releases/CURRENT_VERSION.md)      | Version recommendations and known issues |
-| [v1.5.0](releases/v1.5.0.md)                        | Current release notes |
-| [Migration guide](releases/MIGRATION_GUIDE.md)      | Upgrade instructions |
-| [Release notes index](releases/)                    | Per-version release notes |
-| [Changelog](../CHANGELOG.md)                        | Cumulative change log |
+| Document                                       | Purpose                                  |
+| ---------------------------------------------- | ---------------------------------------- |
+| [Current version](releases/CURRENT_VERSION.md) | Version recommendations and known issues |
+| [v1.5.0](releases/v1.5.0.md)                   | Current release notes                    |
+| [Migration guide](releases/MIGRATION_GUIDE.md) | Upgrade instructions                     |
+| [Release notes index](releases/)               | Per-version release notes                |
+| [Changelog](../CHANGELOG.md)                   | Cumulative change log                    |
 
 ## Other reference
 

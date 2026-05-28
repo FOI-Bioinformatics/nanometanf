@@ -9,6 +9,7 @@
   > Wood, D.E., Lu, J. & Langmead, B. Improved metagenomic analysis with Kraken 2. Genome Biol 20, 257 (2019). doi: [10.1186/s13059-019-1891-0](https://doi.org/10.1186/s13059-019-1891-0)
 
 - **BLAST**: Sequence validation
+
   > Camacho, C., Coulouris, G., Avagyan, V., Ma, N., Papadopoulos, J., Bealer, K., & Madden, T.L. (2009). BLAST+: architecture and applications. BMC Bioinformatics 10, 421. doi: [10.1186/1471-2105-10-421](https://doi.org/10.1186/1471-2105-10-421)
 
 - **Krona**: Interactive taxonomic visualization

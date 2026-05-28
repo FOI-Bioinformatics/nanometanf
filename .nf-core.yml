@@ -38,6 +38,15 @@ lint:
     - validation.help.afterText
     - validation.summary.beforeText
     - validation.summary.afterText
+    # The legacy max_cpus / max_memory / max_time params are declared
+    # intentionally so platform profiles (conf/minion.config,
+    # conf/promethion.config, conf/promethion_8.config) can scale the
+    # Kraken2 cpus closure against them. nf-core 3.0+ recommends using
+    # process.resourceLimits instead, which the pipeline does as well,
+    # but the explicit params remain user-facing for compatibility.
+    - params.max_cpus
+    - params.max_memory
+    - params.max_time
   multiqc_config:
     - report_comment
   # Pipeline-level integration tests (nextflow_pipeline {}) do not snapshot
@@ -61,6 +70,7 @@ lint:
     - tests/realtime_processing.nf.test
     - tests/qc_tool_integration.nf.test
     - tests/full_pipeline_stubmode.nf.test
+    - tests/multiplex_scaling.nf.test
   # The .github/workflows/nf-test.yml in this repo is a customised CI matrix
   # (the wrapper at bin/run-nf-tests.sh sets NXF_OFFLINE only) and
   # does not match the nf-core community-template event triggers. The

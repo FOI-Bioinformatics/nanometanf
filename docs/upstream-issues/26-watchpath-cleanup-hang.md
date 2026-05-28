@@ -25,12 +25,12 @@ non-daemon thread, blocking JVM shutdown after the channel completes
 
 ## Affected versions
 
-| Component  | Version                       |
-| ---------- | ----------------------------- |
-| Nextflow   | 25.04.7 and 25.10.4 (both reproduce) |
-| nf-test    | 0.9.4                         |
-| JVM        | OpenJDK 17.0.14+7-LTS         |
-| Platform   | macOS Darwin 25.2.0 (Apple Silicon) |
+| Component | Version                              |
+| --------- | ------------------------------------ |
+| Nextflow  | 25.04.7 and 25.10.4 (both reproduce) |
+| nf-test   | 0.9.4                                |
+| JVM       | OpenJDK 17.0.14+7-LTS                |
+| Platform  | macOS Darwin 25.2.0 (Apple Silicon)  |
 
 ## Summary
 
@@ -162,11 +162,11 @@ commons-io thread to be released.
 We have tested two of the termination paths and have indirect evidence
 for the third:
 
-| Termination path                                          | 25.04.7    | 25.10.4    |
-| --------------------------------------------------------- | ---------- | ---------- |
-| `take(max_files)` fires before any timeout                | hangs      | hangs      |
-| Sentinel-driven `until` fires before `take`               | clean exit | hangs      |
-| Idle: nothing fires; JVM is killed by external watchdog   | n/a        | n/a        |
+| Termination path                                        | 25.04.7    | 25.10.4 |
+| ------------------------------------------------------- | ---------- | ------- |
+| `take(max_files)` fires before any timeout              | hangs      | hangs   |
+| Sentinel-driven `until` fires before `take`             | clean exit | hangs   |
+| Idle: nothing fires; JVM is killed by external watchdog | n/a        | n/a     |
 
 The pin to 25.04.7 was adopted as a partial workaround in cycle 6
 (2026-04-27, see `bin/run-nf-tests.sh`). It only helps the
@@ -213,4 +213,3 @@ Captured 2026-04-26 09:21:49 from a Nextflow 25.04.7 JVM hung after
 the task10 reproducer's `take(1)` had fired. Full dump retained
 locally; the relevant thread frames are reproduced in the
 "Diagnostic evidence" section above.
-

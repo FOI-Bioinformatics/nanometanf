@@ -81,11 +81,11 @@ explicit and named.
 Three of four canonical writers omit a `makedirs` call that
 `write_manifest.py` already has:
 
-| File | Line |
-|------|------|
-| `bin/assembly_to_canonical.py` | 150 |
-| `bin/qc_to_canonical.py` | 182 |
-| `bin/kreport_to_canonical.py` | 97 |
+| File                           | Line |
+| ------------------------------ | ---- |
+| `bin/assembly_to_canonical.py` | 150  |
+| `bin/qc_to_canonical.py`       | 182  |
+| `bin/kreport_to_canonical.py`  | 97   |
 
 Without it, `tempfile.mkstemp(dir=dir_name, suffix=".tmp")` raises
 `FileNotFoundError` if the destination publishDir has not yet been
