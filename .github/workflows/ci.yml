@@ -22,10 +22,14 @@ jobs:
 
       - name: Install Nextflow
         # Direct install bypasses nf-core/setup-nextflow@v2 Cloudflare
-        # 520 failures observed 2026-05-28.
-        env:
-          NXF_VER: "${{ matrix.NXF_VER == 'latest-everything' && '' || matrix.NXF_VER }}"
+        # 520 failures observed 2026-05-28. The "latest-everything"
+        # matrix entry maps to an unset NXF_VER so the installer picks
+        # the current stable release.
         run: |
+          MATRIX_VER='${{ matrix.NXF_VER }}'
+          if [ "${MATRIX_VER}" != "latest-everything" ]; then
+            export NXF_VER="${MATRIX_VER}"
+          fi
           curl -fsSL get.nextflow.io | bash
           sudo install -m 0755 nextflow /usr/local/bin/nextflow
           nextflow -v
