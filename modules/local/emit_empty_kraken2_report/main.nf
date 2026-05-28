@@ -47,6 +47,10 @@ process EMIT_EMPTY_KRAKEN2_REPORT {
     stub:
     """
     printf '100.00\\t0\\t0\\tU\\t0\\tunclassified\\n' > ${meta.id}.kraken2.report.txt
-    touch versions.yml
+
+    cat <<-END_VERSIONS > versions.yml
+    "${task.process}":
+        coreutils: 9.0
+    END_VERSIONS
     """
 }

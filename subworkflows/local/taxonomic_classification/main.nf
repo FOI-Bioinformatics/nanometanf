@@ -222,7 +222,7 @@ workflow TAXONOMIC_CLASSIFICATION {
                     params.save_reads_assignment ?: false,
                     use_memory_mapping
                 )
-                ch_versions = ch_versions.mix(KRAKEN2_INCREMENTAL_CLASSIFIER.out.versions.ifEmpty([]))
+                ch_versions = ch_versions.mix(KRAKEN2_INCREMENTAL_CLASSIFIER.out.versions)
 
                 //
                 // SCALABLE STREAMING ARCHITECTURE (v1.5+)
@@ -399,7 +399,7 @@ workflow TAXONOMIC_CLASSIFICATION {
                     params.kraken2_confidence ?: 0.0,
                     params.kraken2_minimum_hit_groups ?: 0
                 )
-                ch_versions = ch_versions.mix(KRAKEN2_OPTIMIZED.out.versions.ifEmpty([]))
+                ch_versions = ch_versions.mix(KRAKEN2_OPTIMIZED.out.versions)
 
                 // Collect outputs
                 ch_classified_reads = KRAKEN2_OPTIMIZED.out.classified_reads_fastq.ifEmpty([])
