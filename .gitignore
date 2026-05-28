@@ -12,6 +12,10 @@ null/
 .nf-test.*
 test_results
 test_*
+# Whitelist test fixtures that the pipeline tests depend on, even
+# though their filenames match the ``test_*`` prefix.
+!tests/fixtures/samplesheets/test_*
+!tests/test_*
 
 # Temporary development scripts
 /*.sh
