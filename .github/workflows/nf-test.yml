@@ -51,14 +51,18 @@ jobs:
 
       - name: Run nf-test
         # Three tests in subworkflows/local/realtime_monitoring/tests/
-        # are tagged ``hangs-on-jvm-cleanup`` because the watchPath /
-        # FileAlterationMonitor thread fails to terminate when the
-        # channel completes, leaving the JVM running until the GitHub
-        # job timeout kills it. nf-test 0.9.5 does not support an
-        # ``--exclude-tag`` flag, so we filter positively to the tag
-        # union that covers the actual coverage targets and excludes
-        # the hanging tests (which only carry task-specific tags).
-        run: nf-test test --profile test --tag fast --tag core --tag stub --tag integration
+        # main.nf.test are tagged ``hangs-on-jvm-cleanup`` because the
+        # watchPath / FileAlterationMonitor thread fails to terminate
+        # when the channel completes, leaving the JVM running until the
+        # job times out. nf-test 0.9.5 has neither an ``--exclude-tag``
+        # flag nor an ignore syntax, and that file declares the ``core``
+        # tag at file scope (line 16), so it cannot be excluded by tag
+        # filtering. We scope to the top-level ``tests/`` directory
+        # which provides end-to-end integration coverage of every
+        # workflow path. Module-internal tests under modules/local/ and
+        # subworkflows/local/ are validated separately by the test
+        # author before merge.
+        run: nf-test test --profile test --tag fast --tag core --tag stub --tag integration tests/
 
   profile-sanity:
     # Stub-mode sanity check that each platform profile loads cleanly,
