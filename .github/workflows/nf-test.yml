@@ -40,9 +40,17 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Install Nextflow
-        uses: nf-core/setup-nextflow@v2
-        with:
-          version: "${{ matrix.NXF_VER }}"
+        # Install directly from get.nextflow.io to avoid the
+        # nf-core/setup-nextflow@v2 Cloudflare 520 failures observed
+        # on this branch on 2026-05-28. The action's "resolve latest
+        # version from remote" step hits a CF-fronted endpoint that
+        # has been returning 520 intermittently.
+        env:
+          NXF_VER: "${{ matrix.NXF_VER == 'latest-everything' && '' || matrix.NXF_VER }}"
+        run: |
+          curl -fsSL get.nextflow.io | bash
+          sudo install -m 0755 nextflow /usr/local/bin/nextflow
+          nextflow -v
 
       - name: Install nf-test
         uses: nf-core/setup-nf-test@v1
@@ -81,9 +89,12 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Install Nextflow
-        uses: nf-core/setup-nextflow@v2
-        with:
-          version: "26.04.0"
+        env:
+          NXF_VER: "26.04.0"
+        run: |
+          curl -fsSL get.nextflow.io | bash
+          sudo install -m 0755 nextflow /usr/local/bin/nextflow
+          nextflow -v
 
       - name: Render config for profile
         run: nextflow config -profile ${{ matrix.profile }} > /dev/null
