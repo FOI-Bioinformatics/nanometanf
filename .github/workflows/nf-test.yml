@@ -25,6 +25,10 @@ jobs:
   test:
     name: Run nf-test (${{ matrix.NXF_VER }})
     runs-on: ubuntu-latest
+    # Hard cap the nf-test run so a stuck realtime / watchPath test
+    # cannot consume the default 6 h GitHub job budget. Historical
+    # runtime is roughly 20 min; 45 min is a generous ceiling.
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
