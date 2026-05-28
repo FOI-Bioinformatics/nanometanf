@@ -1,0 +1,61 @@
+Changes in component 'nf-core/chopper'
+Changes in 'chopper/environment.yml':
+--- modules/nf-core/chopper/environment.yml
++++ modules/nf-core/chopper/environment.yml
+@@ -5,3 +5,9 @@
+   - bioconda
+ dependencies:
+   - bioconda::chopper=0.12.0b
++  # GNU gzip is required by the script's `gunzip -c | chopper | gzip` pipe.
++  # macOS conda environments otherwise fall back to BSD utilities and the
++  # slim seqera community image for chopper does not bundle GNU coreutils,
++  # so listing gzip explicitly forces both platforms (and any wave-built
++  # container) to include a working gzip/gunzip on PATH.
++  - conda-forge::gzip=1.13
+
+Changes in 'chopper/main.nf':
+--- modules/nf-core/chopper/main.nf
++++ modules/nf-core/chopper/main.nf
+@@ -3,9 +3,15 @@
+     label 'process_medium'
+ 
+     conda "${moduleDir}/environment.yml"
++    // The Seqera community image for chopper 0.12.0b ships chopper alone --
++    // no gzip/gunzip -- and the script below pipes through `gunzip -c | gzip`.
++    // The biocontainers/galaxy build is debian-based and includes coreutils,
++    // so it works under apptainer/singularity on Linux without extra config.
++    // macOS development continues to use the conda env (which now pins
++    // conda-forge::gzip explicitly).
+     container "${ workflow.containerEngine in ['singularity', 'apptainer'] && !task.ext.singularity_pull_docker_container ?
+-        'https://community-cr-prod.seqera.io/docker/registry/v2/blobs/sha256/f4/f4a12f8d5bb8a08aa9a0a14377465521422e7274bcb6be56daa6a06f30ac0bf7/data':
+-        'community.wave.seqera.io/library/chopper:0.12.0b--f39108dd84394289' }"
++        'https://depot.galaxyproject.org/singularity/chopper:0.12.0b--hdcadc20_0':
++        'biocontainers/chopper:0.12.0b--hdcadc20_0' }"
+ 
+     input:
+     tuple val(meta), path(fastq)
+@@ -26,8 +32,18 @@
+     def fasta_filtering = fasta ? "--contam ${fasta}" : ""
+ 
+     if ("$fastq" == "${prefix}.fastq.gz") error "Input and output names are the same, set prefix in module configuration to disambiguate!"
++    // Use `gunzip -c` rather than `zcat`. macOS BSD `zcat` only handles
++    // legacy `.Z` files and fails on `.fastq.gz` inputs. The companion
++    // environment.yml lists `conda-forge::gzip` alongside chopper so that
++    // GNU gzip/gunzip is on PATH on both macOS and Linux, including when
++    // the seqera wave service rebuilds the container from this env file
++    // (the original community image is too slim to include coreutils).
++    // Filed locally because the upstream nf-core module is the same
++    // shape; if the upstream module ever ships its own gunzip-c version
++    // and pins gzip in the env, this comment can be removed at the next
++    // `nf-core modules update`.
+     """
+-    zcat \\
++    gunzip -c \\
+         $args \\
+         $fastq | \\
+     chopper \\
+
+'modules/nf-core/chopper/meta.yml' is unchanged
+'modules/nf-core/chopper/tests/main.nf.test' is unchanged
+'modules/nf-core/chopper/tests/main.nf.test.snap' is unchanged
+'modules/nf-core/chopper/tests/tags.yml' is unchanged
