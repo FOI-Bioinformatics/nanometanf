@@ -17,7 +17,7 @@ nextflow_pipeline {
 
         when {
             params {
-                input = "$projectDir/tests/fixtures/samplesheets/minimal.csv"
+                input = "$projectDir/assets/test_samplesheet.csv"
                 outdir = "$outputDir"
 
                 realtime_mode = false
