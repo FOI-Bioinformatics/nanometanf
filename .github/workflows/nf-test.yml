@@ -70,9 +70,17 @@ jobs:
         run: nextflow config -profile ${{ matrix.profile }} > /dev/null
 
       - name: Stub-run pipeline under profile
+        # Booleans go via -params-file rather than CLI flags so nf-schema
+        # 2.6+ sees the real boolean type rather than the string the CLI
+        # would coerce them to.
         run: |
+          cat > sanity-params-${{ matrix.profile }}.json <<JSON
+          {
+              "outdir": "results-${{ matrix.profile }}",
+              "skip_kraken2": true
+          }
+          JSON
           nextflow run main.nf \
             -profile ${{ matrix.profile }},test \
             -stub \
-            --outdir results-${{ matrix.profile }} \
-            --skip_kraken2 true
+            -params-file sanity-params-${{ matrix.profile }}.json

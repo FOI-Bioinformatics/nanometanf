@@ -29,6 +29,14 @@ jobs:
         with:
           python-version: "3.13"
 
+      - name: Install Nextflow
+        # nf-core pipelines lint shells out to ``nextflow config`` while
+        # validating the pipeline; without an executable on PATH the
+        # linter aborts with FileNotFoundError before producing a report.
+        uses: nf-core/setup-nextflow@v2
+        with:
+          version: "26.04.0"
+
       - name: Install nf-core tools
         run: pip install "nf-core==3.5.2"
 

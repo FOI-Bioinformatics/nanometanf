@@ -26,13 +26,19 @@ jobs:
           version: "${{ matrix.NXF_VER }}"
 
       - name: Verify syntax (dry-run)
+        # Booleans go via -params-file rather than CLI flags so nf-schema
+        # 2.6+ sees the real boolean type rather than the string the CLI
+        # would coerce them to.
         run: |
-          nextflow run main.nf \
-            -preview \
-            --input assets/test_samplesheet.csv \
-            --outdir test_output \
-            --validate_params false \
-            --skip_kraken2 true
+          cat > ci-params.json <<'JSON'
+          {
+              "input": "assets/test_samplesheet.csv",
+              "outdir": "test_output",
+              "skip_kraken2": true,
+              "validate_params": false
+          }
+          JSON
+          nextflow run main.nf -preview -params-file ci-params.json
 
       - name: Verify help output
         run: nextflow run main.nf --help
