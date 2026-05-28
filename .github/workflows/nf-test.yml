@@ -60,19 +60,29 @@ jobs:
           version: "0.9.5"
 
       - name: Run nf-test
-        # Three tests in subworkflows/local/realtime_monitoring/tests/
-        # main.nf.test are tagged ``hangs-on-jvm-cleanup`` because the
-        # watchPath / FileAlterationMonitor thread fails to terminate
-        # when the channel completes, leaving the JVM running until the
-        # job times out. nf-test 0.9.5 has neither an ``--exclude-tag``
-        # flag nor an ignore syntax, and that file declares the ``core``
-        # tag at file scope (line 16), so it cannot be excluded by tag
-        # filtering. We scope to the top-level ``tests/`` directory
-        # which provides end-to-end integration coverage of every
-        # workflow path. Module-internal tests under modules/local/ and
-        # subworkflows/local/ are validated separately by the test
-        # author before merge.
-        run: nf-test test --profile test --tag fast --tag core --tag stub --tag integration tests/
+        # All tests/realtime_*.nf.test cases are excluded explicitly
+        # because they exercise watchPath, which still leaks the
+        # FileAlterationMonitor thread on the GitHub runner and hangs
+        # the job past the 45 min cap (the 26.04.0 fix claim in
+        # docs/upstream-issues/26-watchpath-cleanup-hang.md does not
+        # hold on this runner image). Realtime coverage stays in local
+        # development runs; the rest of the integration matrix runs in
+        # CI.
+        run: |
+          nf-test test --profile test \
+            --tag fast --tag core --tag stub --tag integration \
+            tests/barcode_discovery.nf.test \
+            tests/batch_barcode_fastq.nf.test \
+            tests/batch_flat_fastq.nf.test \
+            tests/chopper_specific.nf.test \
+            tests/default.nf.test \
+            tests/full_pipeline_stubmode.nf.test \
+            tests/input_scanner.nf.test \
+            tests/main_workflow.nf.test \
+            tests/multiplex_scaling.nf.test \
+            tests/nanoseq_test.nf.test \
+            tests/parameter_validation.nf.test \
+            tests/qc_tool_integration.nf.test
 
   profile-sanity:
     # Stub-mode sanity check that each platform profile loads cleanly,
