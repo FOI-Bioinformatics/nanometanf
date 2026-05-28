@@ -60,6 +60,10 @@ jobs:
           version: "0.9.5"
 
       - name: Run nf-test
+        # ``-profile test,docker`` so tests that exercise real CHOPPER /
+        # FASTP / FASTQC etc. resolve their containers instead of
+        # hitting ``exit 127`` for the missing host binary.
+        #
         # All tests/realtime_*.nf.test cases are excluded explicitly
         # because they exercise watchPath, which still leaks the
         # FileAlterationMonitor thread on the GitHub runner and hangs
@@ -69,7 +73,7 @@ jobs:
         # development runs; the rest of the integration matrix runs in
         # CI.
         run: |
-          nf-test test --profile test \
+          nf-test test --profile test,docker \
             --tag fast --tag core --tag stub --tag integration \
             tests/barcode_discovery.nf.test \
             tests/batch_barcode_fastq.nf.test \
