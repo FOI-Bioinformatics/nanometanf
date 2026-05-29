@@ -127,6 +127,11 @@ workflow VALIDATION {
     // Key by meta (which includes taxid) to properly join
     //
     // Use tuple keys [sample_id, taxid] for robust joining (avoids issues if sample_id contains underscores)
+    // ``remainder: true`` lets either side flow through unmatched so the
+    // join cannot deadlock; the downstream filter then drops half-tuples,
+    // but a log.warn first records the drop so operators can trace why a
+    // sample/taxid validation went missing rather than silently see it
+    // disappear from the report.
     ch_extracted_with_genome = EXTRACT_READS_BY_TAXID.out.reads
         .map { meta, reads -> [ [meta.id, meta.taxid.toString()], meta, reads ] }
         .join(
@@ -137,8 +142,17 @@ workflow VALIDATION {
             remainder: true
         )
         .map { key, meta, reads, genome ->
-            [ meta, reads, genome ]
+            if (reads == null) {
+                log.warn "Validation join: no extracted reads for sample '${key[0]}' taxid '${key[1]}' -- skipping validation for this pair"
+                return null
+            }
+            if (genome == null) {
+                log.warn "Validation join: no reference genome for sample '${key[0]}' taxid '${key[1]}' -- skipping validation for this pair"
+                return null
+            }
+            return [ meta, reads, genome ]
         }
+        .filter { it != null }
 
     //
     // MODULE: Run BLAST validation (if enabled)
