@@ -499,8 +499,16 @@ workflow NANOMETANF {
     // MODULE: Generate nanopore-specific MultiQC custom content (optional)
     //
     if (params.enable_nanopore_stats_mqc) {
-        // Collect SeqKit/FASTP stats as file inputs for nanopore statistics
+        // Collect SeqKit/FASTP stats as file inputs for nanopore statistics.
+        // The upstream QC_ANALYSIS subworkflow attaches ``.ifEmpty([])`` to
+        // ``qc_json`` so the top-level test harness sees an emission even
+        // when every QC task failed. That synthetic ``[]`` placeholder
+        // must be dropped before any tuple-destructuring closure
+        // ``{ meta, stats_file -> ... }``; otherwise it crashes with
+        // ``MissingMethodException``. Same guard pattern as in the
+        // ``QC_ANALYSIS.out.qc_json.collect{ it[1] }`` consumers above.
         ch_stats_files = QC_ANALYSIS.out.qc_json
+            .filter { it instanceof List && it.size() >= 2 && it[1] != null }
             .map { meta, stats_file -> stats_file }
             .collect()
 

@@ -81,6 +81,7 @@ jobs:
             tests/chopper_specific.nf.test \
             tests/default.nf.test \
             tests/full_pipeline_stubmode.nf.test \
+            tests/ifempty_sentinel_regression.nf.test \
             tests/input_scanner.nf.test \
             tests/main_workflow.nf.test \
             tests/multiplex_scaling.nf.test \
