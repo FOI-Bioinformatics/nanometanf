@@ -13,6 +13,7 @@ This directory contains comprehensive documentation for developers working on th
 
 - [PROMETHION_OPTIMIZATIONS.md](PROMETHION_OPTIMIZATIONS.md) - Platform-specific performance optimizations
 - [incremental_kraken2_implementation.md](incremental_kraken2_implementation.md) - Kraken2 streaming classification architecture (v1.5+)
+- [canonical_output_specification.md](canonical_output_specification.md) - Source of truth for the `outdir/canonical/` schema (contracts A-D + manifest)
 - **Streaming Kraken2 (v1.5+)** - see [CLAUDE.md](../../CLAUDE.md) for the architectural overview
 
 ### Deployment & Operations
