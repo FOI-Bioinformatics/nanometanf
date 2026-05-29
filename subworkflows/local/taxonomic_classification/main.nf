@@ -261,6 +261,20 @@ workflow TAXONOMIC_CLASSIFICATION {
                 // This provides live cumulative reports during the run, while
                 // FINAL_AGGREGATOR produces the definitive output at session end.
                 //
+                // MEMORY BOUNDING (audit P2.15):
+                //  * Each per-sample taxa map grows with unique taxids and never
+                //    shrinks during the run. On long high-diversity runs that
+                //    map can reach tens or hundreds of thousands of entries
+                //    (24 samples * 10k taxa * ~80 B per entry approaches 20 MB
+                //    of long-lived heap inside the Nextflow head process).
+                //  * Release each sample's state from the head-process map as
+                //    soon as its final batch is written, so completed samples
+                //    do not pin memory until session shutdown.
+                //  * Periodically log the live state size so operators can
+                //    detect runaway accumulation before it triggers OOM in the
+                //    Nextflow driver JVM. The log interval is tied to the
+                //    same write_interval that gates the report flush.
+                //
                 def cumulative_taxa_state = [:].withDefault { key ->
                     [total_reads: 0, classified_reads: 0, unclassified_reads: 0, taxa: [:]]
                 }
@@ -297,10 +311,12 @@ workflow TAXONOMIC_CLASSIFICATION {
 
                                 batch_write_counter[sample_id] = batch_write_counter[sample_id] + 1
 
+                                def is_final_batch = (meta.is_final_batch == true)
+
                                 // Write only every N batches or on final batch
                                 if (write_interval <= 0
                                     || batch_write_counter[sample_id] % write_interval == 0
-                                    || meta.is_final_batch == true) {
+                                    || is_final_batch) {
 
                                     // Write progressive cumulative kreport for dashboard
                                     def outdir = new File("${params.outdir}/kraken2")
@@ -327,7 +343,26 @@ workflow TAXONOMIC_CLASSIFICATION {
                                     }
 
                                     log.debug "Progressive cumulative report updated for ${sample_id}: ${state.total_reads} reads, ${state.taxa.size()} taxa"
+
+                                    // Memory diagnostic at every write: total live taxa across all in-flight samples
+                                    def live_samples = cumulative_taxa_state.size()
+                                    def live_taxa = cumulative_taxa_state.values().sum(0) { it.taxa.size() }
+                                    log.info "[cumulative-state] ${live_samples} sample(s) in flight, ${live_taxa} total live taxa entries"
                                 } // end write interval check
+
+                                // Release this sample's state once its final batch
+                                // has been written. Completed samples have nothing
+                                // more to merge, so keeping their taxa map alive
+                                // for the rest of the session just bloats the
+                                // head-process heap. The final cumulative file on
+                                // disk remains the authoritative artefact; the
+                                // FINAL_AGGREGATOR reads the per-batch files
+                                // directly and never consults this in-memory map.
+                                if (is_final_batch) {
+                                    cumulative_taxa_state.remove(sample_id)
+                                    batch_write_counter.remove(sample_id)
+                                    log.info "[cumulative-state] released in-memory state for sample '${sample_id}' (final batch processed)"
+                                }
                             }
                         } catch (Exception e) {
                             log.warn "Progressive cumulative report failed for sample '${sample_label}': ${e.message}"
