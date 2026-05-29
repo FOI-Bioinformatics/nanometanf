@@ -745,6 +745,15 @@
                     "description": "Maximum parallel Kraken2 classification jobs.",
                     "fa_icon": "fas fa-code-branch",
                     "help_text": "Controls the number of concurrent Kraken2 classification processes. Adjust based on available memory and CPU cores. Each Kraken2 job requires 12GB+ memory with large databases."
+                },
+                "runtime_metrics_interval_seconds": {
+                    "type": "integer",
+                    "default": 0,
+                    "minimum": 0,
+                    "maximum": 3600,
+                    "description": "Interval in seconds for the realtime_monitoring [runtime-metrics] snapshot (0 = disabled).",
+                    "fa_icon": "fas fa-chart-line",
+                    "help_text": "Audit V5 instrumentation. When > 0 the realtime_monitoring subworkflow logs a structured ``[runtime-metrics] elapsed_s=N files=X batches=Y barcodes=Z batches_per_barcode_min=A batches_per_barcode_max=B`` line every N seconds. Combined with the expanded ``trace.fields`` (submit / start / complete / queue) this gives a 24-barcode field run the data the audit asked for to confirm backpressure behaviour. Default 0 (off) keeps batch-mode runs silent."
                 }
             }
         },

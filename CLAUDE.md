@@ -362,6 +362,23 @@ NFT_SHARD=2/4 ./tests/run_tests.sh full
 - `--max_classification_forks` - Max parallel Kraken2 jobs (default: 8)
 - `--kraken2_enable_incremental` - Enable scalable streaming architecture
 
+### Runtime metrics (audit V5)
+
+- `--runtime_metrics_interval_seconds` - Interval (s) for periodic
+  `[runtime-metrics]` snapshots emitted by `REALTIME_MONITORING`.
+  Default `0` (off); set e.g. `--runtime_metrics_interval_seconds 60`
+  on a 24-barcode field run to collect the queue-depth evidence the
+  audit asked for. Combined with the expanded `trace.fields`
+  (`submit / start / complete / queue`) the resulting
+  `execution_trace_*.txt` lets you chart per-task waiting time and
+  per-barcode batch counts without instrumenting Nextflow internals.
+  Grep `.nextflow.log` for `[runtime-metrics]` to extract:
+
+  ```
+  [runtime-metrics] elapsed_s=N files=X batches=Y barcodes=Z \
+      batches_per_barcode_min=A batches_per_barcode_max=B
+  ```
+
 ### Taxonomic Classification
 
 - `--kraken2_db` - Path to Kraken2 database
