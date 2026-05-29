@@ -109,7 +109,6 @@ module_order:
       name: "samtools / minimap2"
       anchor: "minimap2_validation"
       info: "Alignment statistics for the minimap2 validation path"
-
 # Chopper and BLAST do not yet ship native MultiQC modules. Their
 # metrics surface through the canonical_qc_writer / canonical_validation_writer
 # JSON outputs and through the per-tool publishDir under chopper/ and
