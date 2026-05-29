@@ -61,6 +61,56 @@ workflow REALTIME_MONITORING {
             log.info "NOTE: ``--max_concurrent_batches ${params.max_concurrent_batches}`` is currently advisory; see audit P2.9 for the planned per-barcode throttle"
         }
 
+        //
+        // RUNTIME METRICS SNAPSHOTS (audit V5)
+        //
+        // Audit V5 asked for "live or simulated 24-barcode run with
+        // executor queue-depth metrics collected from .nextflow.log to
+        // confirm backpressure behaviour". Two complementary streams
+        // satisfy that request without instrumenting Nextflow internals:
+        //   1. ``trace.fields`` in nextflow.config now exports submit /
+        //      start / complete / queue, so post-hoc analysis can chart
+        //      per-task waiting time directly from
+        //      ``execution_trace_<ts>.txt``.
+        //   2. This block runs a daemon Timer that periodically emits a
+        //      structured ``[runtime-metrics]`` log line with the live
+        //      counters (files seen, batches emitted, per-barcode batch
+        //      counts). Operators can grep ``.nextflow.log`` for
+        //      ``[runtime-metrics]`` and pipe through ``jq`` / ``awk``.
+        //
+        // The interval is controlled by ``params.runtime_metrics_interval_seconds``.
+        // Default 0 (disabled) keeps batch-mode runs silent; field
+        // operators set e.g. ``--runtime_metrics_interval_seconds 60``
+        // when collecting V5 evidence on a 24-barcode run.
+        //
+        def metrics_interval_s = (params.runtime_metrics_interval_seconds ?: 0) as int
+        def files_seen = new java.util.concurrent.atomic.AtomicLong(0L)
+        def batches_emitted = new java.util.concurrent.atomic.AtomicLong(0L)
+        def per_barcode_batches = new java.util.concurrent.ConcurrentHashMap<String, java.util.concurrent.atomic.AtomicLong>()
+        if (metrics_interval_s > 0) {
+            log.info "[runtime-metrics] periodic snapshot enabled, interval = ${metrics_interval_s}s"
+            def started_at = System.currentTimeMillis()
+            def period_ms = metrics_interval_s * 1000L
+            def metrics_timer = new java.util.Timer('runtime-metrics-snapshot', /* daemon */ true)
+            metrics_timer.scheduleAtFixedRate({
+                try {
+                    long elapsed_s = (System.currentTimeMillis() - started_at) / 1000L
+                    long files = files_seen.get()
+                    long batches = batches_emitted.get()
+                    long sample_count = per_barcode_batches.size()
+                    long max_per_sample = per_barcode_batches.values()
+                        .collect { it.get() }
+                        .max() ?: 0L
+                    long min_per_sample = per_barcode_batches.values()
+                        .collect { it.get() }
+                        .min() ?: 0L
+                    log.info "[runtime-metrics] elapsed_s=${elapsed_s} files=${files} batches=${batches} barcodes=${sample_count} batches_per_barcode_min=${min_per_sample} batches_per_barcode_max=${max_per_sample}"
+                } catch (Exception e) {
+                    log.debug "[runtime-metrics] snapshot failed: ${e.message}"
+                }
+            } as java.util.TimerTask, period_ms, period_ms)
+        }
+
         // Use file() function directly to find existing files - more reliable than Channel.fromPath
         // The file() function with glob patterns returns a list of matching files
         def full_pattern = "${watch_dir}/${file_pattern}"
@@ -157,6 +207,17 @@ workflow REALTIME_MONITORING {
         // With both bounds wired in, whichever predicate is satisfied first
         // terminates the channel; downstream batching then drains naturally.
         def TIMEOUT_SENTINEL = '__REALTIME_TIMEOUT_SENTINEL__'
+
+        // Count every file seen, regardless of whether it survives the
+        // timeout or max_files cuts below. The tap is a side-effect-only
+        // ``.map`` so it does not change the channel shape; the counter
+        // feeds the periodic ``[runtime-metrics]`` snapshot above.
+        if (metrics_interval_s > 0) {
+            ch_all_files = ch_all_files.map { f ->
+                files_seen.incrementAndGet()
+                return f
+            }
+        }
         ch_input_files = ch_all_files
 
         if (params.realtime_timeout_minutes) {
@@ -280,6 +341,24 @@ workflow REALTIME_MONITORING {
         }
 
         log.info "="*80
+
+        // Tap each batch into the runtime-metrics counters before it
+        // flows into the meta-map conversion. ``per_barcode_batches``
+        // is keyed by the parent-directory name (typically the barcode
+        // folder), so the snapshot can report which barcode is moving
+        // and which is starving.
+        if (metrics_interval_s > 0) {
+            ch_batched_files = ch_batched_files.map { batch ->
+                batches_emitted.incrementAndGet()
+                def files = batch instanceof List ? batch : [batch]
+                files.each { f ->
+                    def key = f?.parent?.name ?: 'unknown'
+                    def counter = per_barcode_batches.computeIfAbsent(key, { new java.util.concurrent.atomic.AtomicLong(0L) })
+                    counter.incrementAndGet()
+                }
+                return batch
+            }
+        }
 
         //
         // CHANNEL: Convert files to meta map format with barcode extraction
