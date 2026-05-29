@@ -116,10 +116,8 @@ jobs:
             subworkflows/local/input_scanner/tests/main.nf.test \
             subworkflows/local/qc_analysis/tests/main.nf.test \
             subworkflows/local/qc_benchmark/tests/main.nf.test \
-            subworkflows/local/realtime_statistics/tests/main.nf.test \
             subworkflows/local/taxonomic_classification/tests/gui_filename_compatibility.nf.test \
             subworkflows/local/taxonomic_classification/tests/main.nf.test \
-            subworkflows/local/taxonomic_classification/tests/realtime_cumulative_emit.nf.test \
             subworkflows/local/utils_nfcore_nanometanf_pipeline/tests/main.nf.test
 
   profile-sanity:

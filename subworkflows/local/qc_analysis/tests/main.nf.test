@@ -523,9 +523,10 @@ nextflow_workflow {
         }
 
         then {
-            // Should handle empty input gracefully
+            // Should handle empty input gracefully -- with no input
+            // files the versions channel is also empty, so we cannot
+            // assert ``workflow.out.versions`` here.
             assert workflow.success
-            assert workflow.out.versions
 
             if (workflow.success) {
                 // Empty outputs expected
