@@ -733,9 +733,9 @@
                     "default": 4,
                     "minimum": 1,
                     "maximum": 32,
-                    "description": "Maximum concurrent batches per sample for backpressure control.",
+                    "description": "Maximum concurrent batches per barcode (advisory; not currently enforced).",
                     "fa_icon": "fas fa-traffic-light",
-                    "help_text": "Limits the number of batches that can be processed concurrently per sample to prevent queue saturation. Increase for systems with more memory and CPU cores."
+                    "help_text": "Reserved for the per-barcode throttle tracked under audit item P2.9. Today this value is logged for visibility but has no enforcement effect: the only real classifier throttle is the global ``--max_classification_forks`` cap on the Kraken2 process declarations. If one slow barcode is starving others, raise ``--max_classification_forks`` to at least the number of barcodes so each barcode can land one classifier slot in steady state."
                 },
                 "max_classification_forks": {
                     "type": "integer",
