@@ -215,12 +215,23 @@ workflow NANOMETANF {
         )
         ch_versions = ch_versions.mix(QC_ANALYSIS.out.versions)
 
-        // Collect QC outputs for MultiQC (tool-agnostic)
-        ch_multiqc_files = ch_multiqc_files.mix(QC_ANALYSIS.out.qc_json.collect{it[1]})
+        // Collect QC outputs for MultiQC (tool-agnostic). The upstream
+        // FASTP / FASTP_STREAMING channels carry `.ifEmpty([])` sentinels
+        // (see qc_analysis), which would crash this destructuring closure
+        // when every QC task failed. Drop the sentinel before `it[1]`.
+        ch_multiqc_files = ch_multiqc_files.mix(
+            QC_ANALYSIS.out.qc_json
+                .filter { it instanceof List && it.size() >= 2 && it[1] != null }
+                .collect { it[1] }
+        )
 
         // Add NanoPlot summary statistics to MultiQC (NanoStats.txt)
         if (!params.skip_nanoplot) {
-            ch_multiqc_files = ch_multiqc_files.mix(QC_ANALYSIS.out.nanoplot_txt.collect{it[1]})
+            ch_multiqc_files = ch_multiqc_files.mix(
+                QC_ANALYSIS.out.nanoplot_txt
+                    .filter { it instanceof List && it.size() >= 2 && it[1] != null }
+                    .collect { it[1] }
+            )
         }
 
         ch_qc_reads = QC_ANALYSIS.out.reads
@@ -339,7 +350,11 @@ workflow NANOMETANF {
             ch_classification_db
         )
         ch_versions = ch_versions.mix(TAXONOMIC_CLASSIFICATION.out.versions)
-        ch_multiqc_files = ch_multiqc_files.mix(TAXONOMIC_CLASSIFICATION.out.report.collect{it[1]})
+        ch_multiqc_files = ch_multiqc_files.mix(
+            TAXONOMIC_CLASSIFICATION.out.report
+                .filter { it instanceof List && it.size() >= 2 && it[1] != null }
+                .collect { it[1] }
+        )
 
         //
         // SUBWORKFLOW: Pathogen validation via BLAST and/or minimap2

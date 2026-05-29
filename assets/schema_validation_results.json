@@ -1,218 +1,205 @@
 {
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/foi-bioinformatics/nanometanf/raw/main/assets/schema_validation_results.json",
-  "title": "Nanometanf validation_results.json",
-  "description": "Canonical contract for the JSON document produced by the AGGREGATE_VALIDATION_RESULTS module. nanometa_live and any other downstream consumer reads this file at results/validation/validation_results.json. The schema is the source of truth for the cross-component contract; the writer at modules/local/aggregate_validation_results/main.nf and the consumer at nanometa_live/core/parsers/blast_validation_parser.py both reference it.",
-  "type": "object",
-  "required": [
-    "pipeline_version",
-    "validation_method",
-    "timestamp",
-    "thresholds",
-    "results",
-    "summary"
-  ],
-  "additionalProperties": false,
-  "properties": {
-    "pipeline_version": {
-      "type": "string",
-      "description": "nanometanf pipeline version string from workflow.manifest.version. \"dev\" when the manifest is unset.",
-      "examples": ["1.5.1dev", "1.5.0", "dev"]
-    },
-    "validation_method": {
-      "type": "string",
-      "enum": ["blast", "minimap2", "both"],
-      "description": "Validation methods that were exercised in this run. ``both`` indicates BLAST and minimap2 results coexist per (sample, taxid) entry."
-    },
-    "timestamp": {
-      "type": "string",
-      "format": "date-time",
-      "description": "ISO 8601 UTC timestamp when the aggregator ran."
-    },
-    "thresholds": {
-      "type": "object",
-      "required": ["hit_rate", "identity"],
-      "additionalProperties": false,
-      "properties": {
-        "hit_rate": {
-          "type": "number",
-          "minimum": 0.0,
-          "maximum": 1.0,
-          "description": "Validation hit-rate threshold from params.validation_hit_rate_threshold (default 0.5). A read passes hit-rate filtering when at least this fraction of its alignments cleared the identity bar."
-        },
-        "identity": {
-          "type": "number",
-          "minimum": 0.0,
-          "maximum": 100.0,
-          "description": "Percent-identity threshold from params.validation_identity_threshold (default 90.0). On amplicon protocols the short-amplicon audit recommends 80.0 -- short ONT reads carry more end-of-read Q-score noise."
-        }
-      }
-    },
-    "results": {
-      "type": "object",
-      "description": "Two-level nested map: sample_id -> taxid (as string) -> per-(sample, taxid) result. Empty when no validation ran. Sample IDs are operator-supplied (e.g. ``barcode01``); taxid keys are the integer NCBI taxid serialised as a string for JSON-object-key compatibility.",
-      "patternProperties": {
-        "^[A-Za-z0-9_.-]+$": {
-          "type": "object",
-          "patternProperties": {
-            "^[0-9]+$": { "$ref": "#/$defs/ValidationEntry" }
-          },
-          "additionalProperties": false
-        }
-      },
-      "additionalProperties": false
-    },
-    "summary": {
-      "type": "object",
-      "required": [
-        "total_samples",
-        "total_taxids_validated",
-        "confirmed",
-        "uncertain",
-        "rejected"
-      ],
-      "additionalProperties": false,
-      "properties": {
-        "total_samples": {
-          "type": "integer",
-          "minimum": 0,
-          "description": "Distinct sample_id values present in results."
-        },
-        "total_taxids_validated": {
-          "type": "integer",
-          "minimum": 0,
-          "description": "Sum of distinct taxid keys across all samples (a (sample, taxid) pair counts once)."
-        },
-        "confirmed": {
-          "type": "integer",
-          "minimum": 0,
-          "description": "Number of (sample, taxid) entries with validation_status == \"confirmed\". For dual-method runs the BLAST validation_status is counted; minimap2_status is a sibling field."
-        },
-        "uncertain": {
-          "type": "integer",
-          "minimum": 0,
-          "description": "(sample, taxid) entries with validation_status == \"uncertain\"."
-        },
-        "rejected": {
-          "type": "integer",
-          "minimum": 0,
-          "description": "(sample, taxid) entries with validation_status == \"rejected\"."
-        }
-      }
-    }
-  },
-  "$defs": {
-    "ValidationEntry": {
-      "type": "object",
-      "description": "One (sample, taxid) validation result. Required fields are present in every entry; method-specific fields are present only when that method ran.",
-      "required": [
-        "taxid",
-        "species",
-        "validation_method",
-        "kraken_reads",
-        "extracted_reads",
-        "hit_rate",
-        "avg_identity",
-        "avg_coverage",
-        "validation_status"
-      ],
-      "additionalProperties": false,
-      "properties": {
-        "taxid": {
-          "type": "integer",
-          "minimum": 1,
-          "description": "NCBI taxonomy ID. Echoes the dictionary key but typed as integer. Note: when the run uses a GTDB Kraken2 database, this carries the GTDB-mapped taxid which may differ from the NCBI taxid the operator selected in the watchlist; nanometa_live's TaxidMapper handles the inverse lookup."
-        },
-        "species": {
-          "type": "string",
-          "description": "Species name extracted from the Kraken2 report. Empty string when the taxid was not found at species rank in any report."
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://github.com/foi-bioinformatics/nanometanf/raw/main/assets/schema_validation_results.json",
+    "title": "Nanometanf validation_results.json",
+    "description": "Canonical contract for the JSON document produced by the AGGREGATE_VALIDATION_RESULTS module. nanometa_live and any other downstream consumer reads this file at results/validation/validation_results.json. The schema is the source of truth for the cross-component contract; the writer at modules/local/aggregate_validation_results/main.nf and the consumer at nanometa_live/core/parsers/blast_validation_parser.py both reference it.",
+    "type": "object",
+    "required": ["pipeline_version", "validation_method", "timestamp", "thresholds", "results", "summary"],
+    "additionalProperties": false,
+    "properties": {
+        "pipeline_version": {
+            "type": "string",
+            "description": "nanometanf pipeline version string from workflow.manifest.version. \"dev\" when the manifest is unset.",
+            "examples": ["1.5.1dev", "1.5.0", "dev"]
         },
         "validation_method": {
-          "type": "string",
-          "enum": ["blast", "minimap2"],
-          "description": "Primary validation method for this entry. When both BLAST and minimap2 ran for the same (sample, taxid), the entry is keyed on whichever wrote first; the other method's stats appear as the minimap2_* sibling fields."
+            "type": "string",
+            "enum": ["blast", "minimap2", "both"],
+            "description": "Validation methods that were exercised in this run. ``both`` indicates BLAST and minimap2 results coexist per (sample, taxid) entry."
         },
-        "kraken_reads": {
-          "type": "integer",
-          "minimum": 0,
-          "description": "Reads classified to this taxid by Kraken2 (per the per-read assignment file)."
+        "timestamp": {
+            "type": "string",
+            "format": "date-time",
+            "description": "ISO 8601 UTC timestamp when the aggregator ran."
         },
-        "extracted_reads": {
-          "type": "integer",
-          "minimum": 0,
-          "description": "Reads successfully extracted by EXTRACT_READS_BY_TAXID for downstream validation. Should equal kraken_reads in normal operation; lower values indicate an extraction failure (rare)."
+        "thresholds": {
+            "type": "object",
+            "required": ["hit_rate", "identity"],
+            "additionalProperties": false,
+            "properties": {
+                "hit_rate": {
+                    "type": "number",
+                    "minimum": 0.0,
+                    "maximum": 1.0,
+                    "description": "Validation hit-rate threshold from params.validation_hit_rate_threshold (default 0.5). A read passes hit-rate filtering when at least this fraction of its alignments cleared the identity bar."
+                },
+                "identity": {
+                    "type": "number",
+                    "minimum": 0.0,
+                    "maximum": 100.0,
+                    "description": "Percent-identity threshold from params.validation_identity_threshold (default 90.0). On amplicon protocols the short-amplicon audit recommends 80.0 -- short ONT reads carry more end-of-read Q-score noise."
+                }
+            }
         },
-        "blast_hits": {
-          "type": "integer",
-          "minimum": 0,
-          "description": "BLAST mode only. Number of extracted reads that produced at least one BLAST hit clearing the identity threshold."
+        "results": {
+            "type": "object",
+            "description": "Two-level nested map: sample_id -> taxid (as string) -> per-(sample, taxid) result. Empty when no validation ran. Sample IDs are operator-supplied (e.g. ``barcode01``); taxid keys are the integer NCBI taxid serialised as a string for JSON-object-key compatibility.",
+            "patternProperties": {
+                "^[A-Za-z0-9_.-]+$": {
+                    "type": "object",
+                    "patternProperties": {
+                        "^[0-9]+$": { "$ref": "#/$defs/ValidationEntry" }
+                    },
+                    "additionalProperties": false
+                }
+            },
+            "additionalProperties": false
         },
-        "mapped_reads": {
-          "type": "integer",
-          "minimum": 0,
-          "description": "Minimap2 mode only. Number of extracted reads that aligned to the reference with MAPQ >= params.minimap2_min_mapq."
-        },
-        "hit_rate": {
-          "type": "number",
-          "minimum": 0.0,
-          "maximum": 1.0,
-          "description": "Fraction of extracted reads that produced a hit (blast_hits / extracted_reads or mapped_reads / extracted_reads). Compared to thresholds.hit_rate to set validation_status."
-        },
-        "avg_identity": {
-          "type": "number",
-          "minimum": 0.0,
-          "maximum": 100.0,
-          "description": "Mean percent identity across all hits. Compared to thresholds.identity to set validation_status."
-        },
-        "avg_coverage": {
-          "type": "number",
-          "minimum": 0.0,
-          "maximum": 1.0,
-          "description": "Mean fraction of the read covered by its best hit (BLAST) or alignment (minimap2)."
-        },
-        "avg_mapq": {
-          "type": "number",
-          "minimum": 0.0,
-          "maximum": 60.0,
-          "description": "Minimap2 mode only. Mean MAPQ of accepted alignments. Range follows minimap2 convention (0-60)."
-        },
-        "ref_name": {
-          "type": "string",
-          "description": "Minimap2 mode only. Reference contig / chromosome name the reads aligned to. Empty when no alignments produced."
-        },
-        "ref_length": {
-          "type": "integer",
-          "minimum": 0,
-          "description": "Minimap2 mode only. Reference sequence length in bp. Used by nanometa_live's coverage plots."
-        },
-        "minimap2_mapped": {
-          "type": "integer",
-          "minimum": 0,
-          "description": "Dual-method mode only (validation_method == \"blast\" entries also carrying minimap2 stats). Equivalent of mapped_reads from the minimap2 pass."
-        },
-        "minimap2_hit_rate": {
-          "type": "number",
-          "minimum": 0.0,
-          "maximum": 1.0,
-          "description": "Dual-method mode only. minimap2 hit_rate for the same (sample, taxid)."
-        },
-        "minimap2_identity": {
-          "type": "number",
-          "minimum": 0.0,
-          "maximum": 100.0,
-          "description": "Dual-method mode only. minimap2 avg_identity for the same (sample, taxid)."
-        },
-        "minimap2_status": {
-          "type": "string",
-          "enum": ["confirmed", "uncertain", "rejected", "unknown"],
-          "description": "Dual-method mode only. minimap2 validation_status for the same (sample, taxid)."
-        },
-        "validation_status": {
-          "type": "string",
-          "enum": ["confirmed", "uncertain", "rejected", "unknown"],
-          "description": "Final verdict for this (sample, taxid). ``confirmed`` when hit_rate >= thresholds.hit_rate AND avg_identity >= thresholds.identity. ``rejected`` when hit_rate is well below threshold. ``uncertain`` for borderline cases. ``unknown`` is a fallback when the writer could not classify."
+        "summary": {
+            "type": "object",
+            "required": ["total_samples", "total_taxids_validated", "confirmed", "uncertain", "rejected"],
+            "additionalProperties": false,
+            "properties": {
+                "total_samples": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "description": "Distinct sample_id values present in results."
+                },
+                "total_taxids_validated": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "description": "Sum of distinct taxid keys across all samples (a (sample, taxid) pair counts once)."
+                },
+                "confirmed": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "description": "Number of (sample, taxid) entries with validation_status == \"confirmed\". For dual-method runs the BLAST validation_status is counted; minimap2_status is a sibling field."
+                },
+                "uncertain": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "description": "(sample, taxid) entries with validation_status == \"uncertain\"."
+                },
+                "rejected": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "description": "(sample, taxid) entries with validation_status == \"rejected\"."
+                }
+            }
         }
-      }
+    },
+    "$defs": {
+        "ValidationEntry": {
+            "type": "object",
+            "description": "One (sample, taxid) validation result. Required fields are present in every entry; method-specific fields are present only when that method ran.",
+            "required": [
+                "taxid",
+                "species",
+                "validation_method",
+                "kraken_reads",
+                "extracted_reads",
+                "hit_rate",
+                "avg_identity",
+                "avg_coverage",
+                "validation_status"
+            ],
+            "additionalProperties": false,
+            "properties": {
+                "taxid": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "description": "NCBI taxonomy ID. Echoes the dictionary key but typed as integer. Note: when the run uses a GTDB Kraken2 database, this carries the GTDB-mapped taxid which may differ from the NCBI taxid the operator selected in the watchlist; nanometa_live's TaxidMapper handles the inverse lookup."
+                },
+                "species": {
+                    "type": "string",
+                    "description": "Species name extracted from the Kraken2 report. Empty string when the taxid was not found at species rank in any report."
+                },
+                "validation_method": {
+                    "type": "string",
+                    "enum": ["blast", "minimap2"],
+                    "description": "Primary validation method for this entry. When both BLAST and minimap2 ran for the same (sample, taxid), the entry is keyed on whichever wrote first; the other method's stats appear as the minimap2_* sibling fields."
+                },
+                "kraken_reads": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "description": "Reads classified to this taxid by Kraken2 (per the per-read assignment file)."
+                },
+                "extracted_reads": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "description": "Reads successfully extracted by EXTRACT_READS_BY_TAXID for downstream validation. Should equal kraken_reads in normal operation; lower values indicate an extraction failure (rare)."
+                },
+                "blast_hits": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "description": "BLAST mode only. Number of extracted reads that produced at least one BLAST hit clearing the identity threshold."
+                },
+                "mapped_reads": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "description": "Minimap2 mode only. Number of extracted reads that aligned to the reference with MAPQ >= params.minimap2_min_mapq."
+                },
+                "hit_rate": {
+                    "type": "number",
+                    "minimum": 0.0,
+                    "maximum": 1.0,
+                    "description": "Fraction of extracted reads that produced a hit (blast_hits / extracted_reads or mapped_reads / extracted_reads). Compared to thresholds.hit_rate to set validation_status."
+                },
+                "avg_identity": {
+                    "type": "number",
+                    "minimum": 0.0,
+                    "maximum": 100.0,
+                    "description": "Mean percent identity across all hits. Compared to thresholds.identity to set validation_status."
+                },
+                "avg_coverage": {
+                    "type": "number",
+                    "minimum": 0.0,
+                    "maximum": 1.0,
+                    "description": "Mean fraction of the read covered by its best hit (BLAST) or alignment (minimap2)."
+                },
+                "avg_mapq": {
+                    "type": "number",
+                    "minimum": 0.0,
+                    "maximum": 60.0,
+                    "description": "Minimap2 mode only. Mean MAPQ of accepted alignments. Range follows minimap2 convention (0-60)."
+                },
+                "ref_name": {
+                    "type": "string",
+                    "description": "Minimap2 mode only. Reference contig / chromosome name the reads aligned to. Empty when no alignments produced."
+                },
+                "ref_length": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "description": "Minimap2 mode only. Reference sequence length in bp. Used by nanometa_live's coverage plots."
+                },
+                "minimap2_mapped": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "description": "Dual-method mode only (validation_method == \"blast\" entries also carrying minimap2 stats). Equivalent of mapped_reads from the minimap2 pass."
+                },
+                "minimap2_hit_rate": {
+                    "type": "number",
+                    "minimum": 0.0,
+                    "maximum": 1.0,
+                    "description": "Dual-method mode only. minimap2 hit_rate for the same (sample, taxid)."
+                },
+                "minimap2_identity": {
+                    "type": "number",
+                    "minimum": 0.0,
+                    "maximum": 100.0,
+                    "description": "Dual-method mode only. minimap2 avg_identity for the same (sample, taxid)."
+                },
+                "minimap2_status": {
+                    "type": "string",
+                    "enum": ["confirmed", "uncertain", "rejected", "unknown"],
+                    "description": "Dual-method mode only. minimap2 validation_status for the same (sample, taxid)."
+                },
+                "validation_status": {
+                    "type": "string",
+                    "enum": ["confirmed", "uncertain", "rejected", "unknown"],
+                    "description": "Final verdict for this (sample, taxid). ``confirmed`` when hit_rate >= thresholds.hit_rate AND avg_identity >= thresholds.identity. ``rejected`` when hit_rate is well below threshold. ``uncertain`` for borderline cases. ``unknown`` is a fallback when the writer could not classify."
+                }
+            }
+        }
     }
-  }
 }

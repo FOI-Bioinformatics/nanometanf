@@ -598,13 +598,13 @@ results/canonical/
 
 Each analysis stage has a dedicated writer module that converts tool-specific output into the canonical format:
 
-| Module | Input | Output |
-|--------|-------|--------|
-| `canonical_classification_writer` | Kraken2 reports | `classification/{sample}.classification.tsv` |
-| `canonical_qc_writer` | FASTP/SeqKit metrics | `qc/{sample}.qc.tsv` |
-| `canonical_validation_writer` | BLAST/minimap2 results | `validation/{sample}.validation.tsv` |
-| `canonical_assembly_writer` | Assembly statistics | `assembly/{sample}.assembly.tsv` |
-| `manifest_writer` | All canonical outputs | `_manifest.json` |
+| Module                            | Input                  | Output                                       |
+| --------------------------------- | ---------------------- | -------------------------------------------- |
+| `canonical_classification_writer` | Kraken2 reports        | `classification/{sample}.classification.tsv` |
+| `canonical_qc_writer`             | FASTP/SeqKit metrics   | `qc/{sample}.qc.tsv`                         |
+| `canonical_validation_writer`     | BLAST/minimap2 results | `validation/{sample}.validation.tsv`         |
+| `canonical_assembly_writer`       | Assembly statistics    | `assembly/{sample}.assembly.tsv`             |
+| `manifest_writer`                 | All canonical outputs  | `_manifest.json`                             |
 
 The canonical output format is independent of which upstream tools are used, providing a stable interface for consumers such as Nanometa Live.
 

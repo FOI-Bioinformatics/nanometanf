@@ -371,12 +371,12 @@ Pre-built databases are available from Ben Langmead's AWS mirror:
 
 Common databases:
 
-| Database      | Size    | Contents                                             |
-| ------------- | ------- | ---------------------------------------------------- |
-| `k2_standard` | ~70 GB  | Archaea, bacteria, viral, plasmid, human, vectors    |
-| `k2_pluspf`   | ~100 GB | Standard + protozoa and fungi                        |
+| Database      | Size    | Contents                                            |
+| ------------- | ------- | --------------------------------------------------- |
+| `k2_standard` | ~70 GB  | Archaea, bacteria, viral, plasmid, human, vectors   |
+| `k2_pluspf`   | ~100 GB | Standard + protozoa and fungi                       |
 | `k2_minusb`   | ~9 GB   | Standard minus bacteria (smaller, fewer references) |
-| `k2_viral`    | ~500 MB | Viral genomes only                                   |
+| `k2_viral`    | ~500 MB | Viral genomes only                                  |
 
 ```bash
 # Download and extract (example: viral database)

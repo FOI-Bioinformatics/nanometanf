@@ -11,11 +11,11 @@ streaming, batching, and barcode tracking.
 
 ### `id`
 
-| Property | Value |
-|----------|-------|
-| Type | `String` |
-| Set by | samplesheet parser, `realtime_monitoring`, `input_scanner` |
-| Used by | all processes (tag, prefix) |
+| Property | Value                                                      |
+| -------- | ---------------------------------------------------------- |
+| Type     | `String`                                                   |
+| Set by   | samplesheet parser, `realtime_monitoring`, `input_scanner` |
+| Used by  | all processes (tag, prefix)                                |
 
 The sample identifier. In barcode mode this is typically `barcode01`,
 `barcode02`, etc. In single-sample mode it equals `params.sample_name` or is
@@ -23,11 +23,11 @@ derived from the input filename.
 
 ### `single_end`
 
-| Property | Value |
-|----------|-------|
-| Type | `Boolean` |
-| Set by | samplesheet parser, `realtime_monitoring`, `input_scanner`, `demultiplexing` |
-| Used by | `FASTP`, `FASTP_STREAMING`, `KRAKEN2_KRAKEN2`, `KRAKEN2_OPTIMIZED`, `KRAKEN2_INCREMENTAL_CLASSIFIER`, `FILTLONG`, `utils_nfcore_nanometanf_pipeline` |
+| Property | Value                                                                                                                                                |
+| -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Type     | `Boolean`                                                                                                                                            |
+| Set by   | samplesheet parser, `realtime_monitoring`, `input_scanner`, `demultiplexing`                                                                         |
+| Used by  | `FASTP`, `FASTP_STREAMING`, `KRAKEN2_KRAKEN2`, `KRAKEN2_OPTIMIZED`, `KRAKEN2_INCREMENTAL_CLASSIFIER`, `FILTLONG`, `utils_nfcore_nanometanf_pipeline` |
 
 Indicates whether the reads are single-end. For Oxford Nanopore data this is
 always `true`. Several modules branch on this field to choose between
@@ -37,11 +37,11 @@ single-end and paired-end command-line flags (e.g., `--paired` in Kraken2).
 
 ### `barcode`
 
-| Property | Value |
-|----------|-------|
-| Type | `String` |
-| Set by | `realtime_monitoring`, `input_scanner`, `demultiplexing` |
-| Used by | downstream grouping (e.g., `groupTuple`), dashboard display |
+| Property | Value                                                       |
+| -------- | ----------------------------------------------------------- |
+| Type     | `String`                                                    |
+| Set by   | `realtime_monitoring`, `input_scanner`, `demultiplexing`    |
+| Used by  | downstream grouping (e.g., `groupTuple`), dashboard display |
 
 The barcode identifier (e.g., `barcode01`, `BC01`). Set when the sample ID
 matches a barcode naming pattern or when Dorado demultiplexing assigns reads
@@ -50,11 +50,11 @@ Nanometa Live dashboard.
 
 ### `batch_id`
 
-| Property | Value |
-|----------|-------|
-| Type | `Integer` or `String` |
-| Set by | `taxonomic_classification` (per-sample counter), `realtime_monitoring` (timestamp-based) |
-| Used by | `KRAKEN2_INCREMENTAL_CLASSIFIER` (tag, prefix, JSON metadata), `qc_analysis` (NanoPlot interval gating), `taxonomic_classification` (progressive report writing) |
+| Property | Value                                                                                                                                                            |
+| -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Type     | `Integer` or `String`                                                                                                                                            |
+| Set by   | `taxonomic_classification` (per-sample counter), `realtime_monitoring` (timestamp-based)                                                                         |
+| Used by  | `KRAKEN2_INCREMENTAL_CLASSIFIER` (tag, prefix, JSON metadata), `qc_analysis` (NanoPlot interval gating), `taxonomic_classification` (progressive report writing) |
 
 Identifies the batch within a sample's processing sequence. In the
 taxonomic classification subworkflow, a synchronized per-sample counter
@@ -68,11 +68,11 @@ directly in the per-file meta.
 
 ### `is_final_batch`
 
-| Property | Value |
-|----------|-------|
-| Type | `Boolean` |
-| Set by | real-time session completion signal |
-| Used by | `qc_analysis` (NanoPlot final run), `taxonomic_classification` (force cumulative report write) |
+| Property | Value                                                                                          |
+| -------- | ---------------------------------------------------------------------------------------------- |
+| Type     | `Boolean`                                                                                      |
+| Set by   | real-time session completion signal                                                            |
+| Used by  | `qc_analysis` (NanoPlot final run), `taxonomic_classification` (force cumulative report write) |
 
 A flag set to `true` on the last batch emitted when a real-time monitoring
 session ends. Both the QC analysis and taxonomic classification subworkflows
@@ -82,11 +82,11 @@ settings.
 
 ### `batch_count`
 
-| Property | Value |
-|----------|-------|
-| Type | `Integer` |
-| Set by | `taxonomic_classification` (groupTuple result sizing) |
-| Used by | downstream aggregation |
+| Property | Value                                                 |
+| -------- | ----------------------------------------------------- |
+| Type     | `Integer`                                             |
+| Set by   | `taxonomic_classification` (groupTuple result sizing) |
+| Used by  | downstream aggregation                                |
 
 The total number of batches collected for a sample after grouping. Set during
 the `groupTuple` aggregation step in the taxonomic classification subworkflow
@@ -94,11 +94,11 @@ when gathering all batch outputs for a sample into a single tuple.
 
 ### `batch_time`
 
-| Property | Value |
-|----------|-------|
-| Type | `String` (format: `yyyy-MM-dd_HH-mm-ss`) |
-| Set by | `realtime_monitoring` |
-| Used by | trace logging, output file naming |
+| Property | Value                                    |
+| -------- | ---------------------------------------- |
+| Type     | `String` (format: `yyyy-MM-dd_HH-mm-ss`) |
+| Set by   | `realtime_monitoring`                    |
+| Used by  | trace logging, output file naming        |
 
 Timestamp recorded when the batch was assembled. Provides temporal context for
 monitoring and debugging real-time processing sequences.

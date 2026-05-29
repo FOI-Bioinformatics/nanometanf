@@ -29,6 +29,19 @@ jobs:
         with:
           python-version: "3.13"
 
+      - name: Install Nextflow
+        # nf-core pipelines lint shells out to ``nextflow config`` while
+        # validating the pipeline; without an executable on PATH the
+        # linter aborts with FileNotFoundError before producing a report.
+        # Direct install bypasses nf-core/setup-nextflow@v2 Cloudflare
+        # 520 failures observed 2026-05-28.
+        env:
+          NXF_VER: "26.04.0"
+        run: |
+          curl -fsSL get.nextflow.io | bash
+          sudo install -m 0755 nextflow /usr/local/bin/nextflow
+          nextflow -v
+
       - name: Install nf-core tools
         run: pip install "nf-core==3.5.2"
 

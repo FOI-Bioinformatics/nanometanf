@@ -30,14 +30,14 @@ Use for contributing or for testing fixes before they ship.
 
 ## Version matrix
 
-| Version    | Status         | Recommendation                                  |
-|------------|----------------|--------------------------------------------------|
-| v1.5.1dev  | Development    | Contributors and pre-release testing             |
-| **v1.5.0** | **Production** | **Use this**                                     |
-| v1.3.3     | Beta           | Superseded by v1.5.0                             |
-| v1.3.1     | Hotfix         | Superseded by v1.5.0                             |
-| v1.3.0     | **Broken**     | **Do not use** -- parse-time error               |
-| v1.2.0     | Legacy stable  | Use only if v1.5.0 cannot be deployed            |
+| Version    | Status         | Recommendation                        |
+| ---------- | -------------- | ------------------------------------- |
+| v1.5.1dev  | Development    | Contributors and pre-release testing  |
+| **v1.5.0** | **Production** | **Use this**                          |
+| v1.3.3     | Beta           | Superseded by v1.5.0                  |
+| v1.3.1     | Hotfix         | Superseded by v1.5.0                  |
+| v1.3.0     | **Broken**     | **Do not use** -- parse-time error    |
+| v1.2.0     | Legacy stable  | Use only if v1.5.0 cannot be deployed |
 
 ---
 

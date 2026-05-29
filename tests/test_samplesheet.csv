@@ -1,2 +1,2 @@
 sample,fastq,barcode
-test_sample,/Users/andreassjodin/Code/nanometanf/tests/test_sample.fastq.gz,
+test_sample,https://raw.githubusercontent.com/nf-core/test-datasets/modules/data/genomics/sarscov2/nanopore/fastq/test.fastq.gz,

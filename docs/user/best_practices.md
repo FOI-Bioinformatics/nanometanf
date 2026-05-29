@@ -195,13 +195,13 @@ nextflow clean -after <run-name> -f
 
 **By use case** (accuracy figures are approximate, from upstream Kraken2 docs):
 
-| Use Case | Database | Size | Indicative Accuracy |
-|----------|----------|------|---------------------|
-| Bacteria ID | Standard-8 | 8GB | ~95% |
-| Viral detection | Viral | 500MB | ~99% (viruses) |
-| Metagenomics | PlusPF | 75GB | ~99% |
-| Quick screening | MiniKraken | 8GB | ~85% |
-| Custom species | Custom build | Varies | Depends on build |
+| Use Case        | Database     | Size   | Indicative Accuracy |
+| --------------- | ------------ | ------ | ------------------- |
+| Bacteria ID     | Standard-8   | 8GB    | ~95%                |
+| Viral detection | Viral        | 500MB  | ~99% (viruses)      |
+| Metagenomics    | PlusPF       | 75GB   | ~99%                |
+| Quick screening | MiniKraken   | 8GB    | ~85%                |
+| Custom species  | Custom build | Varies | Depends on build    |
 
 **Downloading**:
 

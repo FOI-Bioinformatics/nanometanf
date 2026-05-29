@@ -110,7 +110,7 @@ workflow QC_ANALYSIS {
                     false         // save_merged
                 )
                 // FASTP_STREAMING is a local module that still emits versions.yml
-                ch_versions = ch_versions.mix(FASTP_STREAMING.out.versions.ifEmpty([]))
+                ch_versions = ch_versions.mix(FASTP_STREAMING.out.versions)
                 ch_qc_reads = FASTP_STREAMING.out.reads.ifEmpty([])
                 ch_qc_reports = FASTP_STREAMING.out.html.ifEmpty([])
                 ch_qc_logs = FASTP_STREAMING.out.log.ifEmpty([])
@@ -141,7 +141,7 @@ workflow QC_ANALYSIS {
             FILTLONG (
                 ch_filtlong_input
             )
-            ch_versions = ch_versions.mix(FILTLONG.out.versions.ifEmpty([]))
+            ch_versions = ch_versions.mix(FILTLONG.out.versions)
 
             //
             // Enhanced reporting for FILTLONG: Add FastQC and SeqKit stats

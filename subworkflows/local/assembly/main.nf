@@ -48,7 +48,7 @@ workflow ASSEMBLY {
             ch_reads,
             sequencing_mode
         )
-        ch_versions = ch_versions.mix(FLYE.out.versions.ifEmpty([]))
+        ch_versions = ch_versions.mix(FLYE.out.versions)
 
         // Collect standardized outputs
         ch_assembly = FLYE.out.fasta.ifEmpty([])
@@ -77,7 +77,7 @@ workflow ASSEMBLY {
         MINIASM (
             ch_miniasm_input
         )
-        ch_versions = ch_versions.mix(MINIASM.out.versions.ifEmpty([]))
+        ch_versions = ch_versions.mix(MINIASM.out.versions)
 
         // Collect standardized outputs
         ch_assembly = MINIASM.out.assembly.ifEmpty([])

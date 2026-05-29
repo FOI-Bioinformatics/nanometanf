@@ -1,0 +1,97 @@
+nextflow_pipeline {
+
+    name "Multi-plex scaling stub tests"
+    script "../main.nf"
+
+    // Cover MinION single-plex, PromethION 12-plex and PromethION 24-plex
+    // in stub mode. The goal is to catch regressions in the platform
+    // profiles, the dynamic Kraken2 CPU closure in conf/modules.config,
+    // and the per-sample fan-out paths before they reach real runs.
+
+    tag "pipeline"
+    tag "scaling"
+    tag "stub"
+    tag "core"
+
+    test("MinION single-plex stub run completes") {
+
+        when {
+            params {
+                input = "$projectDir/assets/test_samplesheet.csv"
+                outdir = "$outputDir"
+
+                realtime_mode = false
+                skip_kraken2 = true
+                blast_validation = false
+                use_dorado = false
+
+                max_cpus = 8
+                max_memory = '16.GB'
+                max_time = '1.h'
+                max_classification_forks = 1
+            }
+        }
+
+        options "-stub"
+
+        then {
+            assert workflow.success
+            assert workflow.trace.tasks().size() > 0
+        }
+    }
+
+    test("PromethION 12-plex stub run completes") {
+
+        when {
+            params {
+                input = "$projectDir/tests/fixtures/samplesheets/multiplex_12.csv"
+                outdir = "$outputDir"
+
+                realtime_mode = false
+                skip_kraken2 = true
+                blast_validation = false
+                use_dorado = false
+
+                max_cpus = 24
+                max_memory = '32.GB'
+                max_time = '1.h'
+                max_classification_forks = 6
+            }
+        }
+
+        options "-stub"
+
+        then {
+            assert workflow.success
+            // Each barcode should hit at least one QC process
+            assert workflow.trace.tasks().count { it.name.contains('CHOPPER') || it.name.contains('FASTP') } >= 12
+        }
+    }
+
+    test("PromethION 24-plex stub run completes") {
+
+        when {
+            params {
+                input = "$projectDir/tests/fixtures/samplesheets/multiplex_24.csv"
+                outdir = "$outputDir"
+
+                realtime_mode = false
+                skip_kraken2 = true
+                blast_validation = false
+                use_dorado = false
+
+                max_cpus = 24
+                max_memory = '32.GB'
+                max_time = '2.h'
+                max_classification_forks = 6
+            }
+        }
+
+        options "-stub"
+
+        then {
+            assert workflow.success
+            assert workflow.trace.tasks().count { it.name.contains('CHOPPER') || it.name.contains('FASTP') } >= 24
+        }
+    }
+}

@@ -5,14 +5,34 @@
     "description": "Backend of Nanometa-Live",
     "type": "object",
     "$defs": {
+        "input_mode_selection": {
+            "title": "Input mode selection",
+            "type": "object",
+            "fa_icon": "fas fa-arrows-to-dot",
+            "description": "Input mode mutual exclusion.",
+            "help_text": "Exactly one of the four input modes must be supplied: --input (samplesheet CSV), --input_dir (auto-detect barcode or flat layout), --barcode_input_dir (deprecated; use --input_dir), or --nanopore_output_dir together with --realtime_mode for real-time monitoring.",
+            "properties": {},
+            "oneOf": [
+                {
+                    "required": ["input"]
+                },
+                {
+                    "required": ["input_dir"]
+                },
+                {
+                    "required": ["barcode_input_dir"]
+                },
+                {
+                    "required": ["nanopore_output_dir"]
+                }
+            ]
+        },
         "input_output_options": {
             "title": "Input/output options",
             "type": "object",
             "fa_icon": "fas fa-terminal",
             "description": "Define where the pipeline should find input data and save output data.",
-            "required": [
-                "outdir"
-            ],
+            "required": ["outdir"],
             "properties": {
                 "input": {
                     "type": "string",
@@ -35,7 +55,8 @@
                     "format": "directory-path",
                     "description": "Deprecated. Use --input_dir instead.",
                     "help_text": "This parameter is deprecated in favor of --input_dir which auto-detects directory structure.",
-                    "fa_icon": "fas fa-folder"
+                    "fa_icon": "fas fa-folder",
+                    "hidden": true
                 },
                 "input_dir": {
                     "type": "string",
@@ -182,14 +203,7 @@
                     "description": "Method used to save pipeline results to output directory.",
                     "help_text": "The Nextflow `publishDir` option specifies which intermediate files should be saved to the output directory. This option tells the pipeline what method should be used to move these files. See [Nextflow docs](https://www.nextflow.io/docs/latest/process.html#publishdir) for details.",
                     "fa_icon": "fas fa-copy",
-                    "enum": [
-                        "symlink",
-                        "rellink",
-                        "link",
-                        "copy",
-                        "copyNoFollow",
-                        "move"
-                    ],
+                    "enum": ["symlink", "rellink", "link", "copy", "copyNoFollow", "move"],
                     "hidden": true
                 },
                 "email_on_fail": {
@@ -264,6 +278,30 @@
                     "fa_icon": "far fa-calendar",
                     "description": "Suffix to add to the trace report filename. Dynamically generated as date and time in the format yyyy-MM-dd_HH-mm-ss. Set in nextflow.config.",
                     "hidden": true
+                },
+                "max_cpus": {
+                    "type": "integer",
+                    "default": 16,
+                    "minimum": 1,
+                    "description": "Maximum number of CPUs the pipeline may request for any single task.",
+                    "fa_icon": "fas fa-microchip",
+                    "help_text": "Used as the resourceLimits ceiling in platform profiles (minion, promethion, promethion_8). The KRAKEN2 CPU directive scales as max_cpus / max_classification_forks with a floor of 4."
+                },
+                "max_memory": {
+                    "type": "string",
+                    "default": "128.GB",
+                    "pattern": "^\\d+(\\.\\d+)?\\.?\\s*(K|M|G|T)?B$",
+                    "description": "Maximum memory the pipeline may request for any single task.",
+                    "fa_icon": "fas fa-memory",
+                    "help_text": "Used as the resourceLimits ceiling in platform profiles. Increase for high-memory PromethION runs with large Kraken2 databases."
+                },
+                "max_time": {
+                    "type": "string",
+                    "default": "240.h",
+                    "pattern": "^(\\d+\\.?\\d*\\.?\\s*(ms|s|sec|m|min|h|hr|hour|d|day)s?\\s*)+$",
+                    "description": "Maximum wall time the pipeline may request for any single task.",
+                    "fa_icon": "fas fa-stopwatch",
+                    "help_text": "Used as the resourceLimits ceiling in platform profiles."
                 }
             }
         },
@@ -442,11 +480,7 @@
                 "qc_tool": {
                     "type": "string",
                     "default": "chopper",
-                    "enum": [
-                        "chopper",
-                        "fastp",
-                        "filtlong"
-                    ],
+                    "enum": ["chopper", "fastp", "filtlong"],
                     "description": "Quality control tool to use.",
                     "fa_icon": "fas fa-tools",
                     "help_text": "chopper: nanopore-native Rust-based filtering (7x faster, default), fastp: general-purpose with rich HTML reporting, filtlong: nanopore-optimized length-weighted filtering."
@@ -598,9 +632,7 @@
                 "classifier": {
                     "type": "string",
                     "default": "kraken2",
-                    "enum": [
-                        "kraken2"
-                    ],
+                    "enum": ["kraken2"],
                     "description": "Taxonomic classifier to use.",
                     "fa_icon": "fas fa-project-diagram",
                     "help_text": "Currently supports: kraken2. Future versions may include centrifuge, metaphlan, kaiju."
@@ -641,13 +673,7 @@
                 "taxpasta_format": {
                     "type": "string",
                     "default": "tsv",
-                    "enum": [
-                        "tsv",
-                        "csv",
-                        "arrow",
-                        "parquet",
-                        "biom"
-                    ],
+                    "enum": ["tsv", "csv", "arrow", "parquet", "biom"],
                     "description": "Output format for standardized taxonomic profiles.",
                     "fa_icon": "fas fa-file-export",
                     "help_text": "TSV and CSV for human-readable tables, arrow/parquet for efficient storage, BIOM for compatibility with microbiome analysis tools."
@@ -738,11 +764,7 @@
                 "validation_method": {
                     "type": "string",
                     "default": "blast",
-                    "enum": [
-                        "blast",
-                        "minimap2",
-                        "both"
-                    ],
+                    "enum": ["blast", "minimap2", "both"],
                     "description": "Validation method to use.",
                     "fa_icon": "fas fa-tools",
                     "help_text": "blast: Thorough validation using BLAST alignment. minimap2: Fast validation using minimap2 (ONT-optimized). both: Run both methods for comprehensive validation."
@@ -785,11 +807,7 @@
                 "minimap2_preset": {
                     "type": "string",
                     "default": "map-ont",
-                    "enum": [
-                        "map-ont",
-                        "map-pb",
-                        "map-hifi"
-                    ],
+                    "enum": ["map-ont", "map-pb", "map-hifi"],
                     "description": "Minimap2 preset for alignment.",
                     "fa_icon": "fas fa-sliders-h",
                     "help_text": "map-ont: Oxford Nanopore reads (default). map-pb: PacBio CLR reads. map-hifi: PacBio HiFi reads."
@@ -890,10 +908,7 @@
                 "assembler": {
                     "type": "string",
                     "default": "flye",
-                    "enum": [
-                        "flye",
-                        "miniasm"
-                    ],
+                    "enum": ["flye", "miniasm"],
                     "description": "Genome assembler to use.",
                     "fa_icon": "fas fa-cogs",
                     "help_text": "flye: polished assemblies with repeat resolution (default), miniasm: fast draft assemblies. Future versions may include canu, raven, shasta."
@@ -960,6 +975,9 @@
     },
     "properties": {},
     "allOf": [
+        {
+            "$ref": "#/$defs/input_mode_selection"
+        },
         {
             "$ref": "#/$defs/input_output_options"
         },

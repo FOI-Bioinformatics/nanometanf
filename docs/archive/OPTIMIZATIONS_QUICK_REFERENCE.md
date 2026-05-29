@@ -7,10 +7,10 @@
 
 ## Performance at a Glance (internal benchmark, 30 batches)
 
-| Metric                       | Baseline           | With optimisations | Change            |
-| ---------------------------- | ------------------ | ------------------ | ----------------- |
-| **Compute time** (30 batches) | ~324 min (~5.4 h) | ~18 min (~0.3 h)   | ~94% reduction    |
-| **Time saved**               | -                  | ~306 min (~5.1 h)  | ~18x speedup      |
+| Metric                        | Baseline          | With optimisations | Change         |
+| ----------------------------- | ----------------- | ------------------ | -------------- |
+| **Compute time** (30 batches) | ~324 min (~5.4 h) | ~18 min (~0.3 h)   | ~94% reduction |
+| **Time saved**                | -                 | ~306 min (~5.1 h)  | ~18x speedup   |
 
 Figures are from a single internal scenario with 30 batches; smaller runs see less gain.
 
@@ -66,8 +66,8 @@ nextflow run foi-bioinformatics/nanometanf \
 
 ### Phase 1: Core Processing (automatic with `--realtime_mode`)
 
-| Optimisation                 | Internal-benchmark savings | Auto-enabled        |
-| ---------------------------- | -------------------------- | ------------------- |
+| Optimisation                 | Internal-benchmark savings | Auto-enabled            |
+| ---------------------------- | -------------------------- | ----------------------- |
 | **1.1** Incremental Kraken2  | ~30-90 min                 | yes (`--realtime_mode`) |
 | **1.2** QC stats aggregation | ~5-15 min                  | yes (`--realtime_mode`) |
 | **1.3** Conditional NanoPlot | ~54-81 min                 | yes (`--realtime_mode`) |
@@ -75,8 +75,8 @@ nextflow run foi-bioinformatics/nanometanf \
 
 ### Phase 2: Database Preloading (automatic)
 
-| Feature                        | Internal-benchmark savings | Auto-enabled        |
-| ------------------------------ | -------------------------- | ------------------- |
+| Feature                        | Internal-benchmark savings | Auto-enabled            |
+| ------------------------------ | -------------------------- | ----------------------- |
 | Memory-mapped database loading | ~30-90 min                 | yes (`--realtime_mode`) |
 
 ### Phase 3: Platform Profiles (manual selection)

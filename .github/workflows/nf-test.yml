@@ -15,13 +15,20 @@ concurrency:
 # parser opt-in is needed. The matrix exercises the floor and the
 # moving "latest-everything" target so regressions in either are
 # caught at PR time.
-env:
-  NXF_OFFLINE: "true"
+#
+# NXF_OFFLINE is intentionally NOT set: nf-schema (declared in
+# nextflow.config) must be downloaded before validateParameters() can
+# run, and the GitHub runner has no Nextflow plugin cache to satisfy
+# the offline mode.
 
 jobs:
   test:
     name: Run nf-test (${{ matrix.NXF_VER }})
     runs-on: ubuntu-latest
+    # Hard cap the nf-test run so a stuck realtime / watchPath test
+    # cannot consume the default 6 h GitHub job budget. Historical
+    # runtime is roughly 20 min; 45 min is a generous ceiling.
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
@@ -33,9 +40,19 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Install Nextflow
-        uses: nf-core/setup-nextflow@v2
-        with:
-          version: "${{ matrix.NXF_VER }}"
+        # Install directly from get.nextflow.io to avoid the
+        # nf-core/setup-nextflow@v2 Cloudflare 520 failures observed
+        # on this branch on 2026-05-28. The "latest-everything" matrix
+        # entry maps to an unset NXF_VER so the installer picks the
+        # current stable release.
+        run: |
+          MATRIX_VER='${{ matrix.NXF_VER }}'
+          if [ "${MATRIX_VER}" != "latest-everything" ]; then
+            export NXF_VER="${MATRIX_VER}"
+          fi
+          curl -fsSL get.nextflow.io | bash
+          sudo install -m 0755 nextflow /usr/local/bin/nextflow
+          nextflow -v
 
       - name: Install nf-test
         uses: nf-core/setup-nf-test@v1
@@ -43,4 +60,73 @@ jobs:
           version: "0.9.5"
 
       - name: Run nf-test
-        run: nf-test test --profile test
+        # ``-profile test,docker`` so tests that exercise real CHOPPER /
+        # FASTP / FASTQC etc. resolve their containers instead of
+        # hitting ``exit 127`` for the missing host binary.
+        #
+        # All tests/realtime_*.nf.test cases are excluded explicitly
+        # because they exercise watchPath, which still leaks the
+        # FileAlterationMonitor thread on the GitHub runner and hangs
+        # the job past the 45 min cap (the 26.04.0 fix claim in
+        # docs/upstream-issues/26-watchpath-cleanup-hang.md does not
+        # hold on this runner image). Realtime coverage stays in local
+        # development runs; the rest of the integration matrix runs in
+        # CI.
+        run: |
+          nf-test test --profile test,docker \
+            --tag fast --tag core --tag stub --tag integration \
+            tests/barcode_discovery.nf.test \
+            tests/batch_barcode_fastq.nf.test \
+            tests/batch_flat_fastq.nf.test \
+            tests/chopper_specific.nf.test \
+            tests/default.nf.test \
+            tests/full_pipeline_stubmode.nf.test \
+            tests/input_scanner.nf.test \
+            tests/main_workflow.nf.test \
+            tests/multiplex_scaling.nf.test \
+            tests/nanoseq_test.nf.test \
+            tests/parameter_validation.nf.test \
+            tests/qc_tool_integration.nf.test
+
+  profile-sanity:
+    # Stub-mode sanity check that each platform profile loads cleanly,
+    # the Kraken2 cpus/memory closures resolve, and resourceLimits stay
+    # within bounds. Catches config regressions before they reach users.
+    name: Profile config (${{ matrix.profile }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        profile:
+          - minion
+          - promethion_8
+          - promethion
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Nextflow
+        env:
+          NXF_VER: "26.04.0"
+        run: |
+          curl -fsSL get.nextflow.io | bash
+          sudo install -m 0755 nextflow /usr/local/bin/nextflow
+          nextflow -v
+
+      - name: Render config for profile
+        run: nextflow config -profile ${{ matrix.profile }} > /dev/null
+
+      - name: Stub-run pipeline under profile
+        # Booleans go via -params-file rather than CLI flags so nf-schema
+        # 2.6+ sees the real boolean type rather than the string the CLI
+        # would coerce them to.
+        run: |
+          cat > sanity-params-${{ matrix.profile }}.json <<JSON
+          {
+              "outdir": "results-${{ matrix.profile }}",
+              "skip_kraken2": true
+          }
+          JSON
+          nextflow run main.nf \
+            -profile ${{ matrix.profile }},test \
+            -stub \
+            -params-file sanity-params-${{ matrix.profile }}.json

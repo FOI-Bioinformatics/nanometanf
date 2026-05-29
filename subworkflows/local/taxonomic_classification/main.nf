@@ -84,6 +84,15 @@ workflow TAXONOMIC_CLASSIFICATION {
         ch_reads_input = ch_reads
     }
     def empty_fastq_threshold = 50L
+    // Upstream QC subworkflows attach `.ifEmpty([])` to their reads
+    // channel so the top-level pipeline assertions see an emission even
+    // when every CHOPPER / FASTP task failed. That synthetic `[]`
+    // placeholder must be dropped before any tuple-destructuring closure
+    // sees it -- otherwise `.branch { meta, reads -> ... }` raises
+    // "Invalid method invocation `call` with arguments: [] (ArrayList)"
+    // and aborts the whole streaming session. Mirrors the guard already
+    // in place in qc_analysis (NanoPlot input) and the canonical writer.
+    def ch_reads_tuples = ch_reads_input.filter { it instanceof List && it.size() >= 2 && it[0] instanceof Map }
     // Split into two streams: samples with classifiable reads go to the
     // real Kraken2 path; samples whose post-QC FASTQ is empty (every
     // read filtered upstream) go to the placeholder path. The
@@ -91,7 +100,7 @@ workflow TAXONOMIC_CLASSIFICATION {
     // TAXPASTA and the GUI loaders see all samples uniformly with a
     // 0-classified / 0-unclassified accounting -- previously these
     // samples vanished from every downstream channel.
-    def ch_branched = ch_reads_input.branch { meta, reads ->
+    def ch_branched = ch_reads_tuples.branch { meta, reads ->
         def reads_list = reads instanceof List ? reads : [reads]
         def has_any = reads_list.any { f -> f != null && f.exists() && f.size() >= empty_fastq_threshold }
         if (!has_any) {
@@ -213,7 +222,7 @@ workflow TAXONOMIC_CLASSIFICATION {
                     params.save_reads_assignment ?: false,
                     use_memory_mapping
                 )
-                ch_versions = ch_versions.mix(KRAKEN2_INCREMENTAL_CLASSIFIER.out.versions.ifEmpty([]))
+                ch_versions = ch_versions.mix(KRAKEN2_INCREMENTAL_CLASSIFIER.out.versions)
 
                 //
                 // SCALABLE STREAMING ARCHITECTURE (v1.5+)
@@ -390,7 +399,7 @@ workflow TAXONOMIC_CLASSIFICATION {
                     params.kraken2_confidence ?: 0.0,
                     params.kraken2_minimum_hit_groups ?: 0
                 )
-                ch_versions = ch_versions.mix(KRAKEN2_OPTIMIZED.out.versions.ifEmpty([]))
+                ch_versions = ch_versions.mix(KRAKEN2_OPTIMIZED.out.versions)
 
                 // Collect outputs
                 ch_classified_reads = KRAKEN2_OPTIMIZED.out.classified_reads_fastq.ifEmpty([])

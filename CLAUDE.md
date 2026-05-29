@@ -154,23 +154,23 @@ Corresponding `bin/` scripts handle the format conversion: `kreport_to_canonical
 
 ### Key Modules (modules/local/)
 
-| Module                            | Purpose                                     |
-| --------------------------------- | ------------------------------------------- |
-| `kraken2_incremental_classifier/` | Classify only NEW reads per batch           |
-| `kraken2_output_merger/`          | Append-only batch storage with atomic index |
-| `kraken2_report_generator/`       | Incremental taxid counting                  |
-| `kraken2_final_aggregator/`       | End-of-session concatenation                |
-| `fastp_streaming/`                | FASTP wrapper for multi-file streaming input |
-| `dorado_basecaller/`              | POD5 basecalling                            |
-| `dorado_demux/`                   | Dorado demultiplexing                       |
-| `extract_reads_by_taxid/`         | Extract reads for validation                |
-| `blastn_validation/`              | BLAST validation                            |
-| `minimap2_validation/`            | Fast minimap2 validation                    |
-| `canonical_classification_writer/`| Kraken2 report to canonical TSV             |
-| `canonical_qc_writer/`           | FASTP/SeqKit metrics to canonical TSV       |
-| `canonical_validation_writer/`   | BLAST/minimap2 results to canonical TSV     |
-| `canonical_assembly_writer/`     | Assembly stats to canonical TSV             |
-| `manifest_writer/`               | Generates _manifest.json for canonical dir  |
+| Module                             | Purpose                                      |
+| ---------------------------------- | -------------------------------------------- |
+| `kraken2_incremental_classifier/`  | Classify only NEW reads per batch            |
+| `kraken2_output_merger/`           | Append-only batch storage with atomic index  |
+| `kraken2_report_generator/`        | Incremental taxid counting                   |
+| `kraken2_final_aggregator/`        | End-of-session concatenation                 |
+| `fastp_streaming/`                 | FASTP wrapper for multi-file streaming input |
+| `dorado_basecaller/`               | POD5 basecalling                             |
+| `dorado_demux/`                    | Dorado demultiplexing                        |
+| `extract_reads_by_taxid/`          | Extract reads for validation                 |
+| `blastn_validation/`               | BLAST validation                             |
+| `minimap2_validation/`             | Fast minimap2 validation                     |
+| `canonical_classification_writer/` | Kraken2 report to canonical TSV              |
+| `canonical_qc_writer/`             | FASTP/SeqKit metrics to canonical TSV        |
+| `canonical_validation_writer/`     | BLAST/minimap2 results to canonical TSV      |
+| `canonical_assembly_writer/`       | Assembly stats to canonical TSV              |
+| `manifest_writer/`                 | Generates \_manifest.json for canonical dir  |
 
 ### Library Utilities (lib/)
 
@@ -283,12 +283,12 @@ setup { "cat > $outputDir/test.csv ..." }
 
 Four nf-core modules have local modifications. See [nfcore_module_maintenance.md](docs/development/nfcore_module_maintenance.md) for full details.
 
-| Module | Modification | Update Strategy |
-|--------|-------------|----------------|
-| `blast/blastn` | `export BLASTDB=${db}` env var | Protected in `.nf-core.yml` skip list. Re-apply after manual update. |
-| `fastp` | None (restored to upstream) | Safe to update freely. Streaming handled by local `fastp_streaming/`. |
-| `kraken2/kraken2` | Container SHAs, stub versions | Run `nf-core modules update kraken2/kraken2` -- no functional divergence. |
-| `nanoplot` | Stub hardcoded version | Run `nf-core modules update nanoplot` -- upstream uses same convention. |
+| Module            | Modification                   | Update Strategy                                                           |
+| ----------------- | ------------------------------ | ------------------------------------------------------------------------- |
+| `blast/blastn`    | `export BLASTDB=${db}` env var | Protected in `.nf-core.yml` skip list. Re-apply after manual update.      |
+| `fastp`           | None (restored to upstream)    | Safe to update freely. Streaming handled by local `fastp_streaming/`.     |
+| `kraken2/kraken2` | Container SHAs, stub versions  | Run `nf-core modules update kraken2/kraken2` -- no functional divergence. |
+| `nanoplot`        | Stub hardcoded version         | Run `nf-core modules update nanoplot` -- upstream uses same convention.   |
 
 ```bash
 nf-core lint

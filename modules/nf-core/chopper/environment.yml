@@ -10,4 +10,4 @@ dependencies:
   # slim seqera community image for chopper does not bundle GNU coreutils,
   # so listing gzip explicitly forces both platforms (and any wave-built
   # container) to include a working gzip/gunzip on PATH.
-  - conda-forge::gzip
+  - conda-forge::gzip=1.13

@@ -1,4 +1,4 @@
 sample,fastq,barcode
-sample_01,/Users/andreassjodin/Code/nanometanf/tests/fixtures/fastq/barcode01.fastq.gz,
-sample_02,/Users/andreassjodin/Code/nanometanf/tests/fixtures/fastq/barcode02.fastq.gz,
-test_sample,/Users/andreassjodin/Code/nanometanf/tests/fixtures/fastq/test_sample.fastq.gz,
+sample_01,https://raw.githubusercontent.com/nf-core/test-datasets/modules/data/genomics/sarscov2/nanopore/fastq/test.fastq.gz,
+sample_02,https://raw.githubusercontent.com/nf-core/test-datasets/modules/data/genomics/sarscov2/nanopore/fastq/test.fastq.gz,
+test_sample,https://raw.githubusercontent.com/nf-core/test-datasets/modules/data/genomics/sarscov2/nanopore/fastq/test.fastq.gz,

@@ -4,10 +4,10 @@ End-to-end testing of the validation flow (against
 `/tmp/validation-e2e-test/` derived from the scenario5 fixture)
 landed two pipeline fixes today:
 
-- `f88a933` -- coerce ``taxids_to_validate`` to string before
+- `f88a933` -- coerce `taxids_to_validate` to string before
   `.split()` in the validation subworkflow (fixes single-taxid
   invocations from the GUI).
-- `a9caf24` (merged in `df10112`) -- double-escape ``\\n`` in
+- `a9caf24` (merged in `df10112`) -- double-escape `\\n` in
   MINIMAP2_VALIDATION's awk JSON writer (fixes 100% of minimap2
   validation runs; without it every minimap2 process exited code 2
   and the Coverage sub-tab in the dashboard was always empty).
@@ -20,10 +20,10 @@ audit but are scoped as follow-ups rather than blocking fixes:
 **File:** `modules/local/blastn_validation/main.nf:113-128`
 
 **Symptom:** the BLAST module computes
-``hit_rate = hits / total_reads`` where ``hits`` is the number of
+`hit_rate = hits / total_reads` where `hits` is the number of
 HSP lines in the blastn `-outfmt 6` output. Because blastn keeps
 unlimited HSPs per query by default, a single read can contribute
-multiple hits, so ``hit_rate`` can exceed 1.0. In the e2e test it
+multiple hits, so `hit_rate` can exceed 1.0. In the e2e test it
 reached 1.31 (654 HSPs from 499 reads).
 
 The dashboard parser at
@@ -33,7 +33,7 @@ The dashboard parser at
 percent_validated = hit_rate * 100 if hit_rate <= 1.0 else hit_rate
 ```
 
-So a BLAST result with ``hit_rate=1.31`` lands in the GUI as
+So a BLAST result with `hit_rate=1.31` lands in the GUI as
 **"1.3% Confirmed"** -- a confirmed status with what looks like
 a tiny percentage. Operators would interpret this as a near-failure
 when the underlying signal is the opposite (every read had at least
@@ -44,7 +44,7 @@ read name (`if (!(qname in seen))` at lines 87-89 of
 `modules/local/minimap2_validation/main.nf`).
 
 **Recommended fix in nanometanf:** dedupe by qseqid in the BLAST
-module so ``hits`` matches the minimap2 semantic. Replace
+module so `hits` matches the minimap2 semantic. Replace
 lines 113-128 with:
 
 ```python
@@ -68,7 +68,7 @@ with open(blast_file) as f:
             evalues.append(float(cols[10]))
 ```
 
-This makes ``hit_rate`` always in [0, 1] and the GUI display
+This makes `hit_rate` always in [0, 1] and the GUI display
 correct without any front-end change.
 
 **Test impact:** the existing nf-test snapshots for
@@ -130,7 +130,7 @@ merges:
   identity 98.57%, status confirmed, populates card + PAF +
   stats JSON + coverage plots
 - Cumulative pathogen_genomes.json behaviour: `pathogen_genomes
-  .json` accumulates taxids across calls; nanometa_live's
+.json` accumulates taxids across calls; nanometa_live's
   `validate_via_nanometanf` writes atomically.
 - Resume cache: `nextflow run -resume --taxids_to_validate=A,B`
   after `A` skips the cached A pairs (verified `cached: 2`
