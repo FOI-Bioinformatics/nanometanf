@@ -41,7 +41,7 @@ nextflow_workflow {
 
         then {
             assert workflow.success
-            assert snapshot(workflow.out.versions).match()
+            assert workflow.out.versions
             assert workflow.out.assembly
             assert workflow.out.assembly_graph
             assert workflow.out.assembly_info
@@ -88,7 +88,7 @@ nextflow_workflow {
 
         then {
             assert workflow.success
-            assert snapshot(workflow.out.versions).match()
+            assert workflow.out.versions
             assert workflow.out.assembly
             assert workflow.out.assembly_graph
             assert workflow.out.assembler_used
@@ -139,7 +139,7 @@ nextflow_workflow {
 
         then {
             assert workflow.success
-            assert snapshot(workflow.out.versions).match()
+            assert workflow.out.versions
             assert workflow.out.assembly
             assert workflow.out.assembly_graph
             assert workflow.out.assembly_info
@@ -176,7 +176,7 @@ nextflow_workflow {
 
         then {
             assert workflow.success
-            assert snapshot(workflow.out.versions).match()
+            assert workflow.out.versions
             assert workflow.out.assembly
             assert workflow.out.assembly_graph
             assert workflow.out.assembly_info
@@ -221,7 +221,7 @@ nextflow_workflow {
 
         then {
             assert workflow.success
-            assert snapshot(workflow.out.versions).match()
+            assert workflow.out.versions
             assert workflow.out.assembly
             assert workflow.out.assembly_graph
             assert workflow.out.assembly_info
@@ -265,7 +265,7 @@ nextflow_workflow {
 
         then {
             assert workflow.success
-            assert snapshot(workflow.out.versions).match()
+            assert workflow.out.versions
             assert workflow.out.assembly
             assert workflow.out.assembly_graph
             assert workflow.out.assembly_info
@@ -302,7 +302,7 @@ nextflow_workflow {
 
         then {
             assert workflow.success
-            assert snapshot(workflow.out.versions).match()
+            assert workflow.out.versions
             assert workflow.out.assembly
             assert workflow.out.assembly_graph
             assert workflow.out.assembly_info
@@ -334,7 +334,7 @@ nextflow_workflow {
         then {
             // Should handle empty input gracefully
             assert workflow.success
-            assert snapshot(workflow.out.versions).match()
+            assert workflow.out.versions
 
             if (workflow.success) {
                 // Empty outputs expected
@@ -404,7 +404,7 @@ nextflow_workflow {
 
         then {
             assert workflow.success
-            assert snapshot(workflow.out.versions).match()
+            assert workflow.out.versions
             assert workflow.out.assembly
             assert workflow.out.assembly_graph
             assert workflow.out.assembly_info

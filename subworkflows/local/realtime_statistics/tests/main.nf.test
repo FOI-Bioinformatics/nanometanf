@@ -380,8 +380,10 @@ nextflow_workflow {
         when {
             workflow {
                 """
+                // Nextflow v2 strict grammar rejects classic Java
+                // ``for (int i = ...)`` loops; use the Groovy range each.
                 def files = []
-                for (int i = 1; i <= 20; i++) {
+                (1..20).each { i ->
                     files.add([id: "large_file_" + i, path: file('$projectDir/tests/fixtures/fastq/batch/large_file_' + i + '.fastq')])
                 }
 

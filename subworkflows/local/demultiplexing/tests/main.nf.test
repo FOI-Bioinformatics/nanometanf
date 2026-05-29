@@ -326,8 +326,10 @@ nextflow_workflow {
         when {
             workflow {
                 """
+                // Nextflow v2 strict grammar rejects classic Java
+                // ``for (int i = ...)`` loops; use the Groovy range each.
                 def samples = []
-                for (int i = 1; i <= 20; i++) {
+                (1..20).each { i ->
                     def meta = [:]
                     meta.id = "batch_sample_" + i
                     meta.single_end = true

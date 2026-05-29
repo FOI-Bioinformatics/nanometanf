@@ -87,7 +87,40 @@ jobs:
             tests/multiplex_scaling.nf.test \
             tests/nanoseq_test.nf.test \
             tests/parameter_validation.nf.test \
-            tests/qc_tool_integration.nf.test
+            tests/qc_tool_integration.nf.test \
+            modules/local/aggregate_validation_results/tests/main.nf.test \
+            modules/local/blastn_validation/tests/main.nf.test \
+            modules/local/canonical_assembly_writer/tests/main.nf.test \
+            modules/local/canonical_classification_writer/tests/main.nf.test \
+            modules/local/canonical_qc_writer/tests/main.nf.test \
+            modules/local/canonical_validation_writer/tests/main.nf.test \
+            modules/local/emit_empty_kraken2_report/tests/main.nf.test \
+            modules/local/extract_reads_by_taxid/tests/main.nf.test \
+            modules/local/fastp_streaming/tests/main.nf.test \
+            modules/local/generate_realtime_report/tests/main.nf.test \
+            modules/local/generate_snapshot_stats/tests/main.nf.test \
+            modules/local/kraken2_db_preload/tests/main.nf.test \
+            modules/local/kraken2_final_aggregator/tests/main.nf.test \
+            modules/local/kraken2_incremental_classifier/tests/main.nf.test \
+            modules/local/kraken2_optimized/tests/main.nf.test \
+            modules/local/kraken2_output_merger/tests/main.nf.test \
+            modules/local/kraken2_report_generator/tests/main.nf.test \
+            modules/local/manifest_writer/tests/main.nf.test \
+            modules/local/minimap2_validation/tests/main.nf.test \
+            modules/local/multiqc_nanopore_stats/tests/main.nf.test \
+            modules/local/nanoplot_compare/tests/main.nf.test \
+            modules/local/seqkit_merge_stats/tests/main.nf.test \
+            modules/local/update_cumulative_stats/tests/main.nf.test \
+            subworkflows/local/assembly/tests/main.nf.test \
+            subworkflows/local/demultiplexing/tests/main.nf.test \
+            subworkflows/local/input_scanner/tests/main.nf.test \
+            subworkflows/local/qc_analysis/tests/main.nf.test \
+            subworkflows/local/qc_benchmark/tests/main.nf.test \
+            subworkflows/local/realtime_statistics/tests/main.nf.test \
+            subworkflows/local/taxonomic_classification/tests/gui_filename_compatibility.nf.test \
+            subworkflows/local/taxonomic_classification/tests/main.nf.test \
+            subworkflows/local/taxonomic_classification/tests/realtime_cumulative_emit.nf.test \
+            subworkflows/local/utils_nfcore_nanometanf_pipeline/tests/main.nf.test
 
   profile-sanity:
     # Stub-mode sanity check that each platform profile loads cleanly,
