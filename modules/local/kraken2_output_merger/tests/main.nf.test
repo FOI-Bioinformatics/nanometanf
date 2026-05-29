@@ -86,4 +86,70 @@ nextflow_process {
             )
         }
     }
+
+    test("real execution - merger counts classified vs unclassified reads accurately") {
+        // No ``options "-stub"`` override: exercise the actual Python
+        // inside the script block. This guards the append-only-batch
+        // storage path that the v1.5+ streaming architecture relies on
+        // against silent regressions in the counting / file-layout
+        // contract (e.g. a future edit that accidentally writes to the
+        // wrong directory or miscounts classified lines).
+        //
+        // Runs with the host python3 (pure-Python module, no external
+        // tool dependency). CI is expected to invoke this test under a
+        // profile that provides the python:3.11 container; locally any
+        // python3 >= 3.6 on PATH is sufficient.
+        options ""
+
+        tag "real_execution"
+
+        when {
+            process {
+                """
+                // 5 reads: 3 classified (C), 2 unclassified (U).
+                def batch_output = file("real_batch.kraken2.output.txt")
+                batch_output.text = [
+                    'C\\tread1\\t9606\\t100\\t9606:1',
+                    'C\\tread2\\t9606\\t100\\t9606:1',
+                    'U\\tread3\\t0\\t100\\t0:100',
+                    'C\\tread4\\t9606\\t100\\t9606:1',
+                    'U\\tread5\\t0\\t100\\t0:100',
+                    ''
+                ].join('\\n')
+
+                def metadata = file("real_metadata.json")
+                metadata.text = '{"sample_id": "real_sample", "batch_id": 3}'
+
+                def batch_report = file("real_batch.kraken2.report.txt")
+                batch_report.text = '60.00\\t3\\t0\\tS\\t9606\\tHomo sapiens'
+
+                input[0] = [
+                    [ id:'real_sample', batch_id: 3 ],
+                    batch_output,
+                    metadata,
+                    batch_report
+                ]
+                """
+            }
+        }
+
+        then {
+            assertAll(
+                { assert process.success },
+                // batches/batch_3.kraken2.output.txt was created with all 5 reads
+                { assert path(process.out.batch_output.get(0).get(1)).readLines().size() == 5 },
+                // batch_reports/batch_3.kraken2.report.txt contains the copied report
+                { assert path(process.out.batch_report_copy.get(0).get(1)).text.contains('Homo sapiens') },
+                // merge_stats.json reports the correct counts -- guards the algorithm
+                {
+                    def stats_path = process.out.stats.get(0).get(1)
+                    def stats = new groovy.json.JsonSlurper().parse(new File(stats_path.toString()))
+                    assert stats.sample_id == 'real_sample'
+                    assert stats.batch_id == 3
+                    assert stats.batch_reads == 5
+                    assert stats.batch_classified_reads == 3
+                }
+            )
+        }
+    }
 }
