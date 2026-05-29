@@ -14,6 +14,16 @@ report_section_order:
     order: -920
   nanoplot:
     order: -900
+  fastp_qc:
+    order: -880
+  fastqc_qc:
+    order: -870
+  filtlong_qc:
+    order: -860
+  seqkit_stats:
+    order: -850
+  minimap2_validation:
+    order: -800
 
 export_plots: true
 
@@ -79,3 +89,29 @@ module_order:
       anchor: "kraken2_taxonomy"
   - nanoplot:
       name: "NanoPlot QC"
+  - fastp:
+      name: "FASTP"
+      anchor: "fastp_qc"
+      info: "Adapter trimming and quality filtering metrics (FASTP path)"
+  - fastqc:
+      name: "FastQC"
+      anchor: "fastqc_qc"
+      info: "Per-base quality, GC content, adapter and overrepresentation checks"
+  - filtlong:
+      name: "Filtlong"
+      anchor: "filtlong_qc"
+      info: "Length and quality filtering metrics (Filtlong path)"
+  - seqkit:
+      name: "SeqKit stats"
+      anchor: "seqkit_stats"
+      info: "Per-sample read counts, length distributions and N50"
+  - samtools:
+      name: "samtools / minimap2"
+      anchor: "minimap2_validation"
+      info: "Alignment statistics for the minimap2 validation path"
+
+# Chopper and BLAST do not yet ship native MultiQC modules. Their
+# metrics surface through the canonical_qc_writer / canonical_validation_writer
+# JSON outputs and through the per-tool publishDir under chopper/ and
+# validation/blast/; they are intentionally absent here until upstream
+# modules land or a custom_data wrapper is added.
