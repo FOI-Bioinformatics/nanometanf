@@ -11,9 +11,10 @@ import os
 import sys
 import tempfile
 from datetime import datetime, timezone
+from typing import Any, Dict, List, Tuple
 
 
-def parse_kreport(filepath):
+def parse_kreport(filepath: str) -> Tuple[Dict[str, Any], List[Dict[str, Any]]]:
     """Parse a kreport file and return taxa with hierarchy information.
 
     The kreport format uses leading whitespace on the taxon name to encode
@@ -92,7 +93,7 @@ def parse_kreport(filepath):
     return summary, taxa
 
 
-def write_atomic(filepath, data):
+def write_atomic(filepath: str, data: Any) -> None:
     """Write JSON data atomically using a temporary file and rename."""
     dir_name = os.path.dirname(filepath) or "."
     os.makedirs(dir_name, exist_ok=True)
@@ -108,7 +109,7 @@ def write_atomic(filepath, data):
         raise
 
 
-def build_sidecar(args, source_file):
+def build_sidecar(args: argparse.Namespace, source_file: str) -> Dict[str, Any]:
     """Build sidecar metadata JSON."""
     sidecar = {
         "contract_version": "1.0.0",
@@ -131,7 +132,7 @@ def build_sidecar(args, source_file):
     return sidecar
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser(
         description="Convert kreport TSV to canonical classification JSON."
     )
