@@ -11,9 +11,10 @@ import os
 import sys
 import tempfile
 from datetime import datetime, timezone
+from typing import Any, List
 
 
-def write_atomic(filepath, data):
+def write_atomic(filepath: str, data: Any) -> None:
     """Write JSON data atomically using a temporary file and rename."""
     dir_name = os.path.dirname(filepath) or "."
     os.makedirs(dir_name, exist_ok=True)
@@ -29,7 +30,7 @@ def write_atomic(filepath, data):
         raise
 
 
-def discover_files(outdir, category, extension):
+def discover_files(outdir: str, category: str, extension: str) -> List[str]:
     """Discover canonical output files for a given category.
 
     Scans the category subdirectory under outdir for files matching the
@@ -46,7 +47,7 @@ def discover_files(outdir, category, extension):
     return files
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser(
         description="Write or update canonical/_manifest.json."
     )

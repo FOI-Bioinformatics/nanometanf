@@ -20,13 +20,14 @@
 ----------------------------------------------------------------------------------------
 */
 
-include { FASTP                   } from '../../../modules/nf-core/fastp/main'
-include { FILTLONG                } from '../../../modules/nf-core/filtlong/main'
-include { CHOPPER                 } from '../../../modules/nf-core/chopper/main'
-include { PORECHOP_PORECHOP       } from '../../../modules/nf-core/porechop/porechop/main'
-include { FASTQC                  } from '../../../modules/nf-core/fastqc/main'
-include { SEQKIT_STATS            } from '../../../modules/nf-core/seqkit/stats/main'
-include { NANOPLOT                } from '../../../modules/nf-core/nanoplot/main'
+include { FASTP                                 } from '../../../modules/nf-core/fastp/main'
+include { FILTLONG                              } from '../../../modules/nf-core/filtlong/main'
+include { FILTLONG as FILTLONG_AFTER_PORECHOP   } from '../../../modules/nf-core/filtlong/main'
+include { CHOPPER                               } from '../../../modules/nf-core/chopper/main'
+include { PORECHOP_PORECHOP                     } from '../../../modules/nf-core/porechop/porechop/main'
+include { FASTQC                                } from '../../../modules/nf-core/fastqc/main'
+include { SEQKIT_STATS                          } from '../../../modules/nf-core/seqkit/stats/main'
+include { NANOPLOT                              } from '../../../modules/nf-core/nanoplot/main'
 
 workflow QC_BENCHMARK {
 
@@ -131,21 +132,24 @@ workflow QC_BENCHMARK {
         [meta, null, reads]  // [meta, shortreads=empty, longreads=reads]
     }
 
-    // Run FILTLONG on adapter-trimmed reads (simplified for now)
-    // TODO: Re-implement with proper module aliasing or separate workflows
-    // FILTLONG_PORECHOP would go here
+    // PORECHOP -> FILTLONG pipeline, run as a second aliased FILTLONG
+    // instance so the standalone FILTLONG benchmark above can keep its
+    // distinct work directory and outputs. Using ``include as`` for the
+    // alias is the canonical DSL2 pattern for re-running a process with
+    // a different input feed (see e.g. nf-core/eager and nf-core/sarek).
+    FILTLONG_AFTER_PORECHOP (
+        ch_porechop_filtlong_input
+    )
+    ch_versions = ch_versions.mix(FILTLONG_AFTER_PORECHOP.out.versions.first())
 
-    // For now, skip the PORECHOP+FILTLONG combination to avoid aliasing issues
-    // This maintains basic benchmarking functionality while avoiding compilation errors
-
-    // Create PORECHOP+FILTLONG benchmark record (simplified - using PORECHOP output directly)
-    ch_porechop_filtlong_benchmark = PORECHOP_PORECHOP.out.reads
-        .map { meta, reads ->
+    ch_porechop_filtlong_benchmark = FILTLONG_AFTER_PORECHOP.out.reads
+        .join(FILTLONG_AFTER_PORECHOP.out.log, by: 0, remainder: true)
+        .map { meta, reads, log_file ->
             def new_meta = meta + [
-                qc_tool: 'porechop_only',
+                qc_tool: 'porechop_filtlong',
                 benchmark_category: 'enhanced_nanopore'
             ]
-            return [new_meta, reads, null, null]  // Empty log and stats for now
+            return [new_meta, reads, log_file, null]
         }
 
     //

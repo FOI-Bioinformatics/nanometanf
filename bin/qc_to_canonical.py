@@ -14,9 +14,10 @@ import os
 import sys
 import tempfile
 from datetime import datetime, timezone
+from typing import Any, Dict, List, Optional, Tuple
 
 
-def compute_n50(length_counts):
+def compute_n50(length_counts: List[Tuple[int, int]]) -> Optional[int]:
     """Compute N50 from a list of (length, count) tuples.
 
     Given a histogram of read lengths, N50 is the length at which 50% of
@@ -39,7 +40,7 @@ def compute_n50(length_counts):
     return None
 
 
-def parse_fastp(filepath):
+def parse_fastp(filepath: str) -> Dict[str, Any]:
     """Parse FASTP JSON and extract QC statistics."""
     with open(filepath, "r") as f:
         data = json.load(f)
@@ -127,7 +128,7 @@ def parse_fastp(filepath):
     return result
 
 
-def parse_seqkit(filepath):
+def parse_seqkit(filepath: str) -> Dict[str, Any]:
     """Parse SeqKit TSV output and extract QC statistics.
 
     Expected columns: num_seqs, sum_len, min_len, avg_len, max_len,
@@ -177,7 +178,7 @@ def parse_seqkit(filepath):
     return result
 
 
-def write_atomic(filepath, data):
+def write_atomic(filepath: str, data: Any) -> None:
     """Write JSON data atomically using a temporary file and rename."""
     dir_name = os.path.dirname(filepath) or "."
     os.makedirs(dir_name, exist_ok=True)
@@ -193,7 +194,7 @@ def write_atomic(filepath, data):
         raise
 
 
-def build_sidecar(args):
+def build_sidecar(args: argparse.Namespace) -> Dict[str, Any]:
     """Build sidecar metadata JSON."""
     sidecar = {
         "contract_version": "1.0.0",
@@ -213,7 +214,7 @@ def build_sidecar(args):
     return sidecar
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser(
         description="Convert FASTP JSON or SeqKit TSV to canonical QC JSON."
     )
