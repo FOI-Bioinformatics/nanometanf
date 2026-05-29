@@ -25,10 +25,17 @@ Capabilities:
 - Real-time FASTQ monitoring during a sequencing run, using Nextflow `watchPath`
 - Streaming Kraken2 architecture (v1.5+) with per-sample parallelism, append-only
   batch storage, and incremental taxid counting
-- POD5 basecalling via Dorado (GPU optional)
 - Pre-demultiplexed barcode directory support (flat or per-barcode layouts)
-- Adaptive batching and configurable backpressure for high-throughput runs
-- nf-core compliance with an extensive nf-test suite
+- Adaptive batching and configurable concurrency for high-throughput runs
+- Tool-agnostic canonical output layer (`outdir/canonical/`) consumed by Nanometa
+  Live and other frontends; schema in
+  [`docs/development/canonical_output_specification.md`](docs/development/canonical_output_specification.md)
+- Optional runtime-metrics instrumentation (`--runtime_metrics_interval_seconds`)
+  emitting periodic `[runtime-metrics]` log lines plus the standard Nextflow
+  `execution_trace_<ts>.txt` with queue-waiting fields for backpressure analysis
+- nf-core compliance with an extensive nf-test suite (59 pipeline-level + 23
+  module-internal tests; CI matrix runs Nextflow 26.04.0 and `latest-everything`
+  under both Docker and the platform-profile stub-sanity matrix)
 
 ## Quick start
 
@@ -77,7 +84,15 @@ nextflow run foi-bioinformatics/nanometanf \
     --realtime_mode \
     --kraken2_enable_incremental true \
     --max_classification_forks 8 \
-    --max_concurrent_batches 4 \
+    --nanopore_output_dir /path/to/fastq \
+    --kraken2_db /path/to/db \
+    --outdir results \
+    -profile conda
+
+# Same, with periodic runtime-metrics snapshots written to .nextflow.log
+nextflow run foi-bioinformatics/nanometanf \
+    --realtime_mode \
+    --runtime_metrics_interval_seconds 60 \
     --nanopore_output_dir /path/to/fastq \
     --kraken2_db /path/to/db \
     --outdir results \
@@ -97,9 +112,13 @@ Kraken2 architecture with the following properties:
   atomic JSON index. Cumulative output is rebuilt only at end of session,
   giving O(1) per batch instead of O(n) cumulative rewrites.
 - **Incremental taxid counting.** Per-sample state files accumulate counts
-  without re-reading prior outputs.
-- **Backpressure controls.** `max_concurrent_batches` and
-  `max_classification_forks` limit concurrency.
+  without re-reading prior outputs. Per-sample state is released as soon as the
+  final batch of a sample is processed, so the head-process heap does not grow
+  with run length.
+- **Concurrency cap.** `--max_classification_forks` is a global cap on
+  in-flight classification tasks (default 8). `--max_concurrent_batches` is
+  reserved for a future per-barcode throttle and is currently advisory only
+  -- see the audit P2.9 note in `CLAUDE.md` for the workaround.
 
 Internal benchmarks measure roughly four to five times higher throughput on
 runs with twelve or more barcodes compared with the previous architecture.
@@ -108,7 +127,6 @@ runs with twelve or more barcodes compared with the previous architecture.
 nextflow run foi-bioinformatics/nanometanf \
     --realtime_mode \
     --kraken2_enable_incremental true \
-    --max_concurrent_batches 4 \
     --max_classification_forks 8 \
     ...
 ```
@@ -159,6 +177,7 @@ User documentation:
 Development documentation:
 
 - [Development guide](docs/development/README.md)
+- [Canonical output specification](docs/development/canonical_output_specification.md) -- source of truth for `outdir/canonical/`
 - [Testing guide](docs/development/TESTING.md) -- nf-test conventions
 - [CLAUDE.md](CLAUDE.md) -- developer notes for AI-assisted work
 
@@ -174,15 +193,17 @@ Release information:
 Input -> QC -> Classification -> Validation -> Reports
   |       |          |                |            |
 FASTQ  Chopper    Kraken2          BLAST       MultiQC
-       FASTP    (streaming)       minimap2     JSON
+       FASTP    (streaming)       minimap2     Canonical JSON
        NanoPlot Taxpasta                       HTML
 ```
 
-Supported inputs:
+Supported inputs (mutually exclusive; enforced at schema level via a `oneOf`
+constraint):
 
-1. FASTQ samplesheet (standard batch analysis)
-2. Pre-demultiplexed barcode directories (automated discovery)
-3. Real-time FASTQ monitoring (during sequencing)
+1. `--input` FASTQ samplesheet (standard batch analysis)
+2. `--input_dir` directory scan (auto-detects barcode subdirectories vs. flat
+   layout; replaces the deprecated `--barcode_input_dir`)
+3. `--realtime_mode` + `--nanopore_output_dir` for live FASTQ monitoring
 
 See the [usage guide](docs/usage.md) for parameter details.
 

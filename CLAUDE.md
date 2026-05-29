@@ -15,12 +15,15 @@ The recommended development environment is the `nf-core` conda environment.
 `nanometanf` is an nf-core compliant Nextflow pipeline for Oxford Nanopore
 sequencing data analysis. It covers:
 
-- Real-time analysis during active sequencing (POD5 or FASTQ monitoring)
-- POD5 basecalling via Dorado (GPU optional)
+- Real-time FASTQ monitoring during active sequencing via Nextflow `watchPath`
 - Pre-demultiplexed barcode directory processing
 - Taxonomic classification with Kraken2 (streaming or batch)
 - Quality control (Chopper, FASTP, NanoPlot) and validation (BLAST, minimap2)
 - Platform-specific resource profiles (MinION, PromethION)
+- Canonical tool-agnostic output layer for downstream consumers (Nanometa Live)
+
+POD5 basecalling via Dorado was removed in the 2026-04 refactor and the
+`use_dorado` / `pod5_input_dir` parameters are no longer accepted.
 
 **Current version:** 1.5.1dev (development); 1.5.0 (released)
 **nf-core lint score:** 96/100
@@ -143,9 +146,9 @@ Corresponding `bin/` scripts handle the format conversion: `kreport_to_canonical
 
 - **`realtime_monitoring/main.nf`** - Real-time FASTQ monitoring with watchPath
   - Adaptive batching via BatchUtils, priority routing, barcode extraction
-  - Backpressure configuration logging
-
-- **`realtime_pod5_monitoring/main.nf`** - Real-time POD5 monitoring + basecalling
+  - Concurrency configuration logging
+  - Optional `[runtime-metrics]` daemon-Timer snapshot
+    (`--runtime_metrics_interval_seconds N`)
 
 - **`taxonomic_classification/main.nf`** - Kraken2 taxonomic profiling
   - Scalable streaming architecture with per-sample parallelism
@@ -166,9 +169,8 @@ Corresponding `bin/` scripts handle the format conversion: `kreport_to_canonical
 | `kraken2_output_merger/`           | Append-only batch storage with atomic index  |
 | `kraken2_report_generator/`        | Incremental taxid counting                   |
 | `kraken2_final_aggregator/`        | End-of-session concatenation                 |
+| `emit_empty_kraken2_report/`       | Placeholder report for samples with 0 reads  |
 | `fastp_streaming/`                 | FASTP wrapper for multi-file streaming input |
-| `dorado_basecaller/`               | POD5 basecalling                             |
-| `dorado_demux/`                    | Dorado demultiplexing                        |
 | `extract_reads_by_taxid/`          | Extract reads for validation                 |
 | `blastn_validation/`               | BLAST validation                             |
 | `minimap2_validation/`             | Fast minimap2 validation                     |
@@ -180,13 +182,13 @@ Corresponding `bin/` scripts handle the format conversion: `kreport_to_canonical
 
 ### Library Utilities (lib/)
 
-| File                   | Purpose                                              |
-| ---------------------- | ---------------------------------------------------- |
-| `InputDetector.groovy` | Type-agnostic input detection (POD5/FASTQ/directory) |
-| `BatchUtils.groovy`    | Batching utilities using `buffer()` operator         |
-| `WorkflowMain.groovy`  | Main workflow initialization                         |
-| `Utils.groovy`         | General utility functions                            |
-| `NfcoreSchema.groovy`  | Schema validation helpers                            |
+| File                   | Purpose                                           |
+| ---------------------- | ------------------------------------------------- |
+| `InputDetector.groovy` | Type-agnostic input detection (FASTQ / directory) |
+| `BatchUtils.groovy`    | Batching utilities using `buffer()` operator      |
+| `WorkflowMain.groovy`  | Main workflow initialization                      |
+| `Utils.groovy`         | General utility functions                         |
+| `NfcoreSchema.groovy`  | Schema validation helpers                         |
 
 ---
 
@@ -308,12 +310,15 @@ The test suite is designed to run in stub mode without Docker or external tools.
 
 **Test structure:**
 
-- **17 pipeline/subworkflow/lib tests** (`tests/`) - smoke tests and parameter validation
-- **38 module tests** (`modules/local/*/tests/`, `modules/nf-core/*/tests/`) - stub-mode unit tests
+- **59 pipeline-level test functions** under `tests/*.nf.test` -- smoke tests,
+  scaling stubs, parameter validation, and the V4 ifEmpty regression cover
+- **23 module-internal test files** under `modules/local/*/tests/` -- stub-mode
+  unit tests, three of which (output_merger, report_generator, final_aggregator)
+  also exercise the real Python algorithm without containers
 
 **Required skip flags for pipeline tests:** All pipeline-level tests must include
-`skip_kraken2 = true`, `use_dorado = false`, and `blast_validation = false` in their
-params blocks unless the test specifically exercises that feature in stub mode.
+`skip_kraken2 = true` and `blast_validation = false` in their params blocks
+unless the test specifically exercises that feature in stub mode.
 
 ```bash
 # Quick validation (via test runner)
@@ -342,10 +347,13 @@ NFT_SHARD=2/4 ./tests/run_tests.sh full
 
 ### Input Modes (Mutually Exclusive)
 
+Enforced at the schema level via a `oneOf` constraint
+(`nextflow_schema.json:input_mode_selection`). Exactly one must be set.
+
 - `--input` - Samplesheet CSV
-- `--input_dir` - Unified directory scanning (v1.5+, replaces barcode_input_dir)
-- `--barcode_input_dir` - Pre-demultiplexed barcode directories (deprecated, use input_dir)
-- `--pod5_input_dir` + `--use_dorado` - POD5 basecalling mode
+- `--input_dir` - Unified directory scanning (v1.5+; replaces `barcode_input_dir`)
+- `--barcode_input_dir` - Deprecated, hidden in `--help`; use `--input_dir`
+- `--realtime_mode` + `--nanopore_output_dir` - Live FASTQ monitoring
 
 ### Real-time Processing
 
@@ -403,20 +411,19 @@ NFT_SHARD=2/4 ./tests/run_tests.sh full
 
 Auto-detects in `workflows/nanometanf.nf`:
 
-1. **Real-time POD5**: `realtime_mode && use_dorado && pod5_input_dir`
-2. **Real-time FASTQ**: `realtime_mode && !use_dorado && nanopore_output_dir`
-3. **Static POD5**: `!realtime_mode && use_dorado && pod5_input_dir`
-4. **Barcode discovery**: `!realtime_mode && barcode_input_dir`
-5. **Standard samplesheet**: `!realtime_mode && input`
+1. **Real-time FASTQ**: `realtime_mode && nanopore_output_dir`
+2. **Directory scan**: `!realtime_mode && input_dir`
+3. **Barcode discovery (deprecated alias)**: `!realtime_mode && barcode_input_dir`
+4. **Standard samplesheet**: `!realtime_mode && input`
 
 ### Channel Flow
 
 ```
-Input Detection -> Basecalling -> QC -> Classification -> Validation -> Reports
-     |               |           |         |               |            |
-  POD5/FASTQ      Dorado     CHOPPER   Kraken2          BLAST       MultiQC
-  Barcodes                   NanoPlot   (scalable)                    JSON
-                                        Taxpasta
+Input Detection -> QC -> Classification -> Validation -> Reports
+     |              |         |               |            |
+   FASTQ        CHOPPER   Kraken2          BLAST       MultiQC
+   Barcodes     NanoPlot  (scalable)       minimap2    Canonical JSON
+                          Taxpasta
 ```
 
 ### Scalable Classification Flow (v1.5+)
@@ -452,6 +459,7 @@ gh pr create --title "Title" --body "Description"
 - **[User Guide](docs/usage.md)** - Complete usage instructions
 - **[Development Guide](docs/development/README.md)** - Developer documentation
 - **[Testing Guide](docs/development/TESTING.md)** - nf-test documentation
+- **[Canonical Output Specification](docs/development/canonical_output_specification.md)** - Source of truth for `outdir/canonical/` (contracts A-D + manifest)
 - **[nf-core Module Maintenance](docs/development/nfcore_module_maintenance.md)** - Local modification tracking
 - **[Real-time Processing](docs/user/realtime_processing.md)** - Advanced real-time guide
 - [nf-core guidelines](https://nf-co.re/docs/contributing/guidelines)
@@ -459,7 +467,7 @@ gh pr create --title "Title" --body "Description"
 
 ---
 
-**Last updated:** 2026-05-03
+**Last updated:** 2026-05-29
 **Version:** 1.5.1dev (development); 1.5.0 (released)
 **Maintainer:** foi-bioinformatics team (@andreassjodin)
 
@@ -474,7 +482,45 @@ gh pr create --title "Title" --body "Description"
   internal benchmarks
 - Unified input handling via the `INPUT_SCANNER` subworkflow and `InputDetector`
 - `BatchUtils` refactoring: replaced deprecated `Channel.create()` with `buffer()`
-- Test suite: 55 active tests (17 pipeline, 38 module), stub-mode compatible
+
+### Production-readiness audit closure (2026-05-29)
+
+The 2026-05-28 audit at
+`/Users/andreassjodin/.claude/plans/make-an-audit-of-steady-iverson.md`
+was shipped across PRs #11-#18 and merged to `dev`. Highlights:
+
+- **P0** (correctness): defensive filters on every `.ifEmpty([])` consumer
+  in `workflows/nanometanf.nf` and `subworkflows/local/taxonomic_classification/main.nf`
+  so an empty QC output channel can no longer crash with `MissingMethodException`;
+  Kraken2 CPU allocation in `conf/modules.config` now scales as
+  `max(4, max_cpus / max_classification_forks)` instead of the hard-coded
+  serialising `cpus = 8` (the platform-profile overrides were dead code under
+  the config load order); `params.max_cpus`, `max_memory`, `max_time` declared.
+- **P1** (nf-core posture): `nextflow_schema.json` gained a `oneOf`
+  input-mode constraint and entries for the resource params; explicit
+  CI matrix runs `nf-test` under `26.04.0` and `latest-everything`
+  with profile-sanity stub-mode runs against `minion`, `promethion`, and
+  `promethion_8`.
+- **P2 / P3** (hardening): `promethion_8` Kraken2 memory cap reduced to
+  40 GB via `kraken2_memory_gb`; `MultiQC` config extended with `fastp`,
+  `fastqc`, `filtlong`, `seqkit`, and `samtools` modules; canonical-output
+  schema documented in `docs/development/canonical_output_specification.md`;
+  real-execution `nf-test`s added for the three pure-Python streaming
+  Kraken2 modules; per-sample cumulative-taxid state released on
+  `is_final_batch`; validation join now `log.warn`s silent drops; type
+  hints added across `bin/`.
+- **V4 / V5** (verification): `tests/ifempty_sentinel_regression.nf.test`
+  forces an empty CHOPPER output channel via `ext.when = false` and
+  asserts the `MissingMethodException` cannot return; a periodic
+  `[runtime-metrics]` snapshot logger plus expanded `trace.fields`
+  give 24-barcode field runs the queue-depth evidence the audit asked
+  for, gated on `--runtime_metrics_interval_seconds N`.
+
+CI is fully green for the first time since February 2026: all nine jobs
+pass on every PR (nf-test 26.04.0 + latest-everything, profile-sanity
+matrix, verify-pipeline matrix, nf-core-lint, pre-commit). Test suite
+counts after the audit: 59 pipeline-level test functions across
+`tests/`, 23 module-internal test files under `modules/local/*/tests/`.
 
 ### Hardening notes (2026-03-01)
 
