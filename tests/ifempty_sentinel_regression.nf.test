@@ -1,0 +1,82 @@
+nextflow_pipeline {
+
+    name "ifEmpty([]) sentinel regression (audit V4 / PR #11 P0.1)"
+    script "../main.nf"
+
+    // Regression cover for the May 4 2026 incident where every CHOPPER
+    // task in a real run failed, the qc_analysis subworkflow injected
+    // the ``[]`` sentinel via ``.ifEmpty([])`` (still does, by design
+    // -- the top-level test framework asserts on the channel emission),
+    // and the destructuring closures in the main workflow + the
+    // taxonomic_classification subworkflow then crashed with
+    //
+    //   groovy.lang.MissingMethodException:
+    //   Invalid method invocation `call` with arguments: [] (ArrayList)
+    //
+    // PR #11's P0.1 fix added ``.filter { it instanceof List && it.size() >= 2 && it[0] instanceof Map }``
+    // filters in front of every consuming closure. This test forces
+    // the exact upstream condition (empty CHOPPER output channel)
+    // without running the CHOPPER binary, so it stays inside the
+    // host-only stub matrix and does not require Docker.
+    //
+    // Mechanism: the sibling .config sets ``ext.when = false`` on the
+    // CHOPPER process. Nextflow skips scheduling -- the output channel
+    // is genuinely empty -- ``.ifEmpty([])`` injects ``[]`` -- the PR
+    // #11 filters drop it -- the workflow exits cleanly with no QC
+    // outputs to publish.
+
+    tag "pipeline"
+    tag "regression"
+    tag "ifempty"
+    tag "core"
+    tag "stub"
+
+    test("Pipeline exits without MissingMethodException when CHOPPER output channel is empty") {
+
+        config "./ifempty_sentinel_regression.config"
+        options "-stub"
+
+        when {
+            params {
+                input = "$projectDir/assets/test_samplesheet.csv"
+                outdir = "$outputDir"
+
+                realtime_mode = false
+                skip_kraken2 = true
+                blast_validation = false
+
+                // qc_tool=chopper is the default; explicit here so the
+                // intent is obvious. The .config disables CHOPPER
+                // scheduling via ext.when=false, leaving the CHOPPER
+                // output channel empty and triggering the
+                // ``CHOPPER.out.fastq.ifEmpty([])`` sentinel path.
+                qc_tool = 'chopper'
+
+                skip_fastp = false
+                skip_nanoplot = true
+
+                max_cpus = 2
+                max_memory = '4.GB'
+                max_time = '5.min'
+            }
+        }
+
+        then {
+            // The destructuring closures must survive the ``[]``
+            // sentinel. The exact crash signatures from the May 4
+            // incident were:
+            //   - "MissingMethodException"
+            //   - "Invalid method invocation `call` with arguments: []"
+            // Neither may appear in the workflow error report. We do
+            // not assert on workflow.success: with QC disabled there
+            // may be no reads downstream and the pipeline can
+            // legitimately abort with an empty-output error -- what
+            // matters is that the error is not the destructuring
+            // crash.
+            def err = (workflow.errorReport ?: '') + '\n' + (workflow.stdout?.join('\n') ?: '')
+            assert !err.contains('MissingMethodException')
+            assert !err.contains('Invalid method invocation `call`')
+            assert !err.contains('Cannot invoke method `call` with arguments')
+        }
+    }
+}
