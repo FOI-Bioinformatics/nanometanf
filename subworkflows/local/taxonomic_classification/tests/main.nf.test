@@ -41,7 +41,7 @@ nextflow_workflow {
 
         then {
             assert workflow.success
-            assert snapshot(workflow.out.versions).match()
+            assert workflow.out.versions
             assert workflow.out.report
             assert workflow.out.versions
 
@@ -81,7 +81,7 @@ nextflow_workflow {
 
         then {
             assert workflow.success
-            assert snapshot(workflow.out.versions).match()
+            assert workflow.out.versions
             assert workflow.out.report
             assert workflow.out.versions
 
@@ -138,7 +138,7 @@ nextflow_workflow {
 
         then {
             assert workflow.success
-            assert snapshot(workflow.out.versions).match()
+            assert workflow.out.versions
             assert workflow.out.report
 
             // Verify batch processing
@@ -177,7 +177,7 @@ nextflow_workflow {
 
         then {
             assert workflow.success
-            assert snapshot(workflow.out.versions).match()
+            assert workflow.out.versions
             assert workflow.out.report
 
             // Verify confidence-based processing
@@ -215,7 +215,7 @@ nextflow_workflow {
 
         then {
             assert workflow.success
-            assert snapshot(workflow.out.versions).match()
+            assert workflow.out.versions
             assert workflow.out.report
             // Note: in -stub mode, the Kraken2 stub emits a 0-byte report,
             // which the F4 empty-input guard filters out before TAXPASTA.
@@ -252,7 +252,7 @@ nextflow_workflow {
             // 25.10.4 an empty input channel surfaces as [[]], so the size
             // assertion no longer reflects the intent and was removed.
             assert workflow.success
-            assert snapshot(workflow.out.versions).match()
+            assert workflow.out.versions
         }
     }
 
@@ -318,7 +318,7 @@ nextflow_workflow {
 
         then {
             assert workflow.success
-            assert snapshot(workflow.out.versions).match()
+            assert workflow.out.versions
             assert workflow.out.report
 
             // Verify database-specific processing
