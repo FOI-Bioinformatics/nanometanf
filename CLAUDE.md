@@ -97,9 +97,15 @@ outdir/kraken2/
 
 ```groovy
 // Scalable streaming architecture (v1.5+)
-max_concurrent_batches   = 4    // Backpressure limit per sample
-max_classification_forks = 8    // Max parallel Kraken2 jobs
+max_concurrent_batches   = 4    // ADVISORY (not enforced; see audit P2.9)
+max_classification_forks = 8    // Max parallel Kraken2 jobs (global cap, enforced via process maxForks)
 ```
+
+> `max_concurrent_batches` is logged for visibility but has no
+> enforcement effect today. Per-barcode backpressure is tracked under
+> audit item P2.9. Operators who see one slow barcode starving others
+> should raise `--max_classification_forks` proportionally to the
+> barcode count.
 
 ---
 
@@ -352,7 +358,7 @@ NFT_SHARD=2/4 ./tests/run_tests.sh full
 
 ### Scalable Streaming (v1.5+)
 
-- `--max_concurrent_batches` - Backpressure limit per sample (default: 4)
+- `--max_concurrent_batches` - Advisory only; not currently enforced (default: 4, see audit P2.9)
 - `--max_classification_forks` - Max parallel Kraken2 jobs (default: 8)
 - `--kraken2_enable_incremental` - Enable scalable streaming architecture
 

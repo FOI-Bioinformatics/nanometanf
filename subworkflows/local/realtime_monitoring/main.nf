@@ -33,12 +33,33 @@ workflow REALTIME_MONITORING {
 
         //
         // BACKPRESSURE CONFIGURATION (v1.5+)
-        // Limits concurrent processing to prevent queue saturation
         //
-        def max_concurrent = params.max_concurrent_batches ?: 4
-        log.info "Backpressure: max ${max_concurrent} concurrent batches per sample"
-        log.info "Classification forks: ${params.max_classification_forks ?: 8} parallel Kraken2 jobs"
-        log.info "Batch timeout: ${params.batch_timeout ?: 60} seconds"
+        // ``max_classification_forks`` is enforced by ``maxForks`` on
+        // the KRAKEN2_INCREMENTAL_CLASSIFIER / KRAKEN2_OPTIMIZED /
+        // KRAKEN2_KRAKEN2 process declarations in conf/modules.config.
+        // It is a *global* fork cap across all in-flight classification
+        // tasks, regardless of which barcode emitted them.
+        //
+        // ``max_concurrent_batches`` is currently *advisory only*. The
+        // intent (one barcode cannot occupy more than N classifier
+        // slots) cannot be expressed cleanly in Nextflow DSL2 because
+        // ``maxForks`` is per-process, not per-key. The audit P2.9
+        // item tracks the work to add a per-key throttle (likely a
+        // custom Groovy operator in lib/BatchUtils.groovy that wraps
+        // a per-sample semaphore over the batches channel). Until then,
+        // operators who see a single slow barcode starve others should
+        // raise ``--max_classification_forks`` proportionally to the
+        // number of barcodes -- e.g. on a 24-plex run set forks to at
+        // least 6 so every barcode can land at least one classifier
+        // slot in steady state.
+        //
+        def max_classification_forks = params.max_classification_forks ?: 8
+        def batch_timeout = params.batch_timeout ?: 60
+        log.info "Backpressure: classifier maxForks = ${max_classification_forks} (global cap, not per-barcode)"
+        log.info "Batch timeout: ${batch_timeout} seconds"
+        if (params.max_concurrent_batches != null) {
+            log.info "NOTE: ``--max_concurrent_batches ${params.max_concurrent_batches}`` is currently advisory; see audit P2.9 for the planned per-barcode throttle"
+        }
 
         // Use file() function directly to find existing files - more reliable than Channel.fromPath
         // The file() function with glob patterns returns a list of matching files
