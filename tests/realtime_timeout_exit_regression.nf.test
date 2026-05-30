@@ -69,4 +69,46 @@ nextflow_pipeline {
             assert workflow.success
         }
     }
+
+    test("Pipeline session exits after max_files cap fires") {
+
+        options "-stub"
+
+        when {
+            params {
+                input = false
+                realtime_mode = true
+                nanopore_output_dir = "$projectDir/tests/fixtures/barcode_structure"
+                file_pattern = "**/*.fastq.gz"
+                outdir = "$outputDir"
+
+                // Force the max_files codepath: small cap relative to the
+                // fixture (3 files), and a realtime_timeout high enough
+                // that the timer cannot rescue the session. Without the
+                // matching ch_new PoisonPill on the max_files path the
+                // ``.take(N)`` only closes downstream while watchPath
+                // stays alive, so the session hangs until the timeout
+                // would have fired -- nf-test gives up first.
+                max_files = 2
+                batch_size = 1
+                realtime_timeout_minutes = 30
+                realtime_processing_grace_period = 1
+
+                skip_kraken2 = true
+                blast_validation = false
+                skip_nanoplot = true
+                enable_realtime_stats = false
+
+                runtime_metrics_interval_seconds = 0
+
+                max_cpus = 2
+                max_memory = '4.GB'
+                max_time = '5.min'
+            }
+        }
+
+        then {
+            assert workflow.success
+        }
+    }
 }

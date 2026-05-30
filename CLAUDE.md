@@ -371,14 +371,16 @@ Three gotchas the eval surfaced that are easy to hit otherwise:
    the platform profile entirely and tune `max_classification_forks`
    to your machine (forks ~ available_cpus / 4 is a reasonable start).
 
-3. **Realtime-mode runs do not exit cleanly after MULTIQC**
-   (issue [#22](https://github.com/FOI-Bioinformatics/nanometanf/issues/22)).
-   Setting `runtime_metrics_interval_seconds: 0` is not sufficient.
-   For benchmarks or CI, run with an external watchdog that kills the
-   JVM N seconds after the MultiQC task's `.exitcode` is written.
-   Identify the MultiQC task by `.command.sh` content, not by the
-   work-dir path -- Nextflow work dirs are hex-hashed, never
-   process-named.
+3. **Identify Nextflow tasks externally by `.command.sh` content,
+   not by work-dir path.** Work dirs are hex-hashed, never
+   process-named. Any external watchdog, CI helper, or post-run
+   inspection that needs to locate a specific task should grep
+   `.command.sh`. Example (find the MultiQC work dir):
+   `grep -l "multiqc " $WORK/**/.command.sh`.
+   The realtime-hang issue this used to guard against
+   ([#22](https://github.com/FOI-Bioinformatics/nanometanf/issues/22))
+   is fixed on `dev` (commit `e97843d`); no external watchdog is
+   needed for realtime runs at or after that commit.
 
 ---
 

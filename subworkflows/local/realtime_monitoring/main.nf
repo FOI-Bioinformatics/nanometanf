@@ -208,6 +208,13 @@ workflow REALTIME_MONITORING {
         // terminates the channel; downstream batching then drains naturally.
         def TIMEOUT_SENTINEL = '__REALTIME_TIMEOUT_SENTINEL__'
 
+        // Issue #22: realtime termination needs to close all inputs the
+        // workflow session waits on, not just the downstream stream.
+        // Hoist nullable references so both the timeout-fires path and
+        // the max_files-fires path can close them in either order.
+        groovyx.gpars.dataflow.DataflowQueue ch_timeout = null
+        Timer realtime_timer = null
+
         // Count every file seen, regardless of whether it survives the
         // timeout or max_files cuts below. The tap is a side-effect-only
         // ``.map`` so it does not change the channel shape; the counter
@@ -244,9 +251,9 @@ workflow REALTIME_MONITORING {
             // emitting the sentinel, the timer also binds a PoisonPill
             // so the queue closes for downstream operators that look at
             // channel completion.
-            def ch_timeout = new groovyx.gpars.dataflow.DataflowQueue()
-            def timer = new Timer('realtime-timeout', /* isDaemon */ true)
-            timer.schedule({
+            ch_timeout = new groovyx.gpars.dataflow.DataflowQueue()
+            realtime_timer = new Timer('realtime-timeout', /* isDaemon */ true)
+            realtime_timer.schedule({
                 try {
                     ch_timeout.bind(TIMEOUT_SENTINEL)
                     ch_timeout.bind(groovyx.gpars.dataflow.operator.PoisonPill.instance)
@@ -266,7 +273,7 @@ workflow REALTIME_MONITORING {
                 } catch (Exception e) {
                     // Queue already closed by an earlier termination path.
                 }
-                timer.cancel()
+                realtime_timer.cancel()
             } as TimerTask, total_timeout_ms)
 
             ch_input_files = ch_input_files
@@ -275,8 +282,39 @@ workflow REALTIME_MONITORING {
         }
 
         if (params.max_files) {
-            log.info "Max files limit: ${params.max_files}"
-            ch_input_files = ch_input_files.take(params.max_files.toInteger())
+            def max_files_limit = params.max_files.toInteger()
+            log.info "Max files limit: ${max_files_limit}"
+            // Issue #22: the same channel-close requirement that applies
+            // to the realtime-timeout path applies here. ``.take(N)``
+            // closes its downstream output after N emissions but does
+            // not propagate a PoisonPill into the upstream watchPath
+            // queue (ch_new), nor into the ch_timeout queue that the
+            // ``.mix(ch_timeout).until`` chain is also waiting on. The
+            // tap below counts emissions and on hitting the cap closes
+            // all the upstream queues the session waits on so the
+            // workflow can terminate.
+            def file_counter = new java.util.concurrent.atomic.AtomicLong(0L)
+            ch_input_files = ch_input_files
+                .map { f ->
+                    if (file_counter.incrementAndGet() >= max_files_limit) {
+                        try {
+                            ch_new.bind(groovyx.gpars.dataflow.operator.PoisonPill.instance)
+                        } catch (Exception inner) {
+                            // ch_new already closed by an earlier termination path
+                        }
+                        if (ch_timeout != null) {
+                            try {
+                                ch_timeout.bind(TIMEOUT_SENTINEL)
+                                ch_timeout.bind(groovyx.gpars.dataflow.operator.PoisonPill.instance)
+                            } catch (Exception inner) {
+                                // ch_timeout already closed
+                            }
+                            realtime_timer?.cancel()
+                        }
+                    }
+                    return f
+                }
+                .take(max_files_limit)
         }
 
         if (!params.realtime_timeout_minutes && !params.max_files) {
