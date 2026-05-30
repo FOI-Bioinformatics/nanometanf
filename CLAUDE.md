@@ -341,6 +341,45 @@ NFT_SHARD=1/4 ./tests/run_tests.sh full
 NFT_SHARD=2/4 ./tests/run_tests.sh full
 ```
 
+### 6. Local benchmarking with simulated data
+
+`nanorunner` (installed in the `nf-core` env) can generate small mock
+communities and replay them through the pipeline. A worked example
+covering classifier modes, platform profiles, fork counts, and realtime
+vs batch input is at
+[docs/development/eval_2026-05-29_options_sweep.md](docs/development/eval_2026-05-29_options_sweep.md).
+
+```bash
+# Generate ~4000 reads across 3 barcodes from a 3-species mock
+nanorunner generate --mock quick_3species --read-count 4000 \
+  --target results/sim-data --offline --seed 1 --quiet
+```
+
+Three gotchas the eval surfaced that are easy to hit otherwise:
+
+1. **`realtime_mode=true` forces the incremental Kraken2 branch** at
+   `subworkflows/local/taxonomic_classification/main.nf:175`. The
+   optimized and standard branches are unreachable from any realtime
+   run, including any of the platform profiles. To compare classifier
+   modes, set `realtime_mode: false` and use `input_dir`.
+
+2. **Platform profiles are tuned for the platform they name.** Running
+   `-profile promethion` on dev hardware is a pessimization, not a
+   stress test: with `kraken2_memory_mapping=false` (ARM Mac default)
+   each Kraken2 fork reloads the DB and the laptop is CPU-oversubscribed.
+   For local dev use `-profile minion` for single-sample work or drop
+   the platform profile entirely and tune `max_classification_forks`
+   to your machine (forks ~ available_cpus / 4 is a reasonable start).
+
+3. **Realtime-mode runs do not exit cleanly after MULTIQC**
+   (issue [#22](https://github.com/FOI-Bioinformatics/nanometanf/issues/22)).
+   Setting `runtime_metrics_interval_seconds: 0` is not sufficient.
+   For benchmarks or CI, run with an external watchdog that kills the
+   JVM N seconds after the MultiQC task's `.exitcode` is written.
+   Identify the MultiQC task by `.command.sh` content, not by the
+   work-dir path -- Nextflow work dirs are hex-hashed, never
+   process-named.
+
 ---
 
 ## Important Parameters
@@ -462,12 +501,13 @@ gh pr create --title "Title" --body "Description"
 - **[Canonical Output Specification](docs/development/canonical_output_specification.md)** - Source of truth for `outdir/canonical/` (contracts A-D + manifest)
 - **[nf-core Module Maintenance](docs/development/nfcore_module_maintenance.md)** - Local modification tracking
 - **[Real-time Processing](docs/user/realtime_processing.md)** - Advanced real-time guide
+- **[2026-05-29 options-sweep eval](docs/development/eval_2026-05-29_options_sweep.md)** - Benchmark across classifier modes, profiles, fork counts, realtime vs batch
 - [nf-core guidelines](https://nf-co.re/docs/contributing/guidelines)
 - [Nextflow documentation](https://www.nextflow.io/docs/latest/)
 
 ---
 
-**Last updated:** 2026-05-29
+**Last updated:** 2026-05-30
 **Version:** 1.5.1dev (development); 1.5.0 (released)
 **Maintainer:** foi-bioinformatics team (@andreassjodin)
 
