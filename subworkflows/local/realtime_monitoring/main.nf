@@ -250,6 +250,18 @@ workflow REALTIME_MONITORING {
                 try {
                     ch_timeout.bind(TIMEOUT_SENTINEL)
                     ch_timeout.bind(groovyx.gpars.dataflow.operator.PoisonPill.instance)
+                    // Issue #22: also send a PoisonPill into the underlying
+                    // watchPath queue. ``.until { sentinel }`` only closes
+                    // the merged downstream channel; the Nextflow session
+                    // waits for every upstream queue (including ch_new) to
+                    // close before reporting "Pipeline completed". Without
+                    // this, realtime runs hang indefinitely after MULTIQC
+                    // even when the realtime-timeout sentinel has fired.
+                    try {
+                        ch_new.bind(groovyx.gpars.dataflow.operator.PoisonPill.instance)
+                    } catch (Exception inner) {
+                        // ch_new already closed by an earlier termination path
+                    }
                     log.info "Real-time timeout fired after ${total_timeout_ms} ms"
                 } catch (Exception e) {
                     // Queue already closed by an earlier termination path.

@@ -1,0 +1,72 @@
+// Regression cover for issue #22: REALTIME_MONITORING JVM does not exit
+// after MULTIQC completes when realtime_timeout_minutes fires.
+//
+// Symptom before the fix: in realtime_mode, the timeout Timer in
+// subworkflows/local/realtime_monitoring/main.nf sent a sentinel into
+// a separate DataflowQueue (ch_timeout) and ``.until { sentinel }``
+// closed the merged downstream channel. The underlying
+// ``Channel.watchPath`` queue (ch_new) was never sent a PoisonPill,
+// so the Nextflow workflow session waited indefinitely for ch_new to
+// close before reporting "Pipeline completed". A1, B2, B3, C2 and C8
+// in results/eval-2026-05-29/SUMMARY.md all hit this hang and had to
+// be killed by an external watchdog.
+//
+// Fix: also bind PoisonPill into ch_new from the realtime-timeout
+// TimerTask. The watchPath queue closes, the session terminates,
+// and the run reports success normally.
+//
+// This regression test runs the pipeline in stub mode against the
+// existing barcode_structure fixture with realtime_mode=true and a
+// short timeout, then asserts workflow.success. Without the fix the
+// pipeline session never terminates so this test times out.
+
+nextflow_pipeline {
+
+    name "realtime-mode JVM exit regression (issue #22)"
+    script "../main.nf"
+
+    tag "pipeline"
+    tag "regression"
+    tag "realtime"
+    tag "issue-22"
+    tag "stub"
+    tag "core"
+
+    test("Pipeline session exits after realtime_timeout fires") {
+
+        options "-stub"
+
+        when {
+            params {
+                input = false
+                realtime_mode = true
+                nanopore_output_dir = "$projectDir/tests/fixtures/barcode_structure"
+                file_pattern = "**/*.fastq.gz"
+                outdir = "$outputDir"
+
+                // Force the realtime_timeout codepath. max_files is set
+                // higher than the fixture so the timer is what closes
+                // the channel, exactly mirroring the issue-22 reproducer.
+                max_files = 100
+                batch_size = 2
+                realtime_timeout_minutes = 1
+                realtime_processing_grace_period = 1
+
+                skip_kraken2 = true
+                blast_validation = false
+                skip_nanoplot = true
+                enable_realtime_stats = false
+
+                runtime_metrics_interval_seconds = 0
+
+                max_cpus = 2
+                max_memory = '4.GB'
+                max_time = '5.min'
+            }
+        }
+
+        then {
+            assert workflow.success
+        }
+    }
+}
