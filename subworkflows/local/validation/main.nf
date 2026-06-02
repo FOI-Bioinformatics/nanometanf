@@ -11,6 +11,8 @@ include { BLASTN_VALIDATION             } from '../../../modules/local/blastn_va
 include { MINIMAP2_VALIDATION           } from '../../../modules/local/minimap2_validation/main'
 include { AGGREGATE_VALIDATION_RESULTS  } from '../../../modules/local/aggregate_validation_results/main'
 include { CANONICAL_VALIDATION_WRITER  } from '../../../modules/local/canonical_validation_writer/main'
+include { VALIDATION_CUMULATIVE_AGGREGATOR as MINIMAP2_CUMULATIVE_AGGREGATOR } from '../../../modules/local/validation_cumulative_aggregator/main'
+include { VALIDATION_CUMULATIVE_AGGREGATOR as BLAST_CUMULATIVE_AGGREGATOR    } from '../../../modules/local/validation_cumulative_aggregator/main'
 
 workflow VALIDATION {
 
@@ -172,6 +174,25 @@ workflow VALIDATION {
         ch_blast_stats = BLASTN_VALIDATION.out.stats.map { meta, stats -> stats }.ifEmpty([])
         ch_blast_results = BLASTN_VALIDATION.out.results.ifEmpty([])
         ch_versions = ch_versions.mix(BLASTN_VALIDATION.out.versions.first().ifEmpty([]))
+
+        // Realtime only: maintain a run-so-far cumulative BLAST table + stats per
+        // (sample, taxid). Pair this batch's table with its stats (for the
+        // per-batch read count) and the prior cumulative files from the outdir;
+        // the aggregator merges + recomputes. The ext.when guard plus this
+        // filter keep it a no-op in batch mode.
+        ch_blast_cumulative_input = BLASTN_VALIDATION.out.results
+            .join(BLASTN_VALIDATION.out.stats)
+            .filter { meta, tsv, stats -> meta.batch_id }
+            .map { meta, tsv, stats ->
+                def base = "${params.outdir}/validation/blast/${meta.id}_taxid${meta.taxid}"
+                def prior_tsv = file("${base}.blast.tsv")
+                def prior_stats = file("${base}.blast_stats.json")
+                [ meta, meta.taxid, tsv, stats,
+                  prior_tsv.exists() ? prior_tsv : [],
+                  prior_stats.exists() ? prior_stats : [] ]
+            }
+        BLAST_CUMULATIVE_AGGREGATOR(ch_blast_cumulative_input, 'blast')
+        ch_versions = ch_versions.mix(BLAST_CUMULATIVE_AGGREGATOR.out.versions.first().ifEmpty([]))
     }
 
     //
@@ -191,6 +212,22 @@ workflow VALIDATION {
         ch_minimap2_stats = MINIMAP2_VALIDATION.out.stats.map { meta, stats -> stats }.ifEmpty([])
         ch_minimap2_results = MINIMAP2_VALIDATION.out.alignments.ifEmpty([])
         ch_versions = ch_versions.mix(MINIMAP2_VALIDATION.out.versions.first().ifEmpty([]))
+
+        // Realtime only: maintain a run-so-far cumulative PAF + stats per
+        // (sample, taxid). See the BLAST branch above for the rationale.
+        ch_minimap2_cumulative_input = MINIMAP2_VALIDATION.out.alignments
+            .join(MINIMAP2_VALIDATION.out.stats)
+            .filter { meta, paf, stats -> meta.batch_id }
+            .map { meta, paf, stats ->
+                def base = "${params.outdir}/validation/minimap2/${meta.id}_taxid${meta.taxid}"
+                def prior_paf = file("${base}.paf")
+                def prior_stats = file("${base}.minimap2_stats.json")
+                [ meta, meta.taxid, paf, stats,
+                  prior_paf.exists() ? prior_paf : [],
+                  prior_stats.exists() ? prior_stats : [] ]
+            }
+        MINIMAP2_CUMULATIVE_AGGREGATOR(ch_minimap2_cumulative_input, 'minimap2')
+        ch_versions = ch_versions.mix(MINIMAP2_CUMULATIVE_AGGREGATOR.out.versions.first().ifEmpty([]))
     }
 
     //
