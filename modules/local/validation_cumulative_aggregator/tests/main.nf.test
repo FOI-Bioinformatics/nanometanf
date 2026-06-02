@@ -1,0 +1,125 @@
+nextflow_process {
+
+    name "Test VALIDATION_CUMULATIVE_AGGREGATOR"
+    script "../main.nf"
+    process "VALIDATION_CUMULATIVE_AGGREGATOR"
+
+    tag "modules"
+    tag "modules_local"
+    tag "validation"
+    tag "realtime"
+    tag "cumulative"
+    tag "fast"
+
+    test("minimap2 cumulative - stub") {
+        options "-stub"
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id:'test', single_end:true ], "2697049",
+                    file("\${projectDir}/modules/local/validation_cumulative_aggregator/tests/fixtures/batch1.paf", checkIfExists: true),
+                    file("\${projectDir}/modules/local/validation_cumulative_aggregator/tests/fixtures/batch1_stats.json", checkIfExists: true),
+                    [], []
+                ]
+                input[1] = 'minimap2'
+                """
+            }
+        }
+        then {
+            assertAll(
+                { assert process.success },
+                { assert snapshot(process.out.versions).match("minimap2_stub_versions") }
+            )
+        }
+    }
+
+    test("blast cumulative - stub") {
+        options "-stub"
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id:'test', single_end:true ], "2697049",
+                    file("\${projectDir}/modules/local/validation_cumulative_aggregator/tests/fixtures/batch1.blast.tsv", checkIfExists: true),
+                    file("\${projectDir}/modules/local/validation_cumulative_aggregator/tests/fixtures/batch1_stats.json", checkIfExists: true),
+                    [], []
+                ]
+                input[1] = 'blast'
+                """
+            }
+        }
+        then {
+            assertAll(
+                { assert process.success },
+                { assert snapshot(process.out.versions).match("blast_stub_versions") }
+            )
+        }
+    }
+
+    test("minimap2 cumulative - second batch accumulates over prior") {
+        when {
+            process {
+                """
+                // Batch 2 (r3,r4; this-batch total_reads=3) merged with the prior
+                // cumulative (batch1.paf r1,r2; prior total_reads=2).
+                // Expect total_reads = 2+3 = 5, mapped_reads = 4 (dedup), hit_rate 0.8.
+                input[0] = [
+                    [ id:'test', single_end:true ], "2697049",
+                    file("\${projectDir}/modules/local/validation_cumulative_aggregator/tests/fixtures/batch2.paf", checkIfExists: true),
+                    file("\${projectDir}/modules/local/validation_cumulative_aggregator/tests/fixtures/batch2_minimap2_stats.json", checkIfExists: true),
+                    file("\${projectDir}/modules/local/validation_cumulative_aggregator/tests/fixtures/batch1.paf", checkIfExists: true),
+                    file("\${projectDir}/modules/local/validation_cumulative_aggregator/tests/fixtures/prior_minimap2_stats.json", checkIfExists: true)
+                ]
+                input[1] = 'minimap2'
+                """
+            }
+        }
+        then {
+            def stats = new groovy.json.JsonSlurper().parseText(file(process.out.stats.get(0).get(2)).text)
+            assertAll(
+                { assert process.success },
+                { assert stats.validation_method == 'minimap2' },
+                { assert stats.total_reads == 5 },
+                { assert stats.mapped_reads == 4 },
+                { assert stats.hit_rate == 0.8 },
+                { assert stats.avg_coverage >= 0.0 && stats.avg_coverage <= 1.0 },
+                { assert stats.containsKey('avg_mapq') },
+                { assert stats.containsKey('avg_identity') },
+                { assert stats.containsKey('ref_name') },
+                { assert path(process.out.minimap2_cumulative.get(0).get(2)).readLines().size() == 4 }
+            )
+        }
+    }
+
+    test("blast cumulative - second batch accumulates over prior") {
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id:'test', single_end:true ], "2697049",
+                    file("\${projectDir}/modules/local/validation_cumulative_aggregator/tests/fixtures/batch2.blast.tsv", checkIfExists: true),
+                    file("\${projectDir}/modules/local/validation_cumulative_aggregator/tests/fixtures/batch2_blast_stats.json", checkIfExists: true),
+                    file("\${projectDir}/modules/local/validation_cumulative_aggregator/tests/fixtures/batch1.blast.tsv", checkIfExists: true),
+                    file("\${projectDir}/modules/local/validation_cumulative_aggregator/tests/fixtures/prior_blast_stats.json", checkIfExists: true)
+                ]
+                input[1] = 'blast'
+                """
+            }
+        }
+        then {
+            def stats = new groovy.json.JsonSlurper().parseText(file(process.out.stats.get(0).get(2)).text)
+            assertAll(
+                { assert process.success },
+                { assert stats.validation_method == 'blast' },
+                { assert stats.total_reads == 5 },
+                { assert stats.blast_hits == 4 },
+                { assert stats.hit_rate == 0.8 },
+                { assert stats.avg_coverage >= 0.0 && stats.avg_coverage <= 1.0 },
+                { assert stats.containsKey('avg_identity') },
+                { assert stats.containsKey('min_evalue') },
+                { assert path(process.out.blast_cumulative.get(0).get(2)).readLines().size() == 4 }
+            )
+        }
+    }
+}
