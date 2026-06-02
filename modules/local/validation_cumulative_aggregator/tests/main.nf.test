@@ -35,6 +35,9 @@ nextflow_process {
                 { assert stats.total_reads == 3 },      // this batch only
                 { assert stats.mapped_reads == 2 },
                 { assert stats.validation_method == 'minimap2' },
+                // versions.yml must be valid YAML: top key at column 0 (no
+                // leading whitespace), else version collation fails the pipeline.
+                { assert file(process.out.versions.get(0)).readLines()[0].startsWith('"') },
                 { assert path(process.out.minimap2_cumulative.get(0).get(2)).readLines().size() == 2 }
             )
         }

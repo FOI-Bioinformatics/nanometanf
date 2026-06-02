@@ -148,9 +148,9 @@ with open("${prefix}.minimap2_stats.json", "w") as out:
 PYEOF
 
         cat <<-END_VERSIONS > versions.yml
-        "${task.process}":
-            python: \$(python3 --version | sed 's/Python //')
-        END_VERSIONS
+"${task.process}":
+    python: \$(python3 --version | sed 's/Python //')
+END_VERSIONS
         """
     } else {
         """
@@ -232,9 +232,9 @@ with open("${prefix}.blast_stats.json", "w") as out:
 PYEOF
 
         cat <<-END_VERSIONS > versions.yml
-        "${task.process}":
-            python: \$(python3 --version | sed 's/Python //')
-        END_VERSIONS
+"${task.process}":
+    python: \$(python3 --version | sed 's/Python //')
+END_VERSIONS
         """
     }
 
@@ -246,9 +246,9 @@ PYEOF
         echo '{"sample_id": "${meta.id}", "taxid": ${taxid}, "validation_method": "minimap2", "total_reads": 0, "mapped_reads": 0, "hit_rate": 0.0, "avg_mapq": 0.0, "avg_identity": 0.0, "avg_coverage": 0.0, "validation_status": "rejected", "ref_name": "unknown", "ref_length": 0, "parameters": {"preset": "map-ont", "min_mapq": 10}}' > "${prefix}.minimap2_stats.json"
 
         cat <<-END_VERSIONS > versions.yml
-        "${task.process}":
-            python: \$(python3 --version | sed 's/Python //')
-        END_VERSIONS
+"${task.process}":
+    python: \$(python3 --version | sed 's/Python //')
+END_VERSIONS
         """
     } else {
         """
@@ -256,9 +256,9 @@ PYEOF
         echo '{"sample_id": "${meta.id}", "taxid": ${taxid}, "validation_method": "blast", "total_reads": 0, "blast_hits": 0, "hit_rate": 0.0, "avg_identity": 0.0, "avg_coverage": 0.0, "min_evalue": 1.0, "validation_status": "rejected", "thresholds": {"evalue": "1e-10", "perc_identity": 90, "max_target_seqs": 1}}' > "${prefix}.blast_stats.json"
 
         cat <<-END_VERSIONS > versions.yml
-        "${task.process}":
-            python: \$(python3 --version | sed 's/Python //')
-        END_VERSIONS
+"${task.process}":
+    python: \$(python3 --version | sed 's/Python //')
+END_VERSIONS
         """
     }
 }
