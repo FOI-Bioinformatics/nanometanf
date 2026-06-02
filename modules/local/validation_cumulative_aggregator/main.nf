@@ -16,7 +16,16 @@ process VALIDATION_CUMULATIVE_AGGREGATOR {
         'quay.io/biocontainers/python:3.12' }"
 
     input:
-    tuple val(meta), val(taxid), path(batch_file), path(batch_stats), path(prior_file), path(prior_stats)
+    // Inputs are staged under fixed generic names so they never collide with
+    // the cumulative OUTPUT name (<prefix>.paf / <prefix>.*_stats.json). Without
+    // this, batch_file == output name and Nextflow excludes it from the output
+    // matching set ("Missing output file"). It also avoids the prior-vs-batch
+    // same-basename collision (both are <prefix>.paf on disk).
+    tuple val(meta), val(taxid),
+        path(batch_file, stageAs: 'batch_input'),
+        path(batch_stats, stageAs: 'batch_stats.json'),
+        path(prior_file, stageAs: 'prior_input'),
+        path(prior_stats, stageAs: 'prior_stats.json')
     val method
 
     output:
@@ -38,8 +47,6 @@ process VALIDATION_CUMULATIVE_AGGREGATOR {
     def blast_evalue = params.blast_evalue ?: "1e-10"
     def blast_perc_identity = params.blast_perc_identity ?: 90
     def blast_max_target_seqs = params.blast_max_target_seqs ?: 1
-    def prior_file_arg = prior_file ? "${prior_file}" : ""
-    def prior_stats_arg = prior_stats ? "${prior_stats}" : ""
     if (method == 'minimap2') {
         """
         #!/bin/bash
@@ -49,8 +56,8 @@ process VALIDATION_CUMULATIVE_AGGREGATOR {
         # per-read dedup in the recompute below collapses any duplicate primary
         # alignments seen across batches.
         : > merged.paf
-        if [ -n "${prior_file_arg}" ] && [ -s "${prior_file_arg}" ]; then cat "${prior_file_arg}" >> merged.paf; fi
-        if [ -s "${batch_file}" ]; then cat "${batch_file}" >> merged.paf; fi
+        if [ -s "prior_input" ]; then cat "prior_input" >> merged.paf; fi
+        if [ -s "batch_input" ]; then cat "batch_input" >> merged.paf; fi
         cp merged.paf "${prefix}.paf"
 
         python3 << 'PYEOF'
@@ -71,7 +78,7 @@ def total_reads_of(path):
 
 # total_reads is the per-batch classified-read count and is NOT in the PAF, so
 # accumulate it across batches: prior cumulative + this batch.
-cum_total = total_reads_of("${prior_stats_arg}") + total_reads_of("${batch_stats}")
+cum_total = total_reads_of("prior_stats.json") + total_reads_of("batch_stats.json")
 
 seen = set()
 hits = 0
@@ -153,8 +160,8 @@ PYEOF
         # Merge the prior cumulative BLAST table (if any) with this batch's. The
         # per-qseqid dedup in the recompute keeps the merged hit set well-defined.
         : > merged.blast.tsv
-        if [ -n "${prior_file_arg}" ] && [ -s "${prior_file_arg}" ]; then cat "${prior_file_arg}" >> merged.blast.tsv; fi
-        if [ -s "${batch_file}" ]; then cat "${batch_file}" >> merged.blast.tsv; fi
+        if [ -s "prior_input" ]; then cat "prior_input" >> merged.blast.tsv; fi
+        if [ -s "batch_input" ]; then cat "batch_input" >> merged.blast.tsv; fi
         cp merged.blast.tsv "${prefix}.blast.tsv"
 
         python3 << 'PYEOF'
@@ -172,7 +179,7 @@ def total_reads_of(path):
             return 0
     return 0
 
-cum_total = total_reads_of("${prior_stats_arg}") + total_reads_of("${batch_stats}")
+cum_total = total_reads_of("prior_stats.json") + total_reads_of("batch_stats.json")
 
 hits = 0
 seen = set()
