@@ -9,10 +9,12 @@ nextflow_pipeline {
 
     // Feature Area
     tag "qc"
+    tag "classification"
 
     // Execution Speed & Criticality
     tag "slow"
     tag "core"
+    tag "stub"
 
     test("Should run complete workflow without failures") {
 
@@ -38,8 +40,14 @@ input = "$projectDir/tests/test_samplesheet.csv"
         }
 
         then {
+            def err = (workflow.errorReport ?: '') + '\n' + (workflow.stdout?.join('\n') ?: '')
+            assert !err.contains('MethodSelectionException')
+            assert !err.contains('Could not find which method')
+            assert !err.contains('MissingMethodException')
+            assert !err.contains('Invalid method invocation `call`')
             assert workflow.success
             assert path("${outputDir}/pipeline_info").exists()
+            assert path("$outputDir/pipeline_info").list().any { it.toString().contains('software_') }
             assert workflow.trace.tasks().size() > 0
 
             // Check that main processes ran (use contains() for process names with sample suffix)
@@ -54,37 +62,40 @@ input = "$projectDir/tests/test_samplesheet.csv"
         }
     }
 
-    test("Should handle Kraken2 classification when database provided") {
+    test("Should run the classification path when a database is provided") {
 
+        // Stub mode against the stub-only DB fixture: this exercises the
+        // classification wiring (and the EMIT_EMPTY_KRAKEN2_REPORT placeholder
+        // path, since the QC stub yields an empty post-QC FASTQ) without needing
+        // a real Kraken2 index. The previous version pointed at a nonexistent
+        // tests/test_kraken2_db and asserted a tautology, so it verified nothing.
+        options "-stub"
         when {
             params {
                 input = "$projectDir/tests/test_samplesheet.csv"
                 outdir = "$outputDir"
-
-                // Enable Kraken2 with test database
-                kraken2_db = "$projectDir/tests/test_kraken2_db"
-
-                // Disable other features
+                kraken2_db = "$projectDir/tests/fixtures/kraken2_db"
                 realtime_mode = false
                 blast_validation = false
-
-                // Resource limits
+                skip_nanoplot = true
                 max_cpus = 2
                 max_memory = '4.GB'
-                max_time = '1.h'
+                max_time = '15.min'
             }
         }
 
         then {
-            // Test expects failure since test DB doesn't exist - this is expected behavior
-            // In production, users must provide valid kraken2_db path
-            assert !workflow.success || workflow.success
-
-            // If we ever create the test DB, validate Kraken2 ran
-            if (workflow.success) {
-                assert workflow.trace.tasks().any { it.name.contains('KRAKEN2') }
-                assert path("${outputDir}/kraken2").exists()
+            def err = (workflow.errorReport ?: '') + '\n' + (workflow.stdout?.join('\n') ?: '')
+            assert !err.contains('MethodSelectionException')
+            assert !err.contains('Could not find which method')
+            assert !err.contains('MissingMethodException')
+            assert !err.contains('Invalid method invocation `call`')
+            assert workflow.success
+            assert path("$outputDir/pipeline_info").list().any { it.toString().contains('software_') }
+            assert workflow.trace.tasks().any {
+                it.name.contains('KRAKEN2') || it.name.contains('EMIT_EMPTY_KRAKEN2_REPORT')
             }
+            assert path("${outputDir}/kraken2").exists()
         }
     }
 
@@ -117,6 +128,11 @@ input = "$projectDir/tests/test_samplesheet.csv"
         }
 
         then {
+            def err = (workflow.errorReport ?: '') + '\n' + (workflow.stdout?.join('\n') ?: '')
+            assert !err.contains('MethodSelectionException')
+            assert !err.contains('Could not find which method')
+            assert !err.contains('MissingMethodException')
+            assert !err.contains('Invalid method invocation `call`')
             assert workflow.success
 
             // Verify CHOPPER executed
@@ -159,6 +175,11 @@ input = "$projectDir/tests/test_samplesheet.csv"
         }
 
         then {
+            def err = (workflow.errorReport ?: '') + '\n' + (workflow.stdout?.join('\n') ?: '')
+            assert !err.contains('MethodSelectionException')
+            assert !err.contains('Could not find which method')
+            assert !err.contains('MissingMethodException')
+            assert !err.contains('Invalid method invocation `call`')
             assert workflow.success
 
             // Verify FASTP executed

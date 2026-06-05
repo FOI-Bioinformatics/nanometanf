@@ -1,113 +1,86 @@
 nextflow_pipeline {
 
-    name "Test real-time processing with empty samplesheet"
+    name "Test real-time processing with empty samplesheet (input=false)"
     script "../main.nf"
 
-    // Test Level & Component
     tag "pipeline"
     tag "integration"
-
-    // Feature Area
     tag "realtime"
+    tag "stub"
+    tag "slow"
+    tag "extended"
 
-    // Execution Speed & Criticality
-    tag "fast"
-    tag "core"
+    // NOTE: the former "non-existent directory" case was removed. A realtime
+    // watchPath on a missing directory does NOT fail fast -- it keeps the watch
+    // queue open and hangs (max_time is a per-task limit and there are no
+    // tasks). That is a pipeline robustness gap (a missing nanopore_output_dir
+    // should be rejected up front), flagged as a follow-up; a test that hangs CI
+    // is worse than no test. The cases below use existing directories bounded by
+    // max_files + realtime_timeout_minutes so they always terminate.
 
-    test("Should work with empty samplesheet in real-time mode") {
-
+    test("empty samplesheet + realtime mode, pre-existing files (flat)") {
+        options "-stub"
         when {
             params {
-                // Use empty samplesheet for real-time processing
                 input = false
                 outdir = "$outputDir"
-
-                // Set up test directory with FASTQ files for monitoring
                 realtime_mode = true
                 nanopore_output_dir = "$projectDir/tests/realtime_test_data"
                 file_pattern = "*.fastq.gz"
                 batch_size = 2
-                batch_interval = "2s"  // Faster for testing
-                max_files = 2  // Limit for testing
-
-                // Disable other features for focused test
+                max_files = 2
+                realtime_timeout_minutes = 1
+                realtime_processing_grace_period = 10
                 skip_kraken2 = true
                 blast_validation = false
                 skip_fastp = false
-
-                // Resource limits
+                skip_nanoplot = true
                 max_cpus = 2
                 max_memory = '4.GB'
-                max_time = '1.min'  // Shorter timeout
+                max_time = '15.min'
             }
         }
-
         then {
-            assert workflow.success || workflow.failed
+            def err = (workflow.errorReport ?: '') + '\n' + (workflow.stdout?.join('\n') ?: '')
+            assert !err.contains('MethodSelectionException')
+            assert !err.contains('Could not find which method')
+            assert !err.contains('MissingMethodException')
+            assert !err.contains('Invalid method invocation `call`')
+            assert workflow.success
+            assert path("$outputDir/pipeline_info").list().any { it.toString().contains('software_') }
+            assert workflow.trace.tasks().any { it.name.contains('CHOPPER') || it.name.contains('FASTP') }
         }
     }
 
-    test("Should handle empty samplesheet with real-time mode enabled") {
-
+    test("empty samplesheet + realtime mode, pre-existing files (fixtures/realtime)") {
+        options "-stub"
         when {
             params {
                 input = false
                 outdir = "$outputDir"
-
-                skip_kraken2 = true
-                blast_validation = false
-                // Test empty samplesheet behavior - MUST be used with real-time mode
-                realtime_mode = true  // This is required for empty samplesheets
-                nanopore_output_dir = "/tmp/empty_test_dir" // Non-existent dir for testing
-                file_pattern = "*.fastq.gz"
-
-                // Quick timeout for this test
-                max_cpus = 1
-                max_memory = '1.GB'
-                max_time = '30.s'
-            }
-        }
-
-        then {
-            // Empty samplesheet + real-time mode should fail due to Channel.timer bug
-            // OR succeed if the real-time monitoring works
-            // The key point is that it handles empty samplesheets without hanging
-            assert workflow.failed || workflow.success
-
-            // Test shows that real-time mode is required for empty samplesheets
-            assert workflow.exitStatus != null
-        }
-    }
-
-    test("Should handle real-time mode with pre-existing files") {
-
-        when {
-            params {
-                input = false
-                outdir = "$outputDir"
-
-                skip_kraken2 = true
-                blast_validation = false
-                // Real-time mode with existing files
                 realtime_mode = true
                 nanopore_output_dir = "$projectDir/tests/fixtures/realtime"
                 file_pattern = "*.fastq.gz"
                 batch_size = 5
-                batch_interval = "5s"
                 max_files = 2
-
-                // Quick processing
-                skip_fastp = true  // Skip processing to focus on file detection
+                realtime_timeout_minutes = 1
+                realtime_processing_grace_period = 10
+                skip_kraken2 = true
+                blast_validation = false
                 skip_nanoplot = true
-
-                max_cpus = 1
+                max_cpus = 2
                 max_memory = '2.GB'
-                max_time = '2.min'
+                max_time = '15.min'
             }
         }
-
         then {
-            assert workflow.success || workflow.failed
+            def err = (workflow.errorReport ?: '') + '\n' + (workflow.stdout?.join('\n') ?: '')
+            assert !err.contains('MethodSelectionException')
+            assert !err.contains('Could not find which method')
+            assert !err.contains('MissingMethodException')
+            assert !err.contains('Invalid method invocation `call`')
+            assert workflow.success
+            assert path("$outputDir/pipeline_info").list().any { it.toString().contains('software_') }
         }
     }
 }

@@ -34,7 +34,16 @@ nextflow_pipeline {
         }
 
         then {
+            def err = (workflow.errorReport ?: '') + '\n' + (workflow.stdout?.join('\n') ?: '')
+            assert !err.contains('MethodSelectionException')
+            assert !err.contains('Could not find which method')
+            assert !err.contains('MissingMethodException')
+            assert !err.contains('Invalid method invocation `call`')
             assert workflow.success
+            assert path("${outputDir}/pipeline_info").exists()
+            assert path("$outputDir/pipeline_info").list().any { it.toString().contains('software_') }
+            assert workflow.trace.tasks().any { it.name.contains('CHOPPER') || it.name.contains('FASTP') }
+            assert path("${outputDir}/multiqc").exists()
         }
     }
 }
