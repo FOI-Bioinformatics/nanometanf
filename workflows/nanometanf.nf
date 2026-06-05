@@ -417,25 +417,41 @@ workflow NANOMETANF {
 
         // Collect canonical writer outputs so manifest runs after all files are published.
         // Each subworkflow emits canonical outputs only when write_canonical is enabled.
+        // The subworkflows attach `.ifEmpty([])` to these channels, so an empty
+        // stage (e.g. no classified reads -> EMIT_EMPTY_KRAKEN2_REPORT, or a
+        // negative-control sample) emits the `[]` sentinel. Filter it out before
+        // the `{ meta, f -> f }` destructuring map -- otherwise the closure is
+        // called with `[]` and the run aborts with MissingMethodException. Same
+        // guard pattern as the QC-path sentinel fix (PR #11). Use an inline
+        // closure (not a closure variable): `.filter(var)` can be dispatched as
+        // a value/equality filter rather than a predicate.
         def ch_canonical_done = Channel.empty()
         if (!params.skip_fastp || !params.skip_nanoplot) {
             ch_canonical_done = ch_canonical_done.mix(
-                QC_ANALYSIS.out.canonical_qc.map { meta, f -> f }
+                QC_ANALYSIS.out.canonical_qc
+                    .filter { it instanceof List && it.size() >= 2 && it[0] instanceof Map }
+                    .map { meta, f -> f }
             )
         }
         if (params.kraken2_db && !params.skip_kraken2) {
             ch_canonical_done = ch_canonical_done.mix(
-                TAXONOMIC_CLASSIFICATION.out.canonical_classification.map { meta, f -> f }
+                TAXONOMIC_CLASSIFICATION.out.canonical_classification
+                    .filter { it instanceof List && it.size() >= 2 && it[0] instanceof Map }
+                    .map { meta, f -> f }
             )
         }
         if (params.enable_assembly) {
             ch_canonical_done = ch_canonical_done.mix(
-                ASSEMBLY.out.canonical_assembly.map { meta, f -> f }
+                ASSEMBLY.out.canonical_assembly
+                    .filter { it instanceof List && it.size() >= 2 && it[0] instanceof Map }
+                    .map { meta, f -> f }
             )
         }
         if (run_validation_effective && params.pathogen_genomes) {
             ch_canonical_done = ch_canonical_done.mix(
-                VALIDATION.out.canonical_alignments.map { meta, f -> f }
+                VALIDATION.out.canonical_alignments
+                    .filter { it instanceof List && it.size() >= 2 && it[0] instanceof Map }
+                    .map { meta, f -> f }
             )
         }
 

@@ -1,0 +1,126 @@
+nextflow_pipeline {
+
+    name "Validation + assembly stub matrix (run completes, versions written)"
+    script "../main.nf"
+
+    // Closes the coverage gap that let the batch-mode validation crash ship:
+    // no test exercised the validation/assembly integration path, so the
+    // ch_versions assembly and the software-versions writer were never run
+    // end-to-end. These stub-mode cases run the full pipeline with validation
+    // (blast / minimap2 / both) and with assembly enabled, in batch mode, and
+    // assert three things per case:
+    //   (#2) the error report is free of the Groovy channel-shape / destructuring
+    //        crash family (MethodSelectionException from Yaml.load([]),
+    //        MissingMethodException, "Invalid method invocation `call`"),
+    //   (#3) pipeline_info/*software_versions* is actually written (version
+    //        collection was the abort point of the original bug), and
+    //        the run succeeds.
+
+    tag "pipeline"
+    tag "integration"
+    tag "validation"
+    tag "assembly"
+    tag "stub"
+    tag "core"
+
+    test("batch + minimap2 validation: run completes, versions written") {
+        options "-stub"
+        when {
+            params {
+                input = "$projectDir/tests/fixtures/samplesheets/minimal.csv"
+                outdir = "$outputDir"
+                classifier = 'kraken2'
+                kraken2_db = "$projectDir/tests/fixtures/kraken2_db"
+                realtime_mode = false
+                run_validation = true
+                validation_method = 'minimap2'
+                pathogen_genomes = "$projectDir/tests/fixtures/validation/test_genomes.json"
+                skip_nanoplot = true
+                max_cpus = 2
+                max_memory = '4.GB'
+                max_time = '5.min'
+            }
+        }
+        then {
+            def err = (workflow.errorReport ?: '') + '\n' + (workflow.stdout?.join('\n') ?: '')
+            assert !err.contains('MethodSelectionException')
+            assert !err.contains('Could not find which method')
+            assert !err.contains('MissingMethodException')
+            assert !err.contains('Invalid method invocation `call`')
+            assert workflow.success
+            assert path("$outputDir/pipeline_info").list()
+                .any { it.toString().contains('software_') }
+        }
+    }
+
+    test("batch + blast validation: run completes, versions written") {
+        options "-stub"
+        when {
+            params {
+                input = "$projectDir/tests/fixtures/samplesheets/minimal.csv"
+                outdir = "$outputDir"
+                classifier = 'kraken2'
+                kraken2_db = "$projectDir/tests/fixtures/kraken2_db"
+                realtime_mode = false
+                run_validation = true
+                validation_method = 'blast'
+                pathogen_genomes = "$projectDir/tests/fixtures/validation/test_genomes.json"
+                skip_nanoplot = true
+                max_cpus = 2
+                max_memory = '4.GB'
+                max_time = '5.min'
+            }
+        }
+        then {
+            def err = (workflow.errorReport ?: '') + '\n' + (workflow.stdout?.join('\n') ?: '')
+            assert !err.contains('MethodSelectionException')
+            assert !err.contains('Could not find which method')
+            assert !err.contains('MissingMethodException')
+            assert !err.contains('Invalid method invocation `call`')
+            assert workflow.success
+            assert path("$outputDir/pipeline_info").list()
+                .any { it.toString().contains('software_') }
+        }
+    }
+
+    test("batch + both validation methods: run completes, versions written") {
+        options "-stub"
+        when {
+            params {
+                input = "$projectDir/tests/fixtures/samplesheets/minimal.csv"
+                outdir = "$outputDir"
+                classifier = 'kraken2'
+                kraken2_db = "$projectDir/tests/fixtures/kraken2_db"
+                realtime_mode = false
+                run_validation = true
+                validation_method = 'both'
+                pathogen_genomes = "$projectDir/tests/fixtures/validation/test_genomes.json"
+                skip_nanoplot = true
+                max_cpus = 2
+                max_memory = '4.GB'
+                max_time = '5.min'
+            }
+        }
+        then {
+            def err = (workflow.errorReport ?: '') + '\n' + (workflow.stdout?.join('\n') ?: '')
+            assert !err.contains('MethodSelectionException')
+            assert !err.contains('Could not find which method')
+            assert !err.contains('MissingMethodException')
+            assert !err.contains('Invalid method invocation `call`')
+            assert workflow.success
+            assert path("$outputDir/pipeline_info").list()
+                .any { it.toString().contains('software_') }
+        }
+    }
+
+    // NOTE on assembly: enable_assembly=true is NOT covered by a full stub run
+    // here because the FLYE module collects its version via
+    // `eval('flye --version')` on a `topic: versions` output, which runs the
+    // tool even under `-stub` and fails when flye is not installed (no
+    // container in the host-only stub matrix). The production bug that this
+    // matrix originally exposed -- `FLYE.out.versions` (MissingPropertyException,
+    // the module emits `versions_flye` via the topic, not `.out.versions`) -- is
+    // fixed in subworkflows/local/assembly/main.nf; with the fix the assembly
+    // path no longer aborts on the version reference. A full assembly run is
+    // exercised by the conda/container test profiles, not by this stub matrix.
+}
