@@ -486,7 +486,12 @@ workflow NANOMETANF {
             "${process}:\n${tool_versions.join('\n')}"
         }
 
-    softwareVersionsToYAML(ch_versions.mix(topic_versions.versions_file))
+    // Guard: softwareVersionsToYAML calls Yaml.load() on each item, which throws
+    // MethodSelectionException for a List or null. A skipped subworkflow process
+    // can otherwise inject an empty list `[]` into ch_versions (see the validation
+    // subworkflow). Drop any non-file item so version collection can never abort
+    // the run.
+    softwareVersionsToYAML(ch_versions.filter { it != null && !(it instanceof List) }.mix(topic_versions.versions_file))
         .mix(topic_versions_string)
         .collectFile(
             storeDir: "${params.outdir}/pipeline_info",

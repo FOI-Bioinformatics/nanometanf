@@ -1,0 +1,97 @@
+nextflow_workflow {
+
+    name "Test VALIDATION subworkflow"
+    script "../main.nf"
+    workflow "VALIDATION"
+
+    // Test Level & Component
+    tag "subworkflow"
+    tag "validation"
+
+    // Feature Area
+    tag "regression"
+
+    // Execution Speed & Criticality
+    tag "fast"
+    tag "core"
+    tag "stub"
+
+    // Regression cover for the June 4 2026 batch-mode crash: in batch mode
+    // ``meta`` carries no ``batch_id``, so the realtime cumulative aggregators
+    // (MINIMAP2_/BLAST_CUMULATIVE_AGGREGATOR) are skipped. The version mixes
+    // previously used ``.first().ifEmpty([])``, so a skipped aggregator
+    // injected an empty list ``[]`` into the emitted ``versions`` channel. At
+    // the pipeline level the nf-core ``softwareVersionsToYAML`` helper then
+    // called ``Yaml.load([])`` and aborted the run with MethodSelectionException.
+    // The fix drops ``.ifEmpty([])`` (an empty channel contributes nothing), so
+    // ``versions`` must contain only real files and never an empty list.
+
+    test("batch-mode minimap2 validation emits no empty-list versions entry") {
+
+        options "-stub"
+
+        when {
+            workflow {
+                """
+                // meta WITHOUT batch_id => batch mode => cumulative aggregator skipped
+                input[0] = Channel.of([ [id: 'val_batch', single_end: true],
+                             file('${projectDir}/tests/fixtures/fastq/test_sample.fastq.gz') ])
+                input[1] = Channel.of([ [id: 'val_batch', single_end: true],
+                             file('${projectDir}/tests/fixtures/validation/test_kraken_output.txt') ])
+                input[2] = Channel.of([ [id: 'val_batch', single_end: true],
+                             file('${projectDir}/tests/fixtures/reports/classification/kraken2_report.txt') ])
+                input[3] = file('${projectDir}/tests/fixtures/validation/test_genomes.json')
+                input[4] = 'all'
+                input[5] = 'minimap2'
+                """
+            }
+
+            params {
+                max_cpus = 2
+                max_memory = '4.GB'
+                max_time = '5.min'
+            }
+        }
+
+        then {
+            assert workflow.success
+            // The regression: no emitted versions item may be an empty list.
+            assert !workflow.out.versions.any { it instanceof List && it.isEmpty() }
+            // And real version files must still be collected.
+            assert workflow.out.versions.size() > 0
+        }
+    }
+
+    test("batch-mode blast validation emits no empty-list versions entry") {
+
+        options "-stub"
+
+        when {
+            workflow {
+                """
+                input[0] = Channel.of([ [id: 'val_batch', single_end: true],
+                             file('${projectDir}/tests/fixtures/fastq/test_sample.fastq.gz') ])
+                input[1] = Channel.of([ [id: 'val_batch', single_end: true],
+                             file('${projectDir}/tests/fixtures/validation/test_kraken_output.txt') ])
+                input[2] = Channel.of([ [id: 'val_batch', single_end: true],
+                             file('${projectDir}/tests/fixtures/reports/classification/kraken2_report.txt') ])
+                input[3] = file('${projectDir}/tests/fixtures/validation/test_genomes.json')
+                input[4] = 'all'
+                input[5] = 'blast'
+                """
+            }
+
+            params {
+                max_cpus = 2
+                max_memory = '4.GB'
+                max_time = '5.min'
+            }
+        }
+
+        then {
+            assert workflow.success
+            assert !workflow.out.versions.any { it instanceof List && it.isEmpty() }
+            assert workflow.out.versions.size() > 0
+        }
+    }
+}
