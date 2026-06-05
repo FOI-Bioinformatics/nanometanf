@@ -382,6 +382,54 @@ Three gotchas the eval surfaced that are easy to hit otherwise:
    is fixed on `dev` (commit `e97843d`); no external watchdog is
    needed for realtime runs at or after that commit.
 
+### 7. The `.ifEmpty([])` empty-channel sentinel (filter before destructuring)
+
+Subworkflows attach `.ifEmpty([])` to per-sample channels so a downstream
+`.collect()` / `.mix()` never sees a genuinely empty channel. The cost: when the
+upstream is empty (a negative-control sample with no classified reads, the
+`EMIT_EMPTY_KRAKEN2_REPORT` placeholder, or a process skipped by an `if
+(validation_method == ...)` / `meta.batch_id` guard), the channel emits the
+**`[]` sentinel** — a single empty list.
+
+That `[]` poisons any consumer that destructures it. The two failure signatures,
+both of which abort the whole run:
+
+- A destructuring map/closure — `.map { meta, f -> ... }`, `.combine(...).map`,
+  `.join`, `.subscribe { x -> ... }` — called with `[]`:
+  `groovy.lang.MissingMethodException: ... _closureNN.call() ... values: [[]]`.
+- A versions item reaching the nf-core `softwareVersionsToYAML` helper, which
+  runs `Yaml.load(it)` on each: `[]` matches no overload →
+  `MethodSelectionException: Could not find which method load() to invoke`.
+
+Rules when consuming a channel that may carry the sentinel:
+
+1. **Filter before you destructure.** Put the guard immediately before the
+   `.map`/closure (filtering the downstream consumer is not enough — the map
+   itself is what crashes):
+   ```nextflow
+   ch_x.filter { it instanceof List && it.size() >= 2 && it[0] instanceof Map }
+       .map { meta, f -> ... }
+   ```
+   Use `it[1] != null` instead of `it[0] instanceof Map` when the hazard is a
+   missing file rather than a bare sentinel (e.g. after a `remainder: true` join).
+2. **Use an inline closure, never a closure variable.** `.filter(myClosureVar)`
+   can be dispatched by Nextflow as a value/equality filter rather than a
+   predicate, so the sentinel slips through. Always `.filter { ... }`.
+3. **Version channels: `.first()`, not `.first().ifEmpty([])`.** A skipped
+   process's `.out.versions` is an empty channel; `.first()` on it contributes
+   nothing to `ch_versions` (correct), whereas `.ifEmpty([])` injects `[]` and
+   crashes `softwareVersionsToYAML`. As a backstop, the call site filters the
+   sink: `softwareVersionsToYAML(ch_versions.filter { it != null && !(it instanceof List) })`.
+
+Known sites already guarded (regression-covered): the QC path
+(`tests/ifempty_sentinel_regression.nf.test`, PR #11); the VALIDATION subworkflow
+input boundary + canonical-alignment maps and the batch-mode aggregator versions
+(PR #23, #24); the main-workflow canonical-done maps. Batch-mode validation +
+empty-classification are covered by `tests/validation_assembly_stub_matrix.nf.test`.
+When adding a new subworkflow that emits `.ifEmpty([])` channels, guard every
+destructuring consumer and add a stub-mode test that runs the path with an empty
+sample.
+
 ---
 
 ## Important Parameters
