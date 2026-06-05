@@ -122,7 +122,13 @@ workflow VALIDATION {
     }
 
     EXTRACT_READS_BY_TAXID(ch_extraction_input)
-    ch_versions = ch_versions.mix(EXTRACT_READS_BY_TAXID.out.versions.first().ifEmpty([]))
+    // Use .first() to collapse the per-taxid scatter to a single versions
+    // entry. Do NOT add .ifEmpty([]) -- a skipped process (e.g. a cumulative
+    // aggregator in batch mode) would then inject an empty list `[]` into
+    // ch_versions, and the nf-core softwareVersionsToYAML helper calls
+    // Yaml.load() on each item, which throws MethodSelectionException on a
+    // List. An empty channel mixed in contributes nothing, which is correct.
+    ch_versions = ch_versions.mix(EXTRACT_READS_BY_TAXID.out.versions.first())
 
     //
     // Prepare validation input by combining extracted reads with genome references
@@ -173,7 +179,7 @@ workflow VALIDATION {
         )
         ch_blast_stats = BLASTN_VALIDATION.out.stats.map { meta, stats -> stats }.ifEmpty([])
         ch_blast_results = BLASTN_VALIDATION.out.results.ifEmpty([])
-        ch_versions = ch_versions.mix(BLASTN_VALIDATION.out.versions.first().ifEmpty([]))
+        ch_versions = ch_versions.mix(BLASTN_VALIDATION.out.versions.first())
 
         // Realtime only: maintain a run-so-far cumulative BLAST table + stats per
         // (sample, taxid). Pair this batch's table with its stats (for the
@@ -192,7 +198,7 @@ workflow VALIDATION {
                   prior_stats.exists() ? prior_stats : [] ]
             }
         BLAST_CUMULATIVE_AGGREGATOR(ch_blast_cumulative_input, 'blast')
-        ch_versions = ch_versions.mix(BLAST_CUMULATIVE_AGGREGATOR.out.versions.first().ifEmpty([]))
+        ch_versions = ch_versions.mix(BLAST_CUMULATIVE_AGGREGATOR.out.versions.first())
     }
 
     //
@@ -211,7 +217,7 @@ workflow VALIDATION {
         )
         ch_minimap2_stats = MINIMAP2_VALIDATION.out.stats.map { meta, stats -> stats }.ifEmpty([])
         ch_minimap2_results = MINIMAP2_VALIDATION.out.alignments.ifEmpty([])
-        ch_versions = ch_versions.mix(MINIMAP2_VALIDATION.out.versions.first().ifEmpty([]))
+        ch_versions = ch_versions.mix(MINIMAP2_VALIDATION.out.versions.first())
 
         // Realtime only: maintain a run-so-far cumulative PAF + stats per
         // (sample, taxid). See the BLAST branch above for the rationale.
@@ -227,7 +233,7 @@ workflow VALIDATION {
                   prior_stats.exists() ? prior_stats : [] ]
             }
         MINIMAP2_CUMULATIVE_AGGREGATOR(ch_minimap2_cumulative_input, 'minimap2')
-        ch_versions = ch_versions.mix(MINIMAP2_CUMULATIVE_AGGREGATOR.out.versions.first().ifEmpty([]))
+        ch_versions = ch_versions.mix(MINIMAP2_CUMULATIVE_AGGREGATOR.out.versions.first())
     }
 
     //
