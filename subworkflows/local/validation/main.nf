@@ -27,6 +27,20 @@ workflow VALIDATION {
     main:
     ch_versions = Channel.empty()
 
+    // The classification subworkflow attaches `.ifEmpty([])` sentinels to these
+    // channels, so a sample with no classified reads (e.g. a negative control,
+    // or the EMIT_EMPTY_KRAKEN2_REPORT placeholder) emits the `[]` sentinel.
+    // The joins/combines and `{ meta, ... -> }` maps below would then be called
+    // with `[]` and abort the run with MissingMethodException. Drop the sentinel
+    // at the boundary so an empty sample simply yields no validation tasks; the
+    // aggregator already tolerates an empty result via `.collect().ifEmpty([])`.
+    ch_classified_reads = ch_classified_reads
+        .filter { it instanceof List && it.size() >= 2 && it[0] instanceof Map }
+    ch_kraken_output = ch_kraken_output
+        .filter { it instanceof List && it.size() >= 2 && it[0] instanceof Map }
+    ch_kraken_reports = ch_kraken_reports
+        .filter { it instanceof List && it.size() >= 2 && it[0] instanceof Map }
+
     //
     // Parse pathogen genomes JSON to get taxid -> genome/database path mapping
     // JSON format: { "taxid": "/path/to/genome.fasta", ... }
@@ -255,14 +269,23 @@ workflow VALIDATION {
     if (params.write_canonical != false) {
         def ch_for_canonical = Channel.empty()
 
+        // ch_blast_results / ch_minimap2_results carry an `.ifEmpty([])`
+        // sentinel (set above), so when validation produced no alignments they
+        // emit `[]`. Filter the sentinel before the `{ meta, f -> ... }` map, or
+        // the closure is called with `[]` and the run aborts. The post-mix
+        // filter below only guards the downstream consumer, not these maps.
         if (validation_method == 'blast' || validation_method == 'both') {
             ch_for_canonical = ch_for_canonical.mix(
-                ch_blast_results.map { meta, f -> [meta, f, "blast", "blast"] }
+                ch_blast_results
+                    .filter { it instanceof List && it.size() >= 2 && it[0] instanceof Map }
+                    .map { meta, f -> [meta, f, "blast", "blast"] }
             )
         }
         if (validation_method == 'minimap2' || validation_method == 'both') {
             ch_for_canonical = ch_for_canonical.mix(
-                ch_minimap2_results.map { meta, f -> [meta, f, "minimap2", "paf"] }
+                ch_minimap2_results
+                    .filter { it instanceof List && it.size() >= 2 && it[0] instanceof Map }
+                    .map { meta, f -> [meta, f, "minimap2", "paf"] }
             )
         }
 

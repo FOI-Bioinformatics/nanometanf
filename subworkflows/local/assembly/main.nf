@@ -48,7 +48,10 @@ workflow ASSEMBLY {
             ch_reads,
             sequencing_mode
         )
-        ch_versions = ch_versions.mix(FLYE.out.versions)
+        // FLYE emits its version via `topic: versions` (versions_flye); it is
+        // collected centrally in the top-level workflow. There is no
+        // `FLYE.out.versions` to mix here -- referencing it throws
+        // MissingPropertyException and aborts the run.
 
         // Collect standardized outputs
         ch_assembly = FLYE.out.fasta.ifEmpty([])
@@ -66,7 +69,7 @@ workflow ASSEMBLY {
             false,                       // cigar_paf_format
             false                        // cigar_bam
         )
-        ch_versions = ch_versions.mix(MINIMAP2_ALIGN.out.versions)
+        // MINIMAP2_ALIGN emits its version via `topic: versions`; collected centrally.
 
         //
         // MODULE: Run Miniasm for ultra-fast assembly
@@ -77,7 +80,7 @@ workflow ASSEMBLY {
         MINIASM (
             ch_miniasm_input
         )
-        ch_versions = ch_versions.mix(MINIASM.out.versions)
+        // MINIASM emits its version via `topic: versions`; collected centrally.
 
         // Collect standardized outputs
         ch_assembly = MINIASM.out.assembly.ifEmpty([])
