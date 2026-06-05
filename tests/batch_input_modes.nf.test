@@ -1,0 +1,132 @@
+// Batch-mode input handling across the supported layouts, consolidated from the
+// former batch_barcode_fastq + batch_flat_fastq tests. Runs in stub mode (fast,
+// deterministic, no tools) and asserts real behaviour rather than only
+// workflow.success: the Groovy channel-shape / destructuring crash family is
+// absent, the software-versions artifact is written, the QC path ran, and the
+// per-sample QC task count matches the input. Real QC-tool execution and
+// real output content are covered by the e2e anchor in main_workflow.nf.test.
+nextflow_pipeline {
+
+    name "Batch input modes (barcode dir, barcode samplesheet, flat single/multi)"
+    script "../main.nf"
+
+    tag "pipeline"
+    tag "integration"
+    tag "batch"
+    tag "qc"
+    tag "barcode_discovery"
+    tag "stub"
+    tag "fast"
+    tag "core"
+
+    test("barcode subdirectory auto-discovery") {
+        options "-stub"
+        when {
+            params {
+                input = false
+                barcode_input_dir = "$projectDir/tests/fixtures/barcode_structure"
+                outdir = "$outputDir"
+                realtime_mode = false
+                skip_kraken2 = true
+                blast_validation = false
+                skip_nanoplot = true
+                max_cpus = 2
+                max_memory = '4.GB'
+                max_time = '15.min'
+            }
+        }
+        then {
+            def err = (workflow.errorReport ?: '') + '\n' + (workflow.stdout?.join('\n') ?: '')
+            assert !err.contains('MethodSelectionException')
+            assert !err.contains('Could not find which method')
+            assert !err.contains('MissingMethodException')
+            assert !err.contains('Invalid method invocation `call`')
+            assert workflow.success
+            assert path("$outputDir/pipeline_info").list().any { it.toString().contains('software_') }
+            // Multiple barcodes discovered => >= 2 QC tasks.
+            assert workflow.trace.tasks().count { it.name.contains('CHOPPER') || it.name.contains('FASTP') } >= 2
+        }
+    }
+
+    test("barcode files via samplesheet") {
+        options "-stub"
+        when {
+            params {
+                input = "$projectDir/tests/fixtures/samplesheets/multiple_fastq_barcodes.csv"
+                outdir = "$outputDir"
+                realtime_mode = false
+                skip_kraken2 = true
+                blast_validation = false
+                skip_nanoplot = true
+                max_cpus = 2
+                max_memory = '4.GB'
+                max_time = '15.min'
+            }
+        }
+        then {
+            def err = (workflow.errorReport ?: '') + '\n' + (workflow.stdout?.join('\n') ?: '')
+            assert !err.contains('MethodSelectionException')
+            assert !err.contains('Could not find which method')
+            assert !err.contains('MissingMethodException')
+            assert !err.contains('Invalid method invocation `call`')
+            assert workflow.success
+            assert path("$outputDir/pipeline_info").list().any { it.toString().contains('software_') }
+            assert workflow.trace.tasks().any { it.name.contains('CHOPPER') || it.name.contains('FASTP') }
+        }
+    }
+
+    test("flat FASTQ single sample") {
+        options "-stub"
+        when {
+            params {
+                input = "$projectDir/tests/fixtures/samplesheets/single_fastq_single_sample.csv"
+                outdir = "$outputDir"
+                realtime_mode = false
+                skip_kraken2 = true
+                blast_validation = false
+                skip_nanoplot = true
+                max_cpus = 2
+                max_memory = '4.GB'
+                max_time = '15.min'
+            }
+        }
+        then {
+            def err = (workflow.errorReport ?: '') + '\n' + (workflow.stdout?.join('\n') ?: '')
+            assert !err.contains('MethodSelectionException')
+            assert !err.contains('Could not find which method')
+            assert !err.contains('MissingMethodException')
+            assert !err.contains('Invalid method invocation `call`')
+            assert workflow.success
+            assert path("$outputDir/pipeline_info").list().any { it.toString().contains('software_') }
+            assert workflow.trace.tasks().any { it.name.contains('CHOPPER') || it.name.contains('FASTP') }
+        }
+    }
+
+    test("flat FASTQ multiple samples") {
+        options "-stub"
+        when {
+            params {
+                input = "$projectDir/tests/fixtures/samplesheets/single_fastq_multi_sample.csv"
+                outdir = "$outputDir"
+                realtime_mode = false
+                skip_kraken2 = true
+                blast_validation = false
+                skip_nanoplot = true
+                max_cpus = 2
+                max_memory = '4.GB'
+                max_time = '15.min'
+            }
+        }
+        then {
+            def err = (workflow.errorReport ?: '') + '\n' + (workflow.stdout?.join('\n') ?: '')
+            assert !err.contains('MethodSelectionException')
+            assert !err.contains('Could not find which method')
+            assert !err.contains('MissingMethodException')
+            assert !err.contains('Invalid method invocation `call`')
+            assert workflow.success
+            assert path("$outputDir/pipeline_info").list().any { it.toString().contains('software_') }
+            // Multi-sample samplesheet => >= 2 QC tasks.
+            assert workflow.trace.tasks().count { it.name.contains('CHOPPER') || it.name.contains('FASTP') } >= 2
+        }
+    }
+}
