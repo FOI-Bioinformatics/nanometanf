@@ -24,11 +24,15 @@ criticality:
 
 speed:
   fast:
-    description: Quick tests (< 1 minute)
+    description: Quick tests (< 30s)
     example: nf-test test --tag fast
 
+  medium:
+    description: Moderate tests (30s - 5min); used by several subworkflow/module tests
+    example: nf-test test --tag medium
+
   slow:
-    description: Longer tests (> 1 minute)
+    description: Longer tests (> 5min)
     example: nf-test test --tag slow
 
 # Optional Feature Tags (for targeted debugging)

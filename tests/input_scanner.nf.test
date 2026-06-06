@@ -65,4 +65,51 @@ nextflow_workflow {
             assert workflow.out.samples.size() >= 2
         }
     }
+
+    test("per_file: flat files with no regex become one sample each (by stem)") {
+
+        when {
+            workflow {
+                """
+                input[0] = "$projectDir/tests/fixtures/flat_multisample"
+                input[1] = null
+                """
+            }
+        }
+
+        then {
+            assert workflow.success
+            // sampleA_001.fastq.gz + sampleB_001.fastq.gz -> 2 samples keyed by file stem
+            assert workflow.out.samples.size() == 2
+            def ids = workflow.out.samples.collect { it[0].id }.sort()
+            assert ids == ['sampleA_001', 'sampleB_001']
+            // each sample carries exactly its own single file
+            assert workflow.out.samples.every { (it[1] instanceof List ? it[1] : [it[1]]).size() == 1 }
+        }
+    }
+
+    test("single_sample: params.sample_name merges all flat files into one sample") {
+
+        when {
+            params {
+                sample_name = 'merged'
+            }
+            workflow {
+                """
+                input[0] = "$projectDir/tests/fixtures/flat_multisample"
+                input[1] = null
+                """
+            }
+        }
+
+        then {
+            assert workflow.success
+            // sample_name overrides per-file ids -> a single merged sample
+            assert workflow.out.samples.size() == 1
+            assert workflow.out.samples.get(0).get(0).id == 'merged'
+            // the merged sample holds both input files
+            def files = workflow.out.samples.get(0).get(1)
+            assert (files instanceof List ? files : [files]).size() == 2
+        }
+    }
 }

@@ -4,163 +4,102 @@ nextflow_process {
     script "../main.nf"
     process "GENERATE_SNAPSHOT_STATS"
 
-    options "-stub"
-    tag "stub"
-    // Test Level & Component
+    // Runs the real Python module (stdlib only -- no external tool), so the
+    // emitted snapshot JSON can be asserted for actual aggregated VALUES rather
+    // than just process.success. (The stub block only writes {"stub": true}.)
     tag "module"
     tag "generate_snapshot_stats"
-
-    // Feature Area
     tag "realtime"
-
-    // Execution Speed & Criticality
     tag "fast"
     tag "core"
 
-    // Test Type
-    tag "snapshot"
-
-    test("Should generate basic snapshot statistics") {
+    test("aggregates file statistics for a populated batch") {
 
         tag "basic_snapshot"
-        tag "snapshot"
 
         when {
             process {
                 """
                 input[0] = [
+                    [ batch_id: 'batch_001', batch_timestamp: 1640995200000, batch_time: '2022-01-01T00:00:00Z' ],
                     [
-                        batch_id: 'batch_001',
-                        batch_timestamp: 1640995200000,
-                        batch_time: '2022-01-01T00:00:00Z'
-                    ],
-                    [
-                        [
-                            file_name: 'sample1.fastq.gz',
-                            file_path: '/data/sample1.fastq.gz',
-                            file_size: 52428800,
-                            estimated_reads: 10000,
-                            is_compressed: true,
-                            priority_score: 85,
-                            watch_dir: '/data/run1',
-                            sample_id: 'sample_1',
-                            file_age_ms: 120000
-                        ],
-                        [
-                            file_name: 'sample2.fastq.gz',
-                            file_path: '/data/sample2.fastq.gz',
-                            file_size: 41943040,
-                            estimated_reads: 8000,
-                            is_compressed: true,
-                            priority_score: 75,
-                            watch_dir: '/data/run1',
-                            sample_id: 'sample_2',
-                            file_age_ms: 90000
-                        ]
+                        [ file_name: 'sample1.fastq.gz', file_size: 52428800, estimated_reads: 10000, is_compressed: true, priority_score: 85, watch_dir: '/data/run1', sample_id: 'sample_1', file_age_ms: 120000 ],
+                        [ file_name: 'sample2.fastq.gz', file_size: 41943040, estimated_reads: 8000,  is_compressed: true, priority_score: 75, watch_dir: '/data/run1', sample_id: 'sample_2', file_age_ms: 90000 ]
                     ]
                 ]
-                input[1] = [
-                    enable_quality_analysis: true,
-                    priority_threshold: 80
-                ]
+                input[1] = [ enable_quality_analysis: true ]
                 """
             }
         }
 
         then {
-            assertAll(
-                { assert process.success })
+            assert process.success
+            def stats = new groovy.json.JsonSlurper().parse(file(process.out.snapshot_stats.get(0).get(1)))
+            assert stats.batch_info.batch_id == 'batch_001'
+            assert stats.file_statistics.file_count == 2
+            assert stats.file_statistics.total_size_bytes == 94371840            // 52428800 + 41943040
+            assert stats.file_statistics.estimated_total_reads == 18000          // 10000 + 8000
+            assert stats.priority_analysis.max_priority == 85
+            assert stats.priority_analysis.min_priority == 75
+            assert stats.source_analysis.sample_ids == ['sample_1', 'sample_2']
         }
     }
 
-    test("Should handle empty batch gracefully") {
+    test("handles an empty batch without dividing by zero") {
 
         tag "empty_batch"
-        tag "snapshot"
 
         when {
             process {
                 """
                 input[0] = [
-                    [
-                        batch_id: 'batch_empty',
-                        batch_timestamp: 1640998800000,
-                        batch_time: '2022-01-01T01:00:00Z'
-                    ],
+                    [ batch_id: 'batch_empty', batch_timestamp: 1640998800000, batch_time: '2022-01-01T01:00:00Z' ],
                     []
                 ]
-                input[1] = [
-                    handle_empty_batches: true,
-                    generate_placeholder_stats: true
-                ]
+                input[1] = [ handle_empty_batches: true ]
                 """
             }
         }
 
         then {
-            assertAll(
-                { assert process.success })
+            assert process.success
+            def stats = new groovy.json.JsonSlurper().parse(file(process.out.snapshot_stats.get(0).get(1)))
+            assert stats.file_statistics.file_count == 0
+            assert stats.file_statistics.total_size_bytes == 0
+            assert stats.file_statistics.estimated_total_reads == 0
+            assert stats.priority_analysis.average_priority == 0
+            assert stats.file_statistics.average_file_size_mb == 0
         }
     }
 
-    test("Should handle multiple directories and high priority files") {
+    test("counts high-priority files and distinct watch directories") {
 
         tag "multi_directory"
-        tag "snapshot"
 
         when {
             process {
                 """
                 input[0] = [
+                    [ batch_id: 'batch_multi', batch_timestamp: 1640995800000, batch_time: '2022-01-01T00:10:00Z' ],
                     [
-                        batch_id: 'batch_multi',
-                        batch_timestamp: 1640995800000,
-                        batch_time: '2022-01-01T00:10:00Z'
-                    ],
-                    [
-                        [
-                            file_name: 'urgent1.fastq.gz',
-                            file_size: 62914560,
-                            estimated_reads: 12000,
-                            is_compressed: true,
-                            priority_score: 150,
-                            watch_dir: '/urgent',
-                            sample_id: 'critical_case',
-                            file_age_ms: 30000
-                        ],
-                        [
-                            file_name: 'run2_sample1.fastq.gz',
-                            file_size: 41943040,
-                            estimated_reads: 8000,
-                            is_compressed: true,
-                            priority_score: 95,
-                            watch_dir: '/data/run2',
-                            sample_id: 'patient_B',
-                            file_age_ms: 45000
-                        ],
-                        [
-                            file_name: 'normal.fastq.gz',
-                            file_size: 31457280,
-                            estimated_reads: 6000,
-                            is_compressed: true,
-                            priority_score: 80,
-                            watch_dir: '/standard',
-                            sample_id: 'routine_sample',
-                            file_age_ms: 180000
-                        ]
+                        [ file_name: 'urgent1.fastq.gz',      file_size: 62914560, estimated_reads: 12000, is_compressed: true, priority_score: 150, watch_dir: '/urgent',   sample_id: 'critical_case',  file_age_ms: 30000 ],
+                        [ file_name: 'run2_sample1.fastq.gz', file_size: 41943040, estimated_reads: 8000,  is_compressed: true, priority_score: 95,  watch_dir: '/data/run2', sample_id: 'patient_B',      file_age_ms: 45000 ],
+                        [ file_name: 'normal.fastq.gz',       file_size: 31457280, estimated_reads: 6000,  is_compressed: true, priority_score: 80,  watch_dir: '/standard',  sample_id: 'routine_sample', file_age_ms: 180000 ]
                     ]
                 ]
-                input[1] = [
-                    priority_analysis: true,
-                    high_priority_threshold: 100
-                ]
+                input[1] = [ priority_analysis: true ]
                 """
             }
         }
 
         then {
-            assertAll(
-                { assert process.success })
+            assert process.success
+            def stats = new groovy.json.JsonSlurper().parse(file(process.out.snapshot_stats.get(0).get(1)))
+            assert stats.file_statistics.file_count == 3
+            assert stats.priority_analysis.high_priority_files == 1   // only priority_score > 100 (urgent1 = 150)
+            assert stats.priority_analysis.max_priority == 150
+            assert stats.source_analysis.watch_directories == ['/data/run2', '/standard', '/urgent']
+            assert stats.source_analysis.directory_file_counts.'/urgent' == 1
         }
     }
 }
