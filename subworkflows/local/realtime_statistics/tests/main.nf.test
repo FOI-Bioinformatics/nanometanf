@@ -1,0 +1,63 @@
+nextflow_workflow {
+
+    name "Test REALTIME_STATISTICS subworkflow"
+    script "../main.nf"
+    workflow "REALTIME_STATISTICS"
+
+    // Exercises the real snapshot -> cumulative -> report chain (pure-Python
+    // modules, no external tool) end to end, asserting each emitted output and
+    // real content -- not just that the subworkflow ran. There was no dedicated
+    // test for this subworkflow before; it was only covered indirectly by the
+    // pipeline-level realtime_statistics_modules.nf.test.
+    tag "subworkflow"
+    tag "realtime"
+    tag "fast"
+    tag "core"
+
+    test("generates snapshot, cumulative and HTML report for a batch") {
+
+        when {
+            workflow {
+                """
+                input[0] = Channel.of([
+                    [ batch_id: 'b1', batch_timestamp: 1640995200000, batch_time: '2022-01-01T00:00:00Z' ],
+                    [
+                        [ file_name: 's1.fastq.gz', file_size: 52428800, estimated_reads: 10000, is_compressed: true, priority_score: 85, watch_dir: '/run1', sample_id: 's1', file_age_ms: 120000 ],
+                        [ file_name: 's2.fastq.gz', file_size: 41943040, estimated_reads: 8000,  is_compressed: true, priority_score: 75, watch_dir: '/run1', sample_id: 's2', file_age_ms: 90000 ]
+                    ]
+                ])
+                input[1] = [ enable_quality_indicators: true, report_format: 'html,json' ]
+                """
+            }
+            params {
+                max_cpus = 2
+                max_memory = '4.GB'
+                max_time = '5.min'
+            }
+        }
+
+        then {
+            assert workflow.success
+            // All three stages emitted exactly one item for the single batch.
+            assert workflow.out.snapshot_stats.size() == 1
+            assert workflow.out.cumulative_stats.size() == 1
+            assert workflow.out.realtime_reports.size() == 1
+
+            // Snapshot content is real (not a stub marker).
+            def snap = new groovy.json.JsonSlurper().parse(file(workflow.out.snapshot_stats.get(0).get(1)))
+            assert snap.file_statistics.file_count == 2
+            assert snap.file_statistics.estimated_total_reads == 18000
+
+            // Cumulative initialised for the first batch.
+            def cum = new groovy.json.JsonSlurper().parse(file(workflow.out.cumulative_stats.get(0).get(1)))
+            assert cum.session_info.total_batches == 1
+            assert cum.totals.total_files == 2
+
+            // HTML report rendered by the real renderer with the batch figures.
+            def html = file(workflow.out.realtime_reports.get(0).get(1)).text
+            assert html.contains('Nanometa Real-time Monitoring')
+            assert html.contains('18,000')
+            assert !html.contains('(Stub)')
+        }
+    }
+}

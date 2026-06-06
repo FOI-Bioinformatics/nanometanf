@@ -1,6 +1,6 @@
 #!/bin/bash
 # Quick test runner for nanometanf
-# Usage: ./tests/run_tests.sh [fast|core|full|<tag>]
+# Usage: ./tests/run_tests.sh [fast|core|medium|full|<tag>]
 #
 # Environment variables:
 #   NFT_SHARD  - Run a specific shard for CI parallelism (e.g. "1/4")
@@ -18,6 +18,7 @@ fi
 
 case "$TAG" in
     fast)   nf-test test --tag fast $SHARD_ARGS ;;
+    medium) nf-test test --tag fast --tag medium $SHARD_ARGS ;;
     core)   nf-test test --tag core $SHARD_ARGS ;;
     full)   nf-test test $SHARD_ARGS ;;
     *)      nf-test test --tag "$TAG" $SHARD_ARGS ;;
