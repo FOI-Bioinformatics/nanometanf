@@ -3,71 +3,64 @@ nextflow_pipeline {
     name "Test real-time statistics modules"
     script "../main.nf"
 
-    // Test Level & Component
     tag "pipeline"
     tag "integration"
-
-    // Feature Area
     tag "realtime"
-
-    // Execution Speed & Criticality
-    tag "fast"
+    tag "stub"
+    tag "slow"
     tag "extended"
 
-    test("Should generate comprehensive snapshot statistics") {
+    test("Should generate snapshot statistics in real-time mode") {
 
+        // REALTIME_STATISTICS is gated inside `if (params.realtime_mode)`
+        // (workflows/nanometanf.nf:176), so the previous config
+        // (realtime_mode=false + enable_realtime_stats=true) exercised nothing.
+        // This runs the realtime path in stub mode with stats enabled and
+        // asserts the statistics subworkflow actually executed.
+        options "-stub"
         when {
             params {
-                input = "$projectDir/tests/fixtures/samplesheets/test_samplesheet_absolute.csv"
+                input = false
                 outdir = "$outputDir"
-
-                // Enable real-time statistics
+                realtime_mode = true
+                nanopore_output_dir = "$projectDir/tests/fixtures/fastq"
+                file_pattern = "*.fastq.gz"
+                max_files = 4
+                batch_size = 2
+                realtime_timeout_minutes = 1
+                realtime_processing_grace_period = 10
                 enable_realtime_stats = true
-                realtime_mode = false
-
-                // Disable heavy processing
                 skip_kraken2 = true
                 blast_validation = false
-                skip_fastp = true
                 skip_nanoplot = true
-                skip_multiqc = true
-
-                // Minimal resources
-                max_cpus = 1
-                max_memory = '2.GB'
-                max_time = '5.min'
+                max_cpus = 2
+                max_memory = '4.GB'
+                max_time = '15.min'
             }
         }
 
         then {
+            def err = (workflow.errorReport ?: '') + '\n' + (workflow.stdout?.join('\n') ?: '')
+            assert !err.contains('MethodSelectionException')
+            assert !err.contains('Could not find which method')
+            assert !err.contains('MissingMethodException')
+            assert !err.contains('Invalid method invocation `call`')
             assert workflow.success
-        }
-    }
-
-    test("Should handle minimal statistics generation") {
-
-        when {
-            params {
-                input = "$projectDir/tests/fixtures/samplesheets/test_samplesheet_absolute.csv"
-                outdir = "$outputDir"
-
-                // Minimal configuration
-                enable_realtime_stats = false
-                skip_fastp = true
-                skip_nanoplot = true
-                skip_multiqc = true
-                skip_kraken2 = true
-                blast_validation = false
-
-                // Quick execution
-                max_cpus = 1
-                max_memory = '1.GB'
-                max_time = '2.min'
+            assert path("$outputDir/pipeline_info").list().any { it.toString().contains('software_') }
+            // The real-time statistics subworkflow ran (GENERATE_SNAPSHOT_STATS /
+            // UPDATE_CUMULATIVE_STATS / GENERATE_REALTIME_REPORT).
+            assert workflow.trace.tasks().any {
+                it.name.contains('GENERATE_SNAPSHOT_STATS') ||
+                it.name.contains('UPDATE_CUMULATIVE_STATS') ||
+                it.name.contains('GENERATE_REALTIME_REPORT')
             }
         }
-
-        then {
-            assert workflow.success
-        }
     }
+
+    // The former "minimal run with everything disabled" case was removed: with
+    // QC, classification, MultiQC and stats all skipped the run executes zero
+    // processes, so its only honest assertion was workflow.success (which passed
+    // vacuously) -- it verified nothing. Real-time stats coverage is the case
+    // above; ordinary QC/no-classification runs are covered by
+    // batch_input_modes.nf.test and full_pipeline_stubmode.nf.test.
 }

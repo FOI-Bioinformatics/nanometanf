@@ -1,40 +1,40 @@
+// Real-time (watchPath) input handling, consolidated from the former
+// realtime_barcode_fastq + realtime_flat_fastq tests. Runs in stub mode with a
+// bounded watchPath (max_files + short realtime_timeout) so the JVM exits
+// cleanly, and asserts the crash-signature guard, the software-versions
+// artifact, and that the QC path ran -- not only workflow.success. Stays
+// slow/extended because the watchPath timeout dominates wall-clock.
 nextflow_pipeline {
 
-    name "Test real-time processing with empty samplesheet (input=false)"
+    name "Real-time input modes (barcode subdir, flat directory)"
     script "../main.nf"
 
     tag "pipeline"
     tag "integration"
     tag "realtime"
+    tag "qc"
+    tag "barcode_discovery"
     tag "stub"
     tag "slow"
     tag "extended"
 
-    // NOTE: the former "non-existent directory" case was removed. A realtime
-    // watchPath on a missing directory does NOT fail fast -- it keeps the watch
-    // queue open and hangs (max_time is a per-task limit and there are no
-    // tasks). That is a pipeline robustness gap (a missing nanopore_output_dir
-    // should be rejected up front), flagged as a follow-up; a test that hangs CI
-    // is worse than no test. The cases below use existing directories bounded by
-    // max_files + realtime_timeout_minutes so they always terminate.
-
-    test("empty samplesheet + realtime mode, pre-existing files (flat)") {
+    test("barcode subdirectory FASTQ in real-time mode") {
         options "-stub"
         when {
             params {
                 input = false
-                outdir = "$outputDir"
                 realtime_mode = true
-                nanopore_output_dir = "$projectDir/tests/realtime_test_data"
-                file_pattern = "*.fastq.gz"
+                nanopore_output_dir = "$projectDir/tests/fixtures/barcode_structure"
+                file_pattern = "**/*.fastq.gz"
+                outdir = "$outputDir"
+                max_files = 3
                 batch_size = 2
-                max_files = 2
                 realtime_timeout_minutes = 1
                 realtime_processing_grace_period = 10
                 skip_kraken2 = true
                 blast_validation = false
-                skip_fastp = false
                 skip_nanoplot = true
+                enable_realtime_stats = false
                 max_cpus = 2
                 max_memory = '4.GB'
                 max_time = '15.min'
@@ -52,24 +52,25 @@ nextflow_pipeline {
         }
     }
 
-    test("empty samplesheet + realtime mode, pre-existing files (fixtures/realtime)") {
+    test("flat FASTQ directory in real-time mode") {
         options "-stub"
         when {
             params {
                 input = false
-                outdir = "$outputDir"
                 realtime_mode = true
-                nanopore_output_dir = "$projectDir/tests/fixtures/realtime"
+                nanopore_output_dir = "$projectDir/tests/fixtures/fastq"
                 file_pattern = "*.fastq.gz"
-                batch_size = 5
-                max_files = 2
+                outdir = "$outputDir"
+                max_files = 4
+                batch_size = 2
                 realtime_timeout_minutes = 1
                 realtime_processing_grace_period = 10
                 skip_kraken2 = true
                 blast_validation = false
                 skip_nanoplot = true
+                enable_realtime_stats = false
                 max_cpus = 2
-                max_memory = '2.GB'
+                max_memory = '4.GB'
                 max_time = '15.min'
             }
         }
@@ -81,6 +82,7 @@ nextflow_pipeline {
             assert !err.contains('Invalid method invocation `call`')
             assert workflow.success
             assert path("$outputDir/pipeline_info").list().any { it.toString().contains('software_') }
+            assert workflow.trace.tasks().any { it.name.contains('CHOPPER') || it.name.contains('FASTP') }
         }
     }
 }

@@ -76,8 +76,7 @@ jobs:
           nf-test test --profile test,docker \
             --tag fast --tag core --tag stub --tag integration \
             tests/barcode_discovery.nf.test \
-            tests/batch_barcode_fastq.nf.test \
-            tests/batch_flat_fastq.nf.test \
+            tests/batch_input_modes.nf.test \
             tests/chopper_specific.nf.test \
             tests/default.nf.test \
             tests/full_pipeline_stubmode.nf.test \
