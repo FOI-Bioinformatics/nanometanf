@@ -9,6 +9,7 @@ nextflow_pipeline {
 
     // Feature Area
     tag "validation"
+    tag "realtime"
 
     // Execution Speed & Criticality
     tag "fast"
@@ -36,6 +37,65 @@ nextflow_pipeline {
         then {
             // Just check parameters are valid
             assert workflow.success
+        }
+    }
+
+    test("real-time mode fails fast when the watch directory does not exist") {
+
+        // Regression for the watchPath hang: a non-existent nanopore_output_dir
+        // must be rejected up front (clear error, quick exit) instead of leaving
+        // the watch queue open and hanging until killed.
+        when {
+            params {
+                input = false
+                outdir = "$outputDir"
+                realtime_mode = true
+                nanopore_output_dir = "/tmp/nanometanf_nonexistent_watch_dir_xyz"
+                skip_kraken2 = true
+                blast_validation = false
+                max_cpus = 1
+                max_memory = '1.GB'
+                max_time = '1.min'
+            }
+        }
+
+        then {
+            assert workflow.failed
+            def err = (workflow.errorReport ?: '') + '\n' + (workflow.stdout?.join('\n') ?: '')
+            assert err.contains('does not exist')
+            // A clean validation failure, not a Groovy crash or a hang.
+            assert !err.contains('MethodSelectionException')
+            assert !err.contains('MissingMethodException')
+        }
+    }
+
+    test("real-time mode fails fast when no watch directory is provided") {
+
+        when {
+            params {
+                input = false
+                outdir = "$outputDir"
+                realtime_mode = true
+                nanopore_output_dir = null
+                skip_kraken2 = true
+                blast_validation = false
+                max_cpus = 1
+                max_memory = '1.GB'
+                max_time = '1.min'
+            }
+        }
+
+        then {
+            // Fails fast as a clean parameter/validation error (nf-schema rejects
+            // the missing input before the custom guard, or the custom guard
+            // fires) -- either way it must not hang or raise a Groovy crash.
+            assert workflow.failed
+            def err = (workflow.errorReport ?: '') + '\n' + (workflow.stdout?.join('\n') ?: '')
+            assert err.contains('nanopore_output_dir') ||
+                   err.contains('Validation of pipeline parameters failed') ||
+                   err.contains('No input')
+            assert !err.contains('MethodSelectionException')
+            assert !err.contains('MissingMethodException')
         }
     }
 }

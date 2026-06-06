@@ -86,6 +86,29 @@ workflow NANOMETANF {
         error "No input data specified. See above for options."
     }
 
+    // Realtime safeguard: fail fast on a missing watch directory.
+    // A watchPath on a non-existent directory does NOT error -- it keeps the
+    // watch queue open and the run hangs until killed (max_time is per-task and
+    // there are no tasks). Reject it up front with a clear message instead.
+    if (params.realtime_mode) {
+        if (!params.nanopore_output_dir) {
+            log.error "========================================================================="
+            log.error "  ERROR: Real-time mode requires a directory to monitor."
+            log.error "  Set --nanopore_output_dir /path/to/monitor"
+            log.error "========================================================================="
+            error "Real-time mode enabled but --nanopore_output_dir was not provided."
+        }
+        if (!file(params.nanopore_output_dir).exists()) {
+            log.error "========================================================================="
+            log.error "  ERROR: Real-time watch directory does not exist:"
+            log.error "    ${params.nanopore_output_dir}"
+            log.error "  Create it (or point --nanopore_output_dir at an existing directory)"
+            log.error "  before starting real-time monitoring."
+            log.error "========================================================================="
+            error "Real-time watch directory does not exist: ${params.nanopore_output_dir}"
+        }
+    }
+
     // Realtime safeguard: warn if no termination condition is set
     if (params.realtime_mode && params.max_files == null && params.realtime_timeout_minutes == null) {
         log.warn "========================================================================="
@@ -237,6 +260,7 @@ workflow NANOMETANF {
         ch_qc_reads = QC_ANALYSIS.out.reads
         ch_qc_reports = QC_ANALYSIS.out.qc_reports  // Tool-agnostic QC reports (FASTP HTML, FastQC HTML, or tool-specific)
         ch_nanoplot_reports = QC_ANALYSIS.out.nanoplot
+        ch_qc_json = QC_ANALYSIS.out.qc_json
 
         //
         // MODULE: Multi-sample NanoPlot comparison (optional)
@@ -288,6 +312,7 @@ workflow NANOMETANF {
         ch_qc_reports = Channel.empty()
         ch_nanoplot_reports = Channel.empty()
         ch_qc_benchmark_results = Channel.empty()
+        ch_qc_json = Channel.empty()
     }
 
     //
@@ -528,7 +553,11 @@ workflow NANOMETANF {
         // ``{ meta, stats_file -> ... }``; otherwise it crashes with
         // ``MissingMethodException``. Same guard pattern as in the
         // ``QC_ANALYSIS.out.qc_json.collect{ it[1] }`` consumers above.
-        ch_stats_files = QC_ANALYSIS.out.qc_json
+        // Use the ch_qc_json channel captured in both QC branches: when QC is
+        // skipped (skip_fastp + skip_nanoplot) QC_ANALYSIS is never invoked, so
+        // referencing QC_ANALYSIS.out here aborts the run with "Access to
+        // 'QC_ANALYSIS.out' is undefined".
+        ch_stats_files = ch_qc_json
             .filter { it instanceof List && it.size() >= 2 && it[1] != null }
             .map { meta, stats_file -> stats_file }
             .collect()
