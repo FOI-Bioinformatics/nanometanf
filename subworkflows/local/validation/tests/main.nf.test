@@ -94,4 +94,47 @@ nextflow_workflow {
             assert workflow.out.versions.size() > 0
         }
     }
+
+    // Realtime mode rebuilds validation_results.json each batch from the
+    // per-(sample, taxid) cumulative stats instead of deferring a single
+    // .collect()-gated aggregation to the end of the watchPath stream. With
+    // meta.batch_id set the cumulative aggregators run and feed
+    // AGGREGATE_VALIDATION_LIVE, so the JSON must be emitted during the run.
+    test("realtime-mode validation emits validation_results.json from cumulative stats") {
+
+        options "-stub"
+
+        when {
+            workflow {
+                """
+                // meta WITH batch_id => realtime mode => live aggregation path
+                input[0] = Channel.of([ [id: 'val_rt', single_end: true, batch_id: 'batch_0'],
+                             file('${projectDir}/tests/fixtures/fastq/test_sample.fastq.gz') ])
+                input[1] = Channel.of([ [id: 'val_rt', single_end: true, batch_id: 'batch_0'],
+                             file('${projectDir}/tests/fixtures/validation/test_kraken_output.txt') ])
+                input[2] = Channel.of([ [id: 'val_rt', single_end: true, batch_id: 'batch_0'],
+                             file('${projectDir}/tests/fixtures/reports/classification/kraken2_report.txt') ])
+                input[3] = file('${projectDir}/tests/fixtures/validation/test_genomes.json')
+                input[4] = 'all'
+                input[5] = 'both'
+                """
+            }
+
+            params {
+                realtime_mode = true
+                max_cpus = 2
+                max_memory = '4.GB'
+                max_time = '5.min'
+            }
+        }
+
+        then {
+            assert workflow.success
+            // The realtime fix: the JSON is produced via the live path, not the
+            // end-of-run .collect() barrier.
+            assert workflow.out.validation_json
+            assert workflow.out.validation_json.size() > 0
+            assert !workflow.out.versions.any { it instanceof List && it.isEmpty() }
+        }
+    }
 }

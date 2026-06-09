@@ -10,6 +10,7 @@ include { EXTRACT_READS_BY_TAXID        } from '../../../modules/local/extract_r
 include { BLASTN_VALIDATION             } from '../../../modules/local/blastn_validation/main'
 include { MINIMAP2_VALIDATION           } from '../../../modules/local/minimap2_validation/main'
 include { AGGREGATE_VALIDATION_RESULTS  } from '../../../modules/local/aggregate_validation_results/main'
+include { AGGREGATE_VALIDATION_RESULTS as AGGREGATE_VALIDATION_LIVE } from '../../../modules/local/aggregate_validation_results/main'
 include { CANONICAL_VALIDATION_WRITER  } from '../../../modules/local/canonical_validation_writer/main'
 include { VALIDATION_CUMULATIVE_AGGREGATOR as MINIMAP2_CUMULATIVE_AGGREGATOR } from '../../../modules/local/validation_cumulative_aggregator/main'
 include { VALIDATION_CUMULATIVE_AGGREGATOR as BLAST_CUMULATIVE_AGGREGATOR    } from '../../../modules/local/validation_cumulative_aggregator/main'
@@ -300,61 +301,90 @@ workflow VALIDATION {
     }
 
     //
-    // INTERMEDIATE VALIDATION: Progressive aggregation for real-time dashboard
-    // Uses .tap() to fork channels and .subscribe to accumulate validation stats
-    // in JVM memory, writing periodic intermediate JSON to outdir for dashboard polling.
+    // MODULE: Aggregate validation results into the Nanometa Live JSON.
     //
-    def val_interval = params.validation_aggregate_interval ?: 0
-    if (val_interval > 0) {
-        // Fork channels for intermediate aggregation
-        def ch_blast_for_intermediate = Channel.create()
-        def ch_minimap2_for_intermediate = Channel.create()
+    // Two cadences share one aggregator module:
+    //
+    //  * Batch mode (no meta.batch_id): the source channels close at end of run,
+    //    so a single .collect() gathers every per-batch stats file and one
+    //    aggregation writes the final validation_results.json. Unchanged.
+    //
+    //  * Realtime mode (watchPath): the source channels never close until the
+    //    timeout fires, so a .collect() barrier would defer the JSON to end of
+    //    run. Instead we re-aggregate from the per-(sample, taxid) CUMULATIVE
+    //    stats files, which VALIDATION_CUMULATIVE_AGGREGATOR already rebuilds
+    //    each batch. A running snapshot keeps the latest file per key and
+    //    re-emits the full current set on each update; every emission therefore
+    //    rebuilds a complete, run-so-far JSON. The aggregator reads its work
+    //    directory by filename suffix, so the combined snapshot is passed as the
+    //    first path input and the remaining inputs are empty.
+    //
+    ch_validation_json = Channel.empty()
+    ch_validation_summary = Channel.empty()
 
-        ch_blast_stats = ch_blast_stats.tap(ch_blast_for_intermediate)
-        ch_minimap2_stats = ch_minimap2_stats.tap(ch_minimap2_for_intermediate)
+    if (params.realtime_mode) {
+        def store = [:].asSynchronized()
+        def counter = new java.util.concurrent.atomic.AtomicInteger(0)
+        def interval = (params.validation_aggregate_interval ?: 1) as int
 
-        def intermediate_results = [].asSynchronized()
-        def val_counter = new java.util.concurrent.atomic.AtomicInteger(0)
+        def ch_blast_cumulative_stats = (validation_method == 'blast' || validation_method == 'both') ?
+            BLAST_CUMULATIVE_AGGREGATOR.out.stats.map { meta, taxid, f -> ["blast|${meta.id}|${taxid}", f] } :
+            Channel.empty()
+        def ch_minimap2_cumulative_stats = (validation_method == 'minimap2' || validation_method == 'both') ?
+            MINIMAP2_CUMULATIVE_AGGREGATOR.out.stats.map { meta, taxid, f -> ["mm2|${meta.id}|${taxid}", f] } :
+            Channel.empty()
 
-        ch_blast_for_intermediate.mix(ch_minimap2_for_intermediate).subscribe { stats_file ->
-            try {
-                def data = new groovy.json.JsonSlurper().parseText(stats_file.text)
-                intermediate_results.add(data)
-                def count = val_counter.incrementAndGet()
-
-                if (count % val_interval == 0) {
-                    def outdir = new File("${params.outdir}/validation")
-                    outdir.mkdirs()
-                    def json_text = new groovy.json.JsonBuilder(intermediate_results.collect()).toPrettyString()
-                    def temp = new File(outdir, "intermediate_validation.json.tmp")
-                    temp.text = json_text
-                    def target = new File(outdir, "intermediate_validation.json")
-                    if (!temp.renameTo(target)) {
-                        target.text = temp.text
-                        temp.delete()
-                    }
-                    log.debug "Intermediate validation updated: ${intermediate_results.size()} results"
-                }
-            } catch (Exception e) {
-                log.warn "Intermediate validation aggregation failed: ${e.message}"
+        def ch_live_input = ch_blast_cumulative_stats
+            .mix(ch_minimap2_cumulative_stats)
+            .mix(
+                EXTRACT_READS_BY_TAXID.out.stats
+                    .filter { meta, f -> meta.batch_id }
+                    .map { meta, f -> ["ext|${meta.id}|${meta.taxid}", f] }
+            )
+            .mix(
+                ch_kraken_reports
+                    .filter { meta, r -> meta.batch_id }
+                    .map { meta, r -> ["krak|${meta.id}", r] }
+            )
+            .map { key, f ->
+                store[key] = f
+                [counter.incrementAndGet(), store.values().toList()]
             }
-        }
+            .filter { n, files -> n % interval == 0 }
+            .map { n, files -> files }
+
+        AGGREGATE_VALIDATION_LIVE(
+            ch_live_input,
+            [],
+            [],
+            [],
+            validation_method,
+            params.validation_hit_rate_threshold ?: 0.5,
+            params.validation_identity_threshold ?: 90.0
+        )
+        ch_validation_json = AGGREGATE_VALIDATION_LIVE.out.json
+        ch_validation_summary = AGGREGATE_VALIDATION_LIVE.out.summary
+        // The live aggregator re-runs each batch; collapse its repeated version
+        // emissions to one so ch_versions is not flooded with duplicates.
+        ch_versions = ch_versions.mix(AGGREGATE_VALIDATION_LIVE.out.versions.first())
+    } else {
+        AGGREGATE_VALIDATION_RESULTS(
+            ch_blast_stats.collect().ifEmpty([]),
+            ch_minimap2_stats.collect().ifEmpty([]),
+            ch_extraction_stats.collect().ifEmpty([]),
+            ch_kraken_report_files.collect().ifEmpty([]),
+            validation_method,
+            params.validation_hit_rate_threshold ?: 0.5,
+            params.validation_identity_threshold ?: 90.0
+        )
+        ch_validation_json = AGGREGATE_VALIDATION_RESULTS.out.json
+        ch_validation_summary = AGGREGATE_VALIDATION_RESULTS.out.summary
+        ch_versions = ch_versions.mix(AGGREGATE_VALIDATION_RESULTS.out.versions)
     }
 
-    AGGREGATE_VALIDATION_RESULTS(
-        ch_blast_stats.collect().ifEmpty([]),
-        ch_minimap2_stats.collect().ifEmpty([]),
-        ch_extraction_stats.collect().ifEmpty([]),
-        ch_kraken_report_files.collect().ifEmpty([]),
-        validation_method,
-        params.validation_hit_rate_threshold ?: 0.5,
-        params.validation_identity_threshold ?: 90.0
-    )
-    ch_versions = ch_versions.mix(AGGREGATE_VALIDATION_RESULTS.out.versions)
-
     emit:
-    validation_json        = AGGREGATE_VALIDATION_RESULTS.out.json      // path: validation_results.json
-    validation_summary     = AGGREGATE_VALIDATION_RESULTS.out.summary   // path: validation_summary.tsv
+    validation_json        = ch_validation_json                         // path: validation_results.json
+    validation_summary     = ch_validation_summary                      // path: validation_summary.tsv
     extraction_stats       = EXTRACT_READS_BY_TAXID.out.stats           // channel: [ val(meta), path(json) ]
     blast_results          = ch_blast_results                           // channel: [ val(meta), path(tsv) ]
     minimap2_results       = ch_minimap2_results                        // channel: [ val(meta), path(paf) ]
