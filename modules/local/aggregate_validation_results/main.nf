@@ -47,9 +47,22 @@ process AGGREGATE_VALIDATION_RESULTS {
     parse_failures = {'extraction': 0, 'blast': 0, 'minimap2': 0}
     parse_totals = {'extraction': 0, 'blast': 0, 'minimap2': 0}
 
-    # Build taxid -> species name mapping from Kraken2 reports
-    # Kraken2 report format: percent, cumul_reads, reads, rank, taxid, name
+    # Build taxid -> species name mapping. Seed it with the authoritative
+    # {taxid: name} map written by Nanometa Live from the watchlist (present at
+    # launch, independent of which per-batch reports reach a realtime aggregation),
+    # so names are deterministic. Kraken2 reports then fill any remaining gaps.
     taxid_to_species = {}
+    _names_path = "${params.validation_taxon_names ?: ''}"
+    if _names_path and Path(_names_path).exists():
+        try:
+            with open(_names_path) as _nh:
+                for _t, _n in json.load(_nh).items():
+                    if _n:
+                        taxid_to_species[str(_t)] = _n
+        except Exception as e:
+            print(f"Warning: could not read taxon names {_names_path}: {e}", file=sys.stderr)
+
+    # Kraken2 report format: percent, cumul_reads, reads, rank, taxid, name
     for f in Path('.').glob('*.report.txt'):
         try:
             with open(f) as fh:
