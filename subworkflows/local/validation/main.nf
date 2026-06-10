@@ -345,9 +345,19 @@ workflow VALIDATION {
                     .map { meta, f -> ["ext|${meta.id}|${meta.taxid}", f] }
             )
             .mix(
+                // Kraken2 reports carry the taxid->species names the aggregator
+                // needs. ch_kraken_reports now delivers the per-batch reports
+                // (meta has batch_id) plus the end-of-session cumulative report
+                // (no batch_id). Key each uniquely -- using an explicit null
+                // check so batch_id 0 is not mistaken for the cumulative -- so
+                // the snapshot accumulates every report and the aggregator sees
+                // the union of species rows. A batch that lacks a taxon then
+                // cannot blank its name.
                 ch_kraken_reports
-                    .filter { meta, r -> meta.batch_id }
-                    .map { meta, r -> ["krak|${meta.id}", r] }
+                    .map { meta, r ->
+                        def tag = meta.batch_id != null ? meta.batch_id : 'final'
+                        ["krak|${meta.id}|${tag}", r]
+                    }
             )
             .map { key, f ->
                 store[key] = f

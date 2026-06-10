@@ -409,7 +409,11 @@ workflow NANOMETANF {
             VALIDATION (
                 TAXONOMIC_CLASSIFICATION.out.classified_reads,
                 TAXONOMIC_CLASSIFICATION.out.reads_assignment,
-                TAXONOMIC_CLASSIFICATION.out.report,
+                // Mix the per-batch reports (realtime; empty in batch mode) into
+                // the report stream so realtime validation can resolve species
+                // names each batch instead of only from the end-of-session
+                // cumulative report.
+                TAXONOMIC_CLASSIFICATION.out.report.mix(TAXONOMIC_CLASSIFICATION.out.batch_reports),
                 params.pathogen_genomes,
                 params.taxids_to_validate,
                 params.validation_method

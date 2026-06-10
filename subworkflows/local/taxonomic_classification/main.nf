@@ -39,6 +39,7 @@ workflow TAXONOMIC_CLASSIFICATION {
     ch_unclassified_reads = Channel.empty()
     ch_reads_assignment = Channel.empty()
     ch_raw_reports = Channel.empty()
+    ch_batch_reports = Channel.empty()
     ch_final_cumulative_output = Channel.empty()
     ch_final_cumulative_report = Channel.empty()
 
@@ -251,6 +252,13 @@ workflow TAXONOMIC_CLASSIFICATION {
                     KRAKEN2_OUTPUT_MERGER.out.merger_output
                 )
                 ch_versions = ch_versions.mix(KRAKEN2_REPORT_GENERATOR.out.versions)
+
+                // Expose the per-batch reports (meta carries batch_id, file is
+                // sample-unique) so downstream realtime validation can resolve
+                // taxid->species names during the run, rather than waiting for
+                // the end-of-session cumulative report (which a timeout-stopped
+                // run may never produce).
+                ch_batch_reports = KRAKEN2_REPORT_GENERATOR.out.report
 
                 //
                 // PROGRESSIVE CUMULATIVE REPORTING
@@ -536,6 +544,7 @@ workflow TAXONOMIC_CLASSIFICATION {
     unclassified_reads    = ch_unclassified_reads         // channel: [ val(meta), path(fastq) ]
     reads_assignment      = ch_reads_assignment           // channel: [ val(meta), path(txt) ]
     report                = ch_raw_reports                // channel: [ val(meta), path(txt) ] - Original format for compatibility
+    batch_reports         = ch_batch_reports              // channel: [ val(meta), path(txt) ] - Per-batch reports (realtime; meta has batch_id)
     standardized_report   = ch_standardized_reports       // channel: [ val(meta), path(tsv/csv/etc) ] - Standardized format
     final_output          = ch_final_cumulative_output    // channel: [ val(meta), path(txt) ] - End-of-session cumulative output
     final_report          = ch_final_cumulative_report    // channel: [ val(meta), path(txt) ] - End-of-session cumulative report
