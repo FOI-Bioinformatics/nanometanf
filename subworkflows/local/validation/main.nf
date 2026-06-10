@@ -334,7 +334,10 @@ workflow VALIDATION {
             MINIMAP2_CUMULATIVE_AGGREGATOR.out.stats.map { meta, taxid, f -> ["mm2|${meta.id}|${taxid}", f] } :
             Channel.empty()
 
-        def ch_live_input = ch_blast_cumulative_stats
+        // Build the running-snapshot stream: each upstream update overwrites the
+        // store entry for its key and re-emits the full current file set, tagged
+        // with a monotonically increasing counter.
+        def ch_snapshots = ch_blast_cumulative_stats
             .mix(ch_minimap2_cumulative_stats)
             .mix(
                 EXTRACT_READS_BY_TAXID.out.stats
@@ -350,8 +353,28 @@ workflow VALIDATION {
                 store[key] = f
                 [counter.incrementAndGet(), store.values().toList()]
             }
+
+        // Periodic snapshots: at interval=1 every update aggregates; at
+        // interval>1 only every Nth update does, to reduce overhead.
+        def ch_periodic = ch_snapshots
             .filter { n, files -> n % interval == 0 }
             .map { n, files -> files }
+
+        // Final-snapshot guarantee: the terminal update may not land on a
+        // multiple of interval (e.g. interval=5, last counter=23), in which case
+        // the periodic filter drops the most-complete snapshot and the published
+        // JSON would freeze at an earlier, incomplete state. Always re-emit the
+        // last snapshot so the run-so-far JSON reflects the full final set. A
+        // duplicate final aggregation (when the last update already passed the
+        // filter) is harmless: AGGREGATE_VALIDATION_LIVE rebuilds the complete
+        // JSON and maxForks=1 serialises the writes, so it overwrites with
+        // identical content. At interval=1 this only re-emits the final snapshot
+        // once, leaving behaviour unchanged.
+        def ch_final = ch_snapshots
+            .last()
+            .map { n, files -> files }
+
+        def ch_live_input = ch_periodic.mix(ch_final)
 
         AGGREGATE_VALIDATION_LIVE(
             ch_live_input,
