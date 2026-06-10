@@ -203,7 +203,7 @@ workflow VALIDATION {
         // filter keep it a no-op in batch mode.
         ch_blast_cumulative_input = BLASTN_VALIDATION.out.results
             .join(BLASTN_VALIDATION.out.stats)
-            .filter { meta, tsv, stats -> meta.batch_id }
+            .filter { meta, tsv, stats -> meta.batch_id != null }
             .map { meta, tsv, stats ->
                 def base = "${params.outdir}/validation/blast/${meta.id}_taxid${meta.taxid}"
                 def prior_tsv = file("${base}.blast.tsv")
@@ -238,7 +238,7 @@ workflow VALIDATION {
         // (sample, taxid). See the BLAST branch above for the rationale.
         ch_minimap2_cumulative_input = MINIMAP2_VALIDATION.out.alignments
             .join(MINIMAP2_VALIDATION.out.stats)
-            .filter { meta, paf, stats -> meta.batch_id }
+            .filter { meta, paf, stats -> meta.batch_id != null }
             .map { meta, paf, stats ->
                 def base = "${params.outdir}/validation/minimap2/${meta.id}_taxid${meta.taxid}"
                 def prior_paf = file("${base}.paf")
@@ -341,7 +341,7 @@ workflow VALIDATION {
             .mix(ch_minimap2_cumulative_stats)
             .mix(
                 EXTRACT_READS_BY_TAXID.out.stats
-                    .filter { meta, f -> meta.batch_id }
+                    .filter { meta, f -> meta.batch_id != null }
                     .map { meta, f -> ["ext|${meta.id}|${meta.taxid}", f] }
             )
             .mix(
