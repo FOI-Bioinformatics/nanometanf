@@ -276,8 +276,8 @@ workflow QC_ANALYSIS {
     //
     // NanoPlot optimization for real-time processing:
     // - Skip intermediate batches if nanoplot_realtime_skip_intermediate = true
-    // - Run every N batches if nanoplot_batch_interval is set
-    // - Always run on final batch (when is_final_batch = true in meta)
+    // - Run on the first batch and then every nanoplot_batch_interval batches
+    //   per sample (a per-batch "final batch" is not knowable while streaming)
     //
     def skip_nanoplot = params.skip_nanoplot ?: false
     def is_realtime = params.realtime_mode ?: false
@@ -303,31 +303,37 @@ workflow QC_ANALYSIS {
     if (!skip_nanoplot) {
         // Apply real-time optimizations
         if (is_realtime && skip_intermediate) {
-            log.info "Real-time mode: NanoPlot will run every ${batch_interval} batches and on final batch"
+            log.info "Real-time mode: NanoPlot will run on the first batch and every ${batch_interval} batches per sample"
 
-            // Filter channel to only include samples that should run NanoPlot
-            ch_nanoplot_input = ch_qc_reads_tuples.filter { meta, reads ->
-                // Always run on final batch
-                if (meta.is_final_batch == true) {
-                    log.info "Running NanoPlot for ${meta.id} (final batch)"
-                    return true
-                }
-
-                // Run every N batches based on batch_id
-                if (meta.batch_id != null) {
-                    def batch_num = meta.batch_id instanceof String ?
-                        Integer.parseInt(meta.batch_id.replaceAll(/\D/, '')) : meta.batch_id
-
-                    if (batch_num % batch_interval == 0) {
-                        log.info "Running NanoPlot for ${meta.id} (batch ${batch_num} - interval milestone)"
-                        return true
+            // The real-time QC samples (REALTIME_MONITORING.out.samples) carry no
+            // batch_id, so the previous batch_id/is_final_batch filter rejected every
+            // batch and NanoPlot never ran in real-time. Assign a per-sample batch
+            // index here (honouring an upstream batch_id when present), then run
+            // NanoPlot on the first batch (index 0) and every Nth batch. A streaming
+            // run cannot know the final batch, so milestones provide periodic live QC;
+            // outputs overwrite nanoplot/<id>/ to show the latest snapshot. The index
+            // is a private meta key, stripped again before NanoPlot runs.
+            def nanoplot_counters = [:].withDefault { 0 }
+            ch_nanoplot_input = ch_qc_reads_tuples
+                .map { meta, reads ->
+                    def m = meta.clone()
+                    BatchUtils.withLock(nanoplot_counters) {
+                        if (meta.batch_id != null) {
+                            m._nanoplot_idx = meta.batch_id instanceof String ?
+                                Integer.parseInt(meta.batch_id.toString().replaceAll(/\D/, '')) : meta.batch_id
+                        } else {
+                            m._nanoplot_idx = nanoplot_counters[meta.id]
+                        }
+                        nanoplot_counters[meta.id] = nanoplot_counters[meta.id] + 1
                     }
+                    [m, reads]
                 }
-
-                // Skip this batch
-                log.debug "Skipping NanoPlot for ${meta.id} (intermediate batch)"
-                return false
-            }
+                .filter { meta, reads -> (meta._nanoplot_idx as int) % batch_interval == 0 }
+                .map { meta, reads ->
+                    def m = meta.clone()
+                    m.remove('_nanoplot_idx')
+                    [m, reads]
+                }
         }
 
         // Skip NanoPlot for samples whose post-QC FASTQ has no reads.

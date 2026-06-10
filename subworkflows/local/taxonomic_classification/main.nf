@@ -290,7 +290,7 @@ workflow TAXONOMIC_CLASSIFICATION {
                 def write_interval = params.report_write_interval ?: 5
 
                 KRAKEN2_REPORT_GENERATOR.out.taxid_counts
-                    .subscribe { item ->
+                    .subscribe(onNext: { item ->
                         def sample_label = "unknown"
                         try {
                             def meta = item[0]
@@ -319,12 +319,15 @@ workflow TAXONOMIC_CLASSIFICATION {
 
                                 batch_write_counter[sample_id] = batch_write_counter[sample_id] + 1
 
-                                def is_final_batch = (meta.is_final_batch == true)
-
-                                // Write only every N batches or on final batch
+                                // Write the live progressive report every N batches.
+                                // A per-batch "final batch" flag is not knowable in a
+                                // streaming watchPath run, so the definitive end-of-
+                                // session report is produced by KRAKEN2_FINAL_AGGREGATOR
+                                // (it writes the same kraken2/<id>.cumulative.kraken2.
+                                // report.txt from the per-batch files on disk), and the
+                                // in-memory state is released in onComplete below.
                                 if (write_interval <= 0
-                                    || batch_write_counter[sample_id] % write_interval == 0
-                                    || is_final_batch) {
+                                    || batch_write_counter[sample_id] % write_interval == 0) {
 
                                     // Write progressive cumulative kreport for dashboard
                                     def outdir = new File("${params.outdir}/kraken2")
@@ -357,25 +360,29 @@ workflow TAXONOMIC_CLASSIFICATION {
                                     def live_taxa = cumulative_taxa_state.values().sum(0) { it.taxa.size() }
                                     log.info "[cumulative-state] ${live_samples} sample(s) in flight, ${live_taxa} total live taxa entries"
                                 } // end write interval check
-
-                                // Release this sample's state once its final batch
-                                // has been written. Completed samples have nothing
-                                // more to merge, so keeping their taxa map alive
-                                // for the rest of the session just bloats the
-                                // head-process heap. The final cumulative file on
-                                // disk remains the authoritative artefact; the
-                                // FINAL_AGGREGATOR reads the per-batch files
-                                // directly and never consults this in-memory map.
-                                if (is_final_batch) {
-                                    cumulative_taxa_state.remove(sample_id)
-                                    batch_write_counter.remove(sample_id)
-                                    log.info "[cumulative-state] released in-memory state for sample '${sample_id}' (final batch processed)"
-                                }
                             }
                         } catch (Exception e) {
                             log.warn "Progressive cumulative report failed for sample '${sample_label}': ${e.message}"
                         }
-                    }
+                    },
+                    onComplete: {
+                        // End of the real-time session (the watchPath closed via the
+                        // inactivity timeout or max_files). Release the per-sample
+                        // accumulator from the head-process heap. A per-batch "final
+                        // batch" signal is not available in a streaming run, so channel
+                        // closure is the correct end-of-session trigger; the definitive
+                        // cumulative report is produced by KRAKEN2_FINAL_AGGREGATOR.
+                        try {
+                            BatchUtils.withLock(cumulative_taxa_state) {
+                                def released = cumulative_taxa_state.size()
+                                cumulative_taxa_state.clear()
+                                batch_write_counter.clear()
+                                log.info "[cumulative-state] end of session: released in-memory state for ${released} sample(s)"
+                            }
+                        } catch (Exception e) {
+                            log.warn "End-of-session cumulative-state release failed: ${e.message}"
+                        }
+                    })
 
                 //
                 // END-OF-SESSION AGGREGATION
