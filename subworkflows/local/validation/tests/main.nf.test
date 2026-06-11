@@ -176,4 +176,58 @@ nextflow_workflow {
             assert workflow.out.validation_json.size() > 0
         }
     }
+
+    // Deadlock reproducer (issue #29). In realtime mode each (sample, taxid) key
+    // recurs once per batch, so the validation fan-out joins -- keyed on
+    // (id, taxid) with no batch dimension -- see DUPLICATE keys across batches.
+    // A live run with several batches and multiple taxids wedged with ~1300
+    // tasks pending and 0 running. This case emits 3 batches for one sample
+    // against 2 taxids (562, 28901) so each (id, taxid) key appears 3x. If the
+    // subworkflow drains and emits the JSON the topology is sound; if it hangs
+    // it fails on max_time, pinning the deadlock.
+    test("realtime-mode multi-batch validation drains with repeated (sample,taxid) keys") {
+
+        options "-stub"
+
+        when {
+            workflow {
+                """
+                def reads  = file('${projectDir}/tests/fixtures/fastq/test_sample.fastq.gz')
+                def kraken = file('${projectDir}/tests/fixtures/validation/test_kraken_output.txt')
+                def report = file('${projectDir}/tests/fixtures/reports/classification/kraken2_report.txt')
+                input[0] = Channel.of(
+                    [ [id: 'val_rt', single_end: true, batch_id: 0], reads ],
+                    [ [id: 'val_rt', single_end: true, batch_id: 1], reads ],
+                    [ [id: 'val_rt', single_end: true, batch_id: 2], reads ] )
+                input[1] = Channel.of(
+                    [ [id: 'val_rt', single_end: true, batch_id: 0], kraken ],
+                    [ [id: 'val_rt', single_end: true, batch_id: 1], kraken ],
+                    [ [id: 'val_rt', single_end: true, batch_id: 2], kraken ] )
+                // Per-batch reports must have UNIQUE basenames, exactly as the
+                // real KRAKEN2_REPORT_GENERATOR emits (id_batchN.kraken2.report.txt);
+                // reusing one name triggers an unrelated staging collision.
+                input[2] = Channel.of(
+                    [ [id: 'val_rt', single_end: true, batch_id: 0], file('${projectDir}/tests/fixtures/validation/multibatch/val_rt_batch0.kraken2.report.txt') ],
+                    [ [id: 'val_rt', single_end: true, batch_id: 1], file('${projectDir}/tests/fixtures/validation/multibatch/val_rt_batch1.kraken2.report.txt') ],
+                    [ [id: 'val_rt', single_end: true, batch_id: 2], file('${projectDir}/tests/fixtures/validation/multibatch/val_rt_batch2.kraken2.report.txt') ] )
+                input[3] = file('${projectDir}/tests/fixtures/validation/test_genomes.json')
+                input[4] = 'all'
+                input[5] = 'both'
+                """
+            }
+
+            params {
+                realtime_mode = true
+                max_cpus = 2
+                max_memory = '4.GB'
+                max_time = '5.min'
+            }
+        }
+
+        then {
+            assert workflow.success
+            assert workflow.out.validation_json
+            assert workflow.out.validation_json.size() > 0
+        }
+    }
 }

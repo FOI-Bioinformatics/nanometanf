@@ -1,0 +1,2 @@
+taxid	count	name
+1	100	root
