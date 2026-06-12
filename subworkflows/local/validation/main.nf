@@ -324,7 +324,7 @@ workflow VALIDATION {
 
     if (params.realtime_mode) {
         def store = [:].asSynchronized()
-        def counter = new java.util.concurrent.atomic.AtomicInteger(0)
+        def boundary_counter = new java.util.concurrent.atomic.AtomicInteger(0)
         def interval = (params.validation_aggregate_interval ?: 1) as int
 
         def ch_blast_cumulative_stats = (validation_method == 'blast' || validation_method == 'both') ?
@@ -334,55 +334,62 @@ workflow VALIDATION {
             MINIMAP2_CUMULATIVE_AGGREGATOR.out.stats.map { meta, taxid, f -> ["mm2|${meta.id}|${taxid}", f] } :
             Channel.empty()
 
-        // Build the running-snapshot stream: each upstream update overwrites the
-        // store entry for its key and re-emits the full current file set, tagged
-        // with a monotonically increasing counter.
-        def ch_snapshots = ch_blast_cumulative_stats
-            .mix(ch_minimap2_cumulative_stats)
+        // Build the running-snapshot stream. EVERY upstream update overwrites the
+        // store entry for its key and re-emits the full current file set, but each
+        // emission is tagged with whether it is a per-batch BOUNDARY (a Kraken2
+        // report -- one per batch) or just a stat refresh. Aggregation triggers
+        // only on a boundary (or the guaranteed final), NOT on every stat update.
+        //
+        // Issue #29: the previous design aggregated on every store update -- for a
+        // single barcode of 8 files that was ~366 AGGREGATE_VALIDATION_LIVE runs.
+        // That process is maxForks=1 (serialised) and each run does a conda
+        // activation; under that load a single flaky `conda info --json`
+        // activation hung the one allowed slot and, because every later
+        // aggregation and the `.last()` final queue behind it, the whole realtime
+        // run wedged (0 running, ~1000 pending). Aggregating once per batch cuts
+        // the count ~40x, so the live JSON stays fresh while the maxForks=1 slot is
+        // no longer hammered. The per-batch result lags stat updates by at most one
+        // batch; the final snapshot below is always complete.
+        def ch_snapshots = ch_blast_cumulative_stats.map { k, f -> [k, f, false] }
+            .mix(ch_minimap2_cumulative_stats.map { k, f -> [k, f, false] })
             .mix(
                 EXTRACT_READS_BY_TAXID.out.stats
                     .filter { meta, f -> meta.batch_id != null }
-                    .map { meta, f -> ["ext|${meta.id}|${meta.taxid}", f] }
+                    .map { meta, f -> ["ext|${meta.id}|${meta.taxid}", f, false] }
             )
             .mix(
                 // Kraken2 reports carry the taxid->species names the aggregator
-                // needs. ch_kraken_reports now delivers the per-batch reports
-                // (meta has batch_id) plus the end-of-session cumulative report
-                // (no batch_id). Key each uniquely -- using an explicit null
-                // check so batch_id 0 is not mistaken for the cumulative -- so
-                // the snapshot accumulates every report and the aggregator sees
-                // the union of species rows. A batch that lacks a taxon then
-                // cannot blank its name.
+                // needs and arrive one per batch, so they double as the per-batch
+                // aggregation heartbeat (tagged true). ch_kraken_reports delivers
+                // the per-batch reports (meta has batch_id) plus the end-of-session
+                // cumulative report (no batch_id); key each uniquely with an
+                // explicit null check so batch_id 0 is not mistaken for the
+                // cumulative, so the snapshot accumulates every report.
                 ch_kraken_reports
                     .map { meta, r ->
                         def tag = meta.batch_id != null ? meta.batch_id : 'final'
-                        ["krak|${meta.id}|${tag}", r]
+                        ["krak|${meta.id}|${tag}", r, true]
                     }
             )
-            .map { key, f ->
+            .map { key, f, isBoundary ->
                 store[key] = f
-                [counter.incrementAndGet(), store.values().toList()]
+                [isBoundary, store.values().toList()]
             }
 
-        // Periodic snapshots: at interval=1 every update aggregates; at
-        // interval>1 only every Nth update does, to reduce overhead.
+        // Aggregate once per batch boundary (Kraken2 report). The interval knob
+        // thins further on very high batch counts (interval=1 -> every batch).
         def ch_periodic = ch_snapshots
-            .filter { n, files -> n % interval == 0 }
-            .map { n, files -> files }
+            .filter { isBoundary, files -> isBoundary && (boundary_counter.incrementAndGet() % interval == 0) }
+            .map { isBoundary, files -> files }
 
-        // Final-snapshot guarantee: the terminal update may not land on a
-        // multiple of interval (e.g. interval=5, last counter=23), in which case
-        // the periodic filter drops the most-complete snapshot and the published
-        // JSON would freeze at an earlier, incomplete state. Always re-emit the
-        // last snapshot so the run-so-far JSON reflects the full final set. A
-        // duplicate final aggregation (when the last update already passed the
-        // filter) is harmless: AGGREGATE_VALIDATION_LIVE rebuilds the complete
-        // JSON and maxForks=1 serialises the writes, so it overwrites with
-        // identical content. At interval=1 this only re-emits the final snapshot
-        // once, leaving behaviour unchanged.
+        // Final-snapshot guarantee: the terminal emission may be a stat update
+        // (not a boundary), so always re-emit the last snapshot to publish the
+        // complete final set. A duplicate final aggregation is harmless --
+        // AGGREGATE_VALIDATION_LIVE rebuilds the full JSON and maxForks=1
+        // serialises the writes, so it overwrites with identical content.
         def ch_final = ch_snapshots
             .last()
-            .map { n, files -> files }
+            .map { isBoundary, files -> files }
 
         def ch_live_input = ch_periodic.mix(ch_final)
 
