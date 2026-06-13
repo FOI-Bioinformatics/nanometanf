@@ -124,27 +124,10 @@ workflow REALTIME_MONITORING {
             existing_list = [existing_files]
         }
 
-        // Sort existing files with round-robin interleaving by parent directory
-        // (typically barcode directories). This ensures take(max_files) selects
-        // files fairly across all barcodes rather than in filesystem order.
-        def grouped = existing_list.groupBy { it.parent.name }
-        def sorted_list = []
-        if (grouped.size() > 1) {
-            // Multiple parent directories: interleave with round-robin
-            def sorted_groups = grouped.collect { k, v -> v.sort { it.name } }
-            def max_group_size = sorted_groups.collect { it.size() }.max()
-            (0..<max_group_size).each { i ->
-                sorted_groups.each { group ->
-                    if (i < group.size()) {
-                        sorted_list.add(group[i])
-                    }
-                }
-            }
-        } else {
-            // Single directory: simple alphabetical sort
-            sorted_list = existing_list.sort { it.name }
-        }
-        existing_list = sorted_list
+        // Round-robin interleave existing files by parent (barcode) directory so
+        // take(max_files) selects fairly across all barcodes rather than in
+        // filesystem order. See BatchUtils.interleaveFilesByParentDir.
+        existing_list = BatchUtils.interleaveFilesByParentDir(existing_list)
 
         def existing_count = existing_list.size()
 
@@ -414,6 +397,12 @@ workflow REALTIME_MONITORING {
         // CHANNEL: Convert files to meta map format with barcode extraction
         //
         ch_samples = ch_batched_files
+            // Interleave each batch round-robin by barcode before flattening to
+            // the per-file classifier stream, so the GLOBAL classifier maxForks
+            // rotates fairly across barcodes instead of draining one barcode's
+            // files first (audit P2.9 -- a feedback-free fairness measure; a true
+            // per-key in-flight cap would need a downstream-completion semaphore).
+            .map { batch -> BatchUtils.interleaveFilesByParentDir(batch instanceof List ? batch : [batch]) }
             .flatten()
             .map { file ->
                 def meta = [:]

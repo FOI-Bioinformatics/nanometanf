@@ -138,4 +138,46 @@ class BatchUtils {
 
         return ch_output
     }
+
+    /**
+     * Round-robin interleave a list of files by their parent directory
+     * (typically the barcode folder), so downstream per-file consumption
+     * rotates fairly across barcodes instead of draining one barcode before
+     * the next. For [bc1/a, bc1/b, bc2/c] this yields [bc1/a, bc2/c, bc1/b].
+     *
+     * Pure and side-effect-free: it only reorders the input (every input file
+     * appears exactly once in the output), so it cannot stall or lose data.
+     * Used both for the startup existing-files scan and to interleave each
+     * realtime batch before it is flattened into the per-file classifier
+     * stream, giving per-barcode fairness against the GLOBAL classifier
+     * maxForks without a per-key semaphore / feedback loop (audit P2.9).
+     *
+     * Files within a barcode keep a stable name-sorted order; a single
+     * barcode (or a list with no resolvable parent) is name-sorted as-is.
+     *
+     * @param files  list of file/Path objects (each exposing .parent.name and .name)
+     * @return       a new list, round-robin interleaved by parent dir
+     */
+    static List interleaveFilesByParentDir(List files) {
+        if (!files || files.size() <= 1) {
+            return files ? new ArrayList(files) : []
+        }
+        def grouped = files.groupBy { it?.parent?.name ?: 'unknown' }
+        if (grouped.size() <= 1) {
+            return files.sort(false) { it?.name ?: '' }
+        }
+        // Sort each barcode's files by name, then take one from each group per
+        // round until every group is exhausted.
+        def sorted_groups = grouped.values().collect { g -> g.sort(false) { it?.name ?: '' } }
+        def max_group_size = sorted_groups.collect { it.size() }.max()
+        def out = []
+        (0..<max_group_size).each { i ->
+            sorted_groups.each { group ->
+                if (i < group.size()) {
+                    out.add(group[i])
+                }
+            }
+        }
+        return out
+    }
 }

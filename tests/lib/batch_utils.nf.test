@@ -1,0 +1,87 @@
+nextflow_function {
+
+    name "Test BatchUtils.interleaveFilesByParentDir (per-barcode fairness)"
+    script "tests/lib/batch_utils_functions.nf"
+    function "interleaveFilesByParentDir"
+
+    tag "unit"
+    tag "fast"
+
+    // Round-robin interleaving by barcode is what gives per-barcode fairness
+    // against the global classifier maxForks (audit P2.9): the order this
+    // produces is the order the classifier consumes, so verifying the order
+    // verifies the fairness, no real multi-barcode Kraken2 load needed.
+
+    test("interleaves files round-robin across barcodes") {
+        when {
+            function {
+                """
+                input[0] = [
+                    file("d/barcode01/a.fastq.gz"),
+                    file("d/barcode01/b.fastq.gz"),
+                    file("d/barcode02/c.fastq.gz"),
+                    file("d/barcode02/d.fastq.gz"),
+                ]
+                """
+            }
+        }
+        then {
+            // bc01/a, bc02/c, bc01/b, bc02/d -- one from each barcode per round.
+            assert function.result.collect { it.tokenize("/").last() } == [
+                "a.fastq.gz", "c.fastq.gz", "b.fastq.gz", "d.fastq.gz"
+            ]
+        }
+    }
+
+    test("handles uneven barcode counts without losing files") {
+        when {
+            function {
+                """
+                input[0] = [
+                    file("d/barcode01/a.fastq.gz"),
+                    file("d/barcode01/b.fastq.gz"),
+                    file("d/barcode01/c.fastq.gz"),
+                    file("d/barcode02/z.fastq.gz"),
+                ]
+                """
+            }
+        }
+        then {
+            // Every input appears exactly once (no loss), and barcode02's single
+            // file is not stuck behind all of barcode01's.
+            assert function.result.size() == 4
+            assert function.result.collect { it.tokenize("/").last() } == [
+                "a.fastq.gz", "z.fastq.gz", "b.fastq.gz", "c.fastq.gz"
+            ]
+        }
+    }
+
+    test("single barcode is name-sorted") {
+        when {
+            function {
+                """
+                input[0] = [
+                    file("d/barcode01/b.fastq.gz"),
+                    file("d/barcode01/a.fastq.gz"),
+                ]
+                """
+            }
+        }
+        then {
+            assert function.result.collect { it.tokenize("/").last() } == ["a.fastq.gz", "b.fastq.gz"]
+        }
+    }
+
+    test("empty input returns empty") {
+        when {
+            function {
+                """
+                input[0] = []
+                """
+            }
+        }
+        then {
+            assert function.result == []
+        }
+    }
+}
