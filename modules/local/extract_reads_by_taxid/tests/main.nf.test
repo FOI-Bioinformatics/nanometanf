@@ -42,4 +42,43 @@ nextflow_process {
             )
         }
     }
+
+    // Scalability gate (issue #29): a taxid with zero reads classified to it in
+    // this batch emits NO FASTQ, so the downstream BLAST/minimap2 validators are
+    // not scheduled for it. stats are still emitted (recording the zero count).
+    // Real run (not stub) so the count branch is exercised.
+    test("Zero-read taxid emits no FASTQ, only stats") {
+
+        options ""
+
+        setup {
+            file("${outputDir}").mkdirs()
+            // Two reads, both classified to taxid 111; nothing to taxid 999.
+            file("${outputDir}/s.fastq").text = "@r1\nACGTACGT\n+\nIIIIIIII\n@r2\nTTTTGGGG\n+\nIIIIIIII\n"
+            file("${outputDir}/s.kraken.txt").text = "C\tr1\t111\t8\t\nC\tr2\t111\t8\t\n"
+        }
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id: 's' ],
+                    file("${outputDir}/s.fastq"),
+                    file("${outputDir}/s.kraken.txt"),
+                    999
+                ]
+                """
+            }
+        }
+
+        then {
+            assertAll(
+                { assert process.success },
+                // taxid 999 has zero classified reads -> reads output is empty.
+                { assert process.out.reads.size() == 0 },
+                // ...but the stats JSON is still produced, recording 0 reads.
+                { assert process.out.stats.size() == 1 },
+            )
+        }
+    }
 }

@@ -166,7 +166,11 @@ workflow VALIDATION {
         )
         .map { key, meta, reads, genome ->
             if (reads == null) {
-                log.warn "Validation join: no extracted reads for sample '${key[0]}' taxid '${key[1]}' -- skipping validation for this pair"
+                // Expected in realtime: a taxid with zero reads in this batch
+                // emits no FASTQ from EXTRACT_READS_BY_TAXID (optional output),
+                // so it is intentionally skipped here. Debug, not warn -- most
+                // watchlist taxids are absent from any given batch.
+                log.debug "Validation: no extracted reads for sample '${key[0]}' taxid '${key[1]}' -- skipping (no reads in this batch)"
                 return null
             }
             if (genome == null) {
