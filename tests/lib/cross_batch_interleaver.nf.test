@@ -1,0 +1,88 @@
+nextflow_function {
+
+    name "Test CrossBatchInterleaver (cross-batch per-barcode fairness)"
+    script "tests/lib/cross_batch_interleaver_functions.nf"
+    function "crossBatchOrder"
+
+    tag "unit"
+    tag "fast"
+
+    // The classifier maxForks is global, so the flattened per-file order is the
+    // classification order. This interleaver carries per-barcode served-counts
+    // across batches so a barcode that fell behind is drained first later (audit
+    // P2.9). These cases pin both the within-batch round-robin and the cross-batch
+    // catch-up.
+
+    test("single batch with empty history is a plain round-robin") {
+        when {
+            function {
+                """
+                input[0] = [[
+                    file('d/barcode01/a.fastq.gz'),
+                    file('d/barcode01/b.fastq.gz'),
+                    file('d/barcode02/c.fastq.gz'),
+                    file('d/barcode02/d.fastq.gz'),
+                ]]
+                """
+            }
+        }
+        then {
+            // bc01/a, bc02/c, bc01/b, bc02/d -- one from each barcode per round,
+            // identical to the stateless interleaveFilesByParentDir.
+            assert function.result == [['a.fastq.gz', 'c.fastq.gz', 'b.fastq.gz', 'd.fastq.gz']]
+        }
+    }
+
+    test("a barcode behind across batches is drained first even if alphabetically last") {
+        when {
+            function {
+                """
+                input[0] = [
+                    [ file('d/barcode01/p1.fastq.gz'),
+                      file('d/barcode01/p2.fastq.gz'),
+                      file('d/barcode01/p3.fastq.gz') ],
+                    [ file('d/barcode01/p4.fastq.gz'),
+                      file('d/barcode99/q1.fastq.gz') ],
+                ]
+                """
+            }
+        }
+        then {
+            // Batch 1 is all barcode01 (served01 = 3). In batch 2 barcode99 has
+            // served 0, so it wins the first slot despite sorting after barcode01.
+            assert function.result == [
+                ['p1.fastq.gz', 'p2.fastq.gz', 'p3.fastq.gz'],
+                ['q1.fastq.gz', 'p4.fastq.gz'],
+            ]
+        }
+    }
+
+    test("files within a barcode keep stable name order; no loss") {
+        when {
+            function {
+                """
+                input[0] = [[
+                    file('d/barcode01/b.fastq.gz'),
+                    file('d/barcode01/a.fastq.gz'),
+                ]]
+                """
+            }
+        }
+        then {
+            assert function.result == [['a.fastq.gz', 'b.fastq.gz']]
+        }
+    }
+
+    test("empty batch yields an empty list") {
+        when {
+            function {
+                """
+                input[0] = [[]]
+                """
+            }
+        }
+        then {
+            assert function.result == [[]]
+        }
+    }
+}

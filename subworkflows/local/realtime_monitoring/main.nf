@@ -396,13 +396,17 @@ workflow REALTIME_MONITORING {
         //
         // CHANNEL: Convert files to meta map format with barcode extraction
         //
+        // One interleaver instance for the whole run: it keeps a cumulative
+        // served-count per barcode across batches, so a barcode that fell behind
+        // in earlier batches is drained first in later ones. This carries the
+        // round-robin fairness ACROSS batch boundaries -- the stateless per-batch
+        // interleave could not, because it ordered each batch independently and so
+        // a fast barcode that kept filling batches stayed ahead all run (audit
+        // P2.9). Still feedback-free: it only reorders files already in a batch, so
+        // nothing is held back and termination is unaffected.
+        def cross_batch_interleaver = new CrossBatchInterleaver()
         ch_samples = ch_batched_files
-            // Interleave each batch round-robin by barcode before flattening to
-            // the per-file classifier stream, so the GLOBAL classifier maxForks
-            // rotates fairly across barcodes instead of draining one barcode's
-            // files first (audit P2.9 -- a feedback-free fairness measure; a true
-            // per-key in-flight cap would need a downstream-completion semaphore).
-            .map { batch -> BatchUtils.interleaveFilesByParentDir(batch instanceof List ? batch : [batch]) }
+            .map { batch -> cross_batch_interleaver.interleave(batch instanceof List ? batch : [batch]) }
             .flatten()
             .map { file ->
                 def meta = [:]
