@@ -373,8 +373,6 @@ workflow VALIDATION {
     ch_validation_summary = Channel.empty()
 
     if (params.realtime_mode) {
-        def store = [:].asSynchronized()
-        def boundary_counter = new java.util.concurrent.atomic.AtomicInteger(0)
         def interval = (params.validation_aggregate_interval ?: 1) as int
 
         def ch_blast_cumulative_stats = (validation_method == 'blast' || validation_method == 'both') ?
@@ -384,23 +382,11 @@ workflow VALIDATION {
             MINIMAP2_CUMULATIVE_AGGREGATOR.out.stats.map { meta, taxid, f -> ["mm2|${meta.id}|${taxid}", f] } :
             Channel.empty()
 
-        // Build the running-snapshot stream. EVERY upstream update overwrites the
-        // store entry for its key and re-emits the full current file set, but each
-        // emission is tagged with whether it is a per-batch BOUNDARY (a Kraken2
-        // report -- one per batch) or just a stat refresh. Aggregation triggers
-        // only on a boundary (or the guaranteed final), NOT on every stat update.
-        //
-        // Issue #29: the previous design aggregated on every store update -- for a
-        // single barcode of 8 files that was ~366 AGGREGATE_VALIDATION_LIVE runs.
-        // That process is maxForks=1 (serialised) and each run does a conda
-        // activation; under that load a single flaky `conda info --json`
-        // activation hung the one allowed slot and, because every later
-        // aggregation and the `.last()` final queue behind it, the whole realtime
-        // run wedged (0 running, ~1000 pending). Aggregating once per batch cuts
-        // the count ~40x, so the live JSON stays fresh while the maxForks=1 slot is
-        // no longer hammered. The per-batch result lags stat updates by at most one
-        // batch; the final snapshot below is always complete.
-        def ch_snapshots = ch_blast_cumulative_stats.map { k, f -> [k, f, false] }
+        // Tag every upstream update with whether it is a per-batch BOUNDARY (a
+        // Kraken2 report -- one per batch) or just a stat refresh. The .map
+        // closures here are pure (they only relabel the tuple); all cross-emission
+        // state lives in the ValidationSnapshotAccumulator below.
+        def ch_tagged = ch_blast_cumulative_stats.map { k, f -> [k, f, false] }
             .mix(ch_minimap2_cumulative_stats.map { k, f -> [k, f, false] })
             .mix(
                 EXTRACT_READS_BY_TAXID.out.stats
@@ -421,16 +407,31 @@ workflow VALIDATION {
                         ["krak|${meta.id}|${tag}", r, true]
                     }
             )
-            .map { key, f, isBoundary ->
-                store[key] = f
-                [isBoundary, store.values().toList()]
-            }
 
-        // Aggregate once per batch boundary (Kraken2 report). The interval knob
-        // thins further on very high batch counts (interval=1 -> every batch).
+        // Running snapshot: remember the latest file per key and re-emit the full
+        // current set on each update, tagged with whether this emission should
+        // trigger an aggregation. The accumulator owns all the state, so the
+        // operators below stay pure.
+        //
+        // Issue #29: aggregating on every store update -- for a single barcode of
+        // 8 files that was ~366 AGGREGATE_VALIDATION_LIVE runs. That process is
+        // maxForks=1 (serialised) and each run does a conda activation; under that
+        // load a single flaky `conda info --json` activation hung the one allowed
+        // slot and, because every later aggregation and the .last() final queue
+        // behind it, the whole realtime run wedged (0 running, ~1000 pending).
+        // Triggering once per batch boundary (thinned by interval) cuts the count
+        // ~40x, so the live JSON stays fresh while the maxForks=1 slot is no longer
+        // hammered. The per-batch result lags stat updates by at most one batch;
+        // the final snapshot below is always complete.
+        def snapshotter = new ValidationSnapshotAccumulator(interval)
+        def ch_snapshots = ch_tagged.map { key, f, isBoundary ->
+            snapshotter.update(key, f, isBoundary)
+        }
+
+        // Pure filter/map: aggregate when the accumulator flagged a boundary.
         def ch_periodic = ch_snapshots
-            .filter { isBoundary, files -> isBoundary && (boundary_counter.incrementAndGet() % interval == 0) }
-            .map { isBoundary, files -> files }
+            .filter { shouldAggregate, files -> shouldAggregate }
+            .map { shouldAggregate, files -> files }
 
         // Final-snapshot guarantee: the terminal emission may be a stat update
         // (not a boundary), so always re-emit the last snapshot to publish the
@@ -439,7 +440,7 @@ workflow VALIDATION {
         // serialises the writes, so it overwrites with identical content.
         def ch_final = ch_snapshots
             .last()
-            .map { isBoundary, files -> files }
+            .map { shouldAggregate, files -> files }
 
         def ch_live_input = ch_periodic.mix(ch_final)
 

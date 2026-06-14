@@ -1,0 +1,81 @@
+nextflow_function {
+
+    name "Test ValidationSnapshotAccumulator (realtime live-aggregation state)"
+    script "tests/lib/snapshot_accumulator_functions.nf"
+    function "snapshotSequence"
+
+    tag "unit"
+    tag "fast"
+
+    // The realtime validation live-aggregation cadence (issue #29) depends on
+    // this accumulator: it must keep the latest file per key, re-emit the full
+    // current set on every update, and flag an aggregation only on a per-batch
+    // boundary thinned by the interval. These cases pin that behaviour so the
+    // delicate maxForks=1 trigger cadence cannot silently regress.
+
+    test("interval 1: every boundary triggers; latest file wins per key") {
+        when {
+            function {
+                """
+                input[0] = [
+                    ['k1', 'f1',  false],
+                    ['k2', 'f2',  false],
+                    ['krak', 'r', true],
+                    ['k1', 'f1b', false],
+                    ['krak2', 'r2', true],
+                ]
+                input[1] = 1
+                """
+            }
+        }
+        then {
+            assert function.result == [
+                [false, ['f1']],
+                [false, ['f1', 'f2']],
+                [true,  ['f1', 'f2', 'r']],
+                [false, ['f1b', 'f2', 'r']],
+                [true,  ['f1b', 'f2', 'r', 'r2']],
+            ]
+        }
+    }
+
+    test("interval 2: only every second boundary triggers") {
+        when {
+            function {
+                """
+                input[0] = [
+                    ['krak1', 'r1', true],
+                    ['krak2', 'r2', true],
+                ]
+                input[1] = 2
+                """
+            }
+        }
+        then {
+            assert function.result == [
+                [false, ['r1']],
+                [true,  ['r1', 'r2']],
+            ]
+        }
+    }
+
+    test("stat-only updates never trigger an aggregation") {
+        when {
+            function {
+                """
+                input[0] = [
+                    ['a', 'fa', false],
+                    ['b', 'fb', false],
+                ]
+                input[1] = 1
+                """
+            }
+        }
+        then {
+            assert function.result == [
+                [false, ['fa']],
+                [false, ['fa', 'fb']],
+            ]
+        }
+    }
+}
