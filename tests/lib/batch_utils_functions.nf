@@ -6,3 +6,7 @@
 def interleaveFilesByParentDir(List files) {
     return BatchUtils.interleaveFilesByParentDir(files)
 }
+
+def exactTaxidReadCounts(Object krakenOutput) {
+    return BatchUtils.exactTaxidReadCounts(krakenOutput)
+}

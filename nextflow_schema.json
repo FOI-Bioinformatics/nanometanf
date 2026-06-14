@@ -799,6 +799,14 @@
                     "fa_icon": "fas fa-list-ol",
                     "help_text": "auto: Use all taxids from genomes JSON. all: Validate all classified species-level taxids. Or provide comma-separated list of specific taxids."
                 },
+                "min_batch_reads_for_validation": {
+                    "type": "integer",
+                    "default": 1,
+                    "minimum": 1,
+                    "description": "Per-batch exact-taxid read floor for validation extraction.",
+                    "fa_icon": "fas fa-filter",
+                    "help_text": "A (sample, taxid) pair is only extracted and validated when at least this many reads are classified to the taxid in that batch, gated before EXTRACT_READS_BY_TAXID is scheduled. The default of 1 skips only zero-read taxids, which is results-identical to extracting every taxid every batch while removing the per-batch x per-taxid extraction explosion in realtime runs. This is a per-batch gate, not a cumulative reporting threshold: raising it would skip an organism that accumulates slowly across many batches (e.g. a few reads per batch), so leave it at 1 unless you accept that trade-off."
+                },
                 "blast_evalue": {
                     "type": "number",
                     "default": 1e-10,

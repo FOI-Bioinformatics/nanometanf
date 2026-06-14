@@ -114,7 +114,8 @@ workflow VALIDATION_ONLY {
         ch_kraken_reports,
         params.pathogen_genomes,
         params.taxids_to_validate ?: 'auto',
-        params.validation_method ?: 'blast'
+        params.validation_method ?: 'blast',
+        params.min_batch_reads_for_validation
     )
 }
 

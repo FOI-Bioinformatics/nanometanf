@@ -180,4 +180,39 @@ class BatchUtils {
         }
         return out
     }
+
+    /**
+     * Count reads classified to each taxid in a Kraken2 per-read assignment
+     * file, using the same selection rule EXTRACT_READS_BY_TAXID applies: a
+     * classified line ($1 == "C") contributes one read to its exact assigned
+     * taxid ($3). Unclassified, blank, or short lines are ignored.
+     *
+     * The validation subworkflow gates on this count before scheduling
+     * EXTRACT_READS_BY_TAXID per (sample, taxid): computing it once per batch in
+     * the head process replaces N per-taxid extraction launches with a single
+     * parse, and matching EXTRACT's exact-taxid rule means the gate count equals
+     * what extraction would find (issue #6). Pure: reads the file, returns a new
+     * map, mutates nothing shared. A null or missing file yields an empty map.
+     *
+     * @param krakenOutput  Kraken2 output file (path/File of tab-separated C/U lines)
+     * @return  map of taxid (String) -> classified read count (Integer)
+     */
+    static Map exactTaxidReadCounts(Object krakenOutput) {
+        def hist = [:]
+        if (krakenOutput == null) {
+            return hist
+        }
+        def f = krakenOutput instanceof File ? krakenOutput : new File(krakenOutput.toString())
+        if (!f.exists()) {
+            return hist
+        }
+        f.eachLine { line ->
+            def cols = line.split('\t')
+            if (cols.size() >= 3 && cols[0] == 'C') {
+                def tx = cols[2]
+                hist[tx] = (hist[tx] ?: 0) + 1
+            }
+        }
+        return hist
+    }
 }

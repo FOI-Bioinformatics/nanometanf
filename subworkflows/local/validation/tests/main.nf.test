@@ -43,6 +43,7 @@ nextflow_workflow {
                 input[3] = file('${projectDir}/tests/fixtures/validation/test_genomes.json')
                 input[4] = 'all'
                 input[5] = 'minimap2'
+                input[6] = 1
                 """
             }
 
@@ -78,6 +79,7 @@ nextflow_workflow {
                 input[3] = file('${projectDir}/tests/fixtures/validation/test_genomes.json')
                 input[4] = 'all'
                 input[5] = 'blast'
+                input[6] = 1
                 """
             }
 
@@ -117,6 +119,7 @@ nextflow_workflow {
                 input[3] = file('${projectDir}/tests/fixtures/validation/test_genomes.json')
                 input[4] = 'all'
                 input[5] = 'both'
+                input[6] = 1
                 """
             }
 
@@ -159,6 +162,7 @@ nextflow_workflow {
                 input[3] = file('${projectDir}/tests/fixtures/validation/test_genomes.json')
                 input[4] = 'all'
                 input[5] = 'both'
+                input[6] = 1
                 """
             }
 
@@ -213,6 +217,7 @@ nextflow_workflow {
                 input[3] = file('${projectDir}/tests/fixtures/validation/test_genomes.json')
                 input[4] = 'all'
                 input[5] = 'both'
+                input[6] = 1
                 """
             }
 
@@ -228,6 +233,47 @@ nextflow_workflow {
             assert workflow.success
             assert workflow.out.validation_json
             assert workflow.out.validation_json.size() > 0
+        }
+    }
+
+    // Pre-extraction gate (issue #6). With a read floor above every taxid's
+    // per-batch count, no (sample, taxid) pair passes the gate, so
+    // EXTRACT_READS_BY_TAXID and the downstream validators are never scheduled.
+    // The fixture classifies 8 reads to taxid 562 and 0 to 28901; a floor of 50
+    // filters both. The run must still drain cleanly (the all-filtered path
+    // leaves the extraction channel empty without deadlocking), proving the gate
+    // removes the per-batch x per-taxid task explosion rather than just masking it.
+    test("pre-extraction gate skips taxids below min_batch_reads_for_validation") {
+
+        options "-stub"
+
+        when {
+            workflow {
+                """
+                input[0] = Channel.of([ [id: 'val_batch', single_end: true],
+                             file('${projectDir}/tests/fixtures/fastq/test_sample.fastq.gz') ])
+                input[1] = Channel.of([ [id: 'val_batch', single_end: true],
+                             file('${projectDir}/tests/fixtures/validation/test_kraken_output.txt') ])
+                input[2] = Channel.of([ [id: 'val_batch', single_end: true],
+                             file('${projectDir}/tests/fixtures/reports/classification/kraken2_report.txt') ])
+                input[3] = file('${projectDir}/tests/fixtures/validation/test_genomes.json')
+                input[4] = 'all'
+                input[5] = 'both'
+                input[6] = 50
+                """
+            }
+
+            params {
+                max_cpus = 2
+                max_memory = '4.GB'
+                max_time = '5.min'
+            }
+        }
+
+        then {
+            // The gate filtered every pair: the run drains without scheduling
+            // any extraction or validation, and does not hang or error.
+            assert workflow.success
         }
     }
 }

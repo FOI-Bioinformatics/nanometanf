@@ -416,7 +416,8 @@ workflow NANOMETANF {
                 TAXONOMIC_CLASSIFICATION.out.report.mix(TAXONOMIC_CLASSIFICATION.out.batch_reports),
                 params.pathogen_genomes,
                 params.taxids_to_validate,
-                params.validation_method
+                params.validation_method,
+                params.min_batch_reads_for_validation
             )
             ch_versions = ch_versions.mix(VALIDATION.out.versions)
 

@@ -1,0 +1,55 @@
+nextflow_function {
+
+    name "Test BatchUtils.exactTaxidReadCounts (pre-extraction validation gate)"
+    script "tests/lib/batch_utils_functions.nf"
+    function "exactTaxidReadCounts"
+
+    tag "unit"
+    tag "fast"
+
+    // The validation subworkflow gates EXTRACT_READS_BY_TAXID per (sample, taxid)
+    // on this count (issue #6). It must match EXTRACT's own rule -- a classified
+    // line ($1 == "C") counts toward its exact assigned taxid ($3) -- so that the
+    // gate count equals what extraction would find. These cases pin that rule.
+
+    test("counts classified reads per exact taxid, ignoring unclassified lines") {
+        when {
+            function {
+                """
+                input[0] = file('${projectDir}/tests/fixtures/validation/test_kraken_output.txt')
+                """
+            }
+        }
+        then {
+            // The fixture holds 8 'C' lines for taxid 562 and unclassified ('U')
+            // lines that must not be counted; no other taxid is classified.
+            assert function.result == ['562': 8]
+        }
+    }
+
+    test("null input returns an empty map") {
+        when {
+            function {
+                """
+                input[0] = null
+                """
+            }
+        }
+        then {
+            assert function.result == [:]
+        }
+    }
+
+    test("missing file returns an empty map") {
+        when {
+            function {
+                """
+                input[0] = '/nonexistent/path/does_not_exist.txt'
+                """
+            }
+        }
+        then {
+            assert function.result == [:]
+        }
+    }
+}

@@ -24,6 +24,7 @@ workflow VALIDATION {
     pathogen_genomes       // val(path) - Path to genomes JSON file
     taxids_to_validate     // val(string) - 'auto', 'all', or comma-separated taxid list
     validation_method      // val(string) - 'blast', 'minimap2', or 'both'
+    min_batch_reads_for_validation  // val(integer) - per-batch exact-taxid read floor; a (sample, taxid) pair is only extracted when this many reads are classified to the taxid IN THAT BATCH (per-batch gate, not a cumulative threshold; default 1 skips only zero-read taxids)
 
     main:
     ch_versions = Channel.empty()
@@ -117,12 +118,43 @@ workflow VALIDATION {
         .join(ch_kraken_output, by: [0], remainder: true)  // Join on meta
 
     //
-    // Combine each sample with each taxid that has a genome available
+    // Pre-extraction taxid gate (issue #6 scalability fix)
+    //
+    // Without this gate every (sample, taxid) pair launches EXTRACT_READS_BY_TAXID
+    // each batch, including taxids absent from the batch -- the bulk of the
+    // per-batch x per-taxid task explosion (a 20-file realtime run scheduled 665
+    // extractions, almost all on zero-read taxids). Here the per-read Kraken2
+    // assignment file is histogrammed once per (sample, batch) into an exact-taxid
+    // read count, using the same '$1 == "C" && $3 == taxid' rule that
+    // EXTRACT_READS_BY_TAXID applies, so the gate count equals what extraction
+    // would find. A (sample, taxid) pair is only kept when its count meets the
+    // floor (at least 1 -- extracting zero reads yields nothing). The histogram is
+    // built once per batch in the head process, O(reads in this batch), replacing
+    // N per-taxid process launches with a single parse.
+    //
+    def reads_floor = Math.max(1, (min_batch_reads_for_validation ?: 1) as int)
+    ch_sample_with_hist = ch_sample_data
+        .map { meta, reads, kraken_output ->
+            // Exact-taxid read histogram for this batch, matching EXTRACT's rule.
+            [ meta, reads, kraken_output, BatchUtils.exactTaxidReadCounts(kraken_output) ]
+        }
+
+    //
+    // Combine each sample with each taxid that has a genome available, gating on
+    // the per-batch read count, then drop the histogram.
     // Result: [ meta_with_taxid, reads, kraken_output, taxid, genome ]
     //
-    ch_validation_tasks = ch_sample_data
+    ch_validation_tasks = ch_sample_with_hist
         .combine(ch_filtered_genomes)
-        .map { meta, reads, kraken_output, taxid, genome ->
+        .filter { meta, reads, kraken_output, hist, taxid, genome ->
+            def n = (hist[taxid.toString()] ?: 0)
+            def keep = n >= reads_floor
+            if (!keep) {
+                log.debug "Validation gate: sample '${meta.id}' taxid '${taxid}' has ${n} classified read(s) (< ${reads_floor}) -- skipping extraction this batch"
+            }
+            return keep
+        }
+        .map { meta, reads, kraken_output, hist, taxid, genome ->
             def new_meta = meta.clone()
             new_meta.taxid = taxid.toInteger()
             [ new_meta, reads, kraken_output, taxid, genome ]
@@ -164,7 +196,21 @@ workflow VALIDATION {
             by: [0],
             remainder: true
         )
-        .map { key, meta, reads, genome ->
+        .map { row ->
+            // A single-argument closure is required here because the remainder
+            // join emits tuples of varying arity. EXTRACT_READS_BY_TAXID.out.reads
+            // is an optional output (zero-read taxids emit no FASTQ), so a taxid
+            // present only on the right (a validation task with no extracted reads)
+            // arrives as a 3-element [key, null, genome] rather than the 4-element
+            // [key, meta, reads, genome] of a matched key. A fixed 4-parameter
+            // closure cannot bind the 3-element case and throws MissingMethodException.
+            // The right side contributes the genome last in every case, so it is
+            // addressed positionally; reads/meta are only present in the matched
+            // 4-wide tuple.
+            def key = row[0]
+            def genome = row[-1]
+            def reads = row.size() >= 4 ? row[2] : null
+            def meta = row.size() >= 4 ? row[1] : null
             if (reads == null) {
                 // Expected in realtime: a taxid with zero reads in this batch
                 // emits no FASTQ from EXTRACT_READS_BY_TAXID (optional output),
