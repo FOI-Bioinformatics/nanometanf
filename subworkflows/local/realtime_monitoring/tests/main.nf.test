@@ -72,7 +72,17 @@ nextflow_workflow {
 
         then {
             assert workflow.success
-            assert params.realtime_timeout_minutes == 60
+            // nf-test's then-block `params` reflects only the test's declared
+            // params, not Nextflow's config-resolved params, so it cannot see a
+            // config default. Assert the F12 default at its source instead: the
+            // pipeline nextflow.config. Reading the shipped file (rather than
+            // hardcoding 60 in a test config) keeps this a genuine guard -- it
+            // fails if the default is removed or changed back to null. The repo
+            // root is derived from nf_test_output, which always lives under
+            // <repoRoot>/.nf-test/.
+            def repoRoot = params.nf_test_output.split('/\\.nf-test/')[0]
+            def pipelineConfig = new File("${repoRoot}/nextflow.config").text
+            assert pipelineConfig =~ /(?m)^\s*realtime_timeout_minutes\s*=\s*60\b/
         }
     }
 
