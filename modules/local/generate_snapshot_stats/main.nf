@@ -5,6 +5,9 @@ process GENERATE_SNAPSHOT_STATS {
     publishDir "${params.outdir}/realtime_batch_stats", mode: 'copy'
 
     conda "${moduleDir}/environment.yml"
+    container "${ workflow.containerEngine in ['singularity', 'apptainer'] && !task.ext.singularity_pull_docker_container ?
+        'https://depot.galaxyproject.org/singularity/python:3.11' :
+        'quay.io/biocontainers/python:3.11' }"
 
     input:
     tuple val(batch_meta), val(file_metas)

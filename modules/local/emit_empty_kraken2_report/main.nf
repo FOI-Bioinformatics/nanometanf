@@ -20,9 +20,9 @@ process EMIT_EMPTY_KRAKEN2_REPORT {
     // No external tool required; runs in a bare conda env so the
     // process honours the active profile without pulling extra deps.
     conda "${moduleDir}/environment.yml"
-    container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
-        'https://depot.galaxyproject.org/singularity/ubuntu:22.04' :
-        'nf-core/ubuntu:22.04' }"
+    container "${ workflow.containerEngine in ['singularity', 'apptainer'] && !task.ext.singularity_pull_docker_container ?
+        'https://depot.galaxyproject.org/singularity/coreutils:9.5' :
+        'quay.io/biocontainers/coreutils:9.5' }"
 
     input:
     tuple val(meta), path(reads)
@@ -40,7 +40,7 @@ process EMIT_EMPTY_KRAKEN2_REPORT {
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
-        coreutils: \$(printf -- "--version" | head -c 0; printf '9.0')
+        coreutils: \$(printf -- "--version" | head -c 0; printf '9.5')
     END_VERSIONS
     """
 
@@ -50,7 +50,7 @@ process EMIT_EMPTY_KRAKEN2_REPORT {
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
-        coreutils: 9.0
+        coreutils: 9.5
     END_VERSIONS
     """
 }

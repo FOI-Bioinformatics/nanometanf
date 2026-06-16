@@ -4,6 +4,9 @@ process UPDATE_CUMULATIVE_STATS {
     publishDir "${params.outdir}/realtime_stats", mode: 'copy'
 
     conda "${moduleDir}/environment.yml"
+    container "${ workflow.containerEngine in ['singularity', 'apptainer'] && !task.ext.singularity_pull_docker_container ?
+        'https://depot.galaxyproject.org/singularity/python:3.11' :
+        'quay.io/biocontainers/python:3.11' }"
 
     input:
     tuple val(batch_meta), path(snapshot_stats), path(previous_cumulative)
