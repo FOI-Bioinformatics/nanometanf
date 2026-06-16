@@ -844,6 +844,20 @@
                     "description": "Minimum mapping quality for minimap2.",
                     "fa_icon": "fas fa-signal"
                 },
+                "generate_consensus": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Generate a consensus sequence per validated (sample, taxid) from read mapping.",
+                    "help_text": "Maps extracted reads to the reference with minimap2, then calls a consensus with samtools. Amplicon-aware: positions below consensus_min_depth are masked N and the consensus is trimmed to the covered span. No primer scheme is required.",
+                    "fa_icon": "fas fa-align-center"
+                },
+                "consensus_min_depth": {
+                    "type": "integer",
+                    "default": 10,
+                    "minimum": 1,
+                    "description": "Minimum read depth to call a consensus base.",
+                    "fa_icon": "fas fa-layer-group"
+                },
                 "validation_hit_rate_threshold": {
                     "type": "number",
                     "default": 0.5,

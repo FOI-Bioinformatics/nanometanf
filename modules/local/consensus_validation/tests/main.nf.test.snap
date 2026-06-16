@@ -1,0 +1,14 @@
+{
+    "Should emit consensus stub outputs": {
+        "content": [
+            [
+                "versions.yml:md5,d900cb70504a0ce7275f704c5f201876"
+            ]
+        ],
+        "timestamp": "2026-06-16T14:02:05.161938",
+        "meta": {
+            "nf-test": "0.9.5",
+            "nextflow": "26.04.0"
+        }
+    }
+}

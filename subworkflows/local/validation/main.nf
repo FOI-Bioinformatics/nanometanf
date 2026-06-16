@@ -9,6 +9,7 @@
 include { EXTRACT_READS_BY_TAXID        } from '../../../modules/local/extract_reads_by_taxid/main'
 include { BLASTN_VALIDATION             } from '../../../modules/local/blastn_validation/main'
 include { MINIMAP2_VALIDATION           } from '../../../modules/local/minimap2_validation/main'
+include { CONSENSUS_VALIDATION          } from '../../../modules/local/consensus_validation/main'
 include { AGGREGATE_VALIDATION_RESULTS  } from '../../../modules/local/aggregate_validation_results/main'
 include { AGGREGATE_VALIDATION_RESULTS as AGGREGATE_VALIDATION_LIVE } from '../../../modules/local/aggregate_validation_results/main'
 include { CANONICAL_VALIDATION_WRITER  } from '../../../modules/local/canonical_validation_writer/main'
@@ -302,6 +303,26 @@ workflow VALIDATION {
     }
 
     //
+    // MODULE: Generate a consensus sequence per (sample, taxid) from read
+    // mapping. Opt-in via params.generate_consensus, independent of
+    // validation_method so it can run alongside BLAST-only or minimap2-only
+    // validation. Reuses ch_extracted_with_genome ([meta, reads, genome]).
+    //
+    ch_consensus = Channel.empty()
+    ch_consensus_stats = Channel.empty()
+
+    if (params.generate_consensus) {
+        CONSENSUS_VALIDATION(
+            ch_extracted_with_genome,
+            params.minimap2_preset ?: "map-ont",
+            params.consensus_min_depth ?: 10
+        )
+        ch_consensus = CONSENSUS_VALIDATION.out.consensus
+        ch_consensus_stats = CONSENSUS_VALIDATION.out.stats
+        ch_versions = ch_versions.mix(CONSENSUS_VALIDATION.out.versions.first())
+    }
+
+    //
     // MODULE: Aggregate all validation results into Nanometa Live JSON format
     //
     ch_extraction_stats = EXTRACT_READS_BY_TAXID.out.stats.map { meta, stats -> stats }
@@ -479,6 +500,8 @@ workflow VALIDATION {
     extraction_stats       = EXTRACT_READS_BY_TAXID.out.stats           // channel: [ val(meta), path(json) ]
     blast_results          = ch_blast_results                           // channel: [ val(meta), path(tsv) ]
     minimap2_results       = ch_minimap2_results                        // channel: [ val(meta), path(paf) ]
+    consensus              = ch_consensus                               // channel: [ val(meta), path(fasta) ]
+    consensus_stats        = ch_consensus_stats                         // channel: [ val(meta), path(json) ]
     canonical_alignments   = ch_canonical_alignments                    // channel: [ val(meta), path(tsv) ] - Canonical alignment TSV
     versions               = ch_versions                                // channel: [ path(versions.yml) ]
 }
