@@ -92,10 +92,13 @@ process CONSENSUS_VALIDATION {
 
         read REF_NAME COV_START COV_END COV_CNT MEAN_DEPTH REF_LEN < window.txt
 
-        # Depth-masked consensus (positions below min_depth become N)
-        samtools consensus --min-depth ${depth} "${prefix}.sorted.bam" -o raw_consensus.fasta
+        # Depth-masked consensus (positions below min_depth become N). The
+        # ``|| true`` keeps a non-zero exit on an all-unmapped BAM (some
+        # samtools versions) from aborting the task under ``set -e``; the
+        # no-coverage branch below then writes the header-only FASTA.
+        samtools consensus --min-depth ${depth} "${prefix}.sorted.bam" -o raw_consensus.fasta || true
 
-        if [ "\$COV_START" -gt 0 ]; then
+        if [ "\$COV_START" -gt 0 ] && [ -s raw_consensus.fasta ]; then
             # Extract the target contig and strip leading/trailing N so the
             # sequence spans only the covered amplicon; interior N is kept.
             awk -v want="\$REF_NAME" -v hdr="${prefix}" -v refn="\$REF_NAME" \\
