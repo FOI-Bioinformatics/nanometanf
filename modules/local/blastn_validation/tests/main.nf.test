@@ -4,15 +4,15 @@ nextflow_process {
     script "../main.nf"
     process "BLASTN_VALIDATION"
 
-    options "-stub"
-
     tag "module"
     tag "blastn_validation"
     tag "validation"
-    tag "stub"
-    tag "fast"
 
     test("Should emit blastn validation stub outputs") {
+
+        options "-stub"
+        tag "stub"
+        tag "fast"
 
         setup {
             file("${outputDir}").mkdirs()
@@ -43,6 +43,57 @@ nextflow_process {
                 { assert process.out.results },
                 { assert process.out.stats },
                 { assert snapshot(process.out.versions).match() }
+            )
+        }
+    }
+
+    test("real run: 15-column outfmt, qseqid dedup bounds hit_rate, makeblastdb from FASTA") {
+        // End-to-end guard for the GUI 'no BLAST validation' class of bug at the
+        // pipeline source. The stats parser counts a row only when len(cols) >= 15
+        // (main.nf:130); if a refactor dropped the outfmt back to 12 columns the
+        // TSV would still be populated but every blast_stats.json would report
+        // blast_hits=0 -- read by the GUI as "no BLAST result". A real run with a
+        // reference whose motif is duplicated also yields >1 HSP for one read, so
+        // it exercises the qseqid dedup that bounds hit_rate to [0, 1].
+
+        tag "real"
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id: 'bc01', taxid: 562 ],
+                    file("\${projectDir}/modules/local/blastn_validation/tests/fixtures/reads.fastq"),
+                    file("\${projectDir}/modules/local/blastn_validation/tests/fixtures/reference.fasta")
+                ]
+                input[1] = '1e-5'
+                input[2] = 90
+                input[3] = 5
+                input[4] = 0.5
+                input[5] = 90.0
+                """
+            }
+        }
+
+        then {
+            def tsv = path(process.out.results.get(0).get(1)).readLines().findAll { it.trim() }
+            def stats = new groovy.json.JsonSlurper().parse(file(process.out.stats.get(0).get(1)))
+            assertAll(
+                { assert process.success },
+                // Every BLAST row carries exactly 15 columns (the outfmt the
+                // stats parser and the GUI both require).
+                { assert tsv.size() >= 1 },
+                { assert tsv.every { it.split('\t').size() == 15 } },
+                // The duplicated motif yields more alignment rows than reads,
+                // so dedup is actually exercised...
+                { assert tsv.size() > 2 },
+                // ...and hit count is deduped to the 2 unique reads, keeping
+                // hit_rate bounded at <= 1.0 (the qseqid-dedup invariant).
+                { assert stats.total_reads == 2 },
+                { assert stats.blast_hits == 2 },
+                { assert stats.hit_rate <= 1.0 },
+                { assert stats.validation_method == 'blast' },
+                { assert stats.validation_status == 'confirmed' },
             )
         }
     }
