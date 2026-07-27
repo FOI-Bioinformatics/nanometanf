@@ -159,7 +159,13 @@ nextflow run foi-bioinformatics/nanometanf -profile minion,conda \
 nextflow run foi-bioinformatics/nanometanf -profile test,docker
 ```
 
-For additional resource tuning, see `conf/production.config`.
+For additional resource tuning, use one of the platform profiles above, or
+pass your own file with `-c my.config`.
+
+> **Note:** `conf/production.config`, `conf/cloud.config` and
+> `conf/cluster.config` are unregistered and currently do not parse
+> (Nextflow strict syntax). They are kept for reference only -- do not
+> pass them with `-c` until they are fixed.
 
 ## Documentation
 

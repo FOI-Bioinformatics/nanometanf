@@ -72,6 +72,12 @@ jobs:
         # hold on this runner image). Realtime coverage stays in local
         # development runs; the rest of the integration matrix runs in
         # CI.
+        #
+        # The tests/lib/*.nf.test cases below are pure Groovy unit tests of
+        # the batch/interleave/detect helpers. They were excluded along with
+        # the realtime suite but touch no watchPath and need no container --
+        # verified locally at 20 tests in 72s -- so they were free coverage
+        # sitting unused.
         run: |
           nf-test test --profile test,docker \
             --tag fast --tag core --tag stub --tag integration \
@@ -120,7 +126,12 @@ jobs:
             subworkflows/local/taxonomic_classification/tests/gui_filename_compatibility.nf.test \
             subworkflows/local/taxonomic_classification/tests/main.nf.test \
             subworkflows/local/utils_nfcore_nanometanf_pipeline/tests/main.nf.test \
-            subworkflows/local/validation/tests/main.nf.test
+            subworkflows/local/validation/tests/main.nf.test \
+            tests/lib/batch_utils.nf.test \
+            tests/lib/batch_utils_taxid_counts.nf.test \
+            tests/lib/cross_batch_interleaver.nf.test \
+            tests/lib/input_detector.nf.test \
+            tests/lib/snapshot_accumulator.nf.test
 
   profile-sanity:
     # Stub-mode sanity check that each platform profile loads cleanly,
