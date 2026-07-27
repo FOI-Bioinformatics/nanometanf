@@ -76,6 +76,33 @@ workflow VALIDATION_ONLY {
 
     main:
 
+    //
+    // INPUT VALIDATION
+    //
+    // This entry workflow does not run PIPELINE_INITIALISATION, so
+    // validateParameters() never fires here and the schema cannot catch a
+    // missing path. Both params default to null, so without these guards
+    // the globs below interpolate to "null/*.fastq{,.gz}", every channel is
+    // empty, and the run reports SUCCESS having validated nothing.
+    //
+    if (!params.reads_dir) {
+        error "--validation_only requires --reads_dir <path to the FASTQ files " +
+              "that were classified>."
+    }
+    if (!params.kraken2_output_dir) {
+        error "--validation_only requires --kraken2_output_dir <path to the " +
+              "existing Kraken2 output>."
+    }
+
+    def reads_dir = file(params.reads_dir)
+    if (!reads_dir.exists()) {
+        error "reads_dir does not exist: ${params.reads_dir}"
+    }
+    def kraken_dir = file(params.kraken2_output_dir)
+    if (!kraken_dir.exists()) {
+        error "kraken2_output_dir does not exist: ${params.kraken2_output_dir}"
+    }
+
     // Build channels from existing Kraken2 output files
     // Kraken2 classified reads (FASTQ)
     ch_classified_reads = Channel.fromFilePairs(
@@ -85,6 +112,9 @@ workflow VALIDATION_ONLY {
     ).map { sample_id, fastq ->
         def meta = [id: sample_id]
         [ meta, fastq ]
+    }.ifEmpty {
+        error "No FASTQ files found in ${params.reads_dir}. Expected " +
+              "*.fastq or *.fastq.gz."
     }
 
     // Kraken2 raw output (per-read classification)
@@ -95,6 +125,11 @@ workflow VALIDATION_ONLY {
     ).map { sample_id, output_file ->
         def meta = [id: sample_id]
         [ meta, output_file ]
+    }.ifEmpty {
+        error "No *.kraken2.output.txt files found in " +
+              "${params.kraken2_output_dir}. Validation needs the per-read " +
+              "Kraken2 output, which requires save_reads_assignment on the " +
+              "original run."
     }
 
     // Kraken2 reports
@@ -105,6 +140,9 @@ workflow VALIDATION_ONLY {
     ).map { sample_id, report ->
         def meta = [id: sample_id]
         [ meta, report ]
+    }.ifEmpty {
+        error "No *.kraken2.report.txt files found in " +
+              "${params.kraken2_output_dir}."
     }
 
     // Run validation subworkflow
