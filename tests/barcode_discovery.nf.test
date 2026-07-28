@@ -71,9 +71,25 @@ nextflow_pipeline {
         }
 
         then {
-            // Should handle gracefully - may fail or succeed with minimal tasks
-            // The pipeline may detect no valid files and either exit cleanly or fail
-            assert workflow.failed || workflow.success
+            // An empty input directory is operator error, not a pipeline
+            // fault: INPUT_SCANNER warns and emits an empty sample channel
+            // (subworkflows/local/input_scanner/main.nf:98), so the run
+            // completes without scheduling per-sample work. MULTIQC still
+            // runs once over the empty set, so the task count is 1 rather
+            // than 0 -- assert the absence of per-sample work directly
+            // instead of a bare total.
+            //
+            // The previous assertion here was `workflow.failed ||
+            // workflow.success`, which is true of every terminated workflow
+            // and so passed for any behaviour, including a stack trace.
+            assert workflow.success
+
+            def perSample = workflow.trace.tasks().findAll { task ->
+                ['CHOPPER', 'FASTP', 'FILTLONG', 'KRAKEN2', 'SEQKIT'].any {
+                    task.name.contains(it)
+                }
+            }
+            assert perSample.isEmpty() : "empty input scheduled per-sample work: ${perSample*.name}"
         }
     }
 }

@@ -113,4 +113,76 @@ nextflow_function {
             assert function.result == "LVS_1_barcode11_chunk_0000"
         }
     }
+
+    // The three cases below replace tests that lived in
+    // subworkflows/local/realtime_monitoring/tests/main.nf.test under the
+    // names "nested directory structures", "special characters in names" and
+    // "very long file paths". Those set realtime_mode = false, which gates
+    // out the entire subworkflow body, then asserted the sample channel was
+    // empty -- true for any fixture, so they verified nothing. Sample-ID
+    // derivation is pure Groovy and belongs here, where it can be asserted
+    // directly and without watchPath.
+
+    test("extractSampleId should use the barcode dir however deeply nested") {
+
+        function "extractSampleId"
+
+        when {
+            function {
+                """
+                input[0] = "/data/run_2026/no_sample/20260728_1200_MN12345/fastq_pass/barcode07/reads_0.fastq.gz"
+                input[1] = null
+                input[2] = null
+                """
+            }
+        }
+
+        then {
+            // Only the immediate parent decides the sample; the depth of the
+            // path above it must not change the answer.
+            assert function.result == "barcode07"
+        }
+    }
+
+    test("extractSampleId should preserve special characters in the stem") {
+
+        function "extractSampleId"
+
+        when {
+            function {
+                """
+                input[0] = "/tmp/sample-A_1 (re run).v2+final.fastq.gz"
+                input[1] = null
+                input[2] = null
+                """
+            }
+        }
+
+        then {
+            // Spaces, parentheses and '+' are legal in a filename and reach
+            // the sample ID verbatim; only the fastq/gz suffix is stripped.
+            assert function.result == "sample-A_1 (re run).v2+final"
+        }
+    }
+
+    test("extractSampleId should strip each accepted fastq suffix exactly once") {
+
+        function "extractSampleId"
+
+        when {
+            function {
+                """
+                input[0] = "/tmp/barcode_summary.fq"
+                input[1] = null
+                input[2] = null
+                """
+            }
+        }
+
+        then {
+            // .fq without .gz is accepted, and the bare word "barcode" in
+            // the stem must not be mistaken for a barcode directory.
+            assert function.result == "barcode_summary"
+        }
+    }
 }

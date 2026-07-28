@@ -8,11 +8,11 @@ class BarcodeUtils {
      * Extract barcode identifier from filename using regex pattern matching
      *
      * Supports common nanopore barcode patterns:
-     * - barcode01, barcode1 → "barcode01"
-     * - sample_barcode05.fastq → "barcode05"
-     * - reads_barcode12.fastq.gz → "barcode12"
+     * - barcode01, barcode1 -> "barcode01"
+     * - sample_barcode05.fastq -> "barcode05"
+     * - reads_barcode12.fastq.gz -> "barcode12"
      *
-     * The extracted barcode is normalized to two-digit format (e.g., barcode1 → barcode01)
+     * The extracted barcode is normalized to two-digit format (e.g., barcode1 -> barcode01)
      * for consistent downstream processing and sample identification.
      *
      * @param filename The filename to extract barcode from (with or without extension)

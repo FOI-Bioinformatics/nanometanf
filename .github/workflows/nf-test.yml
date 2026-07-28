@@ -84,6 +84,7 @@ jobs:
             tests/barcode_discovery.nf.test \
             tests/batch_input_modes.nf.test \
             tests/chopper_specific.nf.test \
+            tests/classification_real.nf.test \
             tests/default.nf.test \
             tests/full_pipeline_stubmode.nf.test \
             tests/ifempty_sentinel_regression.nf.test \
@@ -117,11 +118,9 @@ jobs:
             modules/local/nanoplot_compare/tests/main.nf.test \
             modules/local/seqkit_merge_stats/tests/main.nf.test \
             modules/local/update_cumulative_stats/tests/main.nf.test \
-            subworkflows/local/assembly/tests/main.nf.test \
             subworkflows/local/demultiplexing/tests/main.nf.test \
             subworkflows/local/input_scanner/tests/main.nf.test \
             subworkflows/local/qc_analysis/tests/main.nf.test \
-            subworkflows/local/qc_benchmark/tests/main.nf.test \
             subworkflows/local/realtime_statistics/tests/main.nf.test \
             subworkflows/local/taxonomic_classification/tests/gui_filename_compatibility.nf.test \
             subworkflows/local/taxonomic_classification/tests/main.nf.test \

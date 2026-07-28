@@ -5,8 +5,17 @@
 > Nextflow 26.04.0 and the JVM exited cleanly through the failure
 > path in 55 s (no leaked thread). The `NXF_VER=25.04.7` workaround
 > pin in `bin/run-nf-tests.sh` and `.github/workflows/nf-test.yml`
-> has been removed; `nextflow.config` floor is now `>=26.04.0`. The
-> historical issue text below is retained for context.
+> has been removed; `nextflow.config` floor is now `>=26.04.0`.
+>
+> **Not resolved on the GitHub Actions ubuntu runner.** The 2026-05-10
+> verification was on macOS/arm64 only. On the runner image the monitor
+> thread still leaks and the job runs past the 45 min cap, so
+> `.github/workflows/nf-test.yml` continues to exclude every
+> `tests/realtime_*.nf.test` case and realtime coverage remains a local
+> development run. Treat "resolved" as platform-specific until a green
+> realtime run exists in CI.
+>
+> The historical issue text below is retained for context.
 
 This document holds the issue text we want to file against
 [nextflow-io/nextflow](https://github.com/nextflow-io/nextflow). Filing

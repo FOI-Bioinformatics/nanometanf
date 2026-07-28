@@ -39,6 +39,10 @@ nextflow_workflow {
     tag "taxonomic_classification"
     tag "classification"
     tag "gui_compat"
+    // Required for CI: the workflow filters on fast/core/stub/integration.
+    // Without it this file is listed in the allowlist but never selected,
+    // leaving the pipeline-to-GUI filename contract unverified.
+    tag "core"
 
     // Helper closures evaluated inside the assertion block. Mirrors the
     // GUI's exclusion rules verbatim so any drift between backend and
