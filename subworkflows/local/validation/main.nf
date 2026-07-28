@@ -74,6 +74,23 @@ workflow VALIDATION {
 
             def json_parent = json_file.parent
             return genome_map.collect { taxid, genome_path ->
+                // Each value must be a path string. Nanometa Live writes two
+                // similar JSON files -- genome_metadata.json, whose values are
+                // per-genome objects, and pathogen_genomes.json, whose values
+                // are bare paths -- and only the latter belongs here. Pointing
+                // at the former used to reach .startsWith() with a LazyMap and
+                // fail as "Unknown method invocation `startsWith` on LazyMap
+                // type", which names neither the file nor the real problem.
+                if (!(genome_path instanceof CharSequence)) {
+                    throw new IllegalArgumentException(
+                        "Invalid --pathogen_genomes file '${json_file}': the entry " +
+                        "for taxid ${taxid} is a ${genome_path.getClass().simpleName}, " +
+                        "expected a path string. This file must map taxid to genome " +
+                        "path, e.g. {\"263\": \"/path/to/263.fasta\"}. If you passed " +
+                        "genome_metadata.json, use pathogen_genomes.json instead."
+                    )
+                }
+
                 // Resolve relative paths from JSON file's parent directory
                 def genome_file
                 // Check for absolute paths (Unix or Windows style)

@@ -26,6 +26,60 @@ nextflow_workflow {
     // The fix drops ``.ifEmpty([])`` (an empty channel contributes nothing), so
     // ``versions`` must contain only real files and never an empty list.
 
+    // Nanometa Live writes two similarly named JSON files under ~/.nanometa:
+    // genome_metadata.json, whose values are per-genome objects, and
+    // pathogen_genomes.json, whose values are bare path strings. Only the
+    // latter is a valid --pathogen_genomes input. Passing the former reached
+    // .startsWith() with a LazyMap and failed as "Unknown method invocation
+    // `startsWith` on LazyMap type" at main.nf:80 -- an error naming neither
+    // the offending file nor the actual problem. Found 2026-07-28 by making
+    // exactly that mistake on a real run.
+
+    test("a genome JSON of the wrong shape fails with an actionable message") {
+
+        options "-stub"
+
+        when {
+            workflow {
+                """
+                input[0] = Channel.of([ [id: 'val_batch', single_end: true],
+                             file('${projectDir}/tests/fixtures/fastq/test_sample.fastq.gz') ])
+                input[1] = Channel.of([ [id: 'val_batch', single_end: true],
+                             file('${projectDir}/tests/fixtures/validation/test_kraken_output.txt') ])
+                input[2] = Channel.of([ [id: 'val_batch', single_end: true],
+                             file('${projectDir}/tests/fixtures/reports/classification/kraken2_report.txt') ])
+                input[3] = file('${projectDir}/tests/fixtures/validation/test_genomes_metadata_shape.json')
+                input[4] = 'all'
+                input[5] = 'minimap2'
+                input[6] = 1
+                """
+            }
+
+            params {
+                max_cpus = 2
+                max_memory = '4.GB'
+                max_time = '5.min'
+            }
+        }
+
+        then {
+            assert workflow.failed : "a genome JSON with object values was accepted"
+
+            def message = (workflow.errorReport ?: '') + (workflow.stdout ?: []).join('\n')
+
+            // Names the file it was given, and the file to use instead.
+            assert message.contains('--pathogen_genomes') :
+                "the error does not name the offending parameter: ${message.take(400)}"
+            assert message.contains('pathogen_genomes.json') :
+                "the error does not name the file the operator should use instead: ${message.take(400)}"
+
+            // The regression: the raw Groovy failure named neither. Mentioning
+            // the LazyMap type is fine and useful -- being ONLY that is not.
+            assert !message.contains('Unknown method invocation') :
+                "still failing with the raw Groovy type error: ${message.take(400)}"
+        }
+    }
+
     test("batch-mode minimap2 validation emits no empty-list versions entry") {
 
         options "-stub"
