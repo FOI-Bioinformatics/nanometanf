@@ -97,6 +97,7 @@ jobs:
             tests/chopper_specific.nf.test \
             tests/classification_real.nf.test \
             tests/default.nf.test \
+            tests/failure_paths.nf.test \
             tests/full_pipeline_stubmode.nf.test \
             tests/ifempty_sentinel_regression.nf.test \
             tests/input_scanner.nf.test \

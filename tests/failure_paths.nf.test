@@ -1,0 +1,220 @@
+nextflow_pipeline {
+
+    name "Failure paths: bad input must fail clearly, not silently"
+    script "../main.nf"
+
+    tag "pipeline"
+    tag "failure"
+    tag "fast"
+    tag "core"
+    tag "stub"
+
+    // The suite covered the happy path and, for realtime, a missing watch
+    // directory. Nothing asserted that the pipeline fails CLEANLY on the
+    // inputs an operator actually gets wrong: a database path that does not
+    // exist, a database that is present but incomplete, an input directory
+    // that is not there, or a FASTQ that is not readable.
+    //
+    // "Cleanly" means two things, and the second is the one that matters on a
+    // field laptop:
+    //
+    //   1. It fails rather than producing empty results and reporting success.
+    //      This campaign found validation doing exactly that -- an empty
+    //      validation_results.json from a green run, which is a false negative
+    //      on a select agent presented as a clean result.
+    //
+    //   2. The error names the thing that is wrong. An operator who can plug a
+    //      drive back in or fix a path only needs to be told which one. A
+    //      Groovy stack trace does not tell them.
+    //
+    // WorkflowNanometanf.validateKraken2Database already implements all of
+    // this. None of it was tested, so nothing would notice if a refactor
+    // turned a clear refusal into a late crash.
+
+    test("a Kraken2 database path that does not exist is refused by name") {
+
+        when {
+            params {
+                input_dir = "$projectDir/tests/fixtures/minknow_output"
+                outdir = "$outputDir"
+                kraken2_db = "/tmp/nanometanf_no_such_database_xyz"
+                skip_nanoplot = true
+                max_cpus = 2
+                max_memory = '4.GB'
+                max_time = '2.min'
+            }
+        }
+
+        then {
+            assert workflow.failed :
+                "a nonexistent Kraken2 database was accepted; the run would " +
+                "fail later inside kraken2, or classify nothing at all"
+
+            def message = (workflow.errorReport ?: '') + '\n' +
+                          (workflow.stdout?.join('\n') ?: '')
+            assert message.contains('nanometanf_no_such_database_xyz') :
+                "the error does not name the path that is missing: ${message.take(400)}"
+        }
+    }
+
+    test("an incomplete Kraken2 database names the missing file") {
+
+        when {
+            params {
+                input_dir = "$projectDir/tests/fixtures/minknow_output"
+                outdir = "$outputDir"
+                // hash.k2d and opts.k2d present, taxo.k2d absent.
+                kraken2_db = "$projectDir/tests/fixtures/kraken2_db_incomplete"
+                skip_nanoplot = true
+                max_cpus = 2
+                max_memory = '4.GB'
+                max_time = '2.min'
+            }
+        }
+
+        then {
+            assert workflow.failed :
+                "a database missing taxo.k2d was accepted. The run would reach " +
+                "the kraken2 binary and die with 'malformed taxonomy file', " +
+                "which the operator cannot map back to an interrupted copy."
+
+            def message = (workflow.errorReport ?: '') + '\n' +
+                          (workflow.stdout?.join('\n') ?: '')
+            assert message.contains('taxo.k2d') :
+                "the error does not name the missing file: ${message.take(400)}"
+        }
+    }
+
+    test("no Kraken2 database at all points at the alternatives") {
+
+        when {
+            params {
+                input_dir = "$projectDir/tests/fixtures/minknow_output"
+                outdir = "$outputDir"
+                kraken2_db = null
+                skip_nanoplot = true
+                max_cpus = 2
+                max_memory = '4.GB'
+                max_time = '2.min'
+            }
+        }
+
+        then {
+            assert workflow.failed :
+                "classification was enabled with no database and the run started"
+
+            def message = (workflow.errorReport ?: '') + '\n' +
+                          (workflow.stdout?.join('\n') ?: '')
+            // The operator has three ways out; the error should say so rather
+            // than only stating that something is missing.
+            assert message.contains('--kraken2_db') :
+                "the error does not name the parameter to set: ${message.take(400)}"
+            assert message.contains('skip_kraken2') :
+                "the error does not mention disabling classification, which is " +
+                "the way out for an operator who only wants QC: ${message.take(400)}"
+        }
+    }
+
+    test("an input directory that does not exist is refused") {
+
+        when {
+            params {
+                input_dir = "/tmp/nanometanf_no_such_input_dir_xyz"
+                outdir = "$outputDir"
+                skip_kraken2 = true
+                skip_nanoplot = true
+                max_cpus = 2
+                max_memory = '4.GB'
+                max_time = '2.min'
+            }
+        }
+
+        then {
+            // Either a clean refusal, or a run that completes having scheduled
+            // no work. What must NOT happen is a crash with a Groovy stack
+            // trace, or a success that looks like it processed something.
+            def message = (workflow.errorReport ?: '') + '\n' +
+                          (workflow.stdout?.join('\n') ?: '')
+
+            assert !message.contains('groovy.lang.MissingMethodException') :
+                "a missing input directory produced a Groovy error: ${message.take(400)}"
+            assert !message.contains('java.lang.NullPointerException') :
+                "a missing input directory produced an NPE: ${message.take(400)}"
+
+            if (workflow.success) {
+                def work = workflow.trace.tasks().findAll { task ->
+                    ['CHOPPER', 'FASTP', 'FILTLONG', 'KRAKEN2', 'SEQKIT'].any {
+                        task.name.contains(it)
+                    }
+                }
+                assert work.isEmpty() :
+                    "a nonexistent input directory scheduled per-sample work: ${work*.name}"
+            }
+        }
+    }
+
+    // OPEN FINDING, 2026-07-29 -- deliberate design, silent consequence.
+    //
+    // A file named .fastq.gz that is not gzip (truncated transfer, wrong
+    // extension) makes CHOPPER exit 1 with "not in gzip format" and
+    // "Kept 0 reads out of 0 reads". The pipeline then reports SUCCESS,
+    // because nextflow.config:497 unconditionally includes
+    // conf/error_isolation.config, which sets
+    //
+    //     withName: 'CHOPPER' { errorStrategy = { task.exitStatus in [1,2] ? 'ignore' : 'retry' } }
+    //
+    // Ignoring is the right call for a 24-barcode run: one bad barcode must
+    // not abort the other 23. The problem is that nothing records it. The
+    // sample still appears in _manifest.json's "samples" list exactly as a
+    // healthy one does, and it produces a 20-byte empty FASTQ that flows
+    // downstream as though it were a real result.
+    //
+    // Downstream, "this sample's reads were unreadable" and "this sample
+    // contained nothing" are then indistinguishable. In a biothreat tool
+    // those are opposite statements: one is a missing measurement, the other
+    // is a negative result an operator may act on.
+    //
+    // Surfacing it is a design decision (manifest field? warning? GUI
+    // banner?), so this test pins the CURRENT behaviour rather than asserting
+    // a fix that has not been agreed. nf-test has no xfail; if the behaviour
+    // changes to report the failed sample, this test should be updated to
+    // assert the new signal rather than simply deleted.
+
+    test("an unreadable FASTQ is isolated, and is currently not surfaced") {
+
+        // Not -stub: the point is that the QC tool actually tries to read the
+        // file. A stub would touch an output and pass.
+        when {
+            params {
+                input_dir = "$projectDir/tests/fixtures/fastq/corrupt"
+                outdir = "$outputDir"
+                skip_kraken2 = true
+                skip_nanoplot = true
+                skip_multiqc = true
+                max_cpus = 2
+                max_memory = '4.GB'
+                max_time = '5.min'
+            }
+        }
+
+        then {
+            def message = (workflow.errorReport ?: '') + '\n' +
+                          (workflow.stdout?.join('\n') ?: '')
+
+            // Whatever happens, it must be a tool error and not a Groovy one.
+            assert !message.contains('groovy.lang.MissingMethodException') :
+                "a corrupt FASTQ produced a Groovy error rather than a tool " +
+                "error: ${message.take(400)}"
+            assert !message.contains('java.lang.NullPointerException') :
+                "a corrupt FASTQ produced an NPE: ${message.take(400)}"
+
+            // Current behaviour: error isolation absorbs the failed QC task
+            // and the run completes. Pinned so a change in either direction
+            // is visible -- if the run starts failing, that is a deliberate
+            // choice someone made and this test should say so.
+            assert workflow.success :
+                "error isolation no longer absorbs a failed CHOPPER task; if " +
+                "that is intended, update this test and the note above"
+        }
+    }
+}
