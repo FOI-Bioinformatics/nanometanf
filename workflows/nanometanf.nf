@@ -492,6 +492,26 @@ workflow NANOMETANF {
             .unique()
             .collect()
 
+        // Samples that actually emitted QC output. A sample whose QC task
+        // failed is absorbed by conf/error_isolation.config so the other
+        // barcodes continue, and never reaches this channel; the difference
+        // from ch_sample_ids is what the manifest records as failed_samples.
+        //
+        // The .filter is load-bearing, not defensive. QC_ANALYSIS attaches
+        // `.ifEmpty([])` to ch_qc_reads (qc_analysis/main.nf:204 and friends),
+        // so a sample that produced nothing puts the bare `[]` sentinel on this
+        // channel. Destructuring that in the map below aborts the run --
+        // which is exactly what a first version of this code did, converting an
+        // isolated QC failure into a whole-pipeline failure and defeating the
+        // isolation this feature exists to report on. Same guard VALIDATION
+        // applies at its own boundary (validation/main.nf:41).
+        def ch_produced_sample_ids = QC_ANALYSIS.out.reads
+            .filter { it instanceof List && it.size() >= 2 && it[0] instanceof Map }
+            .map { meta, reads -> meta.id }
+            .unique()
+            .collect()
+            .ifEmpty([])
+
         def effective_classifier = (params.kraken2_db && !params.skip_kraken2) ? (params.classifier ?: 'kraken2') : ""
         def effective_qc_tool = (!params.skip_fastp || !params.skip_nanoplot) ? (params.qc_tool ?: 'chopper') : ""
         def effective_assembler = params.enable_assembly ? (params.assembler ?: 'flye') : ""
@@ -550,6 +570,7 @@ workflow NANOMETANF {
             Channel.value(effective_assembler),
             Channel.value(effective_validation),
             ch_sample_ids,
+            ch_produced_sample_ids,
             Channel.value(effective_mode),
             ch_canonical_ready
         )

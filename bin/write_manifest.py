@@ -72,6 +72,12 @@ def main() -> None:
         help="Validation method (e.g., blast, minimap2, both)."
     )
     parser.add_argument(
+        "--produced-samples", default="",
+        help=("Comma-separated samples that actually emitted QC output. The "
+              "difference from --samples is the set attempted but not "
+              "produced, usually a QC failure absorbed by error isolation."),
+    )
+    parser.add_argument(
         "--samples", default="",
         help="Comma-separated list of sample IDs."
     )
@@ -83,6 +89,11 @@ def main() -> None:
     args = parser.parse_args()
 
     samples = [s.strip() for s in args.samples.split(",") if s.strip()]
+    produced = [s.strip() for s in args.produced_samples.split(",") if s.strip()]
+    # None when the caller did not tell us: "not determined" must stay distinct
+    # from "none failed", or this field becomes the false reassurance it exists
+    # to prevent.
+    failed_samples = sorted(set(samples) - set(produced)) if produced else None
     now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
     manifest_path = os.path.join(args.outdir, "_manifest.json")
@@ -142,6 +153,11 @@ def main() -> None:
             ).get("validation_method", ""),
         },
         "samples": samples or existing.get("samples", []),
+        # null means "not determined"; [] means "none failed".
+        "failed_samples": (
+            failed_samples if failed_samples is not None
+            else existing.get("failed_samples")
+        ),
         "outputs": {
             "classification": {
                 "available": len(classification_files) > 0,

@@ -154,7 +154,7 @@ nextflow_pipeline {
         }
     }
 
-    // OPEN FINDING, 2026-07-29 -- deliberate design, silent consequence.
+    // Isolation, and the record of it. 2026-07-29.
     //
     // A file named .fastq.gz that is not gzip (truncated transfer, wrong
     // extension) makes CHOPPER exit 1 with "not in gzip format" and
@@ -165,23 +165,20 @@ nextflow_pipeline {
     //     withName: 'CHOPPER' { errorStrategy = { task.exitStatus in [1,2] ? 'ignore' : 'retry' } }
     //
     // Ignoring is the right call for a 24-barcode run: one bad barcode must
-    // not abort the other 23. The problem is that nothing records it. The
-    // sample still appears in _manifest.json's "samples" list exactly as a
-    // healthy one does, and it produces a 20-byte empty FASTQ that flows
-    // downstream as though it were a real result.
+    // not abort the other 23. It used to leave no record, so the sample
+    // appeared in _manifest.json exactly like a healthy one and "reads were
+    // unreadable" became indistinguishable from "contained nothing" -- opposite
+    // statements in a biothreat tool.
     //
-    // Downstream, "this sample's reads were unreadable" and "this sample
-    // contained nothing" are then indistinguishable. In a biothreat tool
-    // those are opposite statements: one is a missing measurement, the other
-    // is a negative result an operator may act on.
-    //
-    // Surfacing it is a design decision (manifest field? warning? GUI
-    // banner?), so this test pins the CURRENT behaviour rather than asserting
-    // a fix that has not been agreed. nf-test has no xfail; if the behaviour
-    // changes to report the failed sample, this test should be updated to
-    // assert the new signal rather than simply deleted.
+    // The manifest now records it as failed_samples (see
+    // modules/local/manifest_writer/tests/failed_samples.nf.test), and the GUI
+    // marks such samples in the selector. This test holds the other half of
+    // that contract: the isolation itself must survive. An earlier attempt at
+    // the manifest change destructured the [] sentinel that QC_ANALYSIS puts
+    // on its reads channel, turning an isolated failure into a whole-pipeline
+    // failure -- caught here.
 
-    test("an unreadable FASTQ is isolated, and is currently not surfaced") {
+    test("an unreadable FASTQ is isolated, and the run continues") {
 
         // Not -stub: the point is that the QC tool actually tries to read the
         // file. A stub would touch an output and pass.

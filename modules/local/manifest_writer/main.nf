@@ -17,6 +17,7 @@ process MANIFEST_WRITER {
     val(assembler)
     val(validation_method)
     val(sample_ids)
+    val(produced_sample_ids)
     val(mode)
     val(canonical_ready)
 
@@ -34,6 +35,12 @@ process MANIFEST_WRITER {
     def validation_arg = validation_method ? "--validation-method ${validation_method}" : ""
     def samples_str = sample_ids instanceof List ? sample_ids.join(",") : sample_ids
     def samples_arg = samples_str ? "--samples ${samples_str}" : ""
+    // Samples that actually emitted QC output. A sample whose QC task failed is
+    // absorbed by conf/error_isolation.config and never reaches that channel,
+    // so the difference between the two lists is the set that was attempted and
+    // produced nothing.
+    def produced_str = produced_sample_ids instanceof List ? produced_sample_ids.join(",") : produced_sample_ids
+    def produced_arg = produced_str ? "--produced-samples ${produced_str}" : ""
     """
     write_manifest.py \\
         --outdir . \\
@@ -42,6 +49,7 @@ process MANIFEST_WRITER {
         ${assembler_arg} \\
         ${validation_arg} \\
         ${samples_arg} \\
+        ${produced_arg} \\
         --mode "${mode}"
 
     cat << END_VERSIONS > versions.yml

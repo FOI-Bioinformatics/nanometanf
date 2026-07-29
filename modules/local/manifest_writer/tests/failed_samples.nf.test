@@ -1,0 +1,96 @@
+nextflow_process {
+
+    name "Test MANIFEST_WRITER failed-sample recording"
+    script "../main.nf"
+    process "MANIFEST_WRITER"
+
+    tag "module"
+    tag "manifest_writer"
+    tag "fast"
+    tag "core"
+
+    // Deliberately NOT `options "-stub"`, unlike the sibling main.nf.test.
+    // These assert the real script's logic; the stub emits a hardcoded
+    // {"samples":[]} and would make them pass or fail for unrelated reasons.
+    //
+    // A sample that entered the pipeline but produced no QC output was listed
+    // in the manifest exactly like a healthy one. The manifest cannot discover
+    // files -- MANIFEST_WRITER runs in its own work directory, not the
+    // publishDir -- so it takes the produced set as an input and records the
+    // difference. nanometa_live reads this manifest for its sample list, and an
+    // empty view of a sample that never ran reads as "nothing detected".
+
+    test("records samples that produced no output as failed_samples") {
+        when {
+            process {
+                """
+                input[0] = 'kraken2'
+                input[1] = 'chopper'
+                input[2] = ''
+                input[3] = ''
+                input[4] = [ 'healthy', 'failed_qc' ]
+                input[5] = [ 'healthy' ]
+                input[6] = 'batch'
+                input[7] = true
+                """
+            }
+        }
+        then {
+            assert process.success
+            def manifest = path("${process.out.manifest[0]}").json
+            assert manifest.samples.contains('failed_qc') :
+                "the attempted sample must still be listed; dropping it loses " +
+                "the fact that the barcode was tried at all"
+            assert manifest.failed_samples == ['failed_qc'] :
+                "the sample that produced no output is not recorded: ${manifest.failed_samples}"
+        }
+    }
+
+    test("failed_samples is null when the produced set was not supplied") {
+        // null means "not determined"; [] would mean "none failed". Claiming
+        // the latter without evidence is the false reassurance this prevents.
+        when {
+            process {
+                """
+                input[0] = 'kraken2'
+                input[1] = 'chopper'
+                input[2] = ''
+                input[3] = ''
+                input[4] = [ 'healthy', 'other' ]
+                input[5] = []
+                input[6] = 'batch'
+                input[7] = true
+                """
+            }
+        }
+        then {
+            assert process.success
+            def manifest = path("${process.out.manifest[0]}").json
+            assert manifest.failed_samples == null :
+                "an unsupplied produced-set reported as 'none failed': ${manifest.failed_samples}"
+        }
+    }
+
+    test("all samples producing output yields an empty failed list") {
+        when {
+            process {
+                """
+                input[0] = 'kraken2'
+                input[1] = 'chopper'
+                input[2] = ''
+                input[3] = ''
+                input[4] = [ 'a', 'b' ]
+                input[5] = [ 'a', 'b' ]
+                input[6] = 'batch'
+                input[7] = true
+                """
+            }
+        }
+        then {
+            assert process.success
+            def manifest = path("${process.out.manifest[0]}").json
+            assert manifest.failed_samples == [] :
+                "a healthy run should record an empty failed list, not null: ${manifest.failed_samples}"
+        }
+    }
+}

@@ -22,8 +22,9 @@ nextflow_process {
                 input[2] = ''
                 input[3] = ''
                 input[4] = [ 'sample1', 'sample2' ]
-                input[5] = 'batch'
-                input[6] = true
+                input[5] = [ 'sample1', 'sample2' ]
+                input[6] = 'batch'
+                input[7] = true
                 """
             }
         }
