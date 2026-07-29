@@ -15,6 +15,14 @@
 > development run. Treat "resolved" as platform-specific until a green
 > realtime run exists in CI.
 >
+> Re-verified 2026-07-29 on macOS/arm64, Nextflow 26.04.0: the manual test
+> `subworkflows/local/taxonomic_classification/tests/realtime_cumulative_emit.nf.test`
+> was run against a real Kraken2 database (8 GB PlusPFP) with live watchPath,
+> `max_files=2`, `realtime_timeout_minutes=1`. It completed and exited cleanly
+> in 235 s. That is a second independent data point for macOS; the GitHub
+> runner behaviour above is unchanged and still the reason CI excludes the
+> realtime suite.
+>
 > The historical issue text below is retained for context.
 
 This document holds the issue text we want to file against
