@@ -252,7 +252,28 @@ nextflow_workflow {
             // 25.10.4 an empty input channel surfaces as [[]], so the size
             // assertion no longer reflects the intent and was removed.
             assert workflow.success
-            assert workflow.out.versions
+
+            // `assert workflow.out.versions` used to follow, and had been
+            // failing on dev. With no input no process runs, so collecting no
+            // version is the CORRECT outcome -- the assertion demanded the
+            // opposite. It passed historically only because versions carried an
+            // `.ifEmpty([])` sentinel, making the channel `[[]]` and therefore
+            // truthy; removing that sentinel was itself a deliberate fix (an
+            // empty list reaching softwareVersionsToYAML aborts the run via
+            // Yaml.load([])), and it left this assertion stranded.
+            //
+            // Nothing caught it because the nf-test suite runs on pull requests
+            // and pushes to master, never on dev.
+            //
+            // The real contract for empty input is that the run completes
+            // without scheduling classification work.
+            def classificationTasks = workflow.trace.tasks().findAll { task ->
+                ['KRAKEN2', 'TAXPASTA', 'CENTRIFUGE', 'DIAMOND'].any {
+                    task.name.contains(it)
+                }
+            }
+            assert classificationTasks.isEmpty() :
+                "empty input scheduled classification work: ${classificationTasks*.name}"
         }
     }
 
