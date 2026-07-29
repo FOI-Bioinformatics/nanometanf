@@ -38,15 +38,21 @@ import re
 import subprocess
 import sys
 
-#: Directories that are build output rather than source.
-SKIP_DIRS = (".nf-test", "work/", ".git/")
+#: Path components that are build output rather than source. Matched against
+#: each component of the path RELATIVE to the repository root, never against
+#: the absolute path: the GitHub runner checks out to
+#: /home/runner/work/<repo>/<repo>, so an absolute substring test for "work/"
+#: matched every file and the check passed having examined nothing. CI caught
+#: that on the first run after this script was added, reporting
+#: "fixture paths referenced by nf-tests: 0".
+SKIP_COMPONENTS = {".nf-test", "work", ".git"}
 
 
 def referenced_fixture_paths(root: pathlib.Path) -> set[str]:
     """Every ``$projectDir/...`` path mentioned by any nf-test file."""
     refs: set[str] = set()
     for test in root.rglob("*.nf.test"):
-        if any(s in str(test) for s in SKIP_DIRS):
+        if SKIP_COMPONENTS & set(test.relative_to(root).parts):
             continue
         for match in re.finditer(
             r"\$\{?projectDir\}?/([A-Za-z0-9_./-]+)", test.read_text()
@@ -82,6 +88,18 @@ def main() -> int:
             missing.append(ref)
 
     print(f"fixture paths referenced by nf-tests: {len(refs)}")
+
+    # A check that examined nothing must not report success. This script
+    # already shipped one such state: an absolute-path skip matched the
+    # runner's /home/runner/work/... checkout and filtered every test file,
+    # so CI printed "0 fixture paths" and passed.
+    if len(refs) < 20:
+        print()
+        print(f"only {len(refs)} fixture references found; this repository has "
+              f"dozens. The scan is not seeing the test files, so a pass here "
+              f"would mean nothing.")
+        return 2
+
     if not missing:
         print("all present on a fresh clone")
         return 0

@@ -55,7 +55,14 @@ nextflow_pipeline {
                 run_validation = true
                 validation_method = 'both'
                 pathogen_genomes = "$projectDir/tests/fixtures/validation/test_genomes.json"
-                // save_reads_assignment deliberately NOT set.
+                // Both flags set to false EXPLICITLY. Relying on the defaults
+                // is not enough: conf/test.config sets both to true, so under
+                // `--profile test` -- which is what CI runs -- the guard could
+                // never fire and this test asserted a failure that could not
+                // happen. A test for a guard must state the precondition that
+                // triggers it, not inherit it.
+                save_reads_assignment = false
+                save_output_fastqs = false
                 skip_nanoplot = true
                 max_cpus = 2
                 max_memory = '4.GB'

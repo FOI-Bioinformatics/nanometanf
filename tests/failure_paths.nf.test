@@ -35,7 +35,7 @@ nextflow_pipeline {
 
         when {
             params {
-                input_dir = "$projectDir/tests/fixtures/minknow_output"
+                input = "$projectDir/tests/fixtures/samplesheets/minimal.csv"
                 outdir = "$outputDir"
                 kraken2_db = "/tmp/nanometanf_no_such_database_xyz"
                 skip_nanoplot = true
@@ -61,7 +61,7 @@ nextflow_pipeline {
 
         when {
             params {
-                input_dir = "$projectDir/tests/fixtures/minknow_output"
+                input = "$projectDir/tests/fixtures/samplesheets/minimal.csv"
                 outdir = "$outputDir"
                 // hash.k2d and opts.k2d present, taxo.k2d absent.
                 kraken2_db = "$projectDir/tests/fixtures/kraken2_db_incomplete"
@@ -89,7 +89,7 @@ nextflow_pipeline {
 
         when {
             params {
-                input_dir = "$projectDir/tests/fixtures/minknow_output"
+                input = "$projectDir/tests/fixtures/samplesheets/minimal.csv"
                 outdir = "$outputDir"
                 kraken2_db = null
                 skip_nanoplot = true
@@ -119,6 +119,7 @@ nextflow_pipeline {
 
         when {
             params {
+                input = null
                 input_dir = "/tmp/nanometanf_no_such_input_dir_xyz"
                 outdir = "$outputDir"
                 skip_kraken2 = true
@@ -186,6 +187,7 @@ nextflow_pipeline {
         // file. A stub would touch an output and pass.
         when {
             params {
+                input = null
                 input_dir = "$projectDir/tests/fixtures/fastq/corrupt"
                 outdir = "$outputDir"
                 skip_kraken2 = true
