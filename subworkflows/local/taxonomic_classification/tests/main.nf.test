@@ -267,13 +267,18 @@ nextflow_workflow {
             //
             // The real contract for empty input is that the run completes
             // without scheduling classification work.
+            // Per-SAMPLE work only. KRAKEN2_DB_PRELOAD is excluded on purpose:
+            // it loads the database into the page cache once per run, not per
+            // sample, so it legitimately runs with no input. CI caught this --
+            // the preload fires on the runner but not locally, so the original
+            // 'KRAKEN2' substring match passed here and failed there.
             def classificationTasks = workflow.trace.tasks().findAll { task ->
                 ['KRAKEN2', 'TAXPASTA', 'CENTRIFUGE', 'DIAMOND'].any {
                     task.name.contains(it)
-                }
+                } && !task.name.contains('DB_PRELOAD')
             }
             assert classificationTasks.isEmpty() :
-                "empty input scheduled classification work: ${classificationTasks*.name}"
+                "empty input scheduled per-sample classification work: ${classificationTasks*.name}"
         }
     }
 

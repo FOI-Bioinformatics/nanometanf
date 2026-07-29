@@ -1,0 +1,9 @@
+{
+  "562": {
+    "taxid": 562,
+    "species_name": "Escherichia coli",
+    "fasta_path": "ecoli_test.fasta",
+    "blast_db_path": "ecoli_test.fasta",
+    "source": "gtdb"
+  }
+}

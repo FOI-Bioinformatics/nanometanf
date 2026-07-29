@@ -459,10 +459,19 @@ nextflow_workflow {
             // true of every list -- so the block asserted nothing at all.
             // The real contract for an edge-case input is that whatever is
             // emitted is well formed, not that some list exists.
-            workflow.out.qc_reads.toList().each { entry ->
-                assert entry instanceof List && entry.size() >= 2 :
-                    "malformed qc_reads entry: ${entry}"
-                assert entry[0]?.id : "qc_reads entry has no sample id: ${entry}"
+            //
+            // The null guard is NOT the old vacuous nesting: on a malformed
+            // input the channel can be null rather than empty, and CI caught
+            // that (NullPointerException: Cannot invoke method toList() on
+            // null object) where the local run did not, because the emission
+            // differs. Emitting nothing is an acceptable outcome here;
+            // emitting something malformed is not.
+            if (workflow.out.qc_reads != null) {
+                workflow.out.qc_reads.toList().each { entry ->
+                    assert entry instanceof List && entry.size() >= 2 :
+                        "malformed qc_reads entry: ${entry}"
+                    assert entry[0]?.id : "qc_reads entry has no sample id: ${entry}"
+                }
             }
         }
     }

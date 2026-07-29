@@ -13,7 +13,21 @@ test_results
 test_*
 # Whitelist test fixtures that the pipeline tests depend on, even
 # though their filenames match the ``test_*`` prefix.
+#
+# The blanket ``test_*`` above matches at any depth, so it silently
+# excluded every fixture named test_something. Two directories were
+# whitelisted individually; tests/fixtures/validation/ was missed, so
+# test_genomes.json, test_kraken_output.txt and test_classified.fastq
+# were never in the repository. Every validation test therefore passed
+# locally, where the files exist, and failed on a fresh clone with
+# "No such file or directory" -- which is exactly what CI is. Nobody
+# saw it because CI had never run.
+#
+# Whitelisting the fixtures directory as a whole rather than adding a
+# third per-directory exception: a fixture is by definition something
+# the tests need present.
 !tests/fixtures/samplesheets/test_*
+!tests/fixtures/**/test_*
 !tests/test_*
 
 # Temporary development scripts
