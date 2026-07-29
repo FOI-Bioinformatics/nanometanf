@@ -35,6 +35,63 @@ nextflow_workflow {
     // the offending file nor the actual problem. Found 2026-07-28 by making
     // exactly that mistake on a real run.
 
+    // ch_sample_data joins classified reads to per-read assignments with
+    // `remainder: true`, which emits keys present in only one channel and fills
+    // the missing side with null. Validation needs both, so a half-populated
+    // entry is not a task -- it is a null that reaches path(reads) in
+    // EXTRACT_READS_BY_TAXID and aborts the run with
+    //
+    //     ProcessUnrecoverableException: Path value cannot be null
+    //
+    // against a task with work-dir=null, i.e. one that was never created. The
+    // message names neither the sample nor the cause, and because the task has
+    // no context Nextflow then fails to resolve the dynamic errorStrategy and
+    // reports "Execution aborted due to an unexpected error" with a 20-frame
+    // Java stack trace on top.
+    //
+    // Observed 2026-07-29 on real data: save_output_fastqs defaults to false,
+    // so the classified-reads channel was empty while the assignments channel
+    // had entries. This feeds exactly that shape directly.
+
+    test("a sample with assignments but no classified reads is skipped, not fatal") {
+
+        options "-stub"
+
+        when {
+            workflow {
+                """
+                // Empty: the shape produced when save_output_fastqs is off.
+                input[0] = Channel.empty()
+                input[1] = Channel.of([ [id: 'val_batch', single_end: true],
+                             file('${projectDir}/tests/fixtures/validation/test_kraken_output.txt') ])
+                input[2] = Channel.of([ [id: 'val_batch', single_end: true],
+                             file('${projectDir}/tests/fixtures/reports/classification/kraken2_report.txt') ])
+                input[3] = file('${projectDir}/tests/fixtures/validation/test_genomes.json')
+                input[4] = 'all'
+                input[5] = 'minimap2'
+                input[6] = 1
+                """
+            }
+
+            params {
+                max_cpus = 2
+                max_memory = '4.GB'
+                max_time = '5.min'
+            }
+        }
+
+        then {
+            assert workflow.success :
+                "a sample missing one of the two Kraken2 outputs aborted the run " +
+                "instead of being skipped"
+
+            def message = (workflow.errorReport ?: '') + '\n' +
+                          (workflow.stdout?.join('\n') ?: '')
+            assert !message.contains('Path value cannot be null') :
+                "the null-path abort is back: ${message.take(400)}"
+        }
+    }
+
     test("a genome JSON of the wrong shape fails with an actionable message") {
 
         options "-stub"

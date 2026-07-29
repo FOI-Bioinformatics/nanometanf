@@ -23,6 +23,97 @@ nextflow_pipeline {
     tag "stub"
     tag "core"
 
+    // Validation extracts reads by taxid from the PER-READ Kraken2 output,
+    // which Kraken2 writes only when save_reads_assignment is true. The
+    // pipeline used to "auto-enable" it with `params.save_reads_assignment =
+    // true` inside the workflow body. Nextflow 26 treats params as write-once
+    // and ignores assignments after the first, so the flag stayed false:
+    // Kraken2 ran with --output /dev/null, no reads could be extracted, every
+    // validation stage was skipped, and the aggregator wrote
+    //
+    //     "results": {}, "total_taxids_validated": 0
+    //
+    // while the run reported SUCCESS.
+    //
+    // Found 2026-07-28 on a real run: 34,096 reads of Francisella tularensis
+    // on barcode11, a reference genome present, validation requested -- and a
+    // green pipeline that had confirmed nothing. A false negative on a Tier 1
+    // select agent, presented as a clean result.
+    //
+    // The pipeline cannot fix this for the operator, so it must refuse rather
+    // than appear to succeed. These two cases pin both halves of that.
+
+    test("validation without save_reads_assignment fails loudly, not silently") {
+        options "-stub"
+        when {
+            params {
+                input = "$projectDir/tests/fixtures/samplesheets/minimal.csv"
+                outdir = "$outputDir"
+                classifier = 'kraken2'
+                kraken2_db = "$projectDir/tests/fixtures/kraken2_db"
+                realtime_mode = false
+                run_validation = true
+                validation_method = 'both'
+                pathogen_genomes = "$projectDir/tests/fixtures/validation/test_genomes.json"
+                // save_reads_assignment deliberately NOT set.
+                skip_nanoplot = true
+                max_cpus = 2
+                max_memory = '4.GB'
+                max_time = '5.min'
+            }
+        }
+        then {
+            assert workflow.failed :
+                "the run succeeded without per-read Kraken2 output, so it " +
+                "validated nothing while reporting success"
+
+            def message = (workflow.errorReport ?: '') + '\n' +
+                          (workflow.stdout?.join('\n') ?: '')
+            assert message.contains('save_reads_assignment') :
+                "the failure does not name the per-read assignment flag: ${message.take(400)}"
+            assert message.contains('save_output_fastqs') :
+                "the failure does not name the classified-FASTQ flag, so an " +
+                "operator would set one flag, re-run, and fail again: ${message.take(400)}"
+        }
+    }
+
+    test("validation with save_reads_assignment produces per-read output") {
+        options "-stub"
+        when {
+            params {
+                input = "$projectDir/tests/fixtures/samplesheets/minimal.csv"
+                outdir = "$outputDir"
+                classifier = 'kraken2'
+                kraken2_db = "$projectDir/tests/fixtures/kraken2_db"
+                realtime_mode = false
+                run_validation = true
+                validation_method = 'both'
+                pathogen_genomes = "$projectDir/tests/fixtures/validation/test_genomes.json"
+                save_reads_assignment = true
+                save_output_fastqs = true
+                skip_nanoplot = true
+                max_cpus = 2
+                max_memory = '4.GB'
+                max_time = '5.min'
+            }
+        }
+        then {
+            // The complement of the refusal above: with the flag set, the run
+            // proceeds. This is what stops the new guard from being an
+            // unconditional block on validation.
+            //
+            // Deliberately NOT asserted here: that the per-read file is
+            // published. Stub mode does not reproduce that reliably, and a
+            // stub-only assertion would be red for a stub limitation rather
+            // than a product fault. The publishing behaviour is asserted
+            // against real pipeline output in nanometa_live's
+            // tests/realdata/test_validation.py, where it was observed
+            // directly (run R8b, 2026-07-28).
+            assert workflow.success :
+                "validation refused to run even with save_reads_assignment set"
+        }
+    }
+
     test("batch + minimap2 validation: run completes, versions written") {
         options "-stub"
         when {
@@ -35,6 +126,11 @@ nextflow_pipeline {
                 run_validation = true
                 validation_method = 'minimap2'
                 pathogen_genomes = "$projectDir/tests/fixtures/validation/test_genomes.json"
+                // Required: validation refuses to run without the per-read
+                // assignments and the classified FASTQ, rather than silently
+                // validating nothing.
+                save_reads_assignment = true
+                save_output_fastqs = true
                 skip_nanoplot = true
                 max_cpus = 2
                 max_memory = '4.GB'
@@ -65,6 +161,11 @@ nextflow_pipeline {
                 run_validation = true
                 validation_method = 'blast'
                 pathogen_genomes = "$projectDir/tests/fixtures/validation/test_genomes.json"
+                // Required: validation refuses to run without the per-read
+                // assignments and the classified FASTQ, rather than silently
+                // validating nothing.
+                save_reads_assignment = true
+                save_output_fastqs = true
                 skip_nanoplot = true
                 max_cpus = 2
                 max_memory = '4.GB'
@@ -95,6 +196,11 @@ nextflow_pipeline {
                 run_validation = true
                 validation_method = 'both'
                 pathogen_genomes = "$projectDir/tests/fixtures/validation/test_genomes.json"
+                // Required: validation refuses to run without the per-read
+                // assignments and the classified FASTQ, rather than silently
+                // validating nothing.
+                save_reads_assignment = true
+                save_output_fastqs = true
                 skip_nanoplot = true
                 max_cpus = 2
                 max_memory = '4.GB'

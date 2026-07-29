@@ -132,8 +132,37 @@ workflow VALIDATION {
     // Create validation tasks by combining samples with taxids
     // First join classified reads with kraken output by meta.id
     //
+    // ``remainder: true`` emits keys present in only ONE channel, filling the
+    // missing side with null. Validation needs BOTH the classified reads and
+    // the per-read assignments, so a half-populated entry is not a task -- it
+    // is a null that reaches ``path(reads)`` in EXTRACT_READS_BY_TAXID and
+    // aborts the whole run with
+    //
+    //     ProcessUnrecoverableException: Path value cannot be null
+    //
+    // reported against a task with work-dir=null, i.e. one that was never
+    // created. Observed 2026-07-29 on real data: save_output_fastqs defaults
+    // to false, so ch_classified_reads was empty while ch_kraken_output had
+    // entries, and the join manufactured [meta, null, kraken_output].
+    //
+    // The pipeline now refuses to start validation without both flags, so this
+    // should be unreachable; it is kept as a guard because the failure mode is
+    // an aborted run with an error naming neither the sample nor the cause.
     ch_sample_data = ch_classified_reads
         .join(ch_kraken_output, by: [0], remainder: true)  // Join on meta
+        .filter { entry ->
+            def ok = entry instanceof List && entry.size() >= 3 &&
+                     entry[1] != null && entry[2] != null
+            if (!ok) {
+                def id = (entry instanceof List && entry[0] instanceof Map) ?
+                         entry[0].id : 'unknown'
+                log.warn "Validation: skipping sample '${id}' -- it has only one " +
+                         "of the two required Kraken2 outputs (classified reads / " +
+                         "per-read assignments). Check --save_output_fastqs and " +
+                         "--save_reads_assignment."
+            }
+            return ok
+        }
 
     //
     // Pre-extraction taxid gate (issue #6 scalability fix)

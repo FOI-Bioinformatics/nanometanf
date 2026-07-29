@@ -98,9 +98,13 @@ nextflow_workflow {
             assert snapshot(workflow.out.versions).match()
             assert workflow.out.samples
 
-            // Samples requiring demultiplexing are passed through unchanged
+            // Samples requiring demultiplexing are passed through unchanged.
+            // `size() >= 0` was here before, which is true of every list and
+            // so held whatever the subworkflow did with them.
             def samples = workflow.out.samples.toList()
-            assert samples.size() >= 0  // May be empty or contain original samples
+            assert samples.size() == 2 : "expected both inputs through, got ${samples.size()}"
+            def ids = samples.collect { it[0].id }.sort()
+            assert ids == ['multiplexed1', 'multiplexed2'] : "ids not preserved: ${ids}"
         }
     }
 
@@ -180,9 +184,12 @@ nextflow_workflow {
             assert snapshot(workflow.out.versions).match()
             assert workflow.out.samples
 
-            // Should handle different barcode kits
+            // Should handle different barcode kits. Previously
+            // `size() >= 0`, true of any list.
             def samples = workflow.out.samples.toList()
-            assert samples.size() >= 0
+            assert samples : "no samples emitted"
+            assert samples.every { it[0].barcode_kit } :
+                "a sample lost its barcode_kit: ${samples.collect { it[0] }}"
         }
     }
 
@@ -399,9 +406,12 @@ nextflow_workflow {
             assert snapshot(workflow.out.versions).match()
             assert workflow.out.samples
 
-            // Should validate different barcode kits
+            // Should validate different barcode kits. Previously
+            // `size() >= 0`, true of any list.
             def samples = workflow.out.samples.toList()
-            assert samples.size() >= 0
+            assert samples : "no samples emitted"
+            assert samples.every { it[0].barcode_kit } :
+                "a sample lost its barcode_kit: ${samples.collect { it[0] }}"
         }
     }
 }

@@ -59,6 +59,61 @@ workflow NANOMETANF {
     }
 
     //
+    // Validation extracts reads by taxid from the PER-READ Kraken2 output, so
+    // save_reads_assignment must be true. This used to "auto-enable" it:
+    //
+    //     params.save_reads_assignment = true
+    //
+    // That has never worked under Nextflow 26, which treats params as
+    // write-once and reports
+    //
+    //     WARN: `params.x` is defined multiple times --
+    //           Assignments following the first are ignored
+    //
+    // while leaving the value at false. The Kraken2 process was therefore
+    // built with --output /dev/null, no per-read file was written, no reads
+    // could be extracted, every validation stage was skipped, and the
+    // aggregator wrote an empty validation_results.json -- with the run
+    // reporting SUCCESS. On a real sample that is a false negative on a
+    // select agent, announced as a clean result.
+    //
+    // Moving the assignment earlier does not help: the mechanism itself is
+    // gone. Since the pipeline cannot fix this for the operator, it must
+    // refuse to pretend it has. Fail immediately, naming the flag to set.
+    //
+    // Two separate Kraken2 outputs are needed, behind two separate flags:
+    //   save_reads_assignment -> the per-read taxid assignments, which say
+    //                            WHICH reads belong to a target taxid
+    //   save_output_fastqs    -> the classified-reads FASTQ, which is the
+    //                            sequence data those reads are extracted from
+    // Missing either one leaves VALIDATION's input channel empty.
+    if (run_validation_effective && params.pathogen_genomes) {
+        def missing = []
+        if (!params.save_reads_assignment) missing << 'save_reads_assignment'
+        if (!params.save_output_fastqs)    missing << 'save_output_fastqs'
+
+        if (missing) {
+            log.error "========================================================================="
+            log.error "  ERROR: Validation requires Kraken2 read-level output."
+            log.error ""
+            log.error "  Validation aligns the reads assigned to each target taxid back to a"
+            log.error "  reference genome. That needs the per-read assignments to say which"
+            log.error "  reads to take, and the classified FASTQ to take them from."
+            log.error ""
+            log.error "  Missing: ${missing.join(', ')}"
+            log.error ""
+            log.error "  Re-run with:"
+            missing.each { log.error "    --${it} true" }
+            log.error ""
+            log.error "  These cannot be enabled automatically: Nextflow ignores assignments"
+            log.error "  to params after the first, so the pipeline would run to completion"
+            log.error "  and report success having validated nothing."
+            log.error "========================================================================="
+            error "Validation requires: ${missing.collect { "--${it} true" }.join(' ')}"
+        }
+    }
+
+    //
     // INPUT VALIDATION: Check for conflicting or missing parameters
     //
     def input_modes = []
@@ -390,11 +445,9 @@ workflow NANOMETANF {
         // The Kraken2 output file (per-read classifications) is needed to extract reads by taxid
         //
         if (run_validation_effective && params.pathogen_genomes) {
-            // Auto-enable save_reads_assignment when validation is active
-            if (!params.save_reads_assignment) {
-                log.warn "Validation requires per-read Kraken2 output. Automatically enabling save_reads_assignment."
-                params.save_reads_assignment = true
-            }
+            // save_reads_assignment was enabled near the top of this workflow,
+            // before TAXONOMIC_CLASSIFICATION was constructed. Doing it here
+            // would be too late to affect the Kraken2 process.
 
             // Check that pathogen_genomes file exists and is JSON
             def genomes_file = file(params.pathogen_genomes, checkIfExists: true)

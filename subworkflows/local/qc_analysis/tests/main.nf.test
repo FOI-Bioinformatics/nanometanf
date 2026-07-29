@@ -455,12 +455,14 @@ nextflow_workflow {
             assert workflow.success
             assert workflow.out.versions
 
-            if (workflow.success) {
-                // May have limited outputs due to edge cases
-                if (workflow.out.qc_reads) {
-                    def qc_reads = workflow.out.qc_reads.toList()
-                    assert qc_reads.size() >= 0
-                }
+            // Previously: three nested guards around `size() >= 0`, which is
+            // true of every list -- so the block asserted nothing at all.
+            // The real contract for an edge-case input is that whatever is
+            // emitted is well formed, not that some list exists.
+            workflow.out.qc_reads.toList().each { entry ->
+                assert entry instanceof List && entry.size() >= 2 :
+                    "malformed qc_reads entry: ${entry}"
+                assert entry[0]?.id : "qc_reads entry has no sample id: ${entry}"
             }
         }
     }
