@@ -130,6 +130,7 @@ jobs:
             modules/local/kraken2_output_merger/tests/main.nf.test \
             modules/local/kraken2_report_generator/tests/main.nf.test \
             modules/local/manifest_writer/tests/main.nf.test \
+            modules/local/manifest_writer/tests/failed_samples.nf.test \
             modules/local/minimap2_validation/tests/main.nf.test \
             modules/local/multiqc_nanopore_stats/tests/main.nf.test \
             modules/local/nanoplot_compare/tests/main.nf.test \
