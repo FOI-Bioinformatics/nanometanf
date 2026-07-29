@@ -26,9 +26,11 @@ test_*
 # Whitelisting the fixtures directory as a whole rather than adding a
 # third per-directory exception: a fixture is by definition something
 # the tests need present.
-!tests/fixtures/samplesheets/test_*
-!tests/fixtures/**/test_*
+# Anything under tests/, and any fixtures directory anywhere.
+!tests/**/test_*
 !tests/test_*
+!**/fixtures/test_*
+!**/fixtures/**/test_*
 
 # Temporary development scripts
 /*.sh

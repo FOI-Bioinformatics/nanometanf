@@ -65,6 +65,11 @@ jobs:
           sudo install -m 0755 nextflow /usr/local/bin/nextflow
           nextflow -v
 
+      - name: Every test fixture must exist on a fresh clone
+        # Cheap, and it runs before the suite so the failure names the cause
+        # rather than surfacing as 20 "No such file or directory" errors.
+        run: python3 tests/lib/fixtures_are_tracked.py
+
       - name: Install nf-test
         uses: nf-core/setup-nf-test@v1
         with:
