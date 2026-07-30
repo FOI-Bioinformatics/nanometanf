@@ -505,7 +505,15 @@ workflow NANOMETANF {
         // isolated QC failure into a whole-pipeline failure and defeating the
         // isolation this feature exists to report on. Same guard VALIDATION
         // applies at its own boundary (validation/main.nf:41).
-        def ch_produced_sample_ids = QC_ANALYSIS.out.reads
+        //
+        // Read ch_qc_reads, not QC_ANALYSIS.out.reads: with QC fully skipped
+        // (skip_fastp + skip_nanoplot) QC_ANALYSIS is never invoked and
+        // touching its .out aborts the run with "Access to 'QC_ANALYSIS.out'
+        // is undefined". ch_qc_reads is assigned in both branches -- it falls
+        // back to DEMULTIPLEXING.out.samples -- so a skipped-QC run reports
+        // every sample as produced, which is correct: no QC ran, so no sample
+        // failed QC.
+        def ch_produced_sample_ids = ch_qc_reads
             .filter { it instanceof List && it.size() >= 2 && it[0] instanceof Map }
             .map { meta, reads -> meta.id }
             .unique()
