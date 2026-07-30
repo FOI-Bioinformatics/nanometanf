@@ -21,11 +21,14 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
-# Nextflow 26.04.0 is the floor (manifest in nextflow.config). The
-# pipeline parses under the strict v2 grammar (default in 26+); no
-# parser opt-in is needed. The matrix exercises the floor and the
-# moving "latest-everything" target so regressions in either are
-# caught at PR time.
+# CI runs the current Nextflow release only. The manifest floor
+# (nextflow.config: nextflowVersion = '>=26.04.0') stays as the minimum
+# the pipeline is known to parse under -- the strict v2 grammar is the
+# default from 26 on, so no parser opt-in is needed -- but the floor
+# itself is no longer exercised here. That is a deliberate trade: the
+# shipped conda environment declares `nextflow >=26.04.0` and conda
+# resolves it to the newest build available at install time, so a field
+# machine runs something close to the release CI tests, not the floor.
 #
 # NXF_OFFLINE is intentionally NOT set: nf-schema (declared in
 # nextflow.config) must be downloaded before validateParameters() can
@@ -34,7 +37,7 @@ concurrency:
 
 jobs:
   test:
-    name: Run nf-test (${{ matrix.NXF_VER }}, shard ${{ matrix.shard }}/4)
+    name: Run nf-test (shard ${{ matrix.shard }}/4)
     runs-on: ubuntu-latest
     # Hard cap the nf-test run so a stuck realtime / watchPath test
     # cannot consume the default 6 h GitHub job budget. A shard is
@@ -44,9 +47,6 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        NXF_VER:
-          - "26.04.0"
-          - "latest-everything"
         # nf-test executes strictly sequentially, and the suite's cost is
         # dominated by per-test fixed overhead rather than by any one slow
         # test: profiling the 158 cases gave a median of 11 s, a mean of
@@ -71,14 +71,9 @@ jobs:
       - name: Install Nextflow
         # Install directly from get.nextflow.io to avoid the
         # nf-core/setup-nextflow@v2 Cloudflare 520 failures observed
-        # on this branch on 2026-05-28. The "latest-everything" matrix
-        # entry maps to an unset NXF_VER so the installer picks the
-        # current stable release.
+        # on this branch on 2026-05-28. NXF_VER is left unset so the
+        # installer picks the current stable release.
         run: |
-          MATRIX_VER='${{ matrix.NXF_VER }}'
-          if [ "${MATRIX_VER}" != "latest-everything" ]; then
-            export NXF_VER="${MATRIX_VER}"
-          fi
           curl -fsSL get.nextflow.io | bash
           sudo install -m 0755 nextflow /usr/local/bin/nextflow
           nextflow -v
@@ -101,7 +96,7 @@ jobs:
         # All tests/realtime_*.nf.test cases are excluded explicitly
         # because they exercise watchPath, which still leaks the
         # FileAlterationMonitor thread on the GitHub runner and hangs
-        # the job past the 45 min cap (the 26.04.0 fix claim in
+        # the job past its timeout (the 26.04.0 fix claim in
         # docs/upstream-issues/26-watchpath-cleanup-hang.md does not
         # hold on this runner image). Realtime coverage stays in local
         # development runs; the rest of the integration matrix runs in
@@ -194,8 +189,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Install Nextflow
-        env:
-          NXF_VER: "26.04.0"
+        # Unpinned: CI tests the current release only, matching the test job.
         run: |
           curl -fsSL get.nextflow.io | bash
           sudo install -m 0755 nextflow /usr/local/bin/nextflow
@@ -282,8 +276,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Install Nextflow
-        env:
-          NXF_VER: "26.04.0"
+        # Unpinned: CI tests the current release only, matching the test job.
         run: |
           curl -fsSL get.nextflow.io | bash
           sudo install -m 0755 nextflow /usr/local/bin/nextflow
