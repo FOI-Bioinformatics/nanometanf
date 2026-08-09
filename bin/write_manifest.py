@@ -72,10 +72,13 @@ def main() -> None:
         help="Validation method (e.g., blast, minimap2, both)."
     )
     parser.add_argument(
-        "--produced-samples", default="",
+        "--produced-samples", default=None,
         help=("Comma-separated samples that actually emitted QC output. The "
               "difference from --samples is the set attempted but not "
-              "produced, usually a QC failure absorbed by error isolation."),
+              "produced, usually a QC failure absorbed by error isolation. "
+              "Omitting the flag means 'not determined'; passing it empty "
+              "means 'determined: none produced', which is not the same "
+              "thing and must not be collapsed."),
     )
     parser.add_argument(
         "--samples", default="",
@@ -89,11 +92,22 @@ def main() -> None:
     args = parser.parse_args()
 
     samples = [s.strip() for s in args.samples.split(",") if s.strip()]
-    produced = [s.strip() for s in args.produced_samples.split(",") if s.strip()]
     # None when the caller did not tell us: "not determined" must stay distinct
     # from "none failed", or this field becomes the false reassurance it exists
     # to prevent.
-    failed_samples = sorted(set(samples) - set(produced)) if produced else None
+    #
+    # The distinction is carried by the flag's PRESENCE, not by whether the
+    # list is non-empty. Testing truthiness collapsed the two, so a batch in
+    # which every sample failed QC -- an empty produced set, the single case
+    # this field exists to report -- came out as null "not determined" instead
+    # of naming the samples that failed.
+    if args.produced_samples is None:
+        produced = None
+    else:
+        produced = [s.strip() for s in args.produced_samples.split(",") if s.strip()]
+    failed_samples = (
+        sorted(set(samples) - set(produced)) if produced is not None else None
+    )
     now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
     manifest_path = os.path.join(args.outdir, "_manifest.json")

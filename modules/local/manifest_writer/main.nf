@@ -40,7 +40,24 @@ process MANIFEST_WRITER {
     // so the difference between the two lists is the set that was attempted and
     // produced nothing.
     def produced_str = produced_sample_ids instanceof List ? produced_sample_ids.join(",") : produced_sample_ids
-    def produced_arg = produced_str ? "--produced-samples ${produced_str}" : ""
+    // Gate on the value being supplied at all, NOT on it being non-empty.
+    // An empty produced set is a real, determined answer -- every sample in
+    // this batch failed QC -- and is precisely the case failed_samples exists
+    // to report. Testing the joined string's truthiness dropped the flag
+    // entirely for that case, so it arrived indistinguishable from "the
+    // caller never told us" and the manifest recorded null.
+    //
+    // A List, INCLUDING an empty one, is a determined answer; the workflow
+    // always sends one (ch_produced_sample_ids ends .ifEmpty([])). Anything
+    // else -- an empty string -- means the caller did not determine it.
+    // Nextflow cannot carry null through a `val` input ("A process input
+    // channel evaluates to null"), so the undetermined case has to be an
+    // empty string rather than null.
+    //
+    // Quoted because the value is legitimately empty here; unquoted, the
+    // shell would swallow the following argument.
+    def produced_determined = produced_sample_ids instanceof List || produced_str
+    def produced_arg = produced_determined ? "--produced-samples '${produced_str}'" : ""
     """
     write_manifest.py \\
         --outdir . \\

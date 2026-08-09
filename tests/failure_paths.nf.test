@@ -214,6 +214,30 @@ nextflow_pipeline {
             assert workflow.success :
                 "error isolation no longer absorbs a failed CHOPPER task; if " +
                 "that is intended, update this test and the note above"
+
+            // Isolation without a record is the defect, not the fix. This
+            // test asserted only workflow.success until 2026-08-09, while the
+            // note above already claimed the manifest records the failure --
+            // so the claim went unchecked, and on this exact input it was
+            // false: every sample in the run failed QC, the produced set was
+            // an empty list, and failed_samples came out null ("not
+            // determined") rather than naming the sample.
+            //
+            // Null is the reading the GUI cannot act on: nanometa_live takes
+            // its sample list from this manifest, so a sample recorded as
+            // neither produced nor failed renders like a healthy one.
+            def manifest_file = file("${outputDir}/canonical/_manifest.json")
+            assert manifest_file.exists() :
+                "no manifest was written, so nothing records which samples failed"
+
+            def manifest = new groovy.json.JsonSlurper().parse(manifest_file)
+            assert manifest.failed_samples != null :
+                "the run absorbed a QC failure and recorded failed_samples as " +
+                "null; 'not determined' is indistinguishable from 'nothing " +
+                "failed' to every consumer of this manifest"
+            assert manifest.failed_samples.size() > 0 :
+                "every sample in this run failed QC, yet failed_samples is " +
+                "empty: ${manifest.failed_samples}"
         }
     }
 }
