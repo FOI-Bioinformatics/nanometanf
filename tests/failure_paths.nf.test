@@ -50,7 +50,14 @@ nextflow_pipeline {
                 "a nonexistent Kraken2 database was accepted; the run would " +
                 "fail later inside kraken2, or classify nothing at all"
 
+            // errorMessage is included alongside errorReport and stdout
+            // because relying on the first two alone is a race: the text is
+            // always produced (Nextflow.error names every missing file), but
+            // which channel carries it by the time nf-test reads it is not
+            // guaranteed. Observed as an intermittent ~1-in-3 failure of the
+            // taxo.k2d assertion below on an otherwise idle machine.
             def message = (workflow.errorReport ?: '') + '\n' +
+                          (workflow.errorMessage ?: '') + '\n' +
                           (workflow.stdout?.join('\n') ?: '')
             assert message.contains('nanometanf_no_such_database_xyz') :
                 "the error does not name the path that is missing: ${message.take(400)}"
@@ -79,6 +86,7 @@ nextflow_pipeline {
                 "which the operator cannot map back to an interrupted copy."
 
             def message = (workflow.errorReport ?: '') + '\n' +
+                          (workflow.errorMessage ?: '') + '\n' +
                           (workflow.stdout?.join('\n') ?: '')
             assert message.contains('taxo.k2d') :
                 "the error does not name the missing file: ${message.take(400)}"
@@ -104,6 +112,7 @@ nextflow_pipeline {
                 "classification was enabled with no database and the run started"
 
             def message = (workflow.errorReport ?: '') + '\n' +
+                          (workflow.errorMessage ?: '') + '\n' +
                           (workflow.stdout?.join('\n') ?: '')
             // The operator has three ways out; the error should say so rather
             // than only stating that something is missing.
@@ -135,6 +144,7 @@ nextflow_pipeline {
             // no work. What must NOT happen is a crash with a Groovy stack
             // trace, or a success that looks like it processed something.
             def message = (workflow.errorReport ?: '') + '\n' +
+                          (workflow.errorMessage ?: '') + '\n' +
                           (workflow.stdout?.join('\n') ?: '')
 
             assert !message.contains('groovy.lang.MissingMethodException') :
@@ -198,6 +208,7 @@ nextflow_pipeline {
 
         then {
             def message = (workflow.errorReport ?: '') + '\n' +
+                          (workflow.errorMessage ?: '') + '\n' +
                           (workflow.stdout?.join('\n') ?: '')
 
             // Whatever happens, it must be a tool error and not a Groovy one.
