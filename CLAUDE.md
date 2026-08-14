@@ -120,6 +120,53 @@ Controlled by `params.write_canonical` (default: true).
 
 Corresponding `bin/` scripts handle the format conversion: `kreport_to_canonical.py`, `qc_to_canonical.py`, `alignment_to_canonical.py`, `assembly_to_canonical.py`, `write_manifest.py`.
 
+### `failed_samples`: presence decides, not truthiness
+
+The manifest PREDICTS its output files from the sample list -- MANIFEST_WRITER
+runs in its own work directory and cannot see the publishDir -- so a sample
+whose QC died is listed exactly like a healthy one. `failed_samples` is what
+distinguishes them, and nanometa_live reads it to mark such samples.
+
+Three values, three meanings, and they must not collapse:
+
+- `null` -- not determined. The caller did not supply the produced set.
+- `[]` -- determined: nothing failed.
+- `[names]` -- these samples were attempted and produced nothing.
+
+Both layers gate on the flag being SUPPLIED, never on the list being non-empty.
+`modules/local/manifest_writer/main.nf` passes `--produced-samples` whenever
+`produced_sample_ids` is a List (including an empty one) and
+`bin/write_manifest.py` tests `args.produced_samples is None`. Testing
+truthiness collapsed "supplied and empty" into "not supplied" at BOTH layers,
+so a batch in which every sample failed -- the one case this field exists for
+-- reported `null`. Reproduced with one corrupt FASTQ: CHOPPER exit 1 absorbed
+by error isolation, run reports success, manifest claims the sample's
+`qc_stats.json` is available, no such file anywhere in the outdir.
+
+`workflows/nanometanf.nf` ends `ch_produced_sample_ids` with `.ifEmpty([])`, so
+the pipeline always supplies a determined answer. Nextflow cannot carry `null`
+through a `val` input ("A process input channel evaluates to null"), so the
+undetermined case is a non-List sentinel rather than null.
+
+### Error isolation is loaded on every run, including every nf-test
+
+`conf/error_isolation.config` is NOT a profile. It is the last `includeConfig`
+in `nextflow.config`, so it loads unconditionally and overrides `base.config`
+and `modules.config`. For CHOPPER, FASTP_STREAMING, the three KRAKEN2
+processes, BLASTN_VALIDATION, MINIMAP2_VALIDATION and FLYE it sets
+`errorStrategy = { task.exitStatus in [1,2] ? 'ignore' : 'retry' }` -- and exit
+1/2 are the normal failure codes for all of them.
+
+Consequences, both verified: a genuine CHOPPER failure yields
+"Pipeline completed successfully, but with errored process(es)" with run status
+OK; and nf-test passes the root `nextflow.config` as an explicit `-c`, so **no
+nf-test can observe a failure in those eight processes as `workflow.failed`**.
+Isolation is deliberate -- one bad barcode must not abort 23 others -- so the
+suite asserts the failure stays VISIBLE instead: `tests/failure_paths.nf.test`
+reads the manifest and checks the failed sample is named, in both the all-fail
+and the one-bad-barcode-among-healthy cases. Asserting only `workflow.success`
+proves isolation happened and nothing else.
+
 ---
 
 ## Key files
