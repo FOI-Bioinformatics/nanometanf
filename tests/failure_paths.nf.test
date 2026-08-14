@@ -240,4 +240,65 @@ nextflow_pipeline {
                 "empty: ${manifest.failed_samples}"
         }
     }
+
+    // The realistic field shape, and the one isolation exists for: one bad
+    // barcode among healthy ones. The all-fail case above proves the record
+    // is written; this proves isolation does its job AND stays visible --
+    // the healthy sample must still be processed, and the failed one must
+    // still be named.
+    //
+    // Without the second half, "isolation happened" is all the suite can
+    // show. conf/error_isolation.config is loaded unconditionally
+    // (nextflow.config, last includeConfig) and therefore applies to every
+    // nf-test too, so no test in this repository can observe a CHOPPER exit 1
+    // as workflow.failed. That makes the manifest the only place a swallowed
+    // failure can surface, and the only thing worth asserting on.
+
+    test("one bad sample is isolated and named, the healthy one still runs") {
+
+        when {
+            params {
+                input = null
+                input_dir = "$projectDir/tests/fixtures/fastq/mixed"
+                outdir = "$outputDir"
+                skip_kraken2 = true
+                skip_nanoplot = true
+                skip_multiqc = true
+                max_cpus = 2
+                max_memory = '4.GB'
+                // Headroom, not a fix for anything observed here. Nextflow's
+                // local executor SIGTERMs a task that outruns its time
+                // directive, and 143 is not one of the codes
+                // error_isolation.config ignores -- it falls through to
+                // base.config's retry. A FASTQC task was seen taking that
+                // path on a loaded machine and recovering on the retry. This
+                // test never failed for that reason; the ceiling is raised so
+                // a slow CI runner cannot make it start.
+                max_time = '30.min'
+            }
+        }
+
+        then {
+            assert workflow.success :
+                "a single corrupt sample aborted the whole run; isolation is " +
+                "what keeps the other barcodes alive"
+
+            def manifest_file = file("${outputDir}/canonical/_manifest.json")
+            assert manifest_file.exists() : "no manifest was written"
+            def manifest = new groovy.json.JsonSlurper().parse(manifest_file)
+
+            assert manifest.failed_samples != null :
+                "failed_samples is null on a run that definitely had one " +
+                "failure; 'not determined' hides it from every consumer"
+            assert manifest.failed_samples.contains('broken_sample') :
+                "the corrupt sample was not named as failed: " +
+                "${manifest.failed_samples}"
+            assert !manifest.failed_samples.contains('healthy_sample') :
+                "the healthy sample was reported as failed: " +
+                "${manifest.failed_samples}"
+            assert manifest.samples.contains('broken_sample') :
+                "the failed sample was dropped from the sample list; that " +
+                "loses the fact that the barcode was attempted at all"
+        }
+    }
 }
