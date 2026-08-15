@@ -17,30 +17,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Five `bin/` scripts for format conversion: `kreport_to_canonical.py`, `qc_to_canonical.py`, `alignment_to_canonical.py`, `assembly_to_canonical.py`, `write_manifest.py`
 - Parameter `write_canonical` (default: true) to control canonical output generation
 - Manifest file (`_manifest.json`) indexing all canonical outputs per run
-- `bin/run-nf-tests.sh` wrapper that pins `NXF_VER=25.04.7` and
-  `NXF_OFFLINE=true` and forwards arguments to nf-test. Same pin
-  mirrored as a workflow-env block in
-  `.github/workflows/nf-test.yml`. The pin is the local workaround
-  for task #26 (Nextflow 25.10 DirWatcherV2 cleanup hangs after a
-  realtime sentinel fires). Cycle 6 verification showed 25.04.7
-  releases the FileAlterationMonitor cleanly only on the
-  timeout-fires-first path; the take-fires-first path
-  (`take(max_files)` completing before any timeout) still hangs the
-  JVM under 25.04.7, with jstack confirming the same Apache
-  commons-io `FileAlterationMonitor.run` non-daemon thread keeps
-  the JVM alive. Task #26 therefore remains open for the upstream
-  fix; the wrapper is retained as the canonical entry point so the
-  pin can be flipped centrally when upstream lands a fix.
-- `docs/upstream-issues/26-watchpath-cleanup-hang.md` capturing the
-  full upstream issue text (affected versions, reproducer,
-  jstack-backed diagnostic evidence, behaviour matrix, suggested
-  fix). The two `realtime_mode = true` cases in
-  `subworkflows/local/realtime_monitoring/tests/main.nf.test` carry
-  the new `hangs-on-jvm-cleanup` tag so they can be located
-  mechanically. nf-test 0.9.4 does not provide an `--exclude-tag`
-  flag, so the tag is currently advisory: operators running the
-  whole suite should omit the realtime_monitoring test file from
-  the path arguments until upstream lands a fix.
+- `bin/run-nf-tests.sh` wrapper that forwards arguments to nf-test and sets
+  `NXF_OFFLINE=true`. Earlier revisions of this entry described an
+  `NXF_VER=25.04.7` pin for the Nextflow 25.10 watchPath cleanup hang; that
+  pin was removed during this release cycle and `nextflowVersion` now floors
+  at `>=26.04.0`, where the hang is fixed upstream.
+- `docs/upstream-issues/26-watchpath-cleanup-hang.md` recording the watchPath
+  cleanup issue, its reproducer and jstack evidence. Resolved on macOS/arm64
+  under 26.04.0 and NOT on the GitHub Actions runner, so
+  `.github/workflows/nf-test.yml` continues to exclude every
+  `tests/realtime_*.nf.test` case and realtime coverage stays a local
+  development run. The two realtime_monitoring cases carry a
+  `hangs-on-jvm-cleanup` tag so they can be located mechanically.
 
 ### Changed
 
