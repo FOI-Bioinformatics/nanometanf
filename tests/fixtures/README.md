@@ -15,12 +15,10 @@ fixtures/
 │   ├── barcoded.csv          # Multiple samples with barcodes
 │   ├── large_scale.csv       # Many samples for performance testing
 │   └── edge_case.csv         # Edge cases and malformed data
-├── fastq/            # Test FASTQ files (minimal size)
-│   ├── test_sample.fastq.gz  # Generic test sample
-│   ├── barcode01.fastq.gz    # Barcoded sample 1
-│   └── barcode02.fastq.gz    # Barcoded sample 2
-└── pod5/             # Test POD5 files (symlinks to assets)
-    └── batch_0.pod5          # Minimal POD5 from nf-core test-datasets
+└── fastq/            # Test FASTQ files (minimal size)
+    ├── test_sample.fastq.gz  # Generic test sample
+    ├── barcode01.fastq.gz    # Barcoded sample 1
+    └── barcode02.fastq.gz    # Barcoded sample 2
 ```
 
 ## Usage in Tests
@@ -57,7 +55,7 @@ when {
 
 ## File Paths
 
-All samplesheet files use **absolute paths** to FASTQ/POD5 files to ensure they work regardless of test execution context.
+All samplesheet files use **absolute paths** to FASTQ files to ensure they work regardless of test execution context.
 
 ## Updating Fixtures
 

@@ -9,6 +9,11 @@ process BLASTN_VALIDATION {
 
     input:
     tuple val(meta), path(reads), path(reference)
+    val blast_evalue
+    val blast_perc_identity
+    val blast_max_target_seqs
+    val validation_hit_rate_threshold
+    val validation_identity_threshold
 
     output:
     tuple val(meta), path("*.blast.tsv"), emit: results
@@ -20,11 +25,11 @@ process BLASTN_VALIDATION {
 
     script:
     def prefix = task.ext.prefix ?: "${meta.id}_taxid${meta.taxid}"
-    def evalue = task.ext.evalue ?: params.blast_evalue ?: "1e-10"
-    def perc_identity = task.ext.perc_identity ?: params.blast_perc_identity ?: 90
-    def max_target_seqs = task.ext.max_target_seqs ?: params.blast_max_target_seqs ?: 1
-    def hit_threshold = params.validation_hit_rate_threshold ?: 0.5
-    def identity_threshold = params.validation_identity_threshold ?: 90.0
+    def evalue = task.ext.evalue ?: blast_evalue ?: "1e-10"
+    def perc_identity = task.ext.perc_identity ?: blast_perc_identity ?: 90
+    def max_target_seqs = task.ext.max_target_seqs ?: blast_max_target_seqs ?: 1
+    def hit_threshold = validation_hit_rate_threshold ?: 0.5
+    def identity_threshold = validation_identity_threshold ?: 90.0
     def sample_id = meta.id
     def taxid = meta.taxid
     """
@@ -104,8 +109,17 @@ from pathlib import Path
 blast_file = "${prefix}.blast.tsv"
 total_reads = \$TOTAL_READS
 
-# Parse BLAST results
+# Parse BLAST results.
+# Dedupe by qseqid (column 0): blastn keeps unlimited HSPs per query
+# by default, so a single read can contribute multiple rows. Counting
+# every row inflates hit_rate beyond 1.0 (observed 1.31 = 654 HSPs /
+# 499 reads on 2026-04-30 e2e), and the dashboard renders that as
+# "1.3% Confirmed" -- counter-intuitive in clinical use. Counting
+# only the first HSP per qseqid matches the minimap2 module's
+# per-read deduplication (seen set at minimap2_validation/main.nf:88)
+# and bounds hit_rate to [0, 1].
 hits = 0
+seen = set()
 identities = []
 coverages = []
 evalues = []
@@ -114,6 +128,10 @@ with open(blast_file) as f:
     for line in f:
         cols = line.strip().split('\\t')
         if len(cols) >= 15:
+            qseqid = cols[0]
+            if qseqid in seen:
+                continue
+            seen.add(qseqid)
             hits += 1
             identities.append(float(cols[2]))  # pident
             coverages.append(float(cols[14]) / 100.0)  # qcovs (convert % to fraction)
@@ -160,11 +178,19 @@ with open("${prefix}.blast_stats.json", "w") as out:
 print(f"BLAST validation: {hits}/{total_reads} hits ({hit_rate*100:.1f}%), avg identity {avg_identity:.1f}%, status: {status}", file=sys.stderr)
 EOF
 
+    # versions.yml: each value MUST be a single line. seqtk writes its
+    # help (Version: 1.4-rNNN ...) to stderr; on some builds the help
+    # mentions "Version:" more than once, so grep -oE returned a multi-
+    # line scalar that broke the YAML parser at the next module's
+    # `python:` key (the embedded newline pushed the python line to an
+    # over-indented position relative to the mapping). ``head -n1``
+    # constrains the substitution to the first match; ``tr -d '\\n'``
+    # is belt-and-braces against any trailing whitespace from sed.
     cat <<-END_VERSIONS > versions.yml
 "${task.process}":
-    blastn: \$(blastn -version 2>&1 | head -1 | sed 's/blastn: //')
-    seqtk: \$(seqtk 2>&1 | grep -oE 'Version: [0-9.]+' | sed 's/Version: //' || echo "1.4")
-    python: \$(python3 --version | sed 's/Python //')
+    blastn: \$(blastn -version 2>&1 | head -n1 | sed 's/blastn: //' | tr -d '\\n')
+    seqtk: \$(seqtk 2>&1 | grep -oE 'Version: [0-9.]+' | head -n1 | sed 's/Version: //' | tr -d '\\n' || echo "1.4")
+    python: \$(python3 --version 2>&1 | head -n1 | sed 's/Python //' | tr -d '\\n')
 END_VERSIONS
     """
 
@@ -191,7 +217,7 @@ EOF
 
     cat <<-END_VERSIONS > versions.yml
 "${task.process}":
-    blastn: 2.15.0
+    blastn: 2.16.0
     seqtk: 1.4
     python: 3.11.0
 END_VERSIONS

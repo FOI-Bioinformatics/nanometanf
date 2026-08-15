@@ -1,0 +1,14 @@
+{
+    "Should emit canonical assembly stub outputs": {
+        "content": [
+            [
+                "versions.yml:md5,a77ede12faf1f0f3c1dc67413d29fe22"
+            ]
+        ],
+        "timestamp": "2026-04-26T22:39:17.544404",
+        "meta": {
+            "nf-test": "0.9.4",
+            "nextflow": "25.04.7"
+        }
+    }
+}

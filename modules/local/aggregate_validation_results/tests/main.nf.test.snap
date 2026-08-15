@@ -1,0 +1,14 @@
+{
+    "Should emit aggregated validation stub outputs": {
+        "content": [
+            [
+                "versions.yml:md5,553a98e286cef4799c8e3862d5ab6bbd"
+            ]
+        ],
+        "timestamp": "2026-04-26T22:42:44.561198",
+        "meta": {
+            "nf-test": "0.9.4",
+            "nextflow": "25.04.7"
+        }
+    }
+}

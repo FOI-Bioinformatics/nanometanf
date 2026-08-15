@@ -1,14 +1,27 @@
-# Output API Documentation
+# Output API documentation
 
-Integration guide for consuming nanometanf outputs programmatically, specifically designed for Nanometa Live frontend integration.
+Integration guide for consuming nanometanf outputs programmatically,
+designed primarily for the Nanometa Live front end.
 
 ## Overview
 
-nanometanf produces structured outputs in standardized formats suitable for real-time monitoring, visualization, and downstream analysis. This document describes the output file structure, JSON schemas, and integration patterns.
+nanometanf produces structured outputs in standardised formats
+suitable for real-time monitoring, visualisation, and downstream
+analysis. This document describes the output directory structure,
+the JSON schemas of the machine-readable artefacts, and integration
+patterns.
+
+The Kraken2 output layout is the v1.5+ streaming structure -- each
+sample writes to its own directory with `batches/`, `batch_reports/`,
+`index.json`, and `taxid_counts.json`. Cumulative
+`{sample_id}.cumulative.kraken2.{output,report}.txt` files are
+rebuilt at end of session for downstream tools that consume a single
+file. See [`CLAUDE.md`](../../CLAUDE.md) for the architectural
+rationale.
 
 ---
 
-## Output Directory Structure
+## Output directory structure
 
 ```
 results/
@@ -40,23 +53,47 @@ results/
 │           ├── multiqc_data.json    # Machine-readable summary (JSON)
 │           └── multiqc_sources.txt  # Data provenance
 │
-├── taxonomy/                    # Taxonomic classification (if Kraken2 enabled)
-│   ├── {sample_id}.kraken2.txt     # Raw Kraken2 output
-│   ├── {sample_id}.kraken2_report.txt # Kraken2 report format
-│   └── krona/
-│       └── {sample_id}_krona.html  # Interactive Krona chart
+├── kraken2/                     # Taxonomic classification (if Kraken2 enabled)
+│   ├── {sample_id}/                # Per-sample directory (v1.5+ streaming layout)
+│   │   ├── batches/
+│   │   │   ├── batch_0.kraken2.output.txt
+│   │   │   ├── batch_1.kraken2.output.txt
+│   │   │   └── ...
+│   │   ├── batch_reports/
+│   │   │   ├── batch_0.kraken2.report.txt
+│   │   │   └── ...
+│   │   ├── index.json              # Atomic batch manifest
+│   │   ├── taxid_counts.json       # Incremental per-taxid state
+│   │   └── stats/
+│   │       ├── merge_stats.json
+│   │       └── report_stats.json
+│   ├── {sample_id}.cumulative.kraken2.output.txt   # End-of-session aggregation
+│   └── {sample_id}.cumulative.kraken2.report.txt   # Updated per-batch for dashboards
+│
+├── krona/
+│   └── {sample_id}_krona.html       # Interactive Krona chart (when enabled)
+│
+├── taxpasta/                       # Standardised taxonomy tables
+│   └── *.tsv
 │
 ├── validation/                  # BLAST validation (if enabled)
 │   └── {sample_id}_blast.txt       # BLAST results
+│
+├── canonical/                   # Tool-agnostic canonical outputs (if --write_canonical true)
+│   ├── classification/
+│   │   └── {sample_id}.classification.tsv
+│   ├── qc/
+│   │   └── {sample_id}.qc.tsv
+│   ├── validation/
+│   │   └── {sample_id}.validation.tsv
+│   ├── assembly/
+│   │   └── {sample_id}.assembly.tsv
+│   └── _manifest.json             # Output index
 │
 └── realtime/                    # Real-time monitoring outputs (if enabled)
     ├── batch_stats/
     │   ├── batch_{timestamp}.json   # Per-batch processing statistics
     │   └── cumulative_stats.json    # Cumulative statistics
-    │
-    ├── resource_metrics/
-    │   ├── resource_predictions.json # Dynamic resource predictions
-    │   └── system_metrics.json       # System resource usage
     │
     └── monitoring/
         ├── file_discovery.log       # File detection log

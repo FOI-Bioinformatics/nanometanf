@@ -1,6 +1,6 @@
 nextflow_workflow {
 
-    name "Test VALIDATION"
+    name "Test VALIDATION subworkflow"
     script "../main.nf"
     workflow "VALIDATION"
 
@@ -9,353 +9,382 @@ nextflow_workflow {
     tag "validation"
 
     // Feature Area
-    tag "validation"
+    tag "regression"
 
     // Execution Speed & Criticality
-    tag "slow"
+    tag "fast"
     tag "core"
+    tag "stub"
 
-    test("Should perform basic BLAST sequence validation") {
+    // Regression cover for the June 4 2026 batch-mode crash: in batch mode
+    // ``meta`` carries no ``batch_id``, so the realtime cumulative aggregators
+    // (MINIMAP2_/BLAST_CUMULATIVE_AGGREGATOR) are skipped. The version mixes
+    // previously used ``.first().ifEmpty([])``, so a skipped aggregator
+    // injected an empty list ``[]`` into the emitted ``versions`` channel. At
+    // the pipeline level the nf-core ``softwareVersionsToYAML`` helper then
+    // called ``Yaml.load([])`` and aborted the run with MethodSelectionException.
+    // The fix drops ``.ifEmpty([])`` (an empty channel contributes nothing), so
+    // ``versions`` must contain only real files and never an empty list.
 
-        setup {
-            """
-            # Create test FASTA query file
-            cat > $outputDir/query_sequences.fasta << 'EOF'
->test_sequence_1
-ATGCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGAT
->test_sequence_2
-ATGCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGAT
-EOF
-            """
-        }
+    // Nanometa Live writes two similarly named JSON files under ~/.nanometa:
+    // genome_metadata.json, whose values are per-genome objects, and
+    // pathogen_genomes.json, whose values are bare path strings. Only the
+    // latter is a valid --pathogen_genomes input. Passing the former reached
+    // .startsWith() with a LazyMap and failed as "Unknown method invocation
+    // `startsWith` on LazyMap type" at main.nf:80 -- an error naming neither
+    // the offending file nor the actual problem. Found 2026-07-28 by making
+    // exactly that mistake on a real run.
+
+    // ch_sample_data joins classified reads to per-read assignments with
+    // `remainder: true`, which emits keys present in only one channel and fills
+    // the missing side with null. Validation needs both, so a half-populated
+    // entry is not a task -- it is a null that reaches path(reads) in
+    // EXTRACT_READS_BY_TAXID and aborts the run with
+    //
+    //     ProcessUnrecoverableException: Path value cannot be null
+    //
+    // against a task with work-dir=null, i.e. one that was never created. The
+    // message names neither the sample nor the cause, and because the task has
+    // no context Nextflow then fails to resolve the dynamic errorStrategy and
+    // reports "Execution aborted due to an unexpected error" with a 20-frame
+    // Java stack trace on top.
+    //
+    // Observed 2026-07-29 on real data: save_output_fastqs defaults to false,
+    // so the classified-reads channel was empty while the assignments channel
+    // had entries. This feeds exactly that shape directly.
+
+    test("a sample with assignments but no classified reads is skipped, not fatal") {
+
+        options "-stub"
 
         when {
             workflow {
                 """
-                input[0] = [
-                    [
-                        [id: 'validation_test', single_end: true],
-                        file('$outputDir/query_sequences.fasta')
-                    ]
-                ]
-                input[1] = file('$projectDir/tests/fixtures/blast_db/test_db')
+                // Empty: the shape produced when save_output_fastqs is off.
+                input[0] = Channel.empty()
+                input[1] = Channel.of([ [id: 'val_batch', single_end: true],
+                             file('${projectDir}/tests/fixtures/validation/test_kraken_output.txt') ])
+                input[2] = Channel.of([ [id: 'val_batch', single_end: true],
+                             file('${projectDir}/tests/fixtures/reports/classification/kraken2_report.txt') ])
+                input[3] = file('${projectDir}/tests/fixtures/validation/test_genomes.json')
+                input[4] = 'all'
+                input[5] = 'minimap2'
+                input[6] = 1
                 """
             }
 
             params {
                 max_cpus = 2
                 max_memory = '4.GB'
-                max_time = '2.min'
+                max_time = '5.min'
             }
         }
 
         then {
-            assert workflow.success
-            assert snapshot(workflow.out.versions).match()
-            assert workflow.out.txt
-            assert workflow.out.versions
+            assert workflow.success :
+                "a sample missing one of the two Kraken2 outputs aborted the run " +
+                "instead of being skipped"
 
-            // Verify BLAST validation output
-            def blast_results = workflow.out.txt.toList()
-            assert blast_results.size() >= 1
-
-            // Check versions output
-            def versions = workflow.out.versions.toList()
-            assert versions.size() >= 1
+            def message = (workflow.errorReport ?: '') + '\n' +
+                          (workflow.stdout?.join('\n') ?: '')
+            assert !message.contains('Path value cannot be null') :
+                "the null-path abort is back: ${message.take(400)}"
         }
     }
 
-    test("Should handle multiple query sequences") {
+    test("a genome JSON of the wrong shape fails with an actionable message") {
 
-        setup {
-            """
-            # Create multiple query sequences
-            cat > $outputDir/multiple_queries.fasta << 'EOF'
->query_sequence_1
-ATGCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGAT
->query_sequence_2
-CGCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATG
->query_sequence_3
-GCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCG
->query_sequence_4
-TCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGA
-EOF
-            """
-        }
+        options "-stub"
 
         when {
             workflow {
                 """
-                input[0] = [
-                    [
-                        [id: 'multi_query_test', single_end: true],
-                        file('$outputDir/multiple_queries.fasta')
-                    ]
-                ]
-                input[1] = file('$projectDir/tests/fixtures/blast_db/test_db')
+                input[0] = Channel.of([ [id: 'val_batch', single_end: true],
+                             file('${projectDir}/tests/fixtures/fastq/test_sample.fastq.gz') ])
+                input[1] = Channel.of([ [id: 'val_batch', single_end: true],
+                             file('${projectDir}/tests/fixtures/validation/test_kraken_output.txt') ])
+                input[2] = Channel.of([ [id: 'val_batch', single_end: true],
+                             file('${projectDir}/tests/fixtures/reports/classification/kraken2_report.txt') ])
+                input[3] = file('${projectDir}/tests/fixtures/validation/test_genomes_metadata_shape.json')
+                input[4] = 'all'
+                input[5] = 'minimap2'
+                input[6] = 1
                 """
             }
 
             params {
                 max_cpus = 2
                 max_memory = '4.GB'
-                max_time = '3.min'
+                max_time = '5.min'
             }
         }
 
         then {
-            assert workflow.success
-            assert snapshot(workflow.out.versions).match()
-            assert workflow.out.txt
+            assert workflow.failed : "a genome JSON with object values was accepted"
 
-            // Verify processing of multiple sequences
-            def blast_results = workflow.out.txt.toList()
-            assert blast_results.size() >= 1
+            def message = (workflow.errorReport ?: '') + (workflow.stdout ?: []).join('\n')
+
+            // Names the file it was given, and the file to use instead.
+            assert message.contains('--pathogen_genomes') :
+                "the error does not name the offending parameter: ${message.take(400)}"
+            assert message.contains('pathogen_genomes.json') :
+                "the error does not name the file the operator should use instead: ${message.take(400)}"
+
+            // The regression: the raw Groovy failure named neither. Mentioning
+            // the LazyMap type is fine and useful -- being ONLY that is not.
+            assert !message.contains('Unknown method invocation') :
+                "still failing with the raw Groovy type error: ${message.take(400)}"
         }
     }
 
-    test("Should process batch validation for multiple samples") {
+    test("batch-mode minimap2 validation emits no empty-list versions entry") {
 
-        setup {
-            """
-            # Create multiple sample FASTA files
-            cat > $outputDir/sample1_queries.fasta << 'EOF'
->sample1_seq1
-ATGCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGAT
->sample1_seq2
-CGCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATG
-EOF
-
-            cat > $outputDir/sample2_queries.fasta << 'EOF'
->sample2_seq1
-GCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCG
->sample2_seq2
-TCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGA
-EOF
-
-            cat > $outputDir/sample3_queries.fasta << 'EOF'
->sample3_seq1
-GATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATC
-EOF
-
-            """
-        }
+        options "-stub"
 
         when {
             workflow {
                 """
-                input[0] = [
-                    [
-                        [id: 'batch_sample1', single_end: true],
-                        file('$outputDir/sample1_queries.fasta')
-                    ],
-                    [
-                        [id: 'batch_sample2', single_end: true],
-                        file('$outputDir/sample2_queries.fasta')
-                    ],
-                    [
-                        [id: 'batch_sample3', single_end: true],
-                        file('$outputDir/sample3_queries.fasta')
-                    ]
-                ]
-                input[1] = file('$projectDir/tests/fixtures/blast_db/test_db')
+                // meta WITHOUT batch_id => batch mode => cumulative aggregator skipped
+                input[0] = Channel.of([ [id: 'val_batch', single_end: true],
+                             file('${projectDir}/tests/fixtures/fastq/test_sample.fastq.gz') ])
+                input[1] = Channel.of([ [id: 'val_batch', single_end: true],
+                             file('${projectDir}/tests/fixtures/validation/test_kraken_output.txt') ])
+                input[2] = Channel.of([ [id: 'val_batch', single_end: true],
+                             file('${projectDir}/tests/fixtures/reports/classification/kraken2_report.txt') ])
+                input[3] = file('${projectDir}/tests/fixtures/validation/test_genomes.json')
+                input[4] = 'all'
+                input[5] = 'minimap2'
+                input[6] = 1
                 """
             }
 
             params {
                 max_cpus = 2
                 max_memory = '4.GB'
-                max_time = '4.min'
+                max_time = '5.min'
             }
         }
 
         then {
             assert workflow.success
-            assert snapshot(workflow.out.versions).match()
-            assert workflow.out.txt
-
-            // Verify batch processing
-            def blast_results = workflow.out.txt.toList()
-            assert blast_results.size() >= 3
+            // The regression: no emitted versions item may be an empty list.
+            assert !workflow.out.versions.any { it instanceof List && it.isEmpty() }
+            // And real version files must still be collected.
+            assert workflow.out.versions.size() > 0
         }
     }
 
-    test("Should handle different BLAST output formats") {
+    test("batch-mode blast validation emits no empty-list versions entry") {
 
-        setup {
-            """
-            # Create query with diverse sequences
-            cat > $outputDir/format_queries.fasta << 'EOF'
->format_test_sequence
-ATGCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGAT
-EOF
-
-            """
-        }
+        options "-stub"
 
         when {
             workflow {
                 """
-                input[0] = [
-                    [
-                        [id: 'format_test', single_end: true],
-                        file('$outputDir/format_queries.fasta')
-                    ]
-                ]
-                input[1] = file('$projectDir/tests/fixtures/blast_db/test_db')
+                input[0] = Channel.of([ [id: 'val_batch', single_end: true],
+                             file('${projectDir}/tests/fixtures/fastq/test_sample.fastq.gz') ])
+                input[1] = Channel.of([ [id: 'val_batch', single_end: true],
+                             file('${projectDir}/tests/fixtures/validation/test_kraken_output.txt') ])
+                input[2] = Channel.of([ [id: 'val_batch', single_end: true],
+                             file('${projectDir}/tests/fixtures/reports/classification/kraken2_report.txt') ])
+                input[3] = file('${projectDir}/tests/fixtures/validation/test_genomes.json')
+                input[4] = 'all'
+                input[5] = 'blast'
+                input[6] = 1
                 """
             }
 
             params {
-                blast_outfmt = 6  // Tabular format
-                blast_evalue = 1e-5
-                blast_max_target_seqs = 50
                 max_cpus = 2
                 max_memory = '4.GB'
-                max_time = '2.min'
+                max_time = '5.min'
             }
         }
 
         then {
             assert workflow.success
-            assert snapshot(workflow.out.versions).match()
-            assert workflow.out.txt
-
-            // Verify format-specific output
-            def blast_results = workflow.out.txt.toList()
-            assert blast_results.size() >= 1
+            assert !workflow.out.versions.any { it instanceof List && it.isEmpty() }
+            assert workflow.out.versions.size() > 0
         }
     }
 
-    test("Should validate sequences with stringent parameters") {
+    // Realtime mode rebuilds validation_results.json each batch from the
+    // per-(sample, taxid) cumulative stats instead of deferring a single
+    // .collect()-gated aggregation to the end of the watchPath stream. With
+    // meta.batch_id set the cumulative aggregators run and feed
+    // AGGREGATE_VALIDATION_LIVE, so the JSON must be emitted during the run.
+    test("realtime-mode validation emits validation_results.json from cumulative stats") {
 
-        setup {
-            """
-            # Create high-quality query sequences
-            cat > $outputDir/stringent_queries.fasta << 'EOF'
->high_quality_sequence
-ATGCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGAT
-EOF
-
-            """
-        }
+        options "-stub"
 
         when {
             workflow {
                 """
-                input[0] = [
-                    [
-                        [id: 'stringent_test', single_end: true],
-                        file('$outputDir/stringent_queries.fasta')
-                    ]
-                ]
-                input[1] = file('$projectDir/tests/fixtures/blast_db/test_db')
+                // meta WITH batch_id => realtime mode => live aggregation path
+                input[0] = Channel.of([ [id: 'val_rt', single_end: true, batch_id: 'batch_0'],
+                             file('${projectDir}/tests/fixtures/fastq/test_sample.fastq.gz') ])
+                input[1] = Channel.of([ [id: 'val_rt', single_end: true, batch_id: 'batch_0'],
+                             file('${projectDir}/tests/fixtures/validation/test_kraken_output.txt') ])
+                input[2] = Channel.of([ [id: 'val_rt', single_end: true, batch_id: 'batch_0'],
+                             file('${projectDir}/tests/fixtures/reports/classification/kraken2_report.txt') ])
+                input[3] = file('${projectDir}/tests/fixtures/validation/test_genomes.json')
+                input[4] = 'all'
+                input[5] = 'both'
+                input[6] = 1
                 """
             }
 
             params {
-                blast_evalue = 1e-10       // Very stringent e-value
-                blast_word_size = 28       // Larger word size
-                blast_gapopen = 5          // Gap penalties
-                blast_gapextend = 2
-                blast_max_target_seqs = 10 // Fewer targets
+                realtime_mode = true
                 max_cpus = 2
                 max_memory = '4.GB'
-                max_time = '2.min'
+                max_time = '5.min'
             }
         }
 
         then {
             assert workflow.success
-            assert snapshot(workflow.out.versions).match()
-            assert workflow.out.txt
-
-            // Verify stringent validation
-            def blast_results = workflow.out.txt.toList()
-            assert blast_results.size() >= 1
+            // The realtime fix: the JSON is produced via the live path, not the
+            // end-of-run .collect() barrier.
+            assert workflow.out.validation_json
+            assert workflow.out.validation_json.size() > 0
+            assert !workflow.out.versions.any { it instanceof List && it.isEmpty() }
         }
     }
 
-    test("Should handle empty query input gracefully") {
+    // The realtime species-name fix routes per-batch Kraken2 reports into
+    // validation; the live snapshot keys reports by id|batch_id with an explicit
+    // null check so batch_id 0 (the first batch, a Groovy-falsy value) is not
+    // mistaken for the no-batch_id cumulative report. This case uses an integer
+    // batch_id 0 throughout and asserts the run still produces the JSON.
+    test("realtime-mode validation handles integer batch_id 0") {
+
+        options "-stub"
 
         when {
             workflow {
                 """
-                input[0] = []
-                input[1] = file('$projectDir/tests/fixtures')  // Use any existing directory
+                input[0] = Channel.of([ [id: 'val_rt', single_end: true, batch_id: 0],
+                             file('${projectDir}/tests/fixtures/fastq/test_sample.fastq.gz') ])
+                input[1] = Channel.of([ [id: 'val_rt', single_end: true, batch_id: 0],
+                             file('${projectDir}/tests/fixtures/validation/test_kraken_output.txt') ])
+                input[2] = Channel.of([ [id: 'val_rt', single_end: true, batch_id: 0],
+                             file('${projectDir}/tests/fixtures/reports/classification/kraken2_report.txt') ])
+                input[3] = file('${projectDir}/tests/fixtures/validation/test_genomes.json')
+                input[4] = 'all'
+                input[5] = 'both'
+                input[6] = 1
                 """
             }
 
             params {
-                max_cpus = 1
-                max_memory = '2.GB'
-                max_time = '1.min'
-            }
-        }
-
-        then {
-            // Should handle empty input gracefully
-            assert workflow.success
-            assert snapshot(workflow.out.versions).match()
-
-            if (workflow.success) {
-                // Empty outputs expected
-                if (workflow.out.txt) {
-                    def blast_results = workflow.out.txt.toList()
-                    assert blast_results.size() == 0
-                }
-            }
-        }
-    }
-
-    test("Should validate with custom BLAST parameters") {
-
-        setup {
-            """
-            # Create diverse query sequences for custom parameter testing
-            cat > $outputDir/custom_queries.fasta << 'EOF'
->custom_sequence_1
-ATGCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGAT
->custom_sequence_2
-CGCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATG
-EOF
-
-            """
-        }
-
-        when {
-            workflow {
-                """
-                input[0] = [
-                    [
-                        [id: 'custom_test', single_end: true],
-                        file('$outputDir/custom_queries.fasta')
-                    ]
-                ]
-                input[1] = file('$projectDir/tests/fixtures/blast_db/test_db')
-                """
-            }
-
-            params {
-                blast_outfmt = "6 qseqid sseqid pident length mismatch gapopen qstart qend sstart send evalue bitscore"
-                blast_task = "blastn"
-                blast_dust = "yes"
-                blast_penalty = -3
-                blast_reward = 2
+                realtime_mode = true
                 max_cpus = 2
                 max_memory = '4.GB'
-                max_time = '2.min'
+                max_time = '5.min'
             }
         }
 
         then {
             assert workflow.success
-            assert snapshot(workflow.out.versions).match()
-            assert workflow.out.txt
+            assert workflow.out.validation_json
+            assert workflow.out.validation_json.size() > 0
+        }
+    }
 
-            // Verify custom parameter processing
-            def blast_results = workflow.out.txt.toList()
-            assert blast_results.size() >= 1
+    // Deadlock reproducer (issue #29). In realtime mode each (sample, taxid) key
+    // recurs once per batch, so the validation fan-out joins -- keyed on
+    // (id, taxid) with no batch dimension -- see DUPLICATE keys across batches.
+    // A live run with several batches and multiple taxids wedged with ~1300
+    // tasks pending and 0 running. This case emits 3 batches for one sample
+    // against 2 taxids (562, 28901) so each (id, taxid) key appears 3x. If the
+    // subworkflow drains and emits the JSON the topology is sound; if it hangs
+    // it fails on max_time, pinning the deadlock.
+    test("realtime-mode multi-batch validation drains with repeated (sample,taxid) keys") {
+
+        options "-stub"
+
+        when {
+            workflow {
+                """
+                def reads  = file('${projectDir}/tests/fixtures/fastq/test_sample.fastq.gz')
+                def kraken = file('${projectDir}/tests/fixtures/validation/test_kraken_output.txt')
+                def report = file('${projectDir}/tests/fixtures/reports/classification/kraken2_report.txt')
+                input[0] = Channel.of(
+                    [ [id: 'val_rt', single_end: true, batch_id: 0], reads ],
+                    [ [id: 'val_rt', single_end: true, batch_id: 1], reads ],
+                    [ [id: 'val_rt', single_end: true, batch_id: 2], reads ] )
+                input[1] = Channel.of(
+                    [ [id: 'val_rt', single_end: true, batch_id: 0], kraken ],
+                    [ [id: 'val_rt', single_end: true, batch_id: 1], kraken ],
+                    [ [id: 'val_rt', single_end: true, batch_id: 2], kraken ] )
+                // Per-batch reports must have UNIQUE basenames, exactly as the
+                // real KRAKEN2_REPORT_GENERATOR emits (id_batchN.kraken2.report.txt);
+                // reusing one name triggers an unrelated staging collision.
+                input[2] = Channel.of(
+                    [ [id: 'val_rt', single_end: true, batch_id: 0], file('${projectDir}/tests/fixtures/validation/multibatch/val_rt_batch0.kraken2.report.txt') ],
+                    [ [id: 'val_rt', single_end: true, batch_id: 1], file('${projectDir}/tests/fixtures/validation/multibatch/val_rt_batch1.kraken2.report.txt') ],
+                    [ [id: 'val_rt', single_end: true, batch_id: 2], file('${projectDir}/tests/fixtures/validation/multibatch/val_rt_batch2.kraken2.report.txt') ] )
+                input[3] = file('${projectDir}/tests/fixtures/validation/test_genomes.json')
+                input[4] = 'all'
+                input[5] = 'both'
+                input[6] = 1
+                """
+            }
+
+            params {
+                realtime_mode = true
+                max_cpus = 2
+                max_memory = '4.GB'
+                max_time = '5.min'
+            }
+        }
+
+        then {
+            assert workflow.success
+            assert workflow.out.validation_json
+            assert workflow.out.validation_json.size() > 0
+        }
+    }
+
+    // Pre-extraction gate (issue #6). With a read floor above every taxid's
+    // per-batch count, no (sample, taxid) pair passes the gate, so
+    // EXTRACT_READS_BY_TAXID and the downstream validators are never scheduled.
+    // The fixture classifies 8 reads to taxid 562 and 0 to 28901; a floor of 50
+    // filters both. The run must still drain cleanly (the all-filtered path
+    // leaves the extraction channel empty without deadlocking), proving the gate
+    // removes the per-batch x per-taxid task explosion rather than just masking it.
+    test("pre-extraction gate skips taxids below min_batch_reads_for_validation") {
+
+        options "-stub"
+
+        when {
+            workflow {
+                """
+                input[0] = Channel.of([ [id: 'val_batch', single_end: true],
+                             file('${projectDir}/tests/fixtures/fastq/test_sample.fastq.gz') ])
+                input[1] = Channel.of([ [id: 'val_batch', single_end: true],
+                             file('${projectDir}/tests/fixtures/validation/test_kraken_output.txt') ])
+                input[2] = Channel.of([ [id: 'val_batch', single_end: true],
+                             file('${projectDir}/tests/fixtures/reports/classification/kraken2_report.txt') ])
+                input[3] = file('${projectDir}/tests/fixtures/validation/test_genomes.json')
+                input[4] = 'all'
+                input[5] = 'both'
+                input[6] = 50
+                """
+            }
+
+            params {
+                max_cpus = 2
+                max_memory = '4.GB'
+                max_time = '5.min'
+            }
+        }
+
+        then {
+            // The gate filtered every pair: the run drains without scheduling
+            // any extraction or validation, and does not hang or error.
+            assert workflow.success
         }
     }
 }

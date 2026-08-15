@@ -21,7 +21,7 @@ process KRAKEN2_OPTIMIZED {
     tuple val(meta), path('*.unclassified{.,_}*')   , optional:true, emit: unclassified_reads_fastq
     tuple val(meta), path('*classifiedreads.txt')   , optional:true, emit: classified_reads_assignment
     tuple val(meta), path('*report.txt')                           , emit: report
-    path  "${prefix}.kraken2.performance.json"                     , emit: performance_metrics
+    path  "*.kraken2.performance.json"                             , emit: performance_metrics
     path  "versions.yml"                                           , emit: versions
 
     when:
@@ -29,7 +29,7 @@ process KRAKEN2_OPTIMIZED {
 
     script:
     def args = task.ext.args ?: ''
-    prefix = task.ext.prefix ?: "${meta.id}"
+    def prefix = task.ext.prefix ?: "${meta.id}"
     def paired       = meta.single_end ? "" : "--paired"
     def classified   = meta.single_end ? "${prefix}.classified.fastq"   : "${prefix}.classified#.fastq"
     def unclassified = meta.single_end ? "${prefix}.unclassified.fastq" : "${prefix}.unclassified#.fastq"
@@ -38,8 +38,12 @@ process KRAKEN2_OPTIMIZED {
     def readclassification_option = save_reads_assignment ? "--output ${prefix}.kraken2.classifiedreads.txt" : "--output /dev/null"
     def compress_reads_command = save_output_fastqs ? "pigz -p $task.cpus *.fastq" : ""
 
-    // Kraken2 optimization flags
-    def memory_mapping = use_memory_mapping ? "--memory-mapping" : ""
+    // Kraken2 optimization flags. --memory-mapping is dropped on retry:
+    // mmap'd hash.k2d pages return invalid data on some shared filesystems
+    // (NFS, GlusterFS, CIFS) and trigger SIGSEGV (exit 139). modules.config
+    // sets errorStrategy + maxRetries so the retry without --memory-mapping
+    // kicks in automatically.
+    def memory_mapping = (use_memory_mapping && task.attempt == 1) ? "--memory-mapping" : ""
     def confidence = confidence_threshold > 0 ? "--confidence ${confidence_threshold}" : ""
     def min_hit_groups = minimum_hit_groups > 0 ? "--minimum-hit-groups ${minimum_hit_groups}" : ""
 
@@ -91,9 +95,9 @@ process KRAKEN2_OPTIMIZED {
     DURATION=\$((END_TIME - START_TIME))
 
     # Extract classification statistics from report
-    TOTAL_SEQS=\$(awk '{total+=\$3} END {print total}' ${prefix}.kraken2.report.txt)
-    CLASSIFIED_SEQS=\$(awk '\$1!="U" {total+=\$3} END {print total}' ${prefix}.kraken2.report.txt)
-    UNCLASSIFIED_SEQS=\$(awk '\$1=="U" {print \$3}' ${prefix}.kraken2.report.txt)
+    TOTAL_SEQS=\$(awk '{total+=\$3} END {print total+0}' ${prefix}.kraken2.report.txt)
+    CLASSIFIED_SEQS=\$(awk '\$1!="U" {total+=\$3} END {print total+0}' ${prefix}.kraken2.report.txt)
+    UNCLASSIFIED_SEQS=\$(awk '\$1=="U" {print \$3; found=1} END {if(!found) print 0}' ${prefix}.kraken2.report.txt)
 
     # Calculate peak memory usage
     if [ -f mem_usage.tmp ]; then
@@ -115,10 +119,10 @@ process KRAKEN2_OPTIMIZED {
     "total_sequences": \$TOTAL_SEQS,
     "classified_sequences": \$CLASSIFIED_SEQS,
     "unclassified_sequences": \$UNCLASSIFIED_SEQS,
-    "classification_rate": \$(awk "BEGIN {printf \"%.2f\", (\$CLASSIFIED_SEQS / \$TOTAL_SEQS * 100)}")
+    "classification_rate": \$(awk "BEGIN {printf \"%.2f\", (\$TOTAL_SEQS > 0 ? \$CLASSIFIED_SEQS / \$TOTAL_SEQS * 100 : 0)}")
   },
   "performance_metrics": {
-    "sequences_per_second": \$(awk "BEGIN {printf \"%.2f\", (\$TOTAL_SEQS / \$DURATION)}"),
+    "sequences_per_second": \$(awk "BEGIN {printf \"%.2f\", (\$DURATION > 0 ? \$TOTAL_SEQS / \$DURATION : 0)}"),
     "peak_memory_mb": \$PEAK_MEM_MB,
     "threads_used": $task.cpus
   },
@@ -137,8 +141,8 @@ EOF
     echo "========================================" >&2
     echo "Sample: ${meta.id}" >&2
     echo "Duration: \${DURATION}s" >&2
-    echo "Classified: \$CLASSIFIED_SEQS / \$TOTAL_SEQS (\$(awk "BEGIN {printf \"%.1f\", (\$CLASSIFIED_SEQS / \$TOTAL_SEQS * 100)}")%)" >&2
-    echo "Speed: \$(awk "BEGIN {printf \"%.0f\", (\$TOTAL_SEQS / \$DURATION)}") seqs/sec" >&2
+    echo "Classified: \$CLASSIFIED_SEQS / \$TOTAL_SEQS (\$(awk "BEGIN {printf \"%.1f\", (\$TOTAL_SEQS > 0 ? \$CLASSIFIED_SEQS / \$TOTAL_SEQS * 100 : 0)}")%)" >&2
+    echo "Speed: \$(awk "BEGIN {printf \"%.0f\", (\$DURATION > 0 ? \$TOTAL_SEQS / \$DURATION : 0)}") seqs/sec" >&2
     echo "Peak memory: \${PEAK_MEM_MB} MB" >&2
     echo "========================================" >&2
 
@@ -151,7 +155,7 @@ END_VERSIONS
 
     stub:
     def args = task.ext.args ?: ''
-    prefix = task.ext.prefix ?: "${meta.id}"
+    def prefix = task.ext.prefix ?: "${meta.id}"
     def paired       = meta.single_end ? "" : "--paired"
     def classified   = meta.single_end ? "${prefix}.classified.fastq.gz"   : "${prefix}.classified_1.fastq.gz ${prefix}.classified_2.fastq.gz"
     def unclassified = meta.single_end ? "${prefix}.unclassified.fastq.gz" : "${prefix}.unclassified_1.fastq.gz ${prefix}.unclassified_2.fastq.gz"
@@ -168,9 +172,9 @@ END_VERSIONS
     fi
 
     cat <<-END_VERSIONS > versions.yml
-"${task.process}":
-    kraken2: \$(echo \$(kraken2 --version 2>&1) | sed 's/^.*Kraken version //; s/ .*\$//')
-    pigz: \$( pigz --version 2>&1 | sed 's/pigz //g' )
-END_VERSIONS
+    "${task.process}":
+        kraken2: 2.1.3
+        pigz: 2.8
+    END_VERSIONS
     """
 }

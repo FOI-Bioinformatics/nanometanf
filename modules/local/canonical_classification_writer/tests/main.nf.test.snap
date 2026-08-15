@@ -1,0 +1,14 @@
+{
+    "Should emit canonical classification stub outputs": {
+        "content": [
+            [
+                "versions.yml:md5,8d2d4d1b7b51299c7928f4c3dcd639cc"
+            ]
+        ],
+        "timestamp": "2026-04-26T22:39:41.754738",
+        "meta": {
+            "nf-test": "0.9.4",
+            "nextflow": "25.04.7"
+        }
+    }
+}

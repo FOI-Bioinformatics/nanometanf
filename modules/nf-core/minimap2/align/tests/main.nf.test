@@ -4,6 +4,7 @@ nextflow_process {
     script "../main.nf"
     process "MINIMAP2_ALIGN"
 
+    tag "fast"
     tag "modules"
     tag "modules_nfcore"
     tag "minimap2"
@@ -36,7 +37,7 @@ nextflow_process {
                 { assert snapshot(
                     bam(process.out.bam[0][1]).getHeader(),
                     bam(process.out.bam[0][1]).getReadsMD5(),
-                    process.out.versions
+                    process.out.findAll { key, val -> key.startsWith("versions_") }
                 ).match() }
             )
         }
@@ -71,7 +72,7 @@ nextflow_process {
                     bam(process.out.bam[0][1]).getHeader(),
                     bam(process.out.bam[0][1]).getReadsMD5(),
                     file(process.out.index[0][1]).name,
-                    process.out.versions
+                    process.out.findAll { key, val -> key.startsWith("versions_") }
                 ).match() }
             )
         }
@@ -108,7 +109,7 @@ nextflow_process {
                 { assert snapshot(
                     bam(process.out.bam[0][1]).getHeader(),
                     bam(process.out.bam[0][1]).getReadsMD5(),
-                    process.out.versions
+                    process.out.findAll { key, val -> key.startsWith("versions_") }
                 ).match() }
             )
         }
@@ -142,7 +143,7 @@ nextflow_process {
                 { assert snapshot(
                     bam(process.out.bam[0][1]).getHeader(),
                     bam(process.out.bam[0][1]).getReadsMD5(),
-                    process.out.versions
+                    process.out.findAll { key, val -> key.startsWith("versions_") }
                 ).match() }
             )
         }
@@ -176,7 +177,7 @@ nextflow_process {
                 { assert snapshot(
                     bam(process.out.bam[0][1]).getHeader(),
                     bam(process.out.bam[0][1]).getReadsMD5(),
-                    process.out.versions
+                    process.out.findAll { key, val -> key.startsWith("versions_") }
                 ).match() }
             )
         }
@@ -211,7 +212,7 @@ nextflow_process {
                     bam(process.out.bam[0][1]).getHeader(),
                     bam(process.out.bam[0][1]).getReadsMD5(),
                     file(process.out.index[0][1]).name,
-                    process.out.versions
+                    process.out.findAll { key, val -> key.startsWith("versions_") }
                 ).match() }
             )
         }
@@ -250,6 +251,7 @@ nextflow_process {
     test("sarscov2 - fastq, fasta, true, [], false, false - stub") {
 
         options "-stub"
+    tag "stub"
 
         when {
             process {

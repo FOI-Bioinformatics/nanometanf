@@ -1,0 +1,59 @@
+// Real (non-stub) classification against a functional mini Kraken2 database
+// (tests/fixtures/kraken2_real). Unlike the stub classification tests, this
+// asserts genuine classifier OUTPUT CONTENT -- a Kraken2 report with reads
+// actually classified to taxid 562 -- which stub mode cannot produce. QC is
+// skipped (skip_fastp + skip_nanoplot) so the only external tools needed are
+// kraken2 and taxpasta; raw reads flow straight into classification
+// (workflows/nanometanf.nf:310).
+nextflow_pipeline {
+
+    name "Real classification against a functional mini Kraken2 DB"
+    script "../main.nf"
+
+    tag "pipeline"
+    tag "integration"
+    tag "classification"
+    tag "fast"
+    tag "core"
+
+    test("batch run classifies reads and writes a populated Kraken2 report") {
+        when {
+            params {
+                input = false
+                barcode_input_dir = "$projectDir/tests/fixtures/kraken2_real/reads"
+                outdir = "$outputDir"
+                realtime_mode = false
+                classifier = 'kraken2'
+                kraken2_db = "$projectDir/tests/fixtures/kraken2_real/db"
+                // Skip QC so the run needs only kraken2 + taxpasta (no chopper):
+                // raw reads are passed straight to classification.
+                skip_fastp = true
+                skip_nanoplot = true
+                skip_multiqc = true
+                blast_validation = false
+                max_cpus = 2
+                max_memory = '4.GB'
+                max_time = '15.min'
+            }
+        }
+        then {
+            def err = (workflow.errorReport ?: '') + '\n' + (workflow.stdout?.join('\n') ?: '')
+            assert !err.contains('MethodSelectionException')
+            assert !err.contains('Could not find which method')
+            assert !err.contains('MissingMethodException')
+            assert !err.contains('Invalid method invocation `call`')
+            assert workflow.success
+            assert path("$outputDir/pipeline_info").list().any { it.toString().contains('software_') }
+
+            // A real Kraken2 report exists and contains real classification:
+            // taxid 562 (what the fixture DB assigns). Stub mode / an empty
+            // placeholder report would never contain 562.
+            def reports = []
+            new File("${outputDir}/kraken2").eachFileRecurse { f ->
+                if (f.name.endsWith('.kraken2.report.txt')) reports << f
+            }
+            assert reports.size() > 0 : "no Kraken2 report written under kraken2/"
+            assert reports.any { it.text.contains('562') } : "no report classified reads to taxid 562"
+        }
+    }
+}

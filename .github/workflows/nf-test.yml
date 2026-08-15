@@ -1,0 +1,302 @@
+name: nf-test
+
+on:
+  push:
+    branches:
+      - master
+      # `dev` is where this pipeline is actually developed (nf-core practice:
+      # master holds releases). Without it the suite ran on pushes to master
+      # and on pull requests only, and since neither happens during ordinary
+      # work, no nf-test job had run at all for weeks -- `gh run list` showed
+      # only the stale-issue closer.
+      #
+      # Three defects that shipped in that window were of exactly the kind
+      # this suite catches: validation silently produced nothing, a required
+      # parameter went unnamed, and a channel join manufactured a null path.
+      # A test suite that does not run is not a safety net.
+      - dev
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+# CI runs the current Nextflow release only. The manifest floor
+# (nextflow.config: nextflowVersion = '>=26.04.0') stays as the minimum
+# the pipeline is known to parse under -- the strict v2 grammar is the
+# default from 26 on, so no parser opt-in is needed -- but the floor
+# itself is no longer exercised here. That is a deliberate trade: the
+# shipped conda environment declares `nextflow >=26.04.0` and conda
+# resolves it to the newest build available at install time, so a field
+# machine runs something close to the release CI tests, not the floor.
+#
+# NXF_OFFLINE is intentionally NOT set: nf-schema (declared in
+# nextflow.config) must be downloaded before validateParameters() can
+# run, and the GitHub runner has no Nextflow plugin cache to satisfy
+# the offline mode.
+
+jobs:
+  test:
+    name: Run nf-test (shard ${{ matrix.shard }}/4)
+    runs-on: ubuntu-latest
+    # Hard cap the nf-test run so a stuck realtime / watchPath test
+    # cannot consume the default 6 h GitHub job budget. A shard is
+    # roughly 10 min of tests plus ~2 min of setup; 20 min is a
+    # generous ceiling.
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        # nf-test executes strictly sequentially, and the suite's cost is
+        # dominated by per-test fixed overhead rather than by any one slow
+        # test: profiling the 158 cases gave a median of 11 s, a mean of
+        # 15 s, and a *minimum* of 7.3 s -- every case is a full `nextflow
+        # run` (JVM start, config parse, plugin resolution, work-dir setup)
+        # before any pipeline logic executes. 74 of the 158 finish under
+        # 10 s, i.e. they are almost entirely that overhead, and only one
+        # test exceeds 60 s. So ~19 of the 40 min was startup cost, and
+        # making individual tests faster had little to give.
+        #
+        # Sharding four ways cuts wall clock to ~11 min at the same total
+        # runner minutes. Round-robin balances by test count, which is the
+        # right strategy here precisely because the duration distribution
+        # is flat. Verified locally that 1..4/4 partition the file list
+        # below exactly: 40 + 40 + 39 + 39 = 158 tests, and the union is
+        # identical to the unsharded run -- no test dropped, none doubled.
+        shard: [1, 2, 3, 4]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Nextflow
+        # Install directly from get.nextflow.io to avoid the
+        # nf-core/setup-nextflow@v2 Cloudflare 520 failures observed
+        # on this branch on 2026-05-28. NXF_VER is left unset so the
+        # installer picks the current stable release.
+        run: |
+          curl -fsSL get.nextflow.io | bash
+          sudo install -m 0755 nextflow /usr/local/bin/nextflow
+          nextflow -v
+
+      - name: Every test fixture must exist on a fresh clone
+        # Cheap, and it runs before the suite so the failure names the cause
+        # rather than surfacing as 20 "No such file or directory" errors.
+        run: python3 tests/lib/fixtures_are_tracked.py
+
+      - name: Install nf-test
+        uses: nf-core/setup-nf-test@v1
+        with:
+          version: "0.9.5"
+
+      - name: Run nf-test
+        # ``-profile test,docker`` so tests that exercise real CHOPPER /
+        # FASTP / FASTQC etc. resolve their containers instead of
+        # hitting ``exit 127`` for the missing host binary.
+        #
+        # All tests/realtime_*.nf.test cases are excluded explicitly
+        # because they exercise watchPath, which still leaks the
+        # FileAlterationMonitor thread on the GitHub runner and hangs
+        # the job past its timeout (the 26.04.0 fix claim in
+        # docs/upstream-issues/26-watchpath-cleanup-hang.md does not
+        # hold on this runner image). Realtime coverage stays in local
+        # development runs; the rest of the integration matrix runs in
+        # CI.
+        #
+        # The tests/lib/*.nf.test cases below are pure Groovy unit tests of
+        # the batch/interleave/detect helpers. They were excluded along with
+        # the realtime suite but touch no watchPath and need no container --
+        # verified locally at 20 tests in 72s -- so they were free coverage
+        # sitting unused.
+        run: |
+          nf-test test --profile test,docker \
+            --shard ${{ matrix.shard }}/4 --shard-strategy round-robin \
+            --tag fast --tag core --tag stub --tag integration \
+            tests/barcode_discovery.nf.test \
+            tests/batch_input_modes.nf.test \
+            tests/chopper_specific.nf.test \
+            tests/classification_real.nf.test \
+            tests/default.nf.test \
+            tests/failure_paths.nf.test \
+            tests/full_pipeline_stubmode.nf.test \
+            tests/ifempty_sentinel_regression.nf.test \
+            tests/input_scanner.nf.test \
+            tests/main_workflow.nf.test \
+            tests/multiplex_scaling.nf.test \
+            tests/nanoseq_test.nf.test \
+            tests/parameter_validation.nf.test \
+            tests/qc_tool_integration.nf.test \
+            tests/validation_assembly_stub_matrix.nf.test \
+            modules/local/aggregate_validation_results/tests/main.nf.test \
+            modules/local/blastn_validation/tests/main.nf.test \
+            modules/local/canonical_assembly_writer/tests/main.nf.test \
+            modules/local/canonical_classification_writer/tests/main.nf.test \
+            modules/local/canonical_qc_writer/tests/main.nf.test \
+            modules/local/canonical_validation_writer/tests/main.nf.test \
+            modules/local/emit_empty_kraken2_report/tests/main.nf.test \
+            modules/local/extract_reads_by_taxid/tests/main.nf.test \
+            modules/local/fastp_streaming/tests/main.nf.test \
+            modules/local/generate_realtime_report/tests/main.nf.test \
+            modules/local/generate_snapshot_stats/tests/main.nf.test \
+            modules/local/kraken2_db_preload/tests/main.nf.test \
+            modules/local/kraken2_final_aggregator/tests/main.nf.test \
+            modules/local/kraken2_incremental_classifier/tests/main.nf.test \
+            modules/local/kraken2_optimized/tests/main.nf.test \
+            modules/local/kraken2_output_merger/tests/main.nf.test \
+            modules/local/kraken2_report_generator/tests/main.nf.test \
+            modules/local/manifest_writer/tests/main.nf.test \
+            modules/local/manifest_writer/tests/failed_samples.nf.test \
+            modules/local/minimap2_validation/tests/main.nf.test \
+            modules/local/multiqc_nanopore_stats/tests/main.nf.test \
+            modules/local/nanoplot_compare/tests/main.nf.test \
+            modules/local/seqkit_merge_stats/tests/main.nf.test \
+            modules/local/update_cumulative_stats/tests/main.nf.test \
+            subworkflows/local/demultiplexing/tests/main.nf.test \
+            subworkflows/local/input_scanner/tests/main.nf.test \
+            subworkflows/local/qc_analysis/tests/main.nf.test \
+            subworkflows/local/realtime_statistics/tests/main.nf.test \
+            subworkflows/local/taxonomic_classification/tests/gui_filename_compatibility.nf.test \
+            subworkflows/local/taxonomic_classification/tests/main.nf.test \
+            subworkflows/local/utils_nfcore_nanometanf_pipeline/tests/main.nf.test \
+            subworkflows/local/validation/tests/main.nf.test \
+            tests/lib/batch_utils.nf.test \
+            tests/lib/batch_utils_taxid_counts.nf.test \
+            tests/lib/cross_batch_interleaver.nf.test \
+            tests/lib/input_detector.nf.test \
+            tests/lib/snapshot_accumulator.nf.test
+
+  singularity:
+    # Singularity/Apptainer is offered in nextflow.config and is the
+    # containerisation an air-gapped field machine would use, but nothing
+    # exercised it -- not the profile, and not the image-naming contract the
+    # offline bundle depends on.
+    #
+    # Two things are checked, and the second is the one that matters:
+    #
+    #   1. The profile renders and the pipeline runs under it in stub mode.
+    #
+    #   2. `apptainer pull` writes an image under the filename Nextflow's
+    #      SingularityCache expects. nanometa_live pre-pulls images into a
+    #      bundle using its own _singularity_cache_name(), which claims to
+    #      mirror SingularityCache.simpleName(). That claim is unit-tested
+    #      against our own implementation only -- if upstream ever changes
+    #      the convention, the unit test still passes and the field machine
+    #      silently re-pulls every image, which fails with no network.
+    #      Here the expected name is derived independently and compared to
+    #      what Nextflow actually produces.
+    name: Singularity profile and image cache naming
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Nextflow
+        # Unpinned: CI tests the current release only, matching the test job.
+        run: |
+          curl -fsSL get.nextflow.io | bash
+          sudo install -m 0755 nextflow /usr/local/bin/nextflow
+          nextflow -v
+
+      - name: Install Apptainer
+        uses: eWaterCycle/setup-apptainer@v2
+        with:
+          apptainer-version: 1.3.6
+
+      - name: Render the singularity profile
+        run: nextflow config -profile singularity > /dev/null
+
+      - name: Stub-run the pipeline under the singularity profile
+        run: |
+          cat > singularity-params.json <<'JSON'
+          {
+              "outdir": "results-singularity",
+              "skip_kraken2": true
+          }
+          JSON
+          nextflow run main.nf \
+            -profile singularity,test \
+            -stub \
+            -params-file singularity-params.json
+
+      - name: Nextflow caches a pulled image under the name we predict
+        run: |
+          set -euo pipefail
+          export NXF_SINGULARITY_CACHEDIR="$PWD/sing-cache"
+          mkdir -p "$NXF_SINGULARITY_CACHEDIR"
+
+          # A small image that is genuinely used by pipeline modules.
+          REF="quay.io/biocontainers/seqtk:1.4--he4a0461_2"
+
+          # Independent reimplementation of the convention, deliberately not
+          # importing nanometa_live: strip the scheme, replace ':' and '/'
+          # with '-', append .img. If this and Nextflow disagree, the offline
+          # bundle is broken regardless of what our unit test says.
+          EXPECTED="$(echo "$REF" | sed 's|.*://||; s|[:/]|-|g').img"
+          echo "expected cache filename: $EXPECTED"
+
+          cat > cachetest.nf <<'NF'
+          process USE_IMAGE {
+              container 'quay.io/biocontainers/seqtk:1.4--he4a0461_2'
+              script:
+              """
+              seqtk 2>&1 | head -1 || true
+              """
+          }
+          workflow { USE_IMAGE() }
+          NF
+
+          nextflow run cachetest.nf -profile singularity -ansi-log false || true
+
+          echo "cache contents:"
+          ls -la "$NXF_SINGULARITY_CACHEDIR"
+
+          if [ ! -e "$NXF_SINGULARITY_CACHEDIR/$EXPECTED" ]; then
+            echo
+            echo "Nextflow did not cache the image as '$EXPECTED'."
+            echo "nanometa_live pre-pulls bundle images under exactly this name"
+            echo "(BundleManager._singularity_cache_name). A mismatch means an"
+            echo "air-gapped field machine re-pulls every image and the run"
+            echo "fails with no network available."
+            exit 1
+          fi
+          echo "OK: Nextflow's cache filename matches the bundle convention."
+
+  profile-sanity:
+    # Stub-mode sanity check that each platform profile loads cleanly,
+    # the Kraken2 cpus/memory closures resolve, and resourceLimits stay
+    # within bounds. Catches config regressions before they reach users.
+    name: Profile config (${{ matrix.profile }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        profile:
+          - minion
+          - promethion_8
+          - promethion
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Nextflow
+        # Unpinned: CI tests the current release only, matching the test job.
+        run: |
+          curl -fsSL get.nextflow.io | bash
+          sudo install -m 0755 nextflow /usr/local/bin/nextflow
+          nextflow -v
+
+      - name: Render config for profile
+        run: nextflow config -profile ${{ matrix.profile }} > /dev/null
+
+      - name: Stub-run pipeline under profile
+        # Booleans go via -params-file rather than CLI flags so nf-schema
+        # 2.6+ sees the real boolean type rather than the string the CLI
+        # would coerce them to.
+        run: |
+          cat > sanity-params-${{ matrix.profile }}.json <<JSON
+          {
+              "outdir": "results-${{ matrix.profile }}",
+              "skip_kraken2": true
+          }
+          JSON
+          nextflow run main.nf \
+            -profile ${{ matrix.profile }},test \
+            -stub \
+            -params-file sanity-params-${{ matrix.profile }}.json

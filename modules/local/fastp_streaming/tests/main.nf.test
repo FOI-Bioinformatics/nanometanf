@@ -1,0 +1,49 @@
+nextflow_process {
+
+    name "Test Process FASTP_STREAMING"
+    script "../main.nf"
+    process "FASTP_STREAMING"
+
+    options "-stub"
+
+    tag "module"
+    tag "fastp_streaming"
+    tag "qc"
+    tag "realtime"
+    tag "stub"
+    tag "fast"
+
+    test("Should emit fastp streaming stub outputs for single-end input") {
+
+        setup {
+            file("${outputDir}").mkdirs()
+            file("${outputDir}/sample1.fastq.gz").text = ""
+            file("${outputDir}/adapters.fa").text = ""
+        }
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id: 'sample1', single_end: true ],
+                    [ file("${outputDir}/sample1.fastq.gz") ],
+                    file("${outputDir}/adapters.fa")
+                ]
+                input[1] = false
+                input[2] = false
+                input[3] = false
+                """
+            }
+        }
+
+        then {
+            assertAll(
+                { assert process.success },
+                { assert process.out.json },
+                { assert process.out.html },
+                { assert process.out.log },
+                { assert snapshot(process.out.versions).match() }
+            )
+        }
+    }
+}

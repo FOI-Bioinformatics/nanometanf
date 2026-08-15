@@ -1,6 +1,6 @@
 # Best Practices
 
-Production-tested recommendations for running nanometanf reliably and efficiently.
+Recommendations for running nanometanf reliably in production.
 
 ## Data Organization
 
@@ -63,14 +63,14 @@ project/
 
 ### Input Type Selection
 
-**Choose the right input mode**:
+**Pick the right input mode:**
 
 | Input Mode                | Use When                | Pros                     | Cons                        |
 | ------------------------- | ----------------------- | ------------------------ | --------------------------- |
-| `--input samplesheet.csv` | Standard FASTQ analysis | Fast, flexible           | Manual samplesheet          |
-| `--pod5_input_dir`        | Raw POD5 basecalling    | Full control over models | Slower (basecalling)        |
+| `--input samplesheet.csv` | Standard FASTQ analysis | Flexible                 | Manual samplesheet          |
+| `--pod5_input_dir`        | Raw POD5 basecalling    | Full control over models | Slower (basecalling step)   |
 | `--barcode_input_dir`     | Pre-demuxed folders     | Auto-discovery           | Requires standard structure |
-| `--realtime_mode`         | Live sequencing         | Real-time results        | Complex setup               |
+| `--realtime_mode`         | Live sequencing         | Live results             | More setup                  |
 
 **Example decision tree**:
 
@@ -193,14 +193,15 @@ nextflow clean -after <run-name> -f
 
 ### Kraken2 Database Selection
 
-**By use case**:
-| Use Case | Database | Size | Accuracy |
-|----------|----------|------|----------|
-| Bacteria ID | Standard-8 | 8GB | 95% |
-| Viral detection | Viral | 500MB | 99% (viruses) |
-| Metagenomics | PlusPF | 75GB | 99% |
-| Quick screening | MiniKraken | 8GB | 85% |
-| Custom species | Custom build | Varies | Optimal |
+**By use case** (accuracy figures are approximate, from upstream Kraken2 docs):
+
+| Use Case        | Database     | Size   | Indicative Accuracy |
+| --------------- | ------------ | ------ | ------------------- |
+| Bacteria ID     | Standard-8   | 8GB    | ~95%                |
+| Viral detection | Viral        | 500MB  | ~99% (viruses)      |
+| Metagenomics    | PlusPF       | 75GB   | ~99%                |
+| Quick screening | MiniKraken   | 8GB    | ~85%                |
+| Custom species  | Custom build | Varies | Depends on build    |
 
 **Downloading**:
 
@@ -234,11 +235,11 @@ nextflow run ... --kraken2_db /dev/shm/kraken2_db/
 ```bash
 # Pipeline version
 nextflow run foi-bioinformatics/nanometanf \
-    -r v1.0.0 \    # Specific release
+    -r 1.5.0 \    # Specific release
     ...
 
-# Container versions
--profile docker  # Uses pinned container versions
+# Container / conda env versions
+-profile conda  # Uses pinned conda env specs
 
 # Save full configuration
 nextflow run ... -with-trace -with-report
@@ -268,7 +269,6 @@ nextflow run ... -with-report report.html
 input: /data/samplesheet.csv
 outdir: /results
 kraken2_db: /databases/kraken2
-optimization_profile: balanced
 enable_dynamic_resources: true
 ```
 
@@ -305,15 +305,14 @@ fi
 
 # Run pipeline
 nextflow run foi-bioinformatics/nanometanf \
-    -r v1.0.0 \
+    -r 1.5.0 \
     --input "$SAMPLESHEET" \
     --outdir "$OUTDIR" \
     --kraken2_db "$DB_PATH" \
     \
     --enable_dynamic_resources \
-    --optimization_profile balanced \
     \
-    -profile docker \
+    -profile conda \
     -w "$WORK_DIR" \
     \
     -with-report "$OUTDIR/report.html" \
@@ -480,10 +479,10 @@ nextflow run ... -profile test,docker -stub
 nextflow run ... -profile test,docker
 
 # 3. Representative sample (30 minutes)
-nextflow run ... --input test_samples.csv -profile docker
+nextflow run ... --input test_samples.csv -profile conda
 
 # 4. Full production run
-nextflow run ... --input production_samples.csv -profile docker
+nextflow run ... --input production_samples.csv -profile conda
 ```
 
 ### Continuous Validation
@@ -526,7 +525,7 @@ results/
 Project: [Project Name]
 Date: [YYYY-MM-DD]
 Operator: [Name]
-Pipeline Version: v1.0.0
+Pipeline Version: 1.5.0
 
 Samples: 96
 Purpose: Metagenomic profiling of...

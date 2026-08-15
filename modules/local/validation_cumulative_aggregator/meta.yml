@@ -1,0 +1,80 @@
+name: "validation_cumulative_aggregator"
+description: |
+  Maintain a run-so-far cumulative view of per-organism validation results
+  during realtime processing. Each batch is merged with the prior cumulative
+  file from the output directory and the validation statistics are recomputed
+  over the merged set. Coverage breadth is recomputed because it is not
+  additive; total_reads is accumulated across batches because it is not present
+  in the alignment files.
+keywords:
+  - validation
+  - cumulative
+  - realtime
+  - minimap2
+  - blast
+input:
+  - - meta:
+        type: map
+        description: |
+          Groovy Map containing sample information, e.g. `[ id:'sample1' ]`
+    - taxid:
+        type: string
+        description: Target taxonomic identifier being validated
+    - batch_file:
+        type: file
+        description: This batch's validation output (PAF for minimap2, tab-separated table for blast)
+        pattern: "*.{paf,tsv}"
+    - batch_stats:
+        type: file
+        description: This batch's validation statistics JSON (carries total_reads)
+        pattern: "*.json"
+    - prior_file:
+        type: file
+        description: Cumulative validation file from the previous batch, or empty on the first batch
+        pattern: "*.{paf,tsv}"
+    - prior_stats:
+        type: file
+        description: Cumulative statistics JSON from the previous batch, or empty on the first batch
+        pattern: "*.json"
+  - - method:
+        type: string
+        description: Validation method, one of 'minimap2' or 'blast'
+output:
+  - minimap2_cumulative:
+      - meta:
+          type: map
+          description: Groovy Map containing sample information
+      - taxid:
+          type: string
+          description: Target taxonomic identifier
+      - "*.paf":
+          type: file
+          description: Cumulative minimap2 PAF alignments across batches
+          pattern: "*.paf"
+  - blast_cumulative:
+      - meta:
+          type: map
+          description: Groovy Map containing sample information
+      - taxid:
+          type: string
+          description: Target taxonomic identifier
+      - "*.blast.tsv":
+          type: file
+          description: Cumulative BLAST hits across batches
+          pattern: "*.blast.tsv"
+  - stats:
+      - meta:
+          type: map
+          description: Groovy Map containing sample information
+      - taxid:
+          type: string
+          description: Target taxonomic identifier
+      - "*_stats.json":
+          type: file
+          description: Recomputed cumulative validation statistics
+          pattern: "*_stats.json"
+  - versions:
+      - "versions.yml":
+          type: file
+          description: File containing software versions
+          pattern: "versions.yml"

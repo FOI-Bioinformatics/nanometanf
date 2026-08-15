@@ -1,0 +1,14 @@
+{
+    "Should pass through Kraken2 database under -stub": {
+        "content": [
+            [
+                "versions.yml:md5,9f21a9cf89eb50632ac203f407062f7b"
+            ]
+        ],
+        "timestamp": "2026-04-26T22:43:00.239219",
+        "meta": {
+            "nf-test": "0.9.4",
+            "nextflow": "25.04.7"
+        }
+    }
+}

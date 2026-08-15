@@ -1,6 +1,6 @@
 repository_type: pipeline
 
-nf_core_version: 3.5.1
+nf_core_version: 3.5.2
 
 lint:
   files_exist:
@@ -12,6 +12,11 @@ lint:
     - .github/ISSUE_TEMPLATE/config.yml
     - .github/workflows/awstest.yml
     - .github/workflows/awsfulltest.yml
+    # Community-template CI files not used by this internal pipeline (is_nfcore: false)
+    - .github/workflows/branch.yml
+    - .github/workflows/linting_comment.yml
+    - .github/actions/get-shards/action.yml
+    - .github/actions/nf-test/action.yml
   files_unchanged:
     - CODE_OF_CONDUCT.md
     - LICENSE
@@ -33,8 +38,56 @@ lint:
     - validation.help.afterText
     - validation.summary.beforeText
     - validation.summary.afterText
+    # The legacy max_cpus / max_memory / max_time params are declared
+    # intentionally so platform profiles (conf/minion.config,
+    # conf/promethion.config, conf/promethion_8.config) can scale the
+    # Kraken2 cpus closure against them. nf-core 3.0+ recommends using
+    # process.resourceLimits instead, which the pipeline does as well,
+    # but the explicit params remain user-facing for compatibility.
+    - params.max_cpus
+    - params.max_memory
+    - params.max_time
   multiqc_config:
     - report_comment
+  # Pipeline-level integration tests (nextflow_pipeline {}) do not snapshot
+  # a single versions.yml channel the way module/subworkflow tests do, so
+  # the nf_test_content rule does not apply cleanly. The subworkflow-local
+  # tests under subworkflows/**/tests/ remain subject to the rule.
+  nf_test_content:
+    - tests/realtime_statistics_modules.nf.test
+    - tests/realtime_empty_samplesheet.nf.test
+    - tests/barcode_discovery.nf.test
+    - tests/main_workflow.nf.test
+    - tests/default.nf.test
+    - tests/realtime_barcode_fastq.nf.test
+    - tests/nanoseq_test.nf.test
+    - tests/parameter_validation.nf.test
+    - tests/realtime_flat_fastq.nf.test
+    - tests/batch_flat_fastq.nf.test
+    - tests/batch_barcode_fastq.nf.test
+    - tests/chopper_specific.nf.test
+    - tests/input_scanner.nf.test
+    - tests/realtime_processing.nf.test
+    - tests/qc_tool_integration.nf.test
+    - tests/full_pipeline_stubmode.nf.test
+    - tests/multiplex_scaling.nf.test
+    - tests/ifempty_sentinel_regression.nf.test
+  # The .github/workflows/nf-test.yml in this repo is a customised CI matrix
+  # (the wrapper at bin/run-nf-tests.sh sets NXF_OFFLINE only) and
+  # does not match the nf-core community-template event triggers. The
+  # divergence is intentional, so disable the check.
+  actions_nf_test: false
+  # The pipeline-level lint config below cannot suppress subworkflow-internal
+  # checks (main_nf_include_versions, meta_name, subworkflow_include) because
+  # the subworkflow linter does not honour per-rule ignores. The residual
+  # warnings on subworkflows/local/utils_nfcore_nanometanf_pipeline are
+  # inherent to the nf-core utility-subworkflow pattern: the helper functions
+  # imported from utils_nfcore_pipeline (completionEmail, completionSummary,
+  # imNotification) and the UTILS_* subworkflows do not expose `.out.versions`
+  # via the legacy versions channel because they use topic channels instead,
+  # and the file declares two workflow blocks (PIPELINE_INITIALISATION and
+  # PIPELINE_COMPLETION) so meta.yml's single name cannot match both. These
+  # warnings are accepted as documented divergences from the lint defaults.
 
 template:
   org: foi-bioinformatics

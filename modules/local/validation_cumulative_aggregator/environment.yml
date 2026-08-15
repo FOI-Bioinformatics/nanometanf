@@ -1,0 +1,6 @@
+name: validation_cumulative_aggregator
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - python=3.12

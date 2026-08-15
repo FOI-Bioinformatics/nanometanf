@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/nf-core/modules/master/subworkflows/yaml-schema.json
 name: "demultiplexing"
-description: Dorado-based demultiplexing of barcoded samples
+description: Pass-through for pre-demultiplexed or single-sample FASTQ inputs
 keywords:
   - nanopore
   - oxford nanopore

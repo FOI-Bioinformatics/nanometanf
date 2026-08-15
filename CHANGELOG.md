@@ -7,17 +7,102 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.6.0] - 2026-08-15
+
+
 ### Added
 
--
+- Canonical output layer: tool-agnostic TSV outputs in `results/canonical/` with classification, QC, validation, and assembly subdirectories
+- Five canonical writer modules: `canonical_classification_writer`, `canonical_qc_writer`, `canonical_validation_writer`, `canonical_assembly_writer`, `manifest_writer`
+- Five `bin/` scripts for format conversion: `kreport_to_canonical.py`, `qc_to_canonical.py`, `alignment_to_canonical.py`, `assembly_to_canonical.py`, `write_manifest.py`
+- Parameter `write_canonical` (default: true) to control canonical output generation
+- Manifest file (`_manifest.json`) indexing all canonical outputs per run
+- `bin/run-nf-tests.sh` wrapper that pins `NXF_VER=25.04.7` and
+  `NXF_OFFLINE=true` and forwards arguments to nf-test. Same pin
+  mirrored as a workflow-env block in
+  `.github/workflows/nf-test.yml`. The pin is the local workaround
+  for task #26 (Nextflow 25.10 DirWatcherV2 cleanup hangs after a
+  realtime sentinel fires). Cycle 6 verification showed 25.04.7
+  releases the FileAlterationMonitor cleanly only on the
+  timeout-fires-first path; the take-fires-first path
+  (`take(max_files)` completing before any timeout) still hangs the
+  JVM under 25.04.7, with jstack confirming the same Apache
+  commons-io `FileAlterationMonitor.run` non-daemon thread keeps
+  the JVM alive. Task #26 therefore remains open for the upstream
+  fix; the wrapper is retained as the canonical entry point so the
+  pin can be flipped centrally when upstream lands a fix.
+- `docs/upstream-issues/26-watchpath-cleanup-hang.md` capturing the
+  full upstream issue text (affected versions, reproducer,
+  jstack-backed diagnostic evidence, behaviour matrix, suggested
+  fix). The two `realtime_mode = true` cases in
+  `subworkflows/local/realtime_monitoring/tests/main.nf.test` carry
+  the new `hangs-on-jvm-cleanup` tag so they can be located
+  mechanically. nf-test 0.9.4 does not provide an `--exclude-tag`
+  flag, so the tag is currently advisory: operators running the
+  whole suite should omit the realtime_monitoring test file from
+  the path arguments until upstream lands a fix.
 
 ### Changed
 
--
+- Standardized `publishDir` patterns and added section headers to `modules.config`
+
+### Removed
+
+- Error handling subworkflow and 5 modules: `circuit_breaker`, `dead_letter_queue`, `error_classifier`, `error_handler`, `exponential_backoff_handler`
+- Enhanced realtime monitoring subworkflow and `file_readiness_checker` module
+- Dynamic resource allocation subworkflow and 5 modules: `monitor_system_resources`, `optimize_resource_allocation`, `predict_resource_requirements`, `resource_optimization_profiles`, `analyze_input_characteristics`
+- Removed ~36 dead parameters from `nextflow_schema.json`
+- Removed placeholder tool cases: canu, raven, shasta (assembly), centrifuge, metaphlan (classification), nanoq (QC)
+- Removed configuration files: `conf/cloud.config`, `conf/cluster.config`, `conf/production.config`
 
 ### Fixed
 
-- ***
+- Cumulative QC statistics in incremental realtime mode no longer reflect the
+  last batch only. `QC_ANALYSIS` auto-promotes `qc_enable_incremental` whenever
+  `realtime_mode` and `kraken2_enable_incremental` are both on, the
+  group-by step is re-keyed by `meta.id` so per-batch `batch_time` stamps no
+  longer split groups, `SEQKIT_STATS` per-batch outputs are parked under
+  `seqkit/{sample}/batch_stats/` with disambiguated filenames, and
+  `SEQKIT_MERGE_STATS` publishes the cumulative TSV to the canonical flat
+  `seqkit/{sample}.tsv` path that the dashboard reads. Mirrors the
+  cumulative-kraken2 fix that landed on the nanometa_live side. Tests:
+  `modules/local/seqkit_merge_stats/tests/main.nf.test`.
+- `SEQKIT_MERGE_STATS` Python script no longer aborts on
+  `IndentationError: unexpected indent`. Nextflow preserves the leading
+  4-space indentation of every line in the rendered `.command.sh`, so the
+  inline shebang form was unusable. The body is now written via
+  `cat <<'PYEOF' > merge.py` and executed, which preserves indentation
+  literally.
+- `tests/nextflow.config` no longer force-enables docker globally.
+  Container engines are activated through profile-gated `docker`,
+  `singularity`, and `conda` blocks, so `nf-test ... --profile conda`
+  exercises the conda channel directives instead of attempting docker
+  pulls.
+- `QC_ANALYSIS` accepts plain Lists at its `ch_reads` input, mirroring the
+  `TAXONOMIC_CLASSIFICATION` guard. Empty lists become `Channel.empty()`,
+  single tuples (`[meta, reads]`) dispatch through `Channel.of`, and
+  list-of-tuples dispatch through `Channel.fromList`. Restores the
+  `qc_analysis` nf-test cases under Nextflow 25.10, which previously failed
+  with `Missing process or function map(...)`.
+
+### Known issues
+
+- `subworkflows/nf-core/utils_nfcore_pipeline/main.nf:82` calls
+  `org.yaml.snakeyaml.Yaml().load(yaml_file)` on a Nextflow `Path`. Under
+  Nextflow 25.10 the SnakeYAML overload resolution prefers the `Reader`
+  signature, which Nextflow's `Path` does not satisfy, and the call can
+  raise a method dispatch error during pipeline completion. The block
+  ships verbatim from the nf-core utils template, so the fix belongs
+  upstream rather than in this repository. As a workaround for local
+  runs, `NXF_OFFLINE=true` keeps Nextflow on the bundled SnakeYAML and
+  avoids the dispatch path -- this is the configuration the cycle 3 tests
+  use.
+- The `qc_analysis` test snapshots predate nf-test 0.9.4 / Nextflow
+  25.10.4 (they were captured under nf-test 0.9.2 / Nextflow 25.04.7);
+  the recorded `versions.yml` MD5s drift across that version bump and
+  will need a deliberate snapshot refresh once the toolchain stabilises.
+  Functional assertions (workflow.success, output channel shapes) still
+  pass.
 
 ## [1.4.0] - 2025-11-09
 

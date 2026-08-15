@@ -1,12 +1,12 @@
 # Troubleshooting Guide
 
-Practical solutions for common issues when running nanometanf.
+Common issues and remedies when running nanometanf.
 
 ## Quick Diagnostics
 
 ```bash
 # Check installation
-nextflow -version          # Should be >= 25.10.0
+nextflow -version          # Should be >= 26.04.0
 java -version             # Should be 11+
 docker --version          # If using Docker profile
 
@@ -23,7 +23,7 @@ nextflow run ... -with-trace -with-report -with-timeline
 
 ### Error: "Nextflow version too old"
 
-**Problem**: Pipeline requires Nextflow >= 25.10.0
+**Problem**: Pipeline requires Nextflow >= 26.04.0
 
 **Solution**:
 
@@ -189,8 +189,8 @@ nextflow run ...
 **Solutions**:
 
 ```bash
-# Option 1: Use resource-conservative profile
-nextflow run ... --optimization_profile resource_conservative
+# Option 1: Lower resource ceilings
+nextflow run ... --max_memory 8.GB --max_cpus 4
 
 # Option 2: Increase memory for specific process
 nextflow run ... \
@@ -385,8 +385,8 @@ nextflow run ... -with-trace
 # Check trace.txt for memory usage
 grep -A 5 "exit: 137" trace.txt
 
-# Increase memory or use lighter profile
-nextflow run ... --optimization_profile resource_conservative
+# Lower resource ceilings to fit available memory
+nextflow run ... --max_memory 8.GB --max_cpus 4
 ```
 
 ---
@@ -437,7 +437,6 @@ open timeline.html
 ```bash
 nextflow run ... \
     --enable_dynamic_resources \
-    --optimization_profile high_throughput \
     -w /local/fast/disk/work
 ```
 
@@ -518,7 +517,7 @@ cat .nextflow.log
 
 ### Where to get help
 
-1. **Check documentation**: [Usage Guide](usage.md), [README](../../README.md)
+1. **Check documentation**: [Usage Guide](../usage.md), [README](../../README.md)
 2. **Search issues**: https://github.com/foi-bioinformatics/nanometanf/issues
 3. **Create issue**: Include diagnostic info above
 4. **Community**: nf-core Slack #nanometanf
@@ -530,7 +529,7 @@ When creating an issue, include:
 ````
 **Environment**:
 - Nextflow version:
-- Profile: (docker/singularity/conda)
+- Profile: (conda/docker/singularity)
 - OS: (macOS/Linux/Windows)
 
 **Command**:

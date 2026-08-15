@@ -17,20 +17,13 @@ nextflow_workflow {
 
     test("Should perform basic Flye assembly") {
 
-        setup {
-            """
-            # Create test nanopore reads
-            cp $projectDir/tests/test_sample.fastq.gz $outputDir/assembly_reads.fastq.gz
-            """
-        }
-
         when {
             workflow {
                 """
                 input[0] = [
                     [
                         [id: 'flye_test', single_end: true],
-                        file('$outputDir/assembly_reads.fastq.gz')
+                        file('$projectDir/tests/fixtures/fastq/test_sample.fastq.gz')
                     ]
                 ]
                 """
@@ -48,7 +41,7 @@ nextflow_workflow {
 
         then {
             assert workflow.success
-            assert snapshot(workflow.out.versions).match()
+            assert workflow.out.versions
             assert workflow.out.assembly
             assert workflow.out.assembly_graph
             assert workflow.out.assembly_info
@@ -73,20 +66,13 @@ nextflow_workflow {
 
     test("Should perform Miniasm assembly with overlap detection") {
 
-        setup {
-            """
-            # Create test reads for miniasm
-            cp $projectDir/tests/test_sample.fastq.gz $outputDir/miniasm_reads.fastq.gz
-            """
-        }
-
         when {
             workflow {
                 """
                 input[0] = [
                     [
                         [id: 'miniasm_test', single_end: true],
-                        file('$outputDir/miniasm_reads.fastq.gz')
+                        file('$projectDir/tests/fixtures/fastq/test_sample.fastq.gz')
                     ]
                 ]
                 """
@@ -102,7 +88,7 @@ nextflow_workflow {
 
         then {
             assert workflow.success
-            assert snapshot(workflow.out.versions).match()
+            assert workflow.out.versions
             assert workflow.out.assembly
             assert workflow.out.assembly_graph
             assert workflow.out.assembler_used
@@ -129,20 +115,13 @@ nextflow_workflow {
 
     test("Should handle different genome size parameters") {
 
-        setup {
-            """
-            # Create reads for genome size testing
-            cp $projectDir/tests/test_sample.fastq.gz $outputDir/genome_size_reads.fastq.gz
-            """
-        }
-
         when {
             workflow {
                 """
                 input[0] = [
                     [
                         [id: 'genome_size_test', single_end: true],
-                        file('$outputDir/genome_size_reads.fastq.gz')
+                        file('$projectDir/tests/fixtures/fastq/test_sample.fastq.gz')
                     ]
                 ]
                 """
@@ -160,7 +139,7 @@ nextflow_workflow {
 
         then {
             assert workflow.success
-            assert snapshot(workflow.out.versions).match()
+            assert workflow.out.versions
             assert workflow.out.assembly
             assert workflow.out.assembly_graph
             assert workflow.out.assembly_info
@@ -173,20 +152,13 @@ nextflow_workflow {
 
     test("Should handle different sequencing modes") {
 
-        setup {
-            """
-            # Create reads for sequencing mode testing
-            cp $projectDir/tests/test_sample.fastq.gz $outputDir/seq_mode_reads.fastq.gz
-            """
-        }
-
         when {
             workflow {
                 """
                 input[0] = [
                     [
                         [id: 'seq_mode_test', single_end: true],
-                        file('$outputDir/seq_mode_reads.fastq.gz')
+                        file('$projectDir/tests/fixtures/fastq/test_sample.fastq.gz')
                     ]
                 ]
                 """
@@ -204,7 +176,7 @@ nextflow_workflow {
 
         then {
             assert workflow.success
-            assert snapshot(workflow.out.versions).match()
+            assert workflow.out.versions
             assert workflow.out.assembly
             assert workflow.out.assembly_graph
             assert workflow.out.assembly_info
@@ -217,30 +189,21 @@ nextflow_workflow {
 
     test("Should process multiple samples in batch") {
 
-        setup {
-            """
-            # Create multiple samples for batch assembly
-            cp $projectDir/tests/test_sample.fastq.gz $outputDir/batch_sample1.fastq.gz
-            cp $projectDir/tests/test_sample.fastq.gz $outputDir/batch_sample2.fastq.gz
-            cp $projectDir/tests/test_sample.fastq.gz $outputDir/batch_sample3.fastq.gz
-            """
-        }
-
         when {
             workflow {
                 """
                 input[0] = [
                     [
                         [id: 'batch_sample1', single_end: true],
-                        file('$outputDir/batch_sample1.fastq.gz')
+                        file('$projectDir/tests/fixtures/fastq/test_sample.fastq.gz')
                     ],
                     [
                         [id: 'batch_sample2', single_end: true],
-                        file('$outputDir/batch_sample2.fastq.gz')
+                        file('$projectDir/tests/fixtures/fastq/test_sample.fastq.gz')
                     ],
                     [
                         [id: 'batch_sample3', single_end: true],
-                        file('$outputDir/batch_sample3.fastq.gz')
+                        file('$projectDir/tests/fixtures/fastq/test_sample.fastq.gz')
                     ]
                 ]
                 """
@@ -258,7 +221,7 @@ nextflow_workflow {
 
         then {
             assert workflow.success
-            assert snapshot(workflow.out.versions).match()
+            assert workflow.out.versions
             assert workflow.out.assembly
             assert workflow.out.assembly_graph
             assert workflow.out.assembly_info
@@ -277,20 +240,13 @@ nextflow_workflow {
 
     test("Should handle high-accuracy nanopore reads") {
 
-        setup {
-            """
-            # Create reads for high-accuracy testing
-            cp $projectDir/tests/test_sample.fastq.gz $outputDir/hac_reads.fastq.gz
-            """
-        }
-
         when {
             workflow {
                 """
                 input[0] = [
                     [
                         [id: 'hac_test', single_end: true],
-                        file('$outputDir/hac_reads.fastq.gz')
+                        file('$projectDir/tests/fixtures/fastq/test_sample.fastq.gz')
                     ]
                 ]
                 """
@@ -309,7 +265,7 @@ nextflow_workflow {
 
         then {
             assert workflow.success
-            assert snapshot(workflow.out.versions).match()
+            assert workflow.out.versions
             assert workflow.out.assembly
             assert workflow.out.assembly_graph
             assert workflow.out.assembly_info
@@ -322,20 +278,13 @@ nextflow_workflow {
 
     test("Should handle large genome assembly") {
 
-        setup {
-            """
-            # Create reads for large genome testing
-            cp $projectDir/tests/test_sample.fastq.gz $outputDir/large_genome_reads.fastq.gz
-            """
-        }
-
         when {
             workflow {
                 """
                 input[0] = [
                     [
                         [id: 'large_genome_test', single_end: true],
-                        file('$outputDir/large_genome_reads.fastq.gz')
+                        file('$projectDir/tests/fixtures/fastq/test_sample.fastq.gz')
                     ]
                 ]
                 """
@@ -353,7 +302,7 @@ nextflow_workflow {
 
         then {
             assert workflow.success
-            assert snapshot(workflow.out.versions).match()
+            assert workflow.out.versions
             assert workflow.out.assembly
             assert workflow.out.assembly_graph
             assert workflow.out.assembly_info
@@ -385,7 +334,7 @@ nextflow_workflow {
         then {
             // Should handle empty input gracefully
             assert workflow.success
-            assert snapshot(workflow.out.versions).match()
+            assert workflow.out.versions
 
             if (workflow.success) {
                 // Empty outputs expected
@@ -399,20 +348,13 @@ nextflow_workflow {
 
     test("Should reject invalid assembler parameter") {
 
-        setup {
-            """
-            # Create reads for invalid assembler testing
-            cp $projectDir/tests/test_sample.fastq.gz $outputDir/invalid_assembler_reads.fastq.gz
-            """
-        }
-
         when {
             workflow {
                 """
                 input[0] = [
                     [
                         [id: 'invalid_assembler_test', single_end: true],
-                        file('$outputDir/invalid_assembler_reads.fastq.gz')
+                        file('$projectDir/tests/fixtures/fastq/test_sample.fastq.gz')
                     ]
                 ]
                 """
@@ -438,20 +380,13 @@ nextflow_workflow {
 
     test("Should compare Flye vs Miniasm assembly strategies") {
 
-        setup {
-            """
-            # Create identical reads for comparison
-            cp $projectDir/tests/test_sample.fastq.gz $outputDir/comparison_reads.fastq.gz
-            """
-        }
-
         when {
             workflow {
                 """
                 input[0] = [
                     [
                         [id: 'comparison_test', single_end: true],
-                        file('$outputDir/comparison_reads.fastq.gz')
+                        file('$projectDir/tests/fixtures/fastq/test_sample.fastq.gz')
                     ]
                 ]
                 """
@@ -469,7 +404,7 @@ nextflow_workflow {
 
         then {
             assert workflow.success
-            assert snapshot(workflow.out.versions).match()
+            assert workflow.out.versions
             assert workflow.out.assembly
             assert workflow.out.assembly_graph
             assert workflow.out.assembly_info

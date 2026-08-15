@@ -1,0 +1,36 @@
+name: emit_empty_kraken2_report
+description: |
+  Synthesize a placeholder Kraken2 report for a sample whose post-QC FASTQ
+  is empty (no reads survived chopper / fastp / filtlong). Without this
+  module, the taxonomic_classification subworkflow silently dropped the
+  sample from all downstream channels, leaving the GUI to show the sample
+  with no data instead of "0 classified, 0 unclassified".
+keywords:
+  - kraken2
+  - placeholder
+  - empty
+input:
+  - - meta:
+        type: map
+        description: |
+          Sample metadata map, e.g. `[id: 'barcode01']`. Must contain `id`.
+    - reads:
+        type: file
+        description: |
+          The (empty) post-QC FASTQ file. The file is staged but not read;
+          the placeholder report does not depend on its contents.
+        pattern: "*.{fastq,fastq.gz}"
+output:
+  - report:
+      type: file
+      description: |
+        Single-line Kraken2 report stating 0 classified / 0 unclassified
+        reads. Format matches `kraken2 --report` output and is accepted by
+        downstream parsers (TAXPASTA, MultiQC, the Nanometa Live loader).
+      pattern: "*.kraken2.report.txt"
+  - versions:
+      type: file
+      description: File containing software versions
+      pattern: "versions.yml"
+authors:
+  - "Nanometa Live audit, 2026-05-07"

@@ -8,11 +8,6 @@
     - flye: Flye assembler for long and noisy reads (default)
     - miniasm: Miniasm ultra-fast assembler
 
-    Future assemblers (ready to implement):
-    - canu: Canu single-molecule assembler
-    - raven: Raven assembler for long reads
-    - shasta: Shasta nanopore assembler
-
     Features:
     - Tool-agnostic interface
     - Standardized assembly outputs
@@ -21,9 +16,10 @@
 ----------------------------------------------------------------------------------------
 */
 
-include { FLYE              } from "${projectDir}/modules/nf-core/flye/main"
-include { MINIMAP2_ALIGN    } from "${projectDir}/modules/nf-core/minimap2/align/main"
-include { MINIASM           } from "${projectDir}/modules/nf-core/miniasm/main"
+include { FLYE              } from '../../../modules/nf-core/flye/main'
+include { MINIMAP2_ALIGN    } from '../../../modules/nf-core/minimap2/align/main'
+include { MINIASM           } from '../../../modules/nf-core/miniasm/main'
+include { CANONICAL_ASSEMBLY_WRITER } from '../../../modules/local/canonical_assembly_writer/main'
 
 workflow ASSEMBLY {
 
@@ -44,70 +40,79 @@ workflow ASSEMBLY {
     //
     // BRANCH: Route to appropriate assembler
     //
-    switch(assembler) {
-        case 'flye':
-            //
-            // MODULE: Run Flye for long-read assembly
-            //
-            FLYE (
-                ch_reads,
-                sequencing_mode
-            )
-            ch_versions = ch_versions.mix(FLYE.out.versions)
+    if (assembler == 'flye') {
+        //
+        // MODULE: Run Flye for long-read assembly
+        //
+        FLYE (
+            ch_reads,
+            sequencing_mode
+        )
+        // FLYE emits its version via `topic: versions` (versions_flye); it is
+        // collected centrally in the top-level workflow. There is no
+        // `FLYE.out.versions` to mix here -- referencing it throws
+        // MissingPropertyException and aborts the run.
 
-            // Collect standardized outputs
-            ch_assembly = FLYE.out.fasta
-            ch_assembly_graph = FLYE.out.gfa
-            ch_assembly_info = FLYE.out.txt
-            break
+        // Collect standardized outputs
+        ch_assembly = FLYE.out.fasta.ifEmpty([])
+        ch_assembly_graph = FLYE.out.gfa.ifEmpty([])
+        ch_assembly_info = FLYE.out.txt.ifEmpty([])
+    } else if (assembler == 'miniasm') {
+        //
+        // MODULE: Run Minimap2 for overlap detection (miniasm prerequisite)
+        //
+        MINIMAP2_ALIGN (
+            ch_reads,                    // reads
+            ch_reads,                    // reference (self-alignment for overlap)
+            false,                       // bam_format
+            false,                       // bam_index_extension
+            false,                       // cigar_paf_format
+            false                        // cigar_bam
+        )
+        // MINIMAP2_ALIGN emits its version via `topic: versions`; collected centrally.
 
-        case 'miniasm':
-            //
-            // MODULE: Run Minimap2 for overlap detection (miniasm prerequisite)
-            //
-            MINIMAP2_ALIGN (
-                ch_reads,                    // reads
-                ch_reads,                    // reference (self-alignment for overlap)
-                false,                       // bam_format
-                false,                       // bam_index_extension
-                false,                       // cigar_paf_format
-                false                        // cigar_bam
-            )
-            ch_versions = ch_versions.mix(MINIMAP2_ALIGN.out.versions)
+        //
+        // MODULE: Run Miniasm for ultra-fast assembly
+        //
+        ch_miniasm_input = ch_reads
+            .join(MINIMAP2_ALIGN.out.paf, remainder: true)
 
-            //
-            // MODULE: Run Miniasm for ultra-fast assembly
-            //
-            ch_miniasm_input = ch_reads
-                .join(MINIMAP2_ALIGN.out.paf)
+        MINIASM (
+            ch_miniasm_input
+        )
+        // MINIASM emits its version via `topic: versions`; collected centrally.
 
-            MINIASM (
-                ch_miniasm_input
-            )
-            ch_versions = ch_versions.mix(MINIASM.out.versions)
+        // Collect standardized outputs
+        ch_assembly = MINIASM.out.assembly.ifEmpty([])
+        ch_assembly_graph = MINIASM.out.gfa.ifEmpty([])
+        ch_assembly_info = Channel.empty()  // Miniasm doesn't provide assembly stats
+    } else {
+        error "Unsupported assembler: ${assembler}. Currently supported: flye, miniasm"
+    }
 
-            // Collect standardized outputs
-            ch_assembly = MINIASM.out.assembly
-            ch_assembly_graph = MINIASM.out.gfa
-            ch_assembly_info = Channel.empty()  // Miniasm doesn't provide assembly stats
-            break
+    //
+    // MODULE: Convert assembly statistics to canonical JSON format
+    // Produces tool-agnostic output for frontend consumption
+    //
+    ch_canonical_assembly = Channel.empty()
+    if (params.write_canonical != false && assembler == 'flye') {
+        // Flye provides assembly_info.txt; miniasm does not produce equivalent stats
+        // Guard against empty input from failed upstream assembly
+        def ch_assembly_info_filtered = ch_assembly_info.filter { it instanceof List && it.size() >= 2 && it[1] != null }
+        def ch_assembly_filtered = ch_assembly.filter { it instanceof List && it.size() >= 2 && it[1] != null }
 
-        // Future assemblers to be added here:
-        // case 'canu':
-        //     CANU(ch_reads, genome_size)
-        //     break
-        // case 'raven':
-        //     RAVEN(ch_reads)
-        //     break
-        // case 'shasta':
-        //     SHASTA(ch_reads)
-        //     break
-
-        default:
-            error "Unsupported assembler: ${assembler}. Currently supported: flye, miniasm"
+        CANONICAL_ASSEMBLY_WRITER (
+            ch_assembly_info_filtered,
+            ch_assembly_filtered,
+            Channel.value(assembler),
+            Channel.value("auto")
+        )
+        ch_canonical_assembly = CANONICAL_ASSEMBLY_WRITER.out.canonical
+        ch_versions = ch_versions.mix(CANONICAL_ASSEMBLY_WRITER.out.versions)
     }
 
     emit:
+    canonical_assembly = ch_canonical_assembly // channel: [ val(meta), path(json) ] - Canonical assembly JSON
     assembly         = ch_assembly        // channel: [ val(meta), path(fasta.gz) ] - Main assembly
     assembly_graph   = ch_assembly_graph  // channel: [ val(meta), path(gfa.gz) ] - Assembly graph
     assembly_info    = ch_assembly_info   // channel: [ val(meta), path(txt) ] - Assembly statistics

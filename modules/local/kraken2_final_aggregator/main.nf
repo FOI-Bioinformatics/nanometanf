@@ -143,7 +143,7 @@ process KRAKEN2_FINAL_AGGREGATOR {
 
 cat <<-END_VERSIONS > versions.yml
 "${task.process}":
-    python: \$(python3 --version | sed 's/Python //g')
+    python: 3.11
 END_VERSIONS
     """
 }

@@ -1,0 +1,156 @@
+nextflow_process {
+
+    name "Test Process AGGREGATE_VALIDATION_RESULTS"
+    script "../main.nf"
+    process "AGGREGATE_VALIDATION_RESULTS"
+
+    tag "module"
+    tag "aggregate_validation_results"
+    tag "validation"
+
+    test("Should emit aggregated validation stub outputs") {
+
+        options "-stub"
+        tag "stub"
+        tag "fast"
+
+        setup {
+            file("${outputDir}").mkdirs()
+            file("${outputDir}/blast_stub.json").text = "{}"
+            file("${outputDir}/minimap2_stub.json").text = "{}"
+            file("${outputDir}/extraction_stub.json").text = "{}"
+            file("${outputDir}/kraken_stub.report.txt").text = ""
+        }
+
+        when {
+            process {
+                """
+                input[0] = file("${outputDir}/blast_stub.json")
+                input[1] = file("${outputDir}/minimap2_stub.json")
+                input[2] = file("${outputDir}/extraction_stub.json")
+                input[3] = file("${outputDir}/kraken_stub.report.txt")
+                input[4] = 'blast'
+                input[5] = 0.5
+                input[6] = 90.0
+                """
+            }
+        }
+
+        then {
+            assertAll(
+                { assert process.success },
+                { assert process.out.json },
+                { assert process.out.summary },
+                { assert snapshot(process.out.versions).match() }
+            )
+        }
+    }
+
+    test("both stats for one taxid keep a BLAST entry with minimap2 folded in") {
+        // Regression guard for the GUI 'no BLAST validation' report: when a
+        // (sample, taxid) has BOTH blast and minimap2 stats, the aggregate entry
+        // must stay validation_method=='blast' with the minimap2 numbers folded
+        // in as extra fields -- NOT be replaced by a minimap2-only entry. The
+        // blast-first parse order (blast at L98, minimap2 at L126 folding into an
+        // existing entry) is what guarantees this; a refactor that parsed
+        // minimap2 first would silently turn every 'both' pair minimap2-only.
+
+        setup {
+            file("${outputDir}").mkdirs()
+            file("${outputDir}/barcode01_taxid562.blast_stats.json").text = """
+{"sample_id":"barcode01","taxid":562,"total_reads":100,"blast_hits":90,
+ "hit_rate":0.9,"avg_identity":97.0,"avg_coverage":85.0,
+ "validation_status":"confirmed"}
+"""
+            file("${outputDir}/barcode01_taxid562.minimap2_stats.json").text = """
+{"sample_id":"barcode01","taxid":562,"total_reads":100,"mapped_reads":88,
+ "hit_rate":0.88,"avg_identity":98.0,"avg_coverage":90.0,"avg_mapq":55.0,
+ "ref_name":"NC_000913.3","ref_length":4641652,"validation_status":"confirmed"}
+"""
+            file("${outputDir}/barcode01_taxid562_extraction_stats.json").text = """
+{"sample_id":"barcode01","taxid":562,"extracted_reads":100,
+ "total_classified_reads":120}
+"""
+            file("${outputDir}/barcode01.kraken2.report.txt").text =
+                "50.0\t100\t100\tS\t562\tEscherichia coli\n"
+        }
+
+        when {
+            process {
+                """
+                input[0] = file("${outputDir}/barcode01_taxid562.blast_stats.json")
+                input[1] = file("${outputDir}/barcode01_taxid562.minimap2_stats.json")
+                input[2] = file("${outputDir}/barcode01_taxid562_extraction_stats.json")
+                input[3] = file("${outputDir}/barcode01.kraken2.report.txt")
+                input[4] = 'both'
+                input[5] = 0.5
+                input[6] = 90.0
+                """
+            }
+        }
+
+        then {
+            def out = new groovy.json.JsonSlurper().parse(file(process.out.json.get(0)))
+            def entry = out.results['barcode01']['562']
+            assertAll(
+                { assert process.success },
+                // BLAST must own the entry (not shadowed by minimap2)...
+                { assert entry.validation_method == 'blast' },
+                { assert entry.blast_hits == 90 },
+                { assert entry.species == 'Escherichia coli' },
+                // ...with minimap2 folded in as extra fields.
+                { assert entry.minimap2_mapped == 88 },
+                { assert entry.minimap2_identity == 98.0 },
+            )
+        }
+    }
+
+    test("blast for one taxid and minimap2 for another both survive, no cross-drop") {
+        // taxid 562 is blast-only, taxid 1280 is minimap2-only. The aggregate
+        // must carry both, each with its own method.
+
+        setup {
+            file("${outputDir}").mkdirs()
+            file("${outputDir}/barcode01_taxid562.blast_stats.json").text = """
+{"sample_id":"barcode01","taxid":562,"total_reads":100,"blast_hits":80,
+ "hit_rate":0.8,"avg_identity":96.0,"validation_status":"confirmed"}
+"""
+            file("${outputDir}/barcode01_taxid1280.minimap2_stats.json").text = """
+{"sample_id":"barcode01","taxid":1280,"total_reads":50,"mapped_reads":45,
+ "hit_rate":0.9,"avg_identity":99.0,"avg_mapq":58.0,"ref_name":"NC_007795.1",
+ "ref_length":2821361,"validation_status":"confirmed"}
+"""
+            file("${outputDir}/empty_extraction_stats.json").text =
+                '{"sample_id":"barcode01","taxid":0,"extracted_reads":0,"total_classified_reads":0}'
+            file("${outputDir}/barcode01.kraken2.report.txt").text =
+                "50.0\t100\t100\tS\t562\tEscherichia coli\n" +
+                "25.0\t50\t50\tS\t1280\tStaphylococcus aureus\n"
+        }
+
+        when {
+            process {
+                """
+                input[0] = file("${outputDir}/barcode01_taxid562.blast_stats.json")
+                input[1] = file("${outputDir}/barcode01_taxid1280.minimap2_stats.json")
+                input[2] = file("${outputDir}/empty_extraction_stats.json")
+                input[3] = file("${outputDir}/barcode01.kraken2.report.txt")
+                input[4] = 'both'
+                input[5] = 0.5
+                input[6] = 90.0
+                """
+            }
+        }
+
+        then {
+            def out = new groovy.json.JsonSlurper().parse(file(process.out.json.get(0)))
+            def bc01 = out.results['barcode01']
+            assertAll(
+                { assert process.success },
+                { assert bc01['562'].validation_method == 'blast' },
+                { assert bc01['562'].blast_hits == 80 },
+                { assert bc01['1280'].validation_method == 'minimap2' },
+                { assert bc01['1280'].mapped_reads == 45 },
+            )
+        }
+    }
+}

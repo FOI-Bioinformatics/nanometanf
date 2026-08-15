@@ -20,15 +20,14 @@
 ----------------------------------------------------------------------------------------
 */
 
-import groovy.json.JsonSlurper
-
-include { FASTP                   } from "${projectDir}/modules/nf-core/fastp/main"
-include { FILTLONG                } from "${projectDir}/modules/nf-core/filtlong/main"
-include { CHOPPER                 } from "${projectDir}/modules/nf-core/chopper/main"
-include { PORECHOP_PORECHOP       } from "${projectDir}/modules/nf-core/porechop/porechop/main"
-include { FASTQC                  } from "${projectDir}/modules/nf-core/fastqc/main"
-include { SEQKIT_STATS            } from "${projectDir}/modules/nf-core/seqkit/stats/main"
-include { NANOPLOT                } from "${projectDir}/modules/nf-core/nanoplot/main"
+include { FASTP                                 } from '../../../modules/nf-core/fastp/main'
+include { FILTLONG                              } from '../../../modules/nf-core/filtlong/main'
+include { FILTLONG as FILTLONG_AFTER_PORECHOP   } from '../../../modules/nf-core/filtlong/main'
+include { CHOPPER                               } from '../../../modules/nf-core/chopper/main'
+include { PORECHOP_PORECHOP                     } from '../../../modules/nf-core/porechop/porechop/main'
+include { FASTQC                                } from '../../../modules/nf-core/fastqc/main'
+include { SEQKIT_STATS                          } from '../../../modules/nf-core/seqkit/stats/main'
+include { NANOPLOT                              } from '../../../modules/nf-core/nanoplot/main'
 
 workflow QC_BENCHMARK {
 
@@ -44,26 +43,28 @@ workflow QC_BENCHMARK {
     //
 
     // Run FASTP with standard parameters
+    // adapter_fasta is part of the first input tuple per nf-core/fastp interface
+    ch_fastp_benchmark_input = ch_reads.map { meta, reads -> [ meta, reads, [] ] }
     FASTP (
-        ch_reads,
-        [],           // adapter_fasta
+        ch_fastp_benchmark_input,
         false,        // discard_trimmed_pass
         false,        // save_trimmed_fail
         false         // save_merged
     )
-    ch_versions = ch_versions.mix(FASTP.out.versions)
+    // FASTP uses topic: versions pattern - no .out.versions channel.
+    // Versions are aggregated via Channel.topic('versions') in workflows/nanometanf.nf
 
     // Run FastQC on FASTP output for comparison
     FASTQC (
         FASTP.out.reads
     )
-    ch_versions = ch_versions.mix(FASTQC.out.versions.first())
+    // FASTQC uses topic: versions pattern - no .out.versions channel
 
     // Run SeqKit stats on FASTP output
     SEQKIT_STATS (
         FASTP.out.reads
     )
-    ch_versions = ch_versions.mix(SEQKIT_STATS.out.versions.first())
+    // SEQKIT_STATS uses topic: versions pattern - no .out.versions channel
 
     // Create FASTP benchmark record
     ch_fastp_benchmark = FASTP.out.reads
@@ -96,13 +97,13 @@ workflow QC_BENCHMARK {
     FASTQC (
         FILTLONG.out.reads
     )
-    ch_versions = ch_versions.mix(FASTQC.out.versions.first())
+    // FASTQC uses topic: versions pattern - no .out.versions channel
 
     // Run SeqKit stats on FILTLONG output
     SEQKIT_STATS (
         FILTLONG.out.reads
     )
-    ch_versions = ch_versions.mix(SEQKIT_STATS.out.versions.first())
+    // SEQKIT_STATS uses topic: versions pattern - no .out.versions channel
 
     // Create FILTLONG benchmark record
     ch_filtlong_benchmark = FILTLONG.out.reads
@@ -131,21 +132,24 @@ workflow QC_BENCHMARK {
         [meta, null, reads]  // [meta, shortreads=empty, longreads=reads]
     }
 
-    // Run FILTLONG on adapter-trimmed reads (simplified for now)
-    // TODO: Re-implement with proper module aliasing or separate workflows
-    // FILTLONG_PORECHOP would go here
+    // PORECHOP -> FILTLONG pipeline, run as a second aliased FILTLONG
+    // instance so the standalone FILTLONG benchmark above can keep its
+    // distinct work directory and outputs. Using ``include as`` for the
+    // alias is the canonical DSL2 pattern for re-running a process with
+    // a different input feed (see e.g. nf-core/eager and nf-core/sarek).
+    FILTLONG_AFTER_PORECHOP (
+        ch_porechop_filtlong_input
+    )
+    ch_versions = ch_versions.mix(FILTLONG_AFTER_PORECHOP.out.versions.first())
 
-    // For now, skip the PORECHOP+FILTLONG combination to avoid aliasing issues
-    // This maintains basic benchmarking functionality while avoiding compilation errors
-
-    // Create PORECHOP+FILTLONG benchmark record (simplified - using PORECHOP output directly)
-    ch_porechop_filtlong_benchmark = PORECHOP_PORECHOP.out.reads
-        .map { meta, reads ->
+    ch_porechop_filtlong_benchmark = FILTLONG_AFTER_PORECHOP.out.reads
+        .join(FILTLONG_AFTER_PORECHOP.out.log, by: 0, remainder: true)
+        .map { meta, reads, log_file ->
             def new_meta = meta + [
-                qc_tool: 'porechop_only',
+                qc_tool: 'porechop_filtlong',
                 benchmark_category: 'enhanced_nanopore'
             ]
-            return [new_meta, reads, null, null]  // Empty log and stats for now
+            return [new_meta, reads, log_file, null]
         }
 
     //
@@ -157,19 +161,20 @@ workflow QC_BENCHMARK {
         ch_reads,
         []  // No contamination filtering fasta
     )
-    ch_versions = ch_versions.mix(CHOPPER.out.versions.first())
+    // CHOPPER uses topic: versions pattern - no .out.versions channel.
+    // Versions are aggregated via Channel.topic('versions') in workflows/nanometanf.nf
 
     // Run FastQC on CHOPPER output for comprehensive reporting
     FASTQC (
         CHOPPER.out.fastq
     )
-    ch_versions = ch_versions.mix(FASTQC.out.versions.first())
+    // FASTQC uses topic: versions pattern - no .out.versions channel
 
     // Run SeqKit stats on CHOPPER output for detailed statistics
     SEQKIT_STATS (
         CHOPPER.out.fastq
     )
-    ch_versions = ch_versions.mix(SEQKIT_STATS.out.versions.first())
+    // SEQKIT_STATS uses topic: versions pattern - no .out.versions channel
 
     // Create CHOPPER benchmark record
     ch_chopper_benchmark = CHOPPER.out.fastq
@@ -195,8 +200,18 @@ workflow QC_BENCHMARK {
             ch_chopper_benchmark.map { meta, reads, log, stats -> [meta, reads] }
         )
 
+    // Skip NanoPlot for samples whose reads file is missing or empty.
+    // NanoPlot exits non-zero on zero-read FASTQ input (for example when
+    // every read was filtered out by an upstream QC step), which would
+    // otherwise abort the whole benchmark run.
+    ch_all_qc_outputs_nonempty = ch_all_qc_outputs.filter { meta, reads ->
+        reads != null && (reads instanceof List
+            ? reads.any { it != null && it.size() > 0 }
+            : reads.size() > 0)
+    }
+
     NANOPLOT (
-        ch_all_qc_outputs
+        ch_all_qc_outputs_nonempty
     )
     ch_versions = ch_versions.mix(NANOPLOT.out.versions.first())
 
@@ -231,7 +246,7 @@ def extractPerformanceMetrics(qc_tool, meta, stats_file) {
     if (qc_tool == 'fastp') {
         // Parse FastP JSON output
         def json = new File(stats_file).text
-        def data = new JsonSlurper().parseText(json)
+        def data = new groovy.json.JsonSlurper().parseText(json)
         metrics = [
             reads_before: data.summary?.before_filtering?.total_reads ?: 0,
             reads_after: data.summary?.after_filtering?.total_reads ?: 0,

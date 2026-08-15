@@ -38,9 +38,6 @@ nextflow_process {
                     batch_output,
                     batch_report
                 ]
-
-                // Mock database directory
-                input[1] = file(params.modules_testdata_base_path + "genomics/sarscov2/genome/db/kraken2.tar.gz", checkIfExists: true)
                 """
             }
         }
@@ -70,8 +67,6 @@ nextflow_process {
                     batch_output,
                     batch_report
                 ]
-
-                input[1] = file(params.modules_testdata_base_path + "genomics/sarscov2/genome/db/kraken2.tar.gz", checkIfExists: true)
                 """
             }
         }
@@ -82,6 +77,80 @@ nextflow_process {
                 { assert process.out.report.get(0).get(0).id == 'special_sample' },
                 { assert process.out.report.get(0).get(0).single_end == true },
                 { assert process.out.report.get(0).get(0).sequencer == 'MinION' }
+            )
+        }
+    }
+
+    test("real execution - report generator extracts per-batch taxid counts") {
+        // No ``options "-stub"`` override: exercise the Python parser in
+        // the script block to guard the per-batch counting contract
+        // (taxid -> reads / cumul / rank / name) that the cumulative
+        // taxid state file in the parent subworkflow relies on.
+        // Pure-Python module: host python3 is sufficient locally; CI
+        // resolves the krakentools container under the docker profile.
+        options ""
+
+        tag "real_execution"
+
+        when {
+            process {
+                """
+                def batch_output = file("real_batch.kraken2.output.txt")
+                batch_output.text = [
+                    'C\\tread1\\t9606\\t100\\t9606:1',
+                    'U\\tread2\\t0\\t100\\t0:100',
+                    ''
+                ].join('\\n')
+
+                def batch_report = file("real_batch.kraken2.report.txt")
+                batch_report.text = [
+                    '33.33\\t1\\t0\\tU\\t0\\tunclassified',
+                    '66.67\\t2\\t0\\tR\\t1\\troot',
+                    '66.67\\t2\\t2\\tS\\t9606\\tHomo sapiens',
+                    ''
+                ].join('\\n')
+
+                input[0] = [
+                    [ id:'real_sample', batch_id: 5 ],
+                    batch_output,
+                    batch_report
+                ]
+                """
+            }
+        }
+
+        then {
+            assertAll(
+                { assert process.success },
+                // taxid_counts.json carries the parsed per-taxid structure
+                {
+                    def counts_path = process.out.taxid_counts.get(0).get(1)
+                    def counts = new groovy.json.JsonSlurper().parse(new File(counts_path.toString()))
+                    // Either schema is acceptable: top-level taxa or top-level taxid keys.
+                    def taxa = counts.taxa ?: counts
+                    assert taxa.containsKey('9606')
+                    def homo = taxa['9606']
+                    assert homo.reads == 2
+                    assert homo.cumul == 2
+                    assert homo.rank == 'S'
+                    assert homo.name == 'Homo sapiens'
+                },
+                // report_stats.json carries the batch totals. The
+                // script extracts batch_unclassified from the taxid=0
+                // row's ``reads_direct`` column (parts[2]) and
+                // batch_classified from the taxid=1 row's ``cumul``
+                // column (parts[1]); my fixture has reads_direct=0 for
+                // unclassified and cumul=2 for root, so the script
+                // reports 0 unclassified and 2 classified -> 2 total.
+                {
+                    def stats_path = process.out.stats.get(0).get(1)
+                    def stats = new groovy.json.JsonSlurper().parse(new File(stats_path.toString()))
+                    assert stats.sample_id == 'real_sample'
+                    assert stats.batch_id == 5
+                    assert stats.unclassified_reads == 0
+                    assert stats.classified_reads == 2
+                    assert stats.unique_taxa == 3
+                }
             )
         }
     }

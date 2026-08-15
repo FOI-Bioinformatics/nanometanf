@@ -1,0 +1,42 @@
+nextflow_process {
+
+    name "Test Process CANONICAL_CLASSIFICATION_WRITER"
+    script "../main.nf"
+    process "CANONICAL_CLASSIFICATION_WRITER"
+
+    options "-stub"
+
+    tag "module"
+    tag "canonical_classification_writer"
+    tag "canonical"
+    tag "classification"
+    tag "stub"
+    tag "fast"
+
+    test("Should emit canonical classification stub outputs") {
+
+        setup {
+            file("${outputDir}").mkdirs()
+            file("${outputDir}/sample1.kraken2.report.txt").text = "100.00\t1\t0\tR\t1\troot\n"
+        }
+
+        when {
+            process {
+                """
+                input[0] = [ [ id: 'sample1' ], file("${outputDir}/sample1.kraken2.report.txt") ]
+                input[1] = 'kraken2'
+                input[2] = '2.1.3'
+                """
+            }
+        }
+
+        then {
+            assertAll(
+                { assert process.success },
+                { assert process.out.canonical },
+                { assert process.out.sidecar },
+                { assert snapshot(process.out.versions).match() }
+            )
+        }
+    }
+}

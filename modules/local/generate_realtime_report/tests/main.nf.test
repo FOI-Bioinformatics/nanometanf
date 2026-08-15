@@ -4,36 +4,30 @@ nextflow_process {
     script "../main.nf"
     process "GENERATE_REALTIME_REPORT"
 
-    options "-stub"
-    // Test Level & Component
+    // Runs the real Python module against real snapshot + cumulative fixtures so
+    // the generated HTML report can be asserted for actual embedded values, not
+    // just that a file was produced (the stub emits a placeholder page).
     tag "module"
     tag "generate_realtime_report"
-
-    // Feature Area
     tag "realtime"
-
-    // Execution Speed & Criticality
     tag "fast"
     tag "core"
 
-    // Test Type
-    tag "snapshot"
-
-    test("Should run in stub mode") {
+    test("renders an HTML report embedding the batch and cumulative figures") {
         when {
             process {
                 """
+                // NOTE: the output filename is globbed from the input meta
+                // batch_time but the script writes it from
+                // snapshot.batch_info.batch_time, so the input meta batch_time
+                // MUST match the snapshot fixture batch_time (the
+                // realtime_statistics subworkflow keeps them in sync).
                 input[0] = [
-                    [
-                        batch_id: 'stub_test',
-                        batch_time: '2024-09-12_18-00-00-000'
-                    ],
-                    [],
-                    []
+                    [ batch_id: 'batch_001', batch_time: '2022-01-01T00:00:00Z' ],
+                    file('$projectDir/tests/fixtures/snapshots/real_snapshot.json'),
+                    file('$projectDir/tests/fixtures/snapshots/cumulative_one_batch.json')
                 ]
-                input[1] = [
-                    report_format: 'html'
-                ]
+                input[1] = [ report_format: 'html' ]
                 """
             }
         }
@@ -41,11 +35,14 @@ nextflow_process {
         then {
             assert process.success
             assert process.out.html.size() == 1
-            assert process.out.versions.size() == 1
-
             def (meta, html_report) = process.out.html[0]
-            assert meta.batch_id == 'stub_test'
-            assert path(html_report).exists()
+            assert meta.batch_id == 'batch_001'
+            def html = file(html_report).text
+            assert html.contains('<!DOCTYPE html>')
+            assert html.contains('Nanometa Real-time Monitoring')
+            assert html.contains('batch_001')              // batch id rendered in the header
+            assert html.contains('18,000')                 // estimated_total_reads, comma-formatted
+            assert !html.contains('(Stub)')                // proves the real renderer ran, not the stub
         }
     }
 }

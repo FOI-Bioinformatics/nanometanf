@@ -5,7 +5,6 @@
 class InputDetector {
 
     static final List FASTQ_EXTENSIONS = ['.fastq', '.fastq.gz', '.fq', '.fq.gz']
-    static final List POD5_EXTENSIONS = ['.pod5']
 
     /**
      * Convert any path-like input (String, File, Path) to a java.io.File.
@@ -70,10 +69,13 @@ class InputDetector {
             }
         }
 
-        // 3. BarcodeUtils extraction from filename
-        def barcode = BarcodeUtils.extractBarcodeFromFilename(stem)
-        if (barcode) {
-            return barcode
+        // 3. BarcodeUtils extraction from filename - only when parent suggests
+        //    a MinKNOW output structure, to avoid false positives in singleplex mode
+        if (parentName && parentName =~ /^(fastq_pass|output)$/) {
+            def barcode = BarcodeUtils.extractBarcodeFromFilename(stem)
+            if (barcode) {
+                return barcode
+            }
         }
 
         // 4. Fallback

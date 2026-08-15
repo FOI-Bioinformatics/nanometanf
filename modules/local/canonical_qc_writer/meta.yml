@@ -1,0 +1,53 @@
+name: "canonical_qc_writer"
+description: Convert FASTP JSON or SeqKit TSV to canonical QC statistics JSON
+keywords:
+  - canonical
+  - qc
+  - fastp
+  - seqkit
+  - chopper
+  - json
+tools:
+  - qc_to_canonical.py:
+      description: Converts QC tool output to a flat canonical JSON format
+      homepage: https://github.com/foi-bioinformatics/nanometanf
+      licence: ["MIT"]
+
+input:
+  - meta:
+      type: map
+      description: |
+        Groovy Map containing sample information
+        e.g. [ id:'sample1' ]
+  - qc_stats:
+      type: file
+      description: QC statistics file (FASTP JSON or SeqKit TSV)
+      pattern: "*.{json,tsv,txt}"
+  - tool_name:
+      type: string
+      description: QC tool name (e.g., fastp, chopper, filtlong)
+  - tool_version:
+      type: string
+      description: QC tool version string
+
+output:
+  - meta:
+      type: map
+      description: |
+        Groovy Map containing sample information
+        e.g. [ id:'sample1' ]
+  - canonical:
+      type: file
+      description: Canonical QC statistics JSON file
+      pattern: "*.qc_stats.json"
+  - sidecar:
+      type: file
+      description: Sidecar metadata JSON file
+      pattern: "*.qc_stats.sidecar.json"
+  - versions:
+      type: file
+      description: File containing software versions
+      pattern: "versions.yml"
+
+authors:
+  - "@andreassjodin"

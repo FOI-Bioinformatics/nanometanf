@@ -1,0 +1,128 @@
+nextflow_process {
+
+    name "Test Process SEQKIT_MERGE_STATS"
+    script "../main.nf"
+    process "SEQKIT_MERGE_STATS"
+
+    tag "module"
+    tag "seqkit_merge_stats"
+    tag "qc"
+
+    test("Should merge three batch TSVs into cumulative stats (F10 regression)") {
+        // Regression for F10 (P2-6): in single_sample realtime mode each
+        // batch used to overwrite canonical/qc/{sample}.qc_stats.json with
+        // last-batch-only data because QC_ANALYSIS did not invoke
+        // SEQKIT_MERGE_STATS in realtime mode. That path is now enabled, so
+        // SEQKIT_MERGE_STATS must produce correct cumulative totals across
+        // N batches for the same sample.
+        setup {
+            def tmp = file("${outputDir}/batch_inputs_f10")
+            tmp.mkdirs()
+
+            def header = 'file\tformat\ttype\tnum_seqs\tsum_len\tmin_len\tavg_len\tmax_len\tQ1\tQ2\tQ3\tsum_gap\tN50\tN50_num\tQ20(%)\tQ30(%)\tAvgQual\tGC(%)\tsum_n'
+
+            file("${tmp}/batch1.tsv").text = header + '\n' +
+                'batch1.fastq.gz\tFASTQ\tDNA\t100\t120000\t200\t1200.0\t9000\t800\t1200\t1800\t0\t1500\t50\t98.5\t90.0\t22.3\t44.0\t0\n'
+            file("${tmp}/batch2.tsv").text = header + '\n' +
+                'batch2.fastq.gz\tFASTQ\tDNA\t200\t260000\t180\t1300.0\t9500\t900\t1250\t1900\t0\t1600\t100\t97.0\t88.0\t21.5\t43.5\t0\n'
+            file("${tmp}/batch3.tsv").text = header + '\n' +
+                'batch3.fastq.gz\tFASTQ\tDNA\t150\t180000\t220\t1200.0\t8500\t850\t1220\t1850\t0\t1550\t75\t98.0\t89.0\t22.0\t43.8\t0\n'
+        }
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [id: 'composite_sample'],
+                    [
+                        file("${outputDir}/batch_inputs_f10/batch1.tsv"),
+                        file("${outputDir}/batch_inputs_f10/batch2.tsv"),
+                        file("${outputDir}/batch_inputs_f10/batch3.tsv")
+                    ]
+                ]
+                """
+            }
+        }
+
+        then {
+            assert process.success
+
+            def cumulative_tsv = process.out.cumulative_stats[0][1]
+            def lines = file(cumulative_tsv).readLines()
+            assert lines.size() == 2, "Expected header + one cumulative row"
+
+            def fields = lines[1].split('\t')
+            // Cumulative num_seqs = 100 + 200 + 150 = 450
+            assert fields[3] as int == 450
+            // Cumulative sum_len = 120000 + 260000 + 180000 = 560000
+            assert fields[4] as int == 560000
+            // min_len = min(200, 180, 220) = 180
+            assert fields[5] as int == 180
+            // max_len = max(9000, 9500, 8500) = 9500
+            assert fields[7] as int == 9500
+        }
+    }
+
+    test("Should match the run3_D fixture totals (59 / 18 / 0 -> 77)") {
+        // Direct regression for the run3_D realtime_single fixture at
+        // /Users/andreassjodin/Desktop/snabbsekvensering/output-live/run3_D_realtime_single
+        // where chopper emitted three batches with read counts 59, 18, 0
+        // and the published seqkit/combined_sample.tsv reported only the
+        // last-batch number (18). After QC_ANALYSIS auto-promotes
+        // qc_enable_incremental in realtime + kraken2_enable_incremental
+        // mode, SEQKIT_MERGE_STATS is the gate that turns those three
+        // batches into the cumulative 77 the dashboard requires.
+        setup {
+            def tmp = file("${outputDir}/run3d_batches")
+            tmp.mkdirs()
+
+            def header = 'file\tformat\ttype\tnum_seqs\tsum_len\tmin_len\tavg_len\tmax_len\tQ1\tQ2\tQ3\tsum_gap\tN50\tN50_num\tQ20(%)\tQ30(%)\tAvgQual\tGC(%)\tsum_n'
+
+            // Batch 1 (run3_D work/a9/...): 59 reads, 135883 bp
+            file("${tmp}/batch1.tsv").text = header + '\n' +
+                'combined_sample.chopped.fastq.gz\tFASTQ\tDNA\t59\t135883\t1030\t2303.1\t13533\t1519.5\t1989.0\t2545.5\t0\t2267\t19\t91.92\t85.40\t19.68\t32.19\t0\n'
+            // Batch 2 (run3_D work/5e/...): 18 reads, 31387 bp
+            file("${tmp}/batch2.tsv").text = header + '\n' +
+                'combined_sample.chopped.fastq.gz\tFASTQ\tDNA\t18\t31387\t1036\t1743.7\t3979\t1257.0\t1509.0\t1845.0\t0\t1731\t7\t87.24\t71.07\t18.64\t34.42\t0\n'
+            // Batch 3 (run3_D work/dc/...): 0 reads, 0 bp -- everything filtered out
+            file("${tmp}/batch3.tsv").text = header + '\n' +
+                'combined_sample.chopped.fastq.gz\t\t\t0\t0\t0\t0.0\t0\t0.0\t0.0\t0.0\t0\t0\t0\t0.00\t0.00\t0.00\t0.00\t0\n'
+        }
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [id: 'combined_sample'],
+                    [
+                        file("${outputDir}/run3d_batches/batch1.tsv"),
+                        file("${outputDir}/run3d_batches/batch2.tsv"),
+                        file("${outputDir}/run3d_batches/batch3.tsv")
+                    ]
+                ]
+                """
+            }
+        }
+
+        then {
+            assert process.success
+
+            def cumulative_tsv = process.out.cumulative_stats[0][1]
+            def lines = file(cumulative_tsv).readLines()
+            assert lines.size() == 2, "Expected header + one cumulative row"
+
+            def fields = lines[1].split('\t')
+            // Cumulative num_seqs = 59 + 18 + 0 = 77
+            assert fields[3] as int == 77, "Expected 77 cumulative reads, got ${fields[3]}"
+            // Cumulative sum_len = 135883 + 31387 + 0 = 167270
+            assert fields[4] as int == 167270, "Expected 167270 cumulative bases, got ${fields[4]}"
+
+            // The merge manifest must record three batches.
+            def manifest = process.out.merge_manifest[0][1]
+            def manifest_text = file(manifest).text
+            assert manifest_text.contains('"num_batches_merged": 3')
+            assert manifest_text.contains('"total_sequences": 77')
+            assert manifest_text.contains('"total_bases": 167270')
+        }
+    }
+}

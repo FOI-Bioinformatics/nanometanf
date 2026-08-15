@@ -13,6 +13,8 @@ process AGGREGATE_VALIDATION_RESULTS {
     path(extraction_stats)
     path(kraken_reports)
     val(validation_method)
+    val(validation_hit_rate_threshold)
+    val(validation_identity_threshold)
 
     output:
     path("validation_results.json"), emit: json
@@ -36,8 +38,8 @@ process AGGREGATE_VALIDATION_RESULTS {
     # Configuration from params
     validation_method = "${validation_method}"
     pipeline_version = "${pipeline_version}"
-    hit_threshold = ${params.validation_hit_rate_threshold ?: 0.5}
-    identity_threshold = ${params.validation_identity_threshold ?: 90.0}
+    hit_threshold = ${validation_hit_rate_threshold ?: 0.5}
+    identity_threshold = ${validation_identity_threshold ?: 90.0}
 
     # Initialize results structure and failure counters
     results = defaultdict(dict)
@@ -45,9 +47,22 @@ process AGGREGATE_VALIDATION_RESULTS {
     parse_failures = {'extraction': 0, 'blast': 0, 'minimap2': 0}
     parse_totals = {'extraction': 0, 'blast': 0, 'minimap2': 0}
 
-    # Build taxid -> species name mapping from Kraken2 reports
-    # Kraken2 report format: percent, cumul_reads, reads, rank, taxid, name
+    # Build taxid -> species name mapping. Seed it with the authoritative
+    # {taxid: name} map written by Nanometa Live from the watchlist (present at
+    # launch, independent of which per-batch reports reach a realtime aggregation),
+    # so names are deterministic. Kraken2 reports then fill any remaining gaps.
     taxid_to_species = {}
+    _names_path = "${params.validation_taxon_names ?: ''}"
+    if _names_path and Path(_names_path).exists():
+        try:
+            with open(_names_path) as _nh:
+                for _t, _n in json.load(_nh).items():
+                    if _n:
+                        taxid_to_species[str(_t)] = _n
+        except Exception as e:
+            print(f"Warning: could not read taxon names {_names_path}: {e}", file=sys.stderr)
+
+    # Kraken2 report format: percent, cumul_reads, reads, rank, taxid, name
     for f in Path('.').glob('*.report.txt'):
         try:
             with open(f) as fh:
@@ -231,8 +246,8 @@ EOF
 
     echo -e "sample_id\\ttaxid\\tspecies\\tmethod\\tkraken_reads\\thits\\thit_rate\\tavg_identity\\tavg_coverage\\tstatus" > validation_summary.tsv
 
-    cat <<-END_VERSIONS > versions.yml
-    "AGGREGATE_VALIDATION_RESULTS":
+    cat << END_VERSIONS > versions.yml
+"AGGREGATE_VALIDATION_RESULTS":
     python: 3.11.0
 END_VERSIONS
     """

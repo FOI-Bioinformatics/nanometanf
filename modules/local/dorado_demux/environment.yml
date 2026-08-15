@@ -1,8 +1,0 @@
-name: dorado_demux
-channels:
-  - conda-forge
-  - bioconda
-  - defaults
-dependencies:
-  # No conda dependencies - using local Dorado binary
-  - coreutils

@@ -1,0 +1,14 @@
+{
+    "Should emit canonical QC stub outputs": {
+        "content": [
+            [
+                "versions.yml:md5,376d0011226918dbef9942e91c4808b2"
+            ]
+        ],
+        "timestamp": "2026-04-26T22:40:05.062091",
+        "meta": {
+            "nf-test": "0.9.4",
+            "nextflow": "25.04.7"
+        }
+    }
+}

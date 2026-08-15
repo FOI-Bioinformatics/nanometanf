@@ -1,0 +1,52 @@
+name: "canonical_classification_writer"
+description: Convert kreport TSV to canonical classification JSON with sidecar metadata
+keywords:
+  - canonical
+  - classification
+  - kraken2
+  - kreport
+  - json
+tools:
+  - kreport_to_canonical.py:
+      description: Converts kreport format to structured JSON with explicit taxonomy hierarchy
+      homepage: https://github.com/foi-bioinformatics/nanometanf
+      licence: ["MIT"]
+
+input:
+  - meta:
+      type: map
+      description: |
+        Groovy Map containing sample information
+        e.g. [ id:'sample1' ]
+  - kreport:
+      type: file
+      description: Kreport TSV file from classifier output
+      pattern: "*.{txt,kreport,report}"
+  - tool_name:
+      type: string
+      description: Classifier tool name (e.g., kraken2, centrifuge)
+  - tool_version:
+      type: string
+      description: Classifier tool version string
+
+output:
+  - meta:
+      type: map
+      description: |
+        Groovy Map containing sample information
+        e.g. [ id:'sample1' ]
+  - canonical:
+      type: file
+      description: Canonical classification JSON file
+      pattern: "*.classification.json"
+  - sidecar:
+      type: file
+      description: Sidecar metadata JSON file
+      pattern: "*.classification.sidecar.json"
+  - versions:
+      type: file
+      description: File containing software versions
+      pattern: "versions.yml"
+
+authors:
+  - "@andreassjodin"

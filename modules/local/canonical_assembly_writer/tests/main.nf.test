@@ -1,0 +1,43 @@
+nextflow_process {
+
+    name "Test Process CANONICAL_ASSEMBLY_WRITER"
+    script "../main.nf"
+    process "CANONICAL_ASSEMBLY_WRITER"
+
+    options "-stub"
+
+    tag "module"
+    tag "canonical_assembly_writer"
+    tag "canonical"
+    tag "stub"
+    tag "fast"
+
+    test("Should emit canonical assembly stub outputs") {
+
+        setup {
+            file("${outputDir}").mkdirs()
+            file("${outputDir}/assembly_info.tsv").text = "sample\tcontigs\ntotal\t0\n"
+            file("${outputDir}/NO_FASTA").text = ""
+        }
+
+        when {
+            process {
+                """
+                input[0] = [ [ id: 'sample1' ], file("${outputDir}/assembly_info.tsv") ]
+                input[1] = [ [ id: 'sample1' ], file("${outputDir}/NO_FASTA") ]
+                input[2] = 'flye'
+                input[3] = '2.9.3'
+                """
+            }
+        }
+
+        then {
+            assertAll(
+                { assert process.success },
+                { assert process.out.canonical },
+                { assert process.out.sidecar },
+                { assert snapshot(process.out.versions).match() }
+            )
+        }
+    }
+}

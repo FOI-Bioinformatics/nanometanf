@@ -1,0 +1,86 @@
+nextflow_process {
+
+    name "Test Process CONSENSUS_VALIDATION"
+    script "../main.nf"
+    process "CONSENSUS_VALIDATION"
+
+    tag "module"
+    tag "consensus_validation"
+    tag "validation"
+
+    test("Should emit consensus stub outputs") {
+
+        options "-stub"
+
+        tag "stub"
+        tag "fast"
+
+        setup {
+            file("${outputDir}").mkdirs()
+            file("${outputDir}/sample1_taxid263.fastq.gz").text = ""
+            file("${outputDir}/reference.fasta").text = ""
+        }
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id: 'sample1', taxid: 263 ],
+                    file("${outputDir}/sample1_taxid263.fastq.gz"),
+                    file("${outputDir}/reference.fasta")
+                ]
+                input[1] = 'map-ont'
+                input[2] = 10
+                """
+            }
+        }
+
+        then {
+            assertAll(
+                { assert process.success },
+                { assert process.out.consensus },
+                { assert process.out.stats },
+                { assert snapshot(process.out.versions).match() }
+            )
+        }
+    }
+
+    test("Should build an amplicon consensus trimmed to the covered window") {
+
+        tag "slow"
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id: 'sample1', taxid: 263 ],
+                    file("${projectDir}/modules/local/consensus_validation/tests/fixtures/amplicon_reads.fastq"),
+                    file("${projectDir}/modules/local/consensus_validation/tests/fixtures/amplicon_ref.fasta")
+                ]
+                input[1] = 'map-ont'
+                input[2] = 5
+                """
+            }
+        }
+
+        then {
+            def statsFile = process.out.stats.get(0).get(1)
+            def stats = new groovy.json.JsonSlurper().parseText(file(statsFile).text)
+            def fastaText = file(process.out.consensus.get(0).get(1)).text
+            assertAll(
+                { assert process.success },
+                // Consensus is trimmed to the covered region: it starts well
+                // inside the 1000 bp reference, not at position 1.
+                { assert stats.covered_start > 50 },
+                { assert stats.covered_end < 950 },
+                { assert stats.span > 100 },
+                { assert stats.span == stats.consensus_length },
+                { assert stats.mapped_reads > 0 },
+                // The emitted FASTA carries the region annotation and a sequence
+                // no longer than the covered span.
+                { assert fastaText.contains("region=") },
+                { assert fastaText.readLines().findAll { !it.startsWith(">") }.join("").length() == stats.span }
+            )
+        }
+    }
+}

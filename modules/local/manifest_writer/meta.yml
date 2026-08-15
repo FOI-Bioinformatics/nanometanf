@@ -1,0 +1,45 @@
+name: "manifest_writer"
+description: Write or update the canonical run manifest with tool and sample metadata
+keywords:
+  - canonical
+  - manifest
+  - metadata
+  - json
+tools:
+  - write_manifest.py:
+      description: Writes a run-level manifest for frontend tool and sample discovery
+      homepage: https://github.com/foi-bioinformatics/nanometanf
+      licence: ["MIT"]
+
+input:
+  - classifier:
+      type: string
+      description: Classifier tool name (e.g., kraken2)
+  - qc_tool:
+      type: string
+      description: QC tool name (e.g., fastp, chopper)
+  - assembler:
+      type: string
+      description: Assembler name (e.g., flye)
+  - validation_method:
+      type: string
+      description: Validation method (e.g., blast, minimap2, both)
+  - sample_ids:
+      type: string
+      description: Comma-separated list of sample IDs
+  - mode:
+      type: string
+      description: Pipeline mode (batch or realtime)
+
+output:
+  - manifest:
+      type: file
+      description: Run manifest JSON file
+      pattern: "_manifest.json"
+  - versions:
+      type: file
+      description: File containing software versions
+      pattern: "versions.yml"
+
+authors:
+  - "@andreassjodin"

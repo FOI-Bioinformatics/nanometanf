@@ -1,0 +1,38 @@
+nextflow_process {
+
+    name "Test Process EMIT_EMPTY_KRAKEN2_REPORT"
+    script "../main.nf"
+    process "EMIT_EMPTY_KRAKEN2_REPORT"
+
+    tag "unit"
+    tag "kraken2"
+    tag "placeholder"
+
+    test("Should emit a well-formed empty Kraken2 report") {
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id: 'sample_with_no_reads' ],
+                    file("\${projectDir}/tests/test_sample.fastq.gz", checkIfExists: true),
+                ]
+                """
+            }
+        }
+        then {
+            assert process.success
+            // The report file is named after meta.id and lands in
+            // the working dir, then publishes to ${outdir}/kraken2/.
+            with(process.out.report.get(0)) {
+                assert get(0).id == 'sample_with_no_reads'
+                def reportPath = get(1)
+                assert reportPath.endsWith('sample_with_no_reads.kraken2.report.txt')
+                def content = path(reportPath).text
+                // One line, six tab-separated fields: 100% / 0 cumul /
+                // 0 reads / U rank / taxid 0 / unclassified
+                assert content.startsWith('100.00\t0\t0\tU\t0\tunclassified')
+                assert content.split('\n').size() == 1
+            }
+        }
+    }
+}

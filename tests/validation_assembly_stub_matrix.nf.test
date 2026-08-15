@@ -1,0 +1,239 @@
+nextflow_pipeline {
+
+    name "Validation + assembly stub matrix (run completes, versions written)"
+    script "../main.nf"
+
+    // Closes the coverage gap that let the batch-mode validation crash ship:
+    // no test exercised the validation/assembly integration path, so the
+    // ch_versions assembly and the software-versions writer were never run
+    // end-to-end. These stub-mode cases run the full pipeline with validation
+    // (blast / minimap2 / both) and with assembly enabled, in batch mode, and
+    // assert three things per case:
+    //   (#2) the error report is free of the Groovy channel-shape / destructuring
+    //        crash family (MethodSelectionException from Yaml.load([]),
+    //        MissingMethodException, "Invalid method invocation `call`"),
+    //   (#3) pipeline_info/*software_versions* is actually written (version
+    //        collection was the abort point of the original bug), and
+    //        the run succeeds.
+
+    tag "pipeline"
+    tag "integration"
+    tag "validation"
+    tag "assembly"
+    tag "stub"
+    tag "core"
+
+    // Validation extracts reads by taxid from the PER-READ Kraken2 output,
+    // which Kraken2 writes only when save_reads_assignment is true. The
+    // pipeline used to "auto-enable" it with `params.save_reads_assignment =
+    // true` inside the workflow body. Nextflow 26 treats params as write-once
+    // and ignores assignments after the first, so the flag stayed false:
+    // Kraken2 ran with --output /dev/null, no reads could be extracted, every
+    // validation stage was skipped, and the aggregator wrote
+    //
+    //     "results": {}, "total_taxids_validated": 0
+    //
+    // while the run reported SUCCESS.
+    //
+    // Found 2026-07-28 on a real run: 34,096 reads of Francisella tularensis
+    // on barcode11, a reference genome present, validation requested -- and a
+    // green pipeline that had confirmed nothing. A false negative on a Tier 1
+    // select agent, presented as a clean result.
+    //
+    // The pipeline cannot fix this for the operator, so it must refuse rather
+    // than appear to succeed. These two cases pin both halves of that.
+
+    test("validation without save_reads_assignment fails loudly, not silently") {
+        options "-stub"
+        when {
+            params {
+                input = "$projectDir/tests/fixtures/samplesheets/minimal.csv"
+                outdir = "$outputDir"
+                classifier = 'kraken2'
+                kraken2_db = "$projectDir/tests/fixtures/kraken2_db"
+                realtime_mode = false
+                run_validation = true
+                validation_method = 'both'
+                pathogen_genomes = "$projectDir/tests/fixtures/validation/test_genomes.json"
+                // Both flags set to false EXPLICITLY. Relying on the defaults
+                // is not enough: conf/test.config sets both to true, so under
+                // `--profile test` -- which is what CI runs -- the guard could
+                // never fire and this test asserted a failure that could not
+                // happen. A test for a guard must state the precondition that
+                // triggers it, not inherit it.
+                save_reads_assignment = false
+                save_output_fastqs = false
+                skip_nanoplot = true
+                max_cpus = 2
+                max_memory = '4.GB'
+                max_time = '5.min'
+            }
+        }
+        then {
+            assert workflow.failed :
+                "the run succeeded without per-read Kraken2 output, so it " +
+                "validated nothing while reporting success"
+
+            def message = (workflow.errorReport ?: '') + '\n' +
+                          (workflow.stdout?.join('\n') ?: '')
+            assert message.contains('save_reads_assignment') :
+                "the failure does not name the per-read assignment flag: ${message.take(400)}"
+            assert message.contains('save_output_fastqs') :
+                "the failure does not name the classified-FASTQ flag, so an " +
+                "operator would set one flag, re-run, and fail again: ${message.take(400)}"
+        }
+    }
+
+    test("validation with save_reads_assignment produces per-read output") {
+        options "-stub"
+        when {
+            params {
+                input = "$projectDir/tests/fixtures/samplesheets/minimal.csv"
+                outdir = "$outputDir"
+                classifier = 'kraken2'
+                kraken2_db = "$projectDir/tests/fixtures/kraken2_db"
+                realtime_mode = false
+                run_validation = true
+                validation_method = 'both'
+                pathogen_genomes = "$projectDir/tests/fixtures/validation/test_genomes.json"
+                save_reads_assignment = true
+                save_output_fastqs = true
+                skip_nanoplot = true
+                max_cpus = 2
+                max_memory = '4.GB'
+                max_time = '5.min'
+            }
+        }
+        then {
+            // The complement of the refusal above: with the flag set, the run
+            // proceeds. This is what stops the new guard from being an
+            // unconditional block on validation.
+            //
+            // Deliberately NOT asserted here: that the per-read file is
+            // published. Stub mode does not reproduce that reliably, and a
+            // stub-only assertion would be red for a stub limitation rather
+            // than a product fault. The publishing behaviour is asserted
+            // against real pipeline output in nanometa_live's
+            // tests/realdata/test_validation.py, where it was observed
+            // directly (run R8b, 2026-07-28).
+            assert workflow.success :
+                "validation refused to run even with save_reads_assignment set"
+        }
+    }
+
+    test("batch + minimap2 validation: run completes, versions written") {
+        options "-stub"
+        when {
+            params {
+                input = "$projectDir/tests/fixtures/samplesheets/minimal.csv"
+                outdir = "$outputDir"
+                classifier = 'kraken2'
+                kraken2_db = "$projectDir/tests/fixtures/kraken2_db"
+                realtime_mode = false
+                run_validation = true
+                validation_method = 'minimap2'
+                pathogen_genomes = "$projectDir/tests/fixtures/validation/test_genomes.json"
+                // Required: validation refuses to run without the per-read
+                // assignments and the classified FASTQ, rather than silently
+                // validating nothing.
+                save_reads_assignment = true
+                save_output_fastqs = true
+                skip_nanoplot = true
+                max_cpus = 2
+                max_memory = '4.GB'
+                max_time = '5.min'
+            }
+        }
+        then {
+            def err = (workflow.errorReport ?: '') + '\n' + (workflow.stdout?.join('\n') ?: '')
+            assert !err.contains('MethodSelectionException')
+            assert !err.contains('Could not find which method')
+            assert !err.contains('MissingMethodException')
+            assert !err.contains('Invalid method invocation `call`')
+            assert workflow.success
+            assert path("$outputDir/pipeline_info").list()
+                .any { it.toString().contains('software_') }
+        }
+    }
+
+    test("batch + blast validation: run completes, versions written") {
+        options "-stub"
+        when {
+            params {
+                input = "$projectDir/tests/fixtures/samplesheets/minimal.csv"
+                outdir = "$outputDir"
+                classifier = 'kraken2'
+                kraken2_db = "$projectDir/tests/fixtures/kraken2_db"
+                realtime_mode = false
+                run_validation = true
+                validation_method = 'blast'
+                pathogen_genomes = "$projectDir/tests/fixtures/validation/test_genomes.json"
+                // Required: validation refuses to run without the per-read
+                // assignments and the classified FASTQ, rather than silently
+                // validating nothing.
+                save_reads_assignment = true
+                save_output_fastqs = true
+                skip_nanoplot = true
+                max_cpus = 2
+                max_memory = '4.GB'
+                max_time = '5.min'
+            }
+        }
+        then {
+            def err = (workflow.errorReport ?: '') + '\n' + (workflow.stdout?.join('\n') ?: '')
+            assert !err.contains('MethodSelectionException')
+            assert !err.contains('Could not find which method')
+            assert !err.contains('MissingMethodException')
+            assert !err.contains('Invalid method invocation `call`')
+            assert workflow.success
+            assert path("$outputDir/pipeline_info").list()
+                .any { it.toString().contains('software_') }
+        }
+    }
+
+    test("batch + both validation methods: run completes, versions written") {
+        options "-stub"
+        when {
+            params {
+                input = "$projectDir/tests/fixtures/samplesheets/minimal.csv"
+                outdir = "$outputDir"
+                classifier = 'kraken2'
+                kraken2_db = "$projectDir/tests/fixtures/kraken2_db"
+                realtime_mode = false
+                run_validation = true
+                validation_method = 'both'
+                pathogen_genomes = "$projectDir/tests/fixtures/validation/test_genomes.json"
+                // Required: validation refuses to run without the per-read
+                // assignments and the classified FASTQ, rather than silently
+                // validating nothing.
+                save_reads_assignment = true
+                save_output_fastqs = true
+                skip_nanoplot = true
+                max_cpus = 2
+                max_memory = '4.GB'
+                max_time = '5.min'
+            }
+        }
+        then {
+            def err = (workflow.errorReport ?: '') + '\n' + (workflow.stdout?.join('\n') ?: '')
+            assert !err.contains('MethodSelectionException')
+            assert !err.contains('Could not find which method')
+            assert !err.contains('MissingMethodException')
+            assert !err.contains('Invalid method invocation `call`')
+            assert workflow.success
+            assert path("$outputDir/pipeline_info").list()
+                .any { it.toString().contains('software_') }
+        }
+    }
+
+    // NOTE on assembly: enable_assembly=true is NOT covered by a full stub run
+    // here because the FLYE module collects its version via
+    // `eval('flye --version')` on a `topic: versions` output, which runs the
+    // tool even under `-stub` and fails when flye is not installed (no
+    // container in the host-only stub matrix). The production bug that this
+    // matrix originally exposed -- `FLYE.out.versions` (MissingPropertyException,
+    // the module emits `versions_flye` via the topic, not `.out.versions`) -- is
+    // fixed in subworkflows/local/assembly/main.nf; with the fix the assembly
+    // path no longer aborts on the version reference. A full assembly run is
+    // exercised by the conda/container test profiles, not by this stub matrix.
+}

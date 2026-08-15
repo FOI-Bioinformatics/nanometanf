@@ -1,0 +1,129 @@
+nextflow_process {
+
+    name "Test VALIDATION_CUMULATIVE_AGGREGATOR"
+    script "../main.nf"
+    process "VALIDATION_CUMULATIVE_AGGREGATOR"
+
+    tag "modules"
+    tag "modules_local"
+    tag "validation"
+    tag "realtime"
+    tag "cumulative"
+    tag "fast"
+
+    // Fixtures use the REAL per-(sample,taxid) names (batch and prior are both
+    // <prefix>.paf, equal to the cumulative output name), so these tests fail
+    // without the stageAs disambiguation in the module.
+    test("minimap2 cumulative - first batch (no prior)") {
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id:'test', single_end:true ], "2697049",
+                    file("\${projectDir}/modules/local/validation_cumulative_aggregator/tests/fixtures/batch/test_taxid2697049.paf", checkIfExists: true),
+                    file("\${projectDir}/modules/local/validation_cumulative_aggregator/tests/fixtures/batch/test_taxid2697049.minimap2_stats.json", checkIfExists: true),
+                    [], []
+                ]
+                input[1] = 'minimap2'
+                """
+            }
+        }
+        then {
+            def stats = new groovy.json.JsonSlurper().parseText(file(process.out.stats.get(0).get(2)).text)
+            assertAll(
+                { assert process.success },
+                { assert stats.total_reads == 3 },      // this batch only
+                { assert stats.mapped_reads == 2 },
+                { assert stats.validation_method == 'minimap2' },
+                // versions.yml must be valid YAML: top key at column 0 (no
+                // leading whitespace), else version collation fails the pipeline.
+                { assert file(process.out.versions.get(0)).readLines()[0].startsWith('"') },
+                { assert path(process.out.minimap2_cumulative.get(0).get(2)).readLines().size() == 2 }
+            )
+        }
+    }
+
+    test("minimap2 cumulative - second batch accumulates over prior") {
+        when {
+            process {
+                """
+                // Batch (r3,r4; total_reads=3) over prior cumulative (r1,r2; total_reads=2).
+                // Expect total_reads 5, mapped 4 (dedup), hit_rate 0.8.
+                input[0] = [
+                    [ id:'test', single_end:true ], "2697049",
+                    file("\${projectDir}/modules/local/validation_cumulative_aggregator/tests/fixtures/batch/test_taxid2697049.paf", checkIfExists: true),
+                    file("\${projectDir}/modules/local/validation_cumulative_aggregator/tests/fixtures/batch/test_taxid2697049.minimap2_stats.json", checkIfExists: true),
+                    file("\${projectDir}/modules/local/validation_cumulative_aggregator/tests/fixtures/prior/test_taxid2697049.paf", checkIfExists: true),
+                    file("\${projectDir}/modules/local/validation_cumulative_aggregator/tests/fixtures/prior/test_taxid2697049.minimap2_stats.json", checkIfExists: true)
+                ]
+                input[1] = 'minimap2'
+                """
+            }
+        }
+        then {
+            def stats = new groovy.json.JsonSlurper().parseText(file(process.out.stats.get(0).get(2)).text)
+            assertAll(
+                { assert process.success },
+                { assert stats.total_reads == 5 },
+                { assert stats.mapped_reads == 4 },
+                { assert stats.hit_rate == 0.8 },
+                { assert stats.avg_coverage >= 0.0 && stats.avg_coverage <= 1.0 },
+                { assert stats.containsKey('avg_mapq') },
+                { assert stats.containsKey('avg_identity') },
+                { assert stats.containsKey('ref_name') },
+                { assert path(process.out.minimap2_cumulative.get(0).get(2)).readLines().size() == 4 }
+            )
+        }
+    }
+
+    test("blast cumulative - second batch accumulates over prior") {
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id:'test', single_end:true ], "2697049",
+                    file("\${projectDir}/modules/local/validation_cumulative_aggregator/tests/fixtures/batch/test_taxid2697049.blast.tsv", checkIfExists: true),
+                    file("\${projectDir}/modules/local/validation_cumulative_aggregator/tests/fixtures/batch/test_taxid2697049.blast_stats.json", checkIfExists: true),
+                    file("\${projectDir}/modules/local/validation_cumulative_aggregator/tests/fixtures/prior/test_taxid2697049.blast.tsv", checkIfExists: true),
+                    file("\${projectDir}/modules/local/validation_cumulative_aggregator/tests/fixtures/prior/test_taxid2697049.blast_stats.json", checkIfExists: true)
+                ]
+                input[1] = 'blast'
+                """
+            }
+        }
+        then {
+            def stats = new groovy.json.JsonSlurper().parseText(file(process.out.stats.get(0).get(2)).text)
+            assertAll(
+                { assert process.success },
+                { assert stats.total_reads == 5 },
+                { assert stats.blast_hits == 4 },
+                { assert stats.hit_rate == 0.8 },
+                { assert stats.avg_coverage >= 0.0 && stats.avg_coverage <= 1.0 },
+                { assert stats.validation_method == 'blast' },
+                { assert stats.containsKey('avg_identity') },
+                { assert stats.containsKey('min_evalue') },
+                { assert path(process.out.blast_cumulative.get(0).get(2)).readLines().size() == 4 }
+            )
+        }
+    }
+
+    test("minimap2 cumulative - stub") {
+        options "-stub"
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id:'test', single_end:true ], "2697049",
+                    file("\${projectDir}/modules/local/validation_cumulative_aggregator/tests/fixtures/batch/test_taxid2697049.paf", checkIfExists: true),
+                    file("\${projectDir}/modules/local/validation_cumulative_aggregator/tests/fixtures/batch/test_taxid2697049.minimap2_stats.json", checkIfExists: true),
+                    [], []
+                ]
+                input[1] = 'minimap2'
+                """
+            }
+        }
+        then {
+            assertAll( { assert process.success } )
+        }
+    }
+}

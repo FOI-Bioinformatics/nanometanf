@@ -19,6 +19,10 @@ nextflow_pipeline {
     // Test Type
     tag "stub"
 
+    // The former leaner CHOPPER+kraken2 case (no blast, no nanoplot) was removed:
+    // it was a subset of "complete QC pipeline" below, which already exercises
+    // CHOPPER + kraken2 plus blast validation and NanoPlot.
+
     test("Should run complete QC pipeline in stub mode") {
 
         when {
@@ -40,9 +44,7 @@ nextflow_pipeline {
                 kraken2_save_output_fastqs = false
                 kraken2_save_readclassifications = false
 
-                use_dorado = false
                 realtime_mode = false
-                enable_dynamic_resources = false
 
                 max_cpus = 2
                 max_memory = '4.GB'
@@ -53,7 +55,15 @@ nextflow_pipeline {
         options "-stub"
 
         then {
+            def err = (workflow.errorReport ?: '') + '\n' + (workflow.stdout?.join('\n') ?: '')
+            assert !err.contains('MethodSelectionException')
+            assert !err.contains('Could not find which method')
+            assert !err.contains('MissingMethodException')
+            assert !err.contains('Invalid method invocation `call`')
             assert workflow.success
+            assert path("$outputDir/pipeline_info").list().any { it.toString().contains('software_') }
+            assert workflow.trace.tasks().any { it.name.contains('CHOPPER') }
+            assert path("${outputDir}/kraken2").exists()
         }
     }
 
@@ -72,7 +82,6 @@ nextflow_pipeline {
                 kraken2_db = "$projectDir/tests/fixtures/kraken2_db"
                 taxpasta_format = 'tsv'
 
-                use_dorado = false
                 blast_validation = false
                 realtime_mode = false
                 skip_nanoplot = true
@@ -86,41 +95,14 @@ nextflow_pipeline {
         options "-stub"
 
         then {
+            def err = (workflow.errorReport ?: '') + '\n' + (workflow.stdout?.join('\n') ?: '')
+            assert !err.contains('MethodSelectionException')
+            assert !err.contains('Could not find which method')
+            assert !err.contains('MissingMethodException')
+            assert !err.contains('Invalid method invocation `call`')
             assert workflow.success
-        }
-    }
-
-    test("Should validate tool-agnostic QC interface with CHOPPER in full pipeline") {
-
-        when {
-            params {
-                input = "$projectDir/tests/fixtures/samplesheets/minimal.csv"
-                outdir = "$outputDir"
-
-                // Use CHOPPER (default QC tool) - FILTLONG has known configuration issue
-                qc_tool = 'chopper'
-                chopper_quality = 8
-                chopper_minlength = 500
-
-                classifier = 'kraken2'
-                kraken2_db = "$projectDir/tests/fixtures/kraken2_db"
-                taxpasta_format = 'tsv'
-
-                use_dorado = false
-                blast_validation = false
-                realtime_mode = false
-                skip_nanoplot = true
-
-                max_cpus = 2
-                max_memory = '4.GB'
-                max_time = '5.min'
-            }
-        }
-
-        options "-stub"
-
-        then {
-            assert workflow.success
+            assert path("$outputDir/pipeline_info").list().any { it.toString().contains('software_') }
+            assert workflow.trace.tasks().any { it.name.contains('FASTP') }
         }
     }
 
@@ -138,7 +120,6 @@ nextflow_pipeline {
                 skip_kraken2 = true
                 blast_validation = false
 
-                use_dorado = false
                 realtime_mode = false
                 skip_nanoplot = false
 
@@ -151,7 +132,14 @@ nextflow_pipeline {
         options "-stub"
 
         then {
+            def err = (workflow.errorReport ?: '') + '\n' + (workflow.stdout?.join('\n') ?: '')
+            assert !err.contains('MethodSelectionException')
+            assert !err.contains('Could not find which method')
+            assert !err.contains('MissingMethodException')
+            assert !err.contains('Invalid method invocation `call`')
             assert workflow.success
+            assert path("$outputDir/pipeline_info").list().any { it.toString().contains('software_') }
+            assert workflow.trace.tasks().any { it.name.contains('CHOPPER') }
         }
     }
 }

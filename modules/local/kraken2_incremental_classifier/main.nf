@@ -12,6 +12,7 @@ process KRAKEN2_INCREMENTAL_CLASSIFIER {
     path  db
     val   save_output_fastqs
     val   save_reads_assignment
+    val   use_memory_mapping
 
     output:
     tuple val(meta), path('*.kraken2.output.txt')       , emit: raw_kraken2_output
@@ -36,6 +37,15 @@ process KRAKEN2_INCREMENTAL_CLASSIFIER {
     def classified_option = save_output_fastqs ? "--classified-out ${classified}" : ""
     def unclassified_option = save_output_fastqs ? "--unclassified-out ${unclassified}" : ""
     def readclassification_option = save_reads_assignment ? "--output ${prefix}.kraken2.classifiedreads.txt" : "--output /dev/null"
+    // Drop --memory-mapping on retry. kraken2 with --memory-mapping
+    // mmap()s the hash.k2d file; on certain filesystems (NFS, GlusterFS,
+    // CIFS, FUSE) the mmap'd pages may return invalid data once the
+    // process touches them, producing a SIGSEGV (exit 139). Falling back
+    // to ordinary read() loads the DB into per-process RAM and avoids
+    // the page-fault contract entirely. Modules.config sets
+    // errorStrategy = { task.exitStatus == 139 ? 'retry' : 'finish' }
+    // and maxRetries = 1 so the retry kicks in automatically.
+    def memory_mapping = (use_memory_mapping && task.attempt == 1) ? "--memory-mapping" : ""
 
     """
     #!/bin/bash
@@ -48,12 +58,16 @@ process KRAKEN2_INCREMENTAL_CLASSIFIER {
     # Run Kraken2 on batch reads only
     echo "Running incremental Kraken2 classification on batch ${meta.batch_id ?: 0}" >&2
     echo "Sample: ${meta.id}" >&2
+    if [ "${task.attempt}" -gt 1 ]; then
+        echo "Retry attempt ${task.attempt}: --memory-mapping disabled (previous attempt segfaulted, likely NFS mmap issue)" >&2
+    fi
 
     kraken2 \\
         --db ${db} \\
         --threads ${task.cpus} \\
         --report ${prefix}.kraken2.report.txt \\
         --gzip-compressed \\
+        $memory_mapping \\
         $unclassified_option \\
         $classified_option \\
         $readclassification_option \\
@@ -101,10 +115,10 @@ EOF
     echo "Batch ${meta.batch_id ?: 0} completed in \${DURATION}s" >&2
     echo "Classified: \$CLASSIFIED_SEQS / \$TOTAL_SEQS reads" >&2
 
-cat <<-END_VERSIONS > versions.yml
+    cat << END_VERSIONS > versions.yml
 "${task.process}":
-    kraken2: \$(echo \$(kraken2 --version 2>&1) | sed 's/^.*Kraken version //; s/ .*\$//')
-    pigz: \$( pigz --version 2>&1 | sed 's/pigz //g' )
+    kraken2: \$(kraken2 --version 2>&1 | head -1 | sed 's/.*version //')
+    pigz: \$(pigz --version 2>&1 | sed 's/pigz //')
 END_VERSIONS
     """
 
@@ -126,10 +140,10 @@ END_VERSIONS
         touch ${prefix}.kraken2.classifiedreads.txt
     fi
 
-cat <<-END_VERSIONS > versions.yml
+cat << END_VERSIONS > versions.yml
 "${task.process}":
-    kraken2: \$(echo \$(kraken2 --version 2>&1) | sed 's/^.*Kraken version //; s/ .*\$//')
-    pigz: \$( pigz --version 2>&1 | sed 's/pigz //g' )
+    kraken2: 2.1.3
+    pigz: 2.8
 END_VERSIONS
     """
 }

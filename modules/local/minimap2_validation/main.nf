@@ -9,6 +9,10 @@ process MINIMAP2_VALIDATION {
 
     input:
     tuple val(meta), path(reads), path(reference)
+    val minimap2_preset
+    val minimap2_min_mapq
+    val validation_hit_rate_threshold
+    val validation_identity_threshold
 
     output:
     tuple val(meta), path("*.paf"), emit: alignments
@@ -20,10 +24,10 @@ process MINIMAP2_VALIDATION {
 
     script:
     def prefix = task.ext.prefix ?: "${meta.id}_taxid${meta.taxid}"
-    def preset = task.ext.preset ?: params.minimap2_preset ?: "map-ont"
-    def min_mapq = task.ext.min_mapq ?: params.minimap2_min_mapq ?: 10
-    def hit_threshold = params.validation_hit_rate_threshold ?: 0.5
-    def identity_threshold = params.validation_identity_threshold ?: 90.0
+    def preset = task.ext.preset ?: minimap2_preset ?: "map-ont"
+    def min_mapq = task.ext.min_mapq ?: minimap2_min_mapq ?: 10
+    def hit_threshold = validation_hit_rate_threshold ?: 0.5
+    def identity_threshold = validation_identity_threshold ?: 90.0
     def sample_id = meta.id
     def taxid = meta.taxid
     """
@@ -32,7 +36,7 @@ process MINIMAP2_VALIDATION {
 
     # Count input reads (handle gzipped files)
     if [[ "${reads}" == *.gz ]]; then
-        TOTAL_READS=\$(zcat "${reads}" | awk 'NR%4==1' | wc -l | tr -d ' ')
+        TOTAL_READS=\$(gunzip -c "${reads}" | awk 'NR%4==1' | wc -l | tr -d ' ')
     else
         TOTAL_READS=\$(awk 'NR%4==1' "${reads}" | wc -l | tr -d ' ')
     fi
@@ -51,107 +55,113 @@ process MINIMAP2_VALIDATION {
         touch "${prefix}.paf"
     fi
 
-    # Generate minimap2 stats using Python
-    python3 << EOF
-import json
-import sys
-from pathlib import Path
+    # Generate minimap2 stats using awk
+    # PAF format: qname qlen qstart qend strand tname tlen tstart tend nmatch alen mapq [tags...]
+    awk -v total_reads="\$TOTAL_READS" \
+        -v min_mapq="${min_mapq}" \
+        -v hit_threshold="${hit_threshold}" \
+        -v identity_threshold="${identity_threshold}" \
+        -v sample_id="${sample_id}" \
+        -v taxid="${taxid}" \
+        -v preset="${preset}" \
+        -v out_file="${prefix}.minimap2_stats.json" \
+    'BEGIN { OFS="\\t" }
+    NF >= 12 {
+        qname = \$1
+        qlen  = \$2 + 0
+        qstart = \$3 + 0
+        qend   = \$4 + 0
+        tname  = \$6
+        tlen   = \$7 + 0
+        nmatch = \$10 + 0
+        alen   = \$11 + 0
+        mapq   = \$12 + 0
 
-paf_file = "${prefix}.paf"
-total_reads = \$TOTAL_READS
-min_mapq_val = ${min_mapq}
+        # Track the longest reference contig seen
+        if (tlen > ref_max_len) {
+            ref_max_len  = tlen
+            ref_max_name = tname
+        }
 
-# Parse PAF results
-# PAF format: qname qlen qstart qend strand tname tlen tstart tend nmatch alen mapq ...
-mapped_reads = set()
-mapqs = []
-identities = []
-coverages = []
-ref_lengths = {}
+        if (mapq >= min_mapq) {
+            # Deduplicate by read name
+            if (!(qname in seen)) {
+                seen[qname] = 1
+                hits++
+                mapq_sum += mapq
+                mapq_n++
 
-with open(paf_file) as f:
-    for line_num, line in enumerate(f, 1):
-        cols = line.strip().split('\\t')
-        if len(cols) >= 12:
-            try:
-                qname = cols[0]
-                qlen = int(cols[1])
-                qstart = int(cols[2])
-                qend = int(cols[3])
-                tname = cols[5]
-                tlen = int(cols[6])
-                nmatch = int(cols[9])
-                alen = int(cols[10])
-                mapq = int(cols[11])
-            except (ValueError, IndexError) as e:
-                # Skip malformed lines but continue processing
-                print(f"Warning: Skipping malformed PAF line {line_num}: {e}", file=sys.stderr)
-                continue
+                # Prefer dv:f: tag for identity; fall back to nmatch/alen
+                identity = -1
+                for (i = 13; i <= NF; i++) {
+                    if (\$i ~ /^dv:f:/) {
+                        split(\$i, parts, ":")
+                        dv = parts[3] + 0
+                        identity = (1.0 - dv) * 100
+                        break
+                    }
+                }
+                if (identity < 0 && alen > 0) {
+                    identity = nmatch / alen * 100
+                }
+                if (identity >= 0) {
+                    id_sum += identity
+                    id_n++
+                }
 
-            ref_lengths[tname] = tlen
-
-            # Only count reads that pass MAPQ threshold
-            if mapq >= min_mapq_val:
-                mapped_reads.add(qname)
-                mapqs.append(mapq)
-
-                # Calculate identity as nmatch / alen
-                if alen > 0:
-                    identities.append(nmatch / alen * 100)
-
-                # Calculate query coverage (use abs to handle reverse strand alignments)
-                if qlen > 0:
-                    coverages.append(abs(qend - qstart) / qlen)
-
-hits = len(mapped_reads)
-hit_rate = hits / total_reads if total_reads > 0 else 0.0
-avg_mapq = sum(mapqs) / len(mapqs) if mapqs else 0.0
-avg_identity = sum(identities) / len(identities) if identities else 0.0
-avg_coverage = sum(coverages) / len(coverages) if coverages else 0.0
-
-# Determine validation status based on thresholds
-hit_threshold = ${hit_threshold}
-identity_threshold = ${identity_threshold}
-
-if hit_rate >= hit_threshold and avg_identity >= identity_threshold:
-    status = "confirmed"
-elif hit_rate >= hit_threshold * 0.5 or avg_identity >= identity_threshold * 0.9:
-    status = "uncertain"
-else:
-    status = "rejected"
-
-# Reference genome info (use the largest/primary reference if multiple)
-primary_ref = max(ref_lengths.items(), key=lambda x: x[1]) if ref_lengths else ("unknown", 0)
-
-stats = {
-    "sample_id": "${sample_id}",
-    "taxid": ${taxid},
-    "validation_method": "minimap2",
-    "total_reads": total_reads,
-    "mapped_reads": hits,
-    "hit_rate": round(hit_rate, 6),
-    "avg_mapq": round(avg_mapq, 2),
-    "avg_identity": round(avg_identity, 2),
-    "avg_coverage": round(avg_coverage, 4),
-    "validation_status": status,
-    "ref_name": primary_ref[0],
-    "ref_length": primary_ref[1],
-    "parameters": {
-        "preset": "${preset}",
-        "min_mapq": min_mapq_val
+                # Query coverage (absolute value handles reverse-strand coords)
+                span = qend - qstart
+                if (span < 0) span = -span
+                if (qlen > 0) {
+                    cov_sum += span / qlen
+                    cov_n++
+                }
+            }
+        }
     }
-}
+    END {
+        if (ref_max_name == "") { ref_max_name = "unknown"; ref_max_len = 0 }
+        hit_rate   = (total_reads > 0) ? hits / total_reads : 0.0
+        avg_mapq   = (mapq_n > 0) ? mapq_sum / mapq_n : 0.0
+        avg_id     = (id_n > 0) ? id_sum / id_n : 0.0
+        avg_cov    = (cov_n > 0) ? cov_sum / cov_n : 0.0
 
-with open("${prefix}.minimap2_stats.json", "w") as out:
-    json.dump(stats, out, indent=2)
+        if (hit_rate >= hit_threshold && avg_id >= identity_threshold)
+            status = "confirmed"
+        else if (hit_rate >= hit_threshold * 0.5 || avg_id >= identity_threshold * 0.9)
+            status = "uncertain"
+        else
+            status = "rejected"
 
-print(f"Minimap2 validation: {hits}/{total_reads} mapped ({hit_rate*100:.1f}%), avg identity {avg_identity:.1f}%, status: {status}", file=sys.stderr)
-EOF
+        # Newline escapes here MUST be doubled. Groovy unescapes one
+        # level when expanding the script block, so backslash-backslash-n
+        # in the source reaches bash as backslash-n, which awk then
+        # interprets as a newline. A single backslash-n in the source
+        # would expand to a literal newline at Groovy parse time and
+        # break the awk string literal.
+        printf "{\\n" > out_file
+        printf "  \\"sample_id\\": \\"%s\\",\\n", sample_id > out_file
+        printf "  \\"taxid\\": %s,\\n", taxid > out_file
+        printf "  \\"validation_method\\": \\"minimap2\\",\\n" > out_file
+        printf "  \\"total_reads\\": %d,\\n", total_reads > out_file
+        printf "  \\"mapped_reads\\": %d,\\n", hits > out_file
+        printf "  \\"hit_rate\\": %.6f,\\n", hit_rate > out_file
+        printf "  \\"avg_mapq\\": %.2f,\\n", avg_mapq > out_file
+        printf "  \\"avg_identity\\": %.2f,\\n", avg_id > out_file
+        printf "  \\"avg_coverage\\": %.4f,\\n", avg_cov > out_file
+        printf "  \\"validation_status\\": \\"%s\\",\\n", status > out_file
+        printf "  \\"ref_name\\": \\"%s\\",\\n", ref_max_name > out_file
+        printf "  \\"ref_length\\": %d,\\n", ref_max_len > out_file
+        printf "  \\"parameters\\": {\\"preset\\": \\"%s\\", \\"min_mapq\\": %s}\\n", preset, min_mapq > out_file
+        printf "}\\n" > out_file
+
+        printf "Minimap2 validation: %d/%d mapped (%.1f%%), avg identity %.1f%%, status: %s\\n", \
+            hits, total_reads, hit_rate * 100, avg_id, status > "/dev/stderr"
+    }' "${prefix}.paf"
 
     cat <<-END_VERSIONS > versions.yml
 "${task.process}":
     minimap2: \$(minimap2 --version)
-    python: \$(python3 --version | sed 's/Python //')
 END_VERSIONS
     """
 
@@ -177,7 +187,6 @@ EOF
     cat <<-END_VERSIONS > versions.yml
 "${task.process}":
     minimap2: 2.28
-    python: 3.11.0
 END_VERSIONS
     """
 }

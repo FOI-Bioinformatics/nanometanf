@@ -39,7 +39,6 @@ Analyzes test files and suggests appropriate tags based on the new hierarchical 
 **Feature Area Detection:**
 
 - Contains `kraken`, `classification` → `classification`
-- Contains `dorado`, `basecall`, `pod5` → `basecalling`
 - Contains `qc`, `fastp`, `chopper`, `nanoplot` → `qc`
 - Contains `realtime`, `monitoring` → `realtime`
 - Contains `blast`, `validation` → `validation`
@@ -56,7 +55,7 @@ Analyzes test files and suggests appropriate tags based on the new hierarchical 
 
 **Criticality Detection:**
 
-- Features: qc, classification, basecalling, realtime → `core`
+- Features: qc, classification, realtime → `core`
 - Features: validation, barcode_discovery → `extended`
 - Features: resource_allocation, error_handling → `experimental`
 

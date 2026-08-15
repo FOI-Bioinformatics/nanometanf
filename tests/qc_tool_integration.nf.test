@@ -36,7 +36,6 @@ nextflow_pipeline {
                 // Disable resource-intensive steps
                 skip_kraken2 = true
                 blast_validation = false
-                use_dorado = false
                 realtime_mode = false
             }
         }
@@ -68,7 +67,6 @@ nextflow_pipeline {
                 // Disable resource-intensive steps
                 skip_kraken2 = true
                 blast_validation = false
-                use_dorado = false
                 realtime_mode = false
             }
         }
@@ -100,14 +98,24 @@ nextflow_pipeline {
                 // Disable resource-intensive steps
                 skip_kraken2 = true
                 blast_validation = false
-                use_dorado = false
                 realtime_mode = false
             }
         }
 
         then {
-            // FILTLONG module has known threshold configuration issue on ARM
-            assert workflow.success || workflow.failed
+            // FILTLONG has a known platform-specific (ARM) flakiness, so we do
+            // not hard-require success -- but the run must not abort on a
+            // pipeline-logic/channel bug, and the outcome must be attributable to
+            // FILTLONG itself. (Was previously `success || failed`, a tautology.)
+            def err = (workflow.errorReport ?: '') + '\n' + (workflow.stdout?.join('\n') ?: '')
+            assert !err.contains('MethodSelectionException')
+            assert !err.contains('MissingMethodException')
+            assert !err.contains('Invalid method invocation `call`')
+            if (workflow.success) {
+                assert workflow.trace.tasks().any { it.name.contains('FILTLONG') }
+            } else {
+                assert err.toLowerCase().contains('filtlong')
+            }
         }
     }
 
@@ -131,7 +139,6 @@ nextflow_pipeline {
                 // Disable resource-intensive steps
                 skip_kraken2 = true
                 blast_validation = false
-                use_dorado = false
                 realtime_mode = false
             }
         }
@@ -161,7 +168,6 @@ nextflow_pipeline {
                 // Disable resource-intensive steps
                 skip_kraken2 = true
                 blast_validation = false
-                use_dorado = false
                 realtime_mode = false
             }
         }

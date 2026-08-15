@@ -1,0 +1,14 @@
+{
+    "Should emit Kraken2 report and performance metrics under -stub": {
+        "content": [
+            [
+                "versions.yml:md5,55aafab2f2d8d5485d78bd3bd993b5fb"
+            ]
+        ],
+        "timestamp": "2026-04-26T22:48:17.871559",
+        "meta": {
+            "nf-test": "0.9.4",
+            "nextflow": "25.04.7"
+        }
+    }
+}

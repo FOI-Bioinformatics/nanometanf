@@ -1,0 +1,79 @@
+// Real-time + classification coverage. No realtime test previously enabled the
+// classifier, so the realtime classification graph (incremental Kraken2 ->
+// cumulative aggregation, or the EMIT_EMPTY_KRAKEN2_REPORT placeholder when a
+// batch has no classified reads) was never exercised end-to-end. This runs the
+// realtime path in stub mode with classification on and asserts it completes
+// without hitting the Groovy channel-shape / empty-channel sentinel crash family
+// -- the realtime analogue of tests/validation_assembly_stub_matrix.nf.test.
+//
+// Two cases:
+//  1. STUB -- against the stub placeholder DB; asserts the realtime
+//     classification path runs and publishes kraken2/ output without hitting the
+//     empty-channel crash family (fast, dependency-free).
+//  2. REAL -- against the functional mini DB in tests/fixtures/kraken2_real;
+//     asserts real realtime CONTENT, i.e. a *.cumulative.kraken2.report.txt with
+//     reads classified to taxid 562. QC + MultiQC are skipped so the run needs
+//     only kraken2 + taxpasta (no chopper/multiqc). This case is local-only:
+//     realtime tests are excluded from CI by the watchPath-hang policy.
+nextflow_pipeline {
+
+    name "Real-time mode with classification enabled"
+    script "../main.nf"
+
+    tag "pipeline"
+    tag "integration"
+    tag "realtime"
+    tag "classification"
+    tag "stub"
+    tag "slow"
+    tag "extended"
+
+    test("realtime + kraken2 completes without empty-channel crash") {
+        options "-stub"
+        when {
+            params {
+                input = false
+                realtime_mode = true
+                nanopore_output_dir = "$projectDir/tests/fixtures/fastq"
+                file_pattern = "*.fastq.gz"
+                outdir = "$outputDir"
+                classifier = 'kraken2'
+                kraken2_db = "$projectDir/tests/fixtures/kraken2_db"
+                max_files = 4
+                batch_size = 2
+                realtime_timeout_minutes = 1
+                realtime_processing_grace_period = 10
+                blast_validation = false
+                skip_nanoplot = true
+                enable_realtime_stats = false
+                max_cpus = 2
+                max_memory = '4.GB'
+                max_time = '15.min'
+            }
+        }
+        then {
+            def err = (workflow.errorReport ?: '') + '\n' + (workflow.stdout?.join('\n') ?: '')
+            assert !err.contains('MethodSelectionException')
+            assert !err.contains('Could not find which method')
+            assert !err.contains('MissingMethodException')
+            assert !err.contains('Invalid method invocation `call`')
+            assert workflow.success
+            assert path("$outputDir/pipeline_info").list().any { it.toString().contains('software_') }
+            // The classification path ran (real Kraken2 task, or the empty-batch
+            // placeholder writer) and published a kraken2/ output directory.
+            assert workflow.trace.tasks().any {
+                it.name.contains('KRAKEN2') || it.name.contains('EMIT_EMPTY_KRAKEN2_REPORT')
+            }
+            assert path("$outputDir/kraken2").exists()
+        }
+    }
+
+    // A REAL realtime run against tests/fixtures/kraken2_real (asserting a
+    // populated *.cumulative.kraken2.report.txt) is intentionally NOT committed
+    // here: the realtime incremental path additionally requires `pigz`, so the
+    // case is red in a bare local env and realtime tests are excluded from CI by
+    // the watchPath-hang policy. It passes under `--profile conda` (which
+    // provisions pigz/kraken2/taxpasta). Real classification CONTENT is asserted
+    // in batch mode by tests/classification_real.nf.test, which runs in the
+    // standard env (kraken2 + taxpasta only).
+}

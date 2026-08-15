@@ -12,53 +12,19 @@ include { methodsDescriptionText     } from '../subworkflows/local/utils_nfcore_
 
 // Import local subworkflows
 include { REALTIME_MONITORING        } from '../subworkflows/local/realtime_monitoring'
-include { REALTIME_POD5_MONITORING   } from '../subworkflows/local/realtime_pod5_monitoring'
-include { DORADO_BASECALLING         } from '../subworkflows/local/dorado_basecalling'
-include { BARCODE_DISCOVERY          } from '../subworkflows/local/barcode_discovery'
 include { INPUT_SCANNER              } from '../subworkflows/local/input_scanner'
-include { POD5_BARCODE_DISCOVERY    } from '../subworkflows/local/pod5_barcode_discovery'
 include { DEMULTIPLEXING             } from '../subworkflows/local/demultiplexing'
 include { QC_ANALYSIS                } from '../subworkflows/local/qc_analysis'
 include { ASSEMBLY                   } from '../subworkflows/local/assembly'
 include { TAXONOMIC_CLASSIFICATION   } from '../subworkflows/local/taxonomic_classification'
 include { VALIDATION                 } from '../subworkflows/local/validation'
-include { DYNAMIC_RESOURCE_ALLOCATION } from '../subworkflows/local/dynamic_resource_allocation'
 include { NANOPLOT_COMPARE           } from '../modules/local/nanoplot_compare/main'
+include { MANIFEST_WRITER           } from '../modules/local/manifest_writer/main'
 
 // Experimental feature imports (v1.5 planned)
 include { QC_BENCHMARK               } from '../subworkflows/local/qc_benchmark'
 include { REALTIME_STATISTICS        } from '../subworkflows/local/realtime_statistics'
-include { KRONA_KRAKEN2              } from '../modules/local/krona_kraken2/main'
 include { MULTIQC_NANOPORE_STATS     } from '../modules/local/multiqc_nanopore_stats/main'
-
-/*
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    HELPER FUNCTIONS
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-*/
-
-//
-// Detect POD5 directory structure: 'flat' or 'barcode_subdirs'
-// - flat: POD5 files directly in the directory (e.g., pod5_dir/*.pod5)
-// - barcode_subdirs: POD5 files in barcode subdirectories (e.g., pod5_dir/barcode01/*.pod5)
-//
-def detectPod5Structure(pod5_dir) {
-    def dir = file(pod5_dir)
-    def hasBarcodeDirs = false
-
-    // Check for barcode*/ subdirectories containing POD5 files
-    dir.eachFile { f ->
-        if (f.isDirectory() && f.name.startsWith('barcode')) {
-            def hasPod5 = false
-            f.eachFileMatch(~/.+\.pod5$/) { hasPod5 = true }
-            if (hasPod5) {
-                hasBarcodeDirs = true
-            }
-        }
-    }
-
-    return hasBarcodeDirs ? 'barcode_subdirs' : 'flat'
-}
 
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -93,13 +59,67 @@ workflow NANOMETANF {
     }
 
     //
+    // Validation extracts reads by taxid from the PER-READ Kraken2 output, so
+    // save_reads_assignment must be true. This used to "auto-enable" it:
+    //
+    //     params.save_reads_assignment = true
+    //
+    // That has never worked under Nextflow 26, which treats params as
+    // write-once and reports
+    //
+    //     WARN: `params.x` is defined multiple times --
+    //           Assignments following the first are ignored
+    //
+    // while leaving the value at false. The Kraken2 process was therefore
+    // built with --output /dev/null, no per-read file was written, no reads
+    // could be extracted, every validation stage was skipped, and the
+    // aggregator wrote an empty validation_results.json -- with the run
+    // reporting SUCCESS. On a real sample that is a false negative on a
+    // select agent, announced as a clean result.
+    //
+    // Moving the assignment earlier does not help: the mechanism itself is
+    // gone. Since the pipeline cannot fix this for the operator, it must
+    // refuse to pretend it has. Fail immediately, naming the flag to set.
+    //
+    // Two separate Kraken2 outputs are needed, behind two separate flags:
+    //   save_reads_assignment -> the per-read taxid assignments, which say
+    //                            WHICH reads belong to a target taxid
+    //   save_output_fastqs    -> the classified-reads FASTQ, which is the
+    //                            sequence data those reads are extracted from
+    // Missing either one leaves VALIDATION's input channel empty.
+    if (run_validation_effective && params.pathogen_genomes) {
+        def missing = []
+        if (!params.save_reads_assignment) missing << 'save_reads_assignment'
+        if (!params.save_output_fastqs)    missing << 'save_output_fastqs'
+
+        if (missing) {
+            log.error "========================================================================="
+            log.error "  ERROR: Validation requires Kraken2 read-level output."
+            log.error ""
+            log.error "  Validation aligns the reads assigned to each target taxid back to a"
+            log.error "  reference genome. That needs the per-read assignments to say which"
+            log.error "  reads to take, and the classified FASTQ to take them from."
+            log.error ""
+            log.error "  Missing: ${missing.join(', ')}"
+            log.error ""
+            log.error "  Re-run with:"
+            missing.each { log.error "    --${it} true" }
+            log.error ""
+            log.error "  These cannot be enabled automatically: Nextflow ignores assignments"
+            log.error "  to params after the first, so the pipeline would run to completion"
+            log.error "  and report success having validated nothing."
+            log.error "========================================================================="
+            error "Validation requires: ${missing.collect { "--${it} true" }.join(' ')}"
+        }
+    }
+
+    //
     // INPUT VALIDATION: Check for conflicting or missing parameters
     //
     def input_modes = []
     if (params.input) input_modes << '--input'
     if (params.input_dir) input_modes << '--input_dir'
     if (params.barcode_input_dir) input_modes << '--barcode_input_dir'
-    if (params.pod5_input_dir && params.use_dorado) input_modes << '--pod5_input_dir'
     if (params.realtime_mode && params.nanopore_output_dir) input_modes << '--realtime_mode'
 
     if (input_modes.size() > 1 && !params.realtime_mode) {
@@ -116,116 +136,92 @@ workflow NANOMETANF {
         log.error "  Please provide one of:"
         log.error "    --input samplesheet.csv"
         log.error "    --input_dir /path/to/barcode/folders"
-        log.error "    --pod5_input_dir /path/to/pod5 --use_dorado"
         log.error "    --realtime_mode --nanopore_output_dir /path/to/monitor"
         log.error "========================================================================="
         error "No input data specified. See above for options."
     }
 
+    // Realtime safeguard: fail fast on a missing watch directory.
+    // A watchPath on a non-existent directory does NOT error -- it keeps the
+    // watch queue open and the run hangs until killed (max_time is per-task and
+    // there are no tasks). Reject it up front with a clear message instead.
+    if (params.realtime_mode) {
+        if (!params.nanopore_output_dir) {
+            log.error "========================================================================="
+            log.error "  ERROR: Real-time mode requires a directory to monitor."
+            log.error "  Set --nanopore_output_dir /path/to/monitor"
+            log.error "========================================================================="
+            error "Real-time mode enabled but --nanopore_output_dir was not provided."
+        }
+        if (!file(params.nanopore_output_dir).exists()) {
+            log.error "========================================================================="
+            log.error "  ERROR: Real-time watch directory does not exist:"
+            log.error "    ${params.nanopore_output_dir}"
+            log.error "  Create it (or point --nanopore_output_dir at an existing directory)"
+            log.error "  before starting real-time monitoring."
+            log.error "========================================================================="
+            error "Real-time watch directory does not exist: ${params.nanopore_output_dir}"
+        }
+    }
+
+    // Realtime safeguard: warn if no termination condition is set
+    if (params.realtime_mode && params.max_files == null && params.realtime_timeout_minutes == null) {
+        log.warn "========================================================================="
+        log.warn "  WARNING: Real-time mode is enabled without a termination condition."
+        log.warn "  Neither --max_files nor --realtime_timeout_minutes is set."
+        log.warn "  The pipeline will run indefinitely until manually stopped."
+        log.warn ""
+        log.warn "  Consider setting one of:"
+        log.warn "    --max_files <N>                     Stop after N files processed"
+        log.warn "    --realtime_timeout_minutes <N>      Stop after N minutes of inactivity"
+        log.warn "========================================================================="
+    }
+
     //
-    // WORKFLOW ROUTING: Determine if this is POD5 or FASTQ workflow
+    // INPUT VALIDATION: Verify external resources before pipeline execution
     //
-    def is_pod5_workflow = (params.pod5_input_dir && params.use_dorado) ||
-                          (params.realtime_mode && params.file_pattern?.contains('.pod5'))
+
+    // Validate Kraken2 database when classification is enabled
+    if (!params.skip_kraken2) {
+        if (!params.kraken2_db) {
+            error "Kraken2 classification is enabled but params.kraken2_db is not set. " +
+                  "Provide a database path with --kraken2_db or set --skip_kraken2 true."
+        }
+        def kraken2_db_dir = file(params.kraken2_db)
+        if (!kraken2_db_dir.exists()) {
+            error "Kraken2 database directory does not exist: ${params.kraken2_db}"
+        }
+        def has_hash = file("${params.kraken2_db}/hash.k2d").exists()
+        def has_taxo = file("${params.kraken2_db}/taxo.k2d").exists()
+        if (!has_hash || !has_taxo) {
+            error "Kraken2 database at ${params.kraken2_db} appears incomplete. " +
+                  "Expected hash.k2d and taxo.k2d inside the directory."
+        }
+    }
+
+    // Validate output directory is writable
+    def outdir = file(params.outdir)
+    if (!outdir.mkdirs() && !outdir.exists()) {
+        error "Unable to create or access output directory: ${params.outdir}. " +
+              "Check that the path is writable."
+    }
+
+    // Validate sample_regex if provided
+    if (params.sample_regex) {
+        try {
+            java.util.regex.Pattern.compile(params.sample_regex)
+        } catch (e) {
+            error "Invalid regular expression in params.sample_regex: '${params.sample_regex}'. " +
+                  "Pattern compilation failed: ${e.message}"
+        }
+    }
+
+    //
+    // WORKFLOW ROUTING: FASTQ-only pipeline
+    //
     def is_barcode_discovery = params.barcode_input_dir
 
-    if (is_pod5_workflow) {
-        //
-        // POD5 WORKFLOW PATH
-        //
-        if (params.realtime_mode) {
-            // Real-time POD5 monitoring with Dorado basecalling
-            REALTIME_POD5_MONITORING (
-                params.pod5_input_dir,
-                "*.pod5",  // POD5 files in watch_dir (not subdirectories)
-                params.batch_size ?: 10,
-                params.batch_interval ?: "5min",
-                params.dorado_model
-            )
-            ch_processed_samples = REALTIME_POD5_MONITORING.out.samples
-            ch_versions = ch_versions.mix(REALTIME_POD5_MONITORING.out.versions.ifEmpty([]))
-
-            // Real-time statistics generation (optional)
-            if (params.enable_realtime_stats) {
-                def stats_config = [
-                    enable_quality_indicators: true,
-                    enable_source_analysis: true,
-                    enable_timing_analysis: true,
-                    quality_threshold_warnings: true,
-                    stats_interval: params.realtime_report_interval ?: 30000,
-                    report_format: 'html,json'
-                ]
-
-                REALTIME_STATISTICS (
-                    REALTIME_POD5_MONITORING.out.batches,
-                    stats_config
-                )
-                ch_versions = ch_versions.mix(REALTIME_STATISTICS.out.versions)
-                ch_realtime_stats = REALTIME_STATISTICS.out.realtime_reports
-            } else {
-                ch_realtime_stats = Channel.empty()
-            }
-
-        } else {
-            // Static POD5 basecalling
-            if (!params.pod5_input_dir) {
-                error "POD5 input directory is required when use_dorado is true and not in realtime mode"
-            }
-
-            // Auto-detect POD5 directory structure
-            def pod5_structure = detectPod5Structure(params.pod5_input_dir)
-            log.info "POD5 directory structure detected: ${pod5_structure}"
-
-            if (pod5_structure == 'barcode_subdirs') {
-                //
-                // PRE-DEMULTIPLEXED POD5: barcode subdirectories with POD5 files
-                // Each barcode is processed as a separate sample, demultiplexing is skipped
-                //
-                log.info "Processing pre-demultiplexed POD5 barcode directories"
-
-                POD5_BARCODE_DISCOVERY (
-                    params.pod5_input_dir
-                )
-
-                // Run basecalling for each barcode sample
-                DORADO_BASECALLING (
-                    POD5_BARCODE_DISCOVERY.out.samples,
-                    params.dorado_model
-                )
-
-                // Skip demultiplexing - samples are already per-barcode
-                ch_processed_samples = DORADO_BASECALLING.out.fastq
-                ch_versions = ch_versions.mix(DORADO_BASECALLING.out.versions)
-                ch_versions = ch_versions.mix(POD5_BARCODE_DISCOVERY.out.versions)
-
-            } else {
-                //
-                // FLAT POD5: all POD5 files in a single directory
-                // Process as single sample, optionally demultiplex after basecalling
-                //
-                log.info "Processing flat POD5 directory"
-
-                ch_pod5_files = Channel.fromPath("${params.pod5_input_dir}/*.pod5", checkIfExists: true)
-                    .collect()
-                    .map { files ->
-                        def meta = [
-                            id: 'pod5_sample',
-                            single_end: true,
-                            barcode_kit: params.barcode_kit ?: null
-                        ]
-                        [ meta, files ]
-                    }
-
-                DORADO_BASECALLING (
-                    ch_pod5_files,
-                    params.dorado_model
-                )
-                ch_processed_samples = DORADO_BASECALLING.out.fastq
-                ch_versions = ch_versions.mix(DORADO_BASECALLING.out.versions)
-            }
-        }
-
-    } else if (params.input_dir || is_barcode_discovery) {
+    if (params.input_dir || is_barcode_discovery) {
         //
         // UNIFIED DIRECTORY SCAN (replaces BARCODE_DISCOVERY)
         //
@@ -248,7 +244,7 @@ workflow NANOMETANF {
             // Real-time FASTQ monitoring
             REALTIME_MONITORING (
                 params.nanopore_output_dir,
-                params.file_pattern ?: "**/*.fastq{,.gz}",
+                params.file_pattern ?: "**.fastq{,.gz}",
                 params.batch_size ?: 10,
                 params.batch_interval ?: "5min"
             )
@@ -275,89 +271,9 @@ workflow NANOMETANF {
                 ch_realtime_stats = Channel.empty()
             }
         } else {
-            // Standard samplesheet input - detect and handle POD5 files
-            ch_samplesheet
-                .branch { meta, reads ->
-                    // Extract first file if reads is a list (from samplesheet parser)
-                    def fileToCheck = reads instanceof List ? reads[0] : reads
-                    // Get filename
-                    def fileName = fileToCheck instanceof java.nio.file.Path ? fileToCheck.getName() : fileToCheck.toString()
-                    // Check if it's a POD5 file
-                    pod5: fileName.endsWith('.pod5')
-                        return [meta, reads]
-                    fastq: true
-                        return [meta, reads]
-                }
-                .set { ch_branched_input }
-
-            // If POD5 files detected and Dorado enabled, basecall them
-            if (params.use_dorado) {
-                log.info "Checking for POD5 files in samplesheet for Dorado basecalling..."
-
-                DORADO_BASECALLING (
-                    ch_branched_input.pod5,
-                    params.dorado_model
-                )
-                ch_basecalled_pod5 = DORADO_BASECALLING.out.fastq
-                ch_versions = ch_versions.mix(DORADO_BASECALLING.out.versions)
-
-                // Combine basecalled POD5 samples with FASTQ samples
-                ch_processed_samples = ch_branched_input.fastq.mix(ch_basecalled_pod5)
-            } else {
-                // No basecalling - use samplesheet as-is
-                // POD5 files without use_dorado will fail downstream (expected)
-                ch_processed_samples = ch_samplesheet
-            }
+            // Standard samplesheet input - FASTQ only
+            ch_processed_samples = ch_samplesheet
         }
-    }
-
-    //
-    // SUBWORKFLOW: Dynamic resource allocation for optimal performance
-    //
-    if (params.enable_dynamic_resources) {
-        log.info "=== Enabling Dynamic Resource Allocation ==="
-
-        // Prepare resource configuration
-        def resource_config = [
-            'optimization_profile': params.optimization_profile ?: 'auto',
-            'safety_factor': params.resource_safety_factor ?: 0.8,
-            'priority_samples': params.priority_samples ?: [],
-            'max_parallel_jobs': params.max_parallel_jobs ?: 4,
-            'enable_gpu_optimization': params.enable_gpu_optimization ?: true,
-            'realtime_mode': params.realtime_mode ?: false
-        ]
-
-        // System configuration
-        def system_config = [
-            'monitoring_interval': params.resource_monitoring_interval ?: 30,
-            'enable_performance_logging': params.enable_performance_logging ?: true
-        ]
-
-        // Create input for resource allocation - combine samples with tool context
-        ch_resource_inputs = ch_processed_samples
-            .map { meta, files ->
-                def tool_context = [
-                    'tool_name': 'preprocessing',  // Will be updated per process
-                    'workflow_stage': 'initial_processing'
-                ]
-                [ meta, files, tool_context ]
-            }
-
-        DYNAMIC_RESOURCE_ALLOCATION (
-            ch_resource_inputs,
-            resource_config,
-            system_config
-        )
-        ch_versions = ch_versions.mix(DYNAMIC_RESOURCE_ALLOCATION.out.versions)
-
-        // Extract resource configurations for later use
-        ch_resource_configs = DYNAMIC_RESOURCE_ALLOCATION.out.resource_configs
-        ch_optimal_allocations = DYNAMIC_RESOURCE_ALLOCATION.out.optimal_allocations
-
-        log.info "Dynamic resource allocation configured successfully"
-    } else {
-        ch_resource_configs = Channel.empty()
-        ch_optimal_allocations = Channel.empty()
     }
 
     //
@@ -377,22 +293,41 @@ workflow NANOMETANF {
         )
         ch_versions = ch_versions.mix(QC_ANALYSIS.out.versions)
 
-        // Collect QC outputs for MultiQC (tool-agnostic)
-        ch_multiqc_files = ch_multiqc_files.mix(QC_ANALYSIS.out.qc_json.collect{it[1]})
+        // Collect QC outputs for MultiQC (tool-agnostic). The upstream
+        // FASTP / FASTP_STREAMING channels carry `.ifEmpty([])` sentinels
+        // (see qc_analysis), which would crash this destructuring closure
+        // when every QC task failed. Drop the sentinel before `it[1]`.
+        ch_multiqc_files = ch_multiqc_files.mix(
+            QC_ANALYSIS.out.qc_json
+                .filter { it instanceof List && it.size() >= 2 && it[1] != null }
+                .collect { it[1] }
+        )
 
         // Add NanoPlot summary statistics to MultiQC (NanoStats.txt)
         if (!params.skip_nanoplot) {
-            ch_multiqc_files = ch_multiqc_files.mix(QC_ANALYSIS.out.nanoplot_txt.collect{it[1]})
+            ch_multiqc_files = ch_multiqc_files.mix(
+                QC_ANALYSIS.out.nanoplot_txt
+                    .filter { it instanceof List && it.size() >= 2 && it[1] != null }
+                    .collect { it[1] }
+            )
         }
 
         ch_qc_reads = QC_ANALYSIS.out.reads
         ch_qc_reports = QC_ANALYSIS.out.qc_reports  // Tool-agnostic QC reports (FASTP HTML, FastQC HTML, or tool-specific)
         ch_nanoplot_reports = QC_ANALYSIS.out.nanoplot
+        ch_qc_json = QC_ANALYSIS.out.qc_json
 
         //
         // MODULE: Multi-sample NanoPlot comparison (optional)
         //
+        // NOTE: The .collect() below waits for all items in the channel before emitting,
+        // which blocks until the entire real-time session completes. This is acceptable
+        // because enable_nanoplot_comparison defaults to false and is intended for
+        // post-run batch analysis, not streaming use. In streaming mode, per-sample
+        // NanoPlot runs are handled by QC_ANALYSIS with interval-based gating instead.
+        //
         if (params.enable_nanoplot_comparison && !params.skip_nanoplot) {
+            log.info "NanoPlot multi-sample comparison enabled -- this defers until all samples complete"
             // Collect all QC'd reads for comparative analysis
             ch_comparison_reads = ch_qc_reads.map { meta, reads -> reads }.collect()
 
@@ -432,6 +367,7 @@ workflow NANOMETANF {
         ch_qc_reports = Channel.empty()
         ch_nanoplot_reports = Channel.empty()
         ch_qc_benchmark_results = Channel.empty()
+        ch_qc_json = Channel.empty()
     }
 
     //
@@ -494,23 +430,11 @@ workflow NANOMETANF {
             ch_classification_db
         )
         ch_versions = ch_versions.mix(TAXONOMIC_CLASSIFICATION.out.versions)
-        ch_multiqc_files = ch_multiqc_files.mix(TAXONOMIC_CLASSIFICATION.out.report.collect{it[1]})
-
-        //
-        // MODULE: Krona interactive visualization of taxonomic results
-        // Note: skip_krona parameter for ARM Mac compatibility (Krona container has permission issues)
-        //
-        if (params.enable_krona_plots && !params.skip_krona) {
-            log.info "Generating Krona interactive visualization"
-
-            KRONA_KRAKEN2 (
-                TAXONOMIC_CLASSIFICATION.out.report
-            )
-            ch_versions = ch_versions.mix(KRONA_KRAKEN2.out.versions)
-            ch_krona_reports = KRONA_KRAKEN2.out.html
-        } else {
-            ch_krona_reports = Channel.empty()
-        }
+        ch_multiqc_files = ch_multiqc_files.mix(
+            TAXONOMIC_CLASSIFICATION.out.report
+                .filter { it instanceof List && it.size() >= 2 && it[1] != null }
+                .collect { it[1] }
+        )
 
         //
         // SUBWORKFLOW: Pathogen validation via BLAST and/or minimap2
@@ -521,11 +445,9 @@ workflow NANOMETANF {
         // The Kraken2 output file (per-read classifications) is needed to extract reads by taxid
         //
         if (run_validation_effective && params.pathogen_genomes) {
-            // Auto-enable save_reads_assignment when validation is active
-            if (!params.save_reads_assignment) {
-                log.warn "Validation requires per-read Kraken2 output. Automatically enabling save_reads_assignment."
-                params.save_reads_assignment = true
-            }
+            // save_reads_assignment was enabled near the top of this workflow,
+            // before TAXONOMIC_CLASSIFICATION was constructed. Doing it here
+            // would be too late to affect the Kraken2 process.
 
             // Check that pathogen_genomes file exists and is JSON
             def genomes_file = file(params.pathogen_genomes, checkIfExists: true)
@@ -540,10 +462,15 @@ workflow NANOMETANF {
             VALIDATION (
                 TAXONOMIC_CLASSIFICATION.out.classified_reads,
                 TAXONOMIC_CLASSIFICATION.out.reads_assignment,
-                TAXONOMIC_CLASSIFICATION.out.report,
+                // Mix the per-batch reports (realtime; empty in batch mode) into
+                // the report stream so realtime validation can resolve species
+                // names each batch instead of only from the end-of-session
+                // cumulative report.
+                TAXONOMIC_CLASSIFICATION.out.report.mix(TAXONOMIC_CLASSIFICATION.out.batch_reports),
                 params.pathogen_genomes,
                 params.taxids_to_validate,
-                params.validation_method
+                params.validation_method,
+                params.min_batch_reads_for_validation
             )
             ch_versions = ch_versions.mix(VALIDATION.out.versions)
 
@@ -555,9 +482,145 @@ workflow NANOMETANF {
     }
 
     //
+    // MODULE: Write canonical run manifest
+    // Collects tool identity and sample list for frontend discovery
+    //
+    if (params.write_canonical != false) {
+        // Collect unique sample IDs (realtime mode emits duplicates per batch)
+        def ch_sample_ids = DEMULTIPLEXING.out.samples
+            .map { meta, reads -> meta.id }
+            .unique()
+            .collect()
+
+        // Samples that actually emitted QC output. A sample whose QC task
+        // failed is absorbed by conf/error_isolation.config so the other
+        // barcodes continue, and never reaches this channel; the difference
+        // from ch_sample_ids is what the manifest records as failed_samples.
+        //
+        // The .filter is load-bearing, not defensive. QC_ANALYSIS attaches
+        // `.ifEmpty([])` to ch_qc_reads (qc_analysis/main.nf:204 and friends),
+        // so a sample that produced nothing puts the bare `[]` sentinel on this
+        // channel. Destructuring that in the map below aborts the run --
+        // which is exactly what a first version of this code did, converting an
+        // isolated QC failure into a whole-pipeline failure and defeating the
+        // isolation this feature exists to report on. Same guard VALIDATION
+        // applies at its own boundary (validation/main.nf:41).
+        //
+        // Read ch_qc_reads, not QC_ANALYSIS.out.reads: with QC fully skipped
+        // (skip_fastp + skip_nanoplot) QC_ANALYSIS is never invoked and
+        // touching its .out aborts the run with "Access to 'QC_ANALYSIS.out'
+        // is undefined". ch_qc_reads is assigned in both branches -- it falls
+        // back to DEMULTIPLEXING.out.samples -- so a skipped-QC run reports
+        // every sample as produced, which is correct: no QC ran, so no sample
+        // failed QC.
+        def ch_produced_sample_ids = ch_qc_reads
+            .filter { it instanceof List && it.size() >= 2 && it[0] instanceof Map }
+            .map { meta, reads -> meta.id }
+            .unique()
+            .collect()
+            .ifEmpty([])
+
+        def effective_classifier = (params.kraken2_db && !params.skip_kraken2) ? (params.classifier ?: 'kraken2') : ""
+        def effective_qc_tool = (!params.skip_fastp || !params.skip_nanoplot) ? (params.qc_tool ?: 'chopper') : ""
+        def effective_assembler = params.enable_assembly ? (params.assembler ?: 'flye') : ""
+        def effective_validation = (run_validation_effective && params.pathogen_genomes) ? (params.validation_method ?: 'blast') : ""
+        def effective_mode = params.realtime_mode ? "realtime" : "batch"
+
+        // Collect canonical writer outputs so manifest runs after all files are published.
+        // Each subworkflow emits canonical outputs only when write_canonical is enabled.
+        // The subworkflows attach `.ifEmpty([])` to these channels, so an empty
+        // stage (e.g. no classified reads -> EMIT_EMPTY_KRAKEN2_REPORT, or a
+        // negative-control sample) emits the `[]` sentinel. Filter it out before
+        // the `{ meta, f -> f }` destructuring map -- otherwise the closure is
+        // called with `[]` and the run aborts with MissingMethodException. Same
+        // guard pattern as the QC-path sentinel fix (PR #11). Use an inline
+        // closure (not a closure variable): `.filter(var)` can be dispatched as
+        // a value/equality filter rather than a predicate.
+        def ch_canonical_done = Channel.empty()
+        if (!params.skip_fastp || !params.skip_nanoplot) {
+            ch_canonical_done = ch_canonical_done.mix(
+                QC_ANALYSIS.out.canonical_qc
+                    .filter { it instanceof List && it.size() >= 2 && it[0] instanceof Map }
+                    .map { meta, f -> f }
+            )
+        }
+        if (params.kraken2_db && !params.skip_kraken2) {
+            ch_canonical_done = ch_canonical_done.mix(
+                TAXONOMIC_CLASSIFICATION.out.canonical_classification
+                    .filter { it instanceof List && it.size() >= 2 && it[0] instanceof Map }
+                    .map { meta, f -> f }
+            )
+        }
+        if (params.enable_assembly) {
+            ch_canonical_done = ch_canonical_done.mix(
+                ASSEMBLY.out.canonical_assembly
+                    .filter { it instanceof List && it.size() >= 2 && it[0] instanceof Map }
+                    .map { meta, f -> f }
+            )
+        }
+        if (run_validation_effective && params.pathogen_genomes) {
+            ch_canonical_done = ch_canonical_done.mix(
+                VALIDATION.out.canonical_alignments
+                    .filter { it instanceof List && it.size() >= 2 && it[0] instanceof Map }
+                    .map { meta, f -> f }
+            )
+        }
+
+        // Wait for all canonical files before writing manifest
+        def ch_canonical_ready = ch_canonical_done
+            .collect()
+            .ifEmpty([])
+            .map { 'ready' }
+
+        MANIFEST_WRITER (
+            Channel.value(effective_classifier),
+            Channel.value(effective_qc_tool),
+            Channel.value(effective_assembler),
+            Channel.value(effective_validation),
+            ch_sample_ids,
+            ch_produced_sample_ids,
+            Channel.value(effective_mode),
+            ch_canonical_ready
+        )
+        ch_versions = ch_versions.mix(MANIFEST_WRITER.out.versions)
+    }
+
+    //
     // Collate and save software versions
     //
-    softwareVersionsToYAML(ch_versions)
+    // Bridges two emission patterns coexisting in this pipeline:
+    //   1. Legacy: modules with `path "versions.yml"` (collected via ch_versions)
+    //   2. Topic channel: modules emitting (process, tool, version) tuples on the
+    //      'versions' topic (e.g. fastp, chopper, kraken2/kraken2 from upstream
+    //      master, plus fastqc and seqkit/stats which already use this pattern).
+    //
+    // Mirrors the upstream nf-core pipeline-template aggregator so both kinds of
+    // emissions land in a single nanometanf_software_mqc_versions.yml file.
+    //
+    def topic_versions = Channel.topic('versions')
+        .distinct()
+        .branch { entry ->
+            versions_file:  entry instanceof Path
+            versions_tuple: true
+        }
+
+    def topic_versions_string = topic_versions.versions_tuple
+        .map { process, tool, version ->
+            [ process[(process.lastIndexOf(':') + 1)..-1], "  ${tool}: ${version}" ]
+        }
+        .groupTuple(by: 0)
+        .map { process, tool_versions ->
+            tool_versions.unique().sort()
+            "${process}:\n${tool_versions.join('\n')}"
+        }
+
+    // Guard: softwareVersionsToYAML calls Yaml.load() on each item, which throws
+    // MethodSelectionException for a List or null. A skipped subworkflow process
+    // can otherwise inject an empty list `[]` into ch_versions (see the validation
+    // subworkflow). Drop any non-file item so version collection can never abort
+    // the run.
+    softwareVersionsToYAML(ch_versions.filter { it != null && !(it instanceof List) }.mix(topic_versions.versions_file))
+        .mix(topic_versions_string)
         .collectFile(
             storeDir: "${params.outdir}/pipeline_info",
             name:  'nanometanf_software_'  + 'mqc_'  + 'versions.yml',
@@ -569,19 +632,25 @@ workflow NANOMETANF {
     // MODULE: Generate nanopore-specific MultiQC custom content (optional)
     //
     if (params.enable_nanopore_stats_mqc) {
-        // Collect sample statistics from QC outputs
-        ch_sample_stats = ch_qc_reports
-            .map { meta, report ->
-                [
-                    sample_id: meta.id,
-                    barcode: meta.barcode ?: 'unclassified',
-                    report_path: report.toString()
-                ]
-            }
+        // Collect SeqKit/FASTP stats as file inputs for nanopore statistics.
+        // The upstream QC_ANALYSIS subworkflow attaches ``.ifEmpty([])`` to
+        // ``qc_json`` so the top-level test harness sees an emission even
+        // when every QC task failed. That synthetic ``[]`` placeholder
+        // must be dropped before any tuple-destructuring closure
+        // ``{ meta, stats_file -> ... }``; otherwise it crashes with
+        // ``MissingMethodException``. Same guard pattern as in the
+        // ``QC_ANALYSIS.out.qc_json.collect{ it[1] }`` consumers above.
+        // Use the ch_qc_json channel captured in both QC branches: when QC is
+        // skipped (skip_fastp + skip_nanoplot) QC_ANALYSIS is never invoked, so
+        // referencing QC_ANALYSIS.out here aborts the run with "Access to
+        // 'QC_ANALYSIS.out' is undefined".
+        ch_stats_files = ch_qc_json
+            .filter { it instanceof List && it.size() >= 2 && it[1] != null }
+            .map { meta, stats_file -> stats_file }
             .collect()
 
         MULTIQC_NANOPORE_STATS (
-            ch_sample_stats,
+            ch_stats_files,
             'nanometanf'
         )
         ch_versions = ch_versions.mix(MULTIQC_NANOPORE_STATS.out.versions)
@@ -631,15 +700,28 @@ workflow NANOMETANF {
             log.info "Real-time mode: MultiQC will run once at the end (deferred execution via .collect())"
         }
 
-        MULTIQC (
-            ch_multiqc_files.collect(),
-            ch_multiqc_config.toList(),
-            ch_multiqc_custom_config.toList(),
-            ch_multiqc_logo.toList(),
-            [],
-            []
-        )
-        ch_multiqc_report = MULTIQC.out.report.toList()
+        // Build MULTIQC input tuple
+        // New API: tuple val(meta), path(multiqc_files), path(multiqc_config), path(multiqc_logo), path(replace_names), path(sample_names)
+        //
+        // Each channel is collected independently. The .map{[it]} wrapper prevents
+        // .combine() from flattening the inner lists into the result tuple.
+        ch_multiqc_input = ch_multiqc_files
+            .collect().map { [it] }
+            .combine(
+                ch_multiqc_config
+                    .mix(ch_multiqc_custom_config)
+                    .collect().map { [it] }
+            )
+            .combine(
+                ch_multiqc_logo
+                    .toList().map { it.size() > 0 ? [it] : [[]] }
+            )
+            .map { files, configs, logo ->
+                [ [id: 'multiqc'], files, configs, logo, [], [] ]
+            }
+
+        MULTIQC ( ch_multiqc_input )
+        ch_multiqc_report = MULTIQC.out.report.map { meta, report -> report }.toList()
     } else {
         log.info "Skipping MultiQC report generation"
         ch_multiqc_report = Channel.empty()
@@ -654,9 +736,9 @@ workflow NANOMETANF {
     assembly_graphs        = params.enable_assembly ? ASSEMBLY.out.assembly_graph : Channel.empty()    // channel: [ val(meta), path(gfa.gz) ] - Assembly graphs
     assembly_info          = params.enable_assembly ? ASSEMBLY.out.assembly_info : Channel.empty()     // channel: [ val(meta), path(txt) ] - Assembly statistics
     assembler_used         = params.enable_assembly ? ASSEMBLY.out.assembler_used : Channel.empty()    // channel: val(assembler_name)
-    classification_reports = params.kraken2_db ? TAXONOMIC_CLASSIFICATION.out.report : Channel.empty() // channel: [ val(meta), path(txt) ] - Original format
-    standardized_reports   = params.kraken2_db ? TAXONOMIC_CLASSIFICATION.out.standardized_report : Channel.empty() // channel: [ val(meta), path(tsv/csv/etc) ] - Taxpasta format
-    classifier_used        = params.kraken2_db ? TAXONOMIC_CLASSIFICATION.out.classifier_used : Channel.empty() // channel: val(classifier_name)
+    classification_reports = (params.kraken2_db && !params.skip_kraken2) ? TAXONOMIC_CLASSIFICATION.out.report : Channel.empty() // channel: [ val(meta), path(txt) ] - Original format
+    standardized_reports   = (params.kraken2_db && !params.skip_kraken2) ? TAXONOMIC_CLASSIFICATION.out.standardized_report : Channel.empty() // channel: [ val(meta), path(tsv/csv/etc) ] - Taxpasta format
+    classifier_used        = (params.kraken2_db && !params.skip_kraken2) ? TAXONOMIC_CLASSIFICATION.out.classifier_used : Channel.empty() // channel: val(classifier_name)
     blast_results          = (run_validation_effective && params.pathogen_genomes) ? VALIDATION.out.blast_results : Channel.empty()  // channel: [ val(meta), path(txt) ]
     versions               = ch_versions                                     // channel: [ path(versions.yml) ]
 

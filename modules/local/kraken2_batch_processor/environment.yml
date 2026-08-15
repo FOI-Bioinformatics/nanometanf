@@ -1,6 +1,0 @@
-name: kraken2_batch_processor
-channels:
-  - conda-forge
-  - defaults
-dependencies:
-  - python=3.11

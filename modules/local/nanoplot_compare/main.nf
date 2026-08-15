@@ -62,7 +62,7 @@ END_VERSIONS
 
     cat <<-END_VERSIONS > versions.yml
 "${task.process}":
-    nanoplot: \$(echo \$(NanoPlot --version 2>&1) | sed 's/^.*NanoPlot //; s/ .*\$//')
+    nanoplot: 1.46.1
 END_VERSIONS
     """
 }

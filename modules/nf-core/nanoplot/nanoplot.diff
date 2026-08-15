@@ -1,0 +1,30 @@
+Changes in component 'nf-core/nanoplot'
+'modules/nf-core/nanoplot/environment.yml' is unchanged
+'modules/nf-core/nanoplot/meta.yml' is unchanged
+Changes in 'nanoplot/main.nf':
+--- modules/nf-core/nanoplot/main.nf
++++ modules/nf-core/nanoplot/main.nf
+@@ -1,3 +1,6 @@
++// LOCAL MODIFICATION: Hardcoded version in stub block instead of calling NanoPlot binary
++// Reason: Stub tests should not require real tool binaries to be installed
++// Last verified against nf-core remote: 2026-04-27
+ process NANOPLOT {
+     tag "$meta.id"
+     label 'process_low'
+@@ -47,10 +50,9 @@
+     touch WeightedLogTransformed_HistogramReadlength.html
+     touch Yield_By_Length.html
+ 
+-
+     cat <<-END_VERSIONS > versions.yml
+     "${task.process}":
+-        nanoplot: \$(echo \$(NanoPlot --version 2>&1) | sed 's/^.*NanoPlot //; s/ .*\$//')
++        nanoplot: 1.46.1
+     END_VERSIONS
+     """
+ }
+
+'modules/nf-core/nanoplot/tests/main.nf.test.snap' is unchanged
+'modules/nf-core/nanoplot/tests/main.nf.test' is unchanged
+'modules/nf-core/nanoplot/tests/tags.yaml' is unchanged
+************************************************************

@@ -476,7 +476,7 @@ assert workflow.trace.tasks().any {
 ### Documentation
 
 - [Current Version Status](CURRENT_VERSION.md) - Which version to use
-- [Usage Guide](../user/usage.md) - Complete parameter reference
+- [Usage Guide](../usage.md) - Complete parameter reference
 - [Troubleshooting](../user/troubleshooting.md) - Common issues
 
 ### Support

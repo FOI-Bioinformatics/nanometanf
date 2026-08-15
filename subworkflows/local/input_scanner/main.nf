@@ -95,6 +95,10 @@ workflow INPUT_SCANNER {
             }
     }
 
+    ch_all_samples.ifEmpty {
+        log.warn "WARNING: No FASTQ files found in input directory '${input_dir}'. Check the path and file extensions."
+    }
+
     emit:
     samples  = ch_all_samples   // channel: [ val(meta), [path(reads)] ]
     versions = ch_versions      // channel: [ path(versions.yml) ]

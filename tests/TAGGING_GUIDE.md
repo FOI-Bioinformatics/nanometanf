@@ -26,7 +26,6 @@ nextflow_pipeline {
 ## Optional Feature Tags
 
 - `realtime` - Real-time processing
-- `basecalling` - Dorado basecalling
 - `qc` - Quality control
 - `classification` - Taxonomic classification
 - `barcode_discovery` - Barcode detection

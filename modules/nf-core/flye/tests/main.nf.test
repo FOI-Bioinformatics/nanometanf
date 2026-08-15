@@ -7,8 +7,7 @@ nextflow_process {
     name "Test Process FLYE"
     script "../main.nf"
     process "FLYE"
-
-    options "-stub"
+    tag "fast"
     tag "flye"
     tag "modules"
     tag "modules_nfcore"
@@ -40,7 +39,7 @@ nextflow_process {
                     file(process.out.txt.get(0).get(1)).name,
                     path(process.out.txt.get(0).get(1)).readLines()[1].contains("contig_1"),
                     process.out.json,
-                    process.out.versions
+                    process.out.findAll { key, val -> key.startsWith('versions') }
                     ).match() }
             )
         }
@@ -74,7 +73,7 @@ nextflow_process {
                     file(process.out.txt.get(0).get(1)).name,
                     path(process.out.txt.get(0).get(1)).readLines()[1].contains("contig_1"),
                     process.out.json,
-                    process.out.versions
+                    process.out.findAll { key, val -> key.startsWith('versions') }
                     ).match() }
             )
         }
@@ -108,7 +107,7 @@ nextflow_process {
                     file(process.out.txt.get(0).get(1)).name,
                     path(process.out.txt.get(0).get(1)).readLines()[1].contains("contig_1"),
                     process.out.json,
-                    process.out.versions
+                    process.out.findAll { key, val -> key.startsWith('versions') }
                     ).match() }
             )
         }
@@ -142,7 +141,7 @@ nextflow_process {
                     file(process.out.txt.get(0).get(1)).name,
                     path(process.out.txt.get(0).get(1)).readLines()[1].contains("contig_1"),
                     process.out.json,
-                    process.out.versions
+                    process.out.findAll { key, val -> key.startsWith('versions') }
                     ).match() }
             )
         }
@@ -150,6 +149,10 @@ nextflow_process {
     }
 
     test("flye_pacbio_raw - stub") {
+
+        options "-stub"
+    tag "stub"
+
         when {
             process {
                 """
@@ -166,7 +169,7 @@ nextflow_process {
                 { assert process.success },
                 { assert snapshot(
                     process.out,
-                    path(process.out.versions.get(0)).yaml
+                    process.out.findAll { key, val -> key.startsWith('versions') }
                     ).match()
                 }
             )

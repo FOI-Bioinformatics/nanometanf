@@ -5,6 +5,28 @@
     "description": "Backend of Nanometa-Live",
     "type": "object",
     "$defs": {
+        "input_mode_selection": {
+            "title": "Input mode selection",
+            "type": "object",
+            "fa_icon": "fas fa-arrows-to-dot",
+            "description": "Input mode mutual exclusion.",
+            "help_text": "Exactly one of the four input modes must be supplied: --input (samplesheet CSV), --input_dir (auto-detect barcode or flat layout), --barcode_input_dir (deprecated; use --input_dir), or --nanopore_output_dir together with --realtime_mode for real-time monitoring.",
+            "properties": {},
+            "oneOf": [
+                {
+                    "required": ["input"]
+                },
+                {
+                    "required": ["input_dir"]
+                },
+                {
+                    "required": ["barcode_input_dir"]
+                },
+                {
+                    "required": ["nanopore_output_dir"]
+                }
+            ]
+        },
         "input_output_options": {
             "title": "Input/output options",
             "type": "object",
@@ -33,12 +55,13 @@
                     "format": "directory-path",
                     "description": "Deprecated. Use --input_dir instead.",
                     "help_text": "This parameter is deprecated in favor of --input_dir which auto-detects directory structure.",
-                    "fa_icon": "fas fa-folder"
+                    "fa_icon": "fas fa-folder",
+                    "hidden": true
                 },
                 "input_dir": {
                     "type": "string",
                     "format": "directory-path",
-                    "description": "Directory to scan for FASTQ or POD5 files. Auto-detects barcode subdirectories vs flat layout.",
+                    "description": "Directory to scan for FASTQ files. Auto-detects barcode subdirectories vs flat layout.",
                     "help_text": "Replaces --barcode_input_dir with unified auto-detection. Supports barcode subdirectories (barcode01/, barcode02/), flat directories with barcodes in filenames, and flat directories with custom sample prefixes (use --sample_regex).",
                     "fa_icon": "fas fa-folder-open"
                 },
@@ -256,21 +279,29 @@
                     "description": "Suffix to add to the trace report filename. Dynamically generated as date and time in the format yyyy-MM-dd_HH-mm-ss. Set in nextflow.config.",
                     "hidden": true
                 },
-                "enable_performance_logging": {
-                    "type": "boolean",
-                    "default": true,
-                    "description": "Enable detailed performance logging",
-                    "fa_icon": "fas fa-chart-line",
-                    "hidden": true
+                "max_cpus": {
+                    "type": "integer",
+                    "default": 16,
+                    "minimum": 1,
+                    "description": "Maximum number of CPUs the pipeline may request for any single task.",
+                    "fa_icon": "fas fa-microchip",
+                    "help_text": "Used as the resourceLimits ceiling in platform profiles (minion, promethion, promethion_8). The KRAKEN2 CPU directive scales as max_cpus / max_classification_forks with a floor of 4."
                 },
-                "resource_prediction_confidence": {
-                    "type": "number",
-                    "default": 0.7,
-                    "minimum": 0.1,
-                    "maximum": 1.0,
-                    "description": "Minimum confidence for resource predictions",
-                    "fa_icon": "fas fa-brain",
-                    "hidden": true
+                "max_memory": {
+                    "type": "string",
+                    "default": "128.GB",
+                    "pattern": "^\\d+(\\.\\d+)?\\.?\\s*(K|M|G|T)?B$",
+                    "description": "Maximum memory the pipeline may request for any single task.",
+                    "fa_icon": "fas fa-memory",
+                    "help_text": "Used as the resourceLimits ceiling in platform profiles. Increase for high-memory PromethION runs with large Kraken2 databases."
+                },
+                "max_time": {
+                    "type": "string",
+                    "default": "240.h",
+                    "pattern": "^(\\d+\\.?\\d*\\.?\\s*(ms|s|sec|m|min|h|hr|hour|d|day)s?\\s*)+$",
+                    "description": "Maximum wall time the pipeline may request for any single task.",
+                    "fa_icon": "fas fa-stopwatch",
+                    "help_text": "Used as the resourceLimits ceiling in platform profiles."
                 }
             }
         },
@@ -297,10 +328,10 @@
                 },
                 "file_pattern": {
                     "type": "string",
-                    "default": "*.fastq{,.gz}",
+                    "default": "**.fastq{,.gz}",
                     "description": "Glob pattern for files to monitor in real-time mode.",
                     "fa_icon": "fas fa-file-code",
-                    "help_text": "Glob pattern to match files in the watched directory. Default matches FASTQ files (compressed or uncompressed) in the root directory. Use '**/*.fastq{,.gz}' for subdirectories only."
+                    "help_text": "Glob pattern to match FASTQ files (compressed or uncompressed) at any depth, including the root of the watched directory and subdirectories."
                 },
                 "sample_name": {
                     "type": "string",
@@ -313,13 +344,6 @@
                     "description": "Regex with capture group to extract sample ID from filenames.",
                     "fa_icon": "fas fa-filter",
                     "help_text": "Applied when files are in a flat directory without barcode subdirectories. The first capture group becomes the sample ID. Example: '(sample[A-Z]+)_' extracts 'sampleA' from 'sampleA_001.fastq.gz'."
-                },
-                "barcode_dirs": {
-                    "type": "boolean",
-                    "default": false,
-                    "description": "Whether input directory contains barcode subdirectories.",
-                    "fa_icon": "fas fa-folder-tree",
-                    "help_text": "Set to true when processing barcoded runs where input files are organized in barcode subdirectories (e.g., barcode01/, barcode02/)."
                 },
                 "batch_size": {
                     "type": "integer",
@@ -348,22 +372,16 @@
                     "minimum": 1,
                     "description": "Maximum number of files to process in real-time mode (limits watchPath file detection).",
                     "fa_icon": "fas fa-stop-circle",
-                    "help_text": "Set a limit on the total number of files to process. Useful for testing real-time workflows without processing an entire sequencing run."
+                    "help_text": "Set a limit on the total number of files to process. Useful for testing real-time workflows without processing an entire sequencing run. When combined with realtime_timeout_minutes, both bounds are enforced independently and whichever fires first terminates the watchPath stream."
                 },
-                "watch_directories": {
+                "priority_samples": {
                     "type": "array",
                     "items": {
                         "type": "string"
                     },
-                    "description": "List of directories to monitor for real-time processing (supports multiple).",
-                    "fa_icon": "fas fa-folder-tree"
-                },
-                "priority_samples": {
-                    "type": "string",
-                    "pattern": "^[^,]+(,[^,]+)*$",
-                    "description": "Comma-separated list of high-priority sample IDs for expedited processing.",
+                    "description": "List of high-priority sample IDs for expedited processing.",
                     "fa_icon": "fas fa-star",
-                    "help_text": "Specify sample IDs as a comma-separated string (e.g., 'sample1,sample2,sample3'). These samples will be processed before others in real-time mode."
+                    "help_text": "Specify sample IDs as a list. On the command line, use --priority_samples 'sample1,sample2'."
                 },
                 "enable_realtime_stats": {
                     "type": "boolean",
@@ -406,34 +424,13 @@
                     "description": "Multiplier for dynamic batch sizing calculations.",
                     "fa_icon": "fas fa-percent"
                 },
-                "min_files_per_second": {
-                    "type": "number",
-                    "default": 0.1,
-                    "minimum": 0.01,
-                    "description": "Alert threshold for minimum processing speed (files per second).",
-                    "fa_icon": "fas fa-tachometer-alt"
-                },
-                "max_avg_file_age_minutes": {
-                    "type": "number",
-                    "default": 10.0,
-                    "minimum": 0.1,
-                    "description": "Alert threshold for maximum average file age (minutes).",
-                    "fa_icon": "fas fa-clock"
-                },
-                "min_compression_ratio": {
-                    "type": "number",
-                    "default": 0.3,
-                    "minimum": 0.01,
-                    "maximum": 1.0,
-                    "description": "Alert threshold for minimum compression ratio (data quality indicator).",
-                    "fa_icon": "fas fa-compress"
-                },
                 "realtime_timeout_minutes": {
                     "type": "integer",
+                    "default": 60,
                     "minimum": 1,
-                    "description": "Stop real-time monitoring after N minutes of inactivity (null = run indefinitely).",
+                    "description": "Stop real-time monitoring after N minutes (wall-clock budget; null = run indefinitely).",
                     "fa_icon": "fas fa-clock",
-                    "help_text": "Automatically stop the pipeline if no new files are detected for this duration. Useful for unattended sequencing runs."
+                    "help_text": "Automatically stop the pipeline after this many minutes (plus realtime_processing_grace_period) regardless of whether new files are still arriving. Useful for unattended sequencing runs. When combined with max_files the two bounds are enforced independently and whichever fires first stops the watchPath stream. The default (60) avoids indefinite hangs; set to null or a large value to keep monitoring forever."
                 },
                 "realtime_processing_grace_period": {
                     "type": "integer",
@@ -442,84 +439,34 @@
                     "description": "Additional minutes to wait for downstream processing after file detection timeout.",
                     "fa_icon": "fas fa-hourglass-end",
                     "help_text": "Grace period after realtime_timeout_minutes expires to allow downstream processes to complete."
-                }
-            }
-        },
-        "dorado_basecalling_options": {
-            "title": "Dorado basecalling options",
-            "type": "object",
-            "fa_icon": "fas fa-dna",
-            "description": "Parameters for Oxford Nanopore Technologies POD5 basecalling using Dorado.",
-            "help_text": "Dorado is ONT's official basecaller for converting raw POD5 signal data to FASTQ sequences. These parameters control basecalling and demultiplexing behavior.",
-            "properties": {
-                "use_dorado": {
-                    "type": "boolean",
-                    "default": false,
-                    "description": "Enable Dorado basecalling from POD5 files.",
-                    "fa_icon": "fas fa-power-off",
-                    "help_text": "Enable this when starting from raw POD5 files instead of pre-basecalled FASTQ files."
                 },
-                "dorado_path": {
-                    "type": "string",
-                    "default": "dorado",
-                    "description": "Path to dorado binary.",
-                    "fa_icon": "fas fa-terminal",
-                    "help_text": "Path to dorado binary. Defaults to 'dorado' (searches in PATH). Specify full path for custom installations."
-                },
-                "dorado_model": {
-                    "type": "string",
-                    "default": "dna_r10.4.1_e4.3_400bps_hac",
-                    "description": "Dorado basecalling model to use.",
-                    "fa_icon": "fas fa-microchip",
-                    "help_text": "Basecalling model (e.g., 'dna_r10.4.1_e4.3_400bps_hac'). Use simplified syntax without @version suffix for Dorado 1.1+. Common models: hac (high accuracy), sup (super accuracy), fast (speed optimized)."
-                },
-                "dorado_device": {
-                    "type": "string",
-                    "default": "auto",
-                    "description": "GPU device for Dorado basecalling.",
-                    "fa_icon": "fas fa-microchip",
-                    "help_text": "Device selection: 'auto' (automatic detection), 'cpu' (CPU-only), 'metal' (Apple Silicon), 'cuda:all' (all CUDA GPUs), or 'cuda:<device_id>' (specific CUDA device)."
-                },
-                "pod5_input_dir": {
-                    "type": "string",
-                    "format": "directory-path",
-                    "description": "Directory containing POD5 files for basecalling.",
-                    "fa_icon": "fas fa-folder"
-                },
-                "barcode_kit": {
-                    "type": "string",
-                    "description": "Barcode kit for demultiplexing.",
-                    "fa_icon": "fas fa-barcode",
-                    "help_text": "Barcode kit identifier (e.g., 'SQK-NBD114-24', 'SQK-RBK114-96'). Required when using --demultiplex."
-                },
-                "demultiplex": {
-                    "type": "boolean",
-                    "default": false,
-                    "description": "Enable demultiplexing during basecalling.",
-                    "fa_icon": "fas fa-split",
-                    "help_text": "Enable demultiplexing if your samples are barcoded. Requires --barcode_kit parameter."
-                },
-                "min_qscore": {
+                "max_avg_file_age_minutes": {
                     "type": "integer",
-                    "default": 9,
+                    "default": 1000000,
                     "minimum": 0,
-                    "maximum": 50,
-                    "description": "Minimum quality score for basecalling.",
-                    "fa_icon": "fas fa-filter",
-                    "help_text": "Phred quality score threshold. Reads below this score will be filtered during basecalling."
+                    "description": "Threshold (minutes) for the average input file age above which UPDATE_CUMULATIVE_STATS records a 'high file age' alert.",
+                    "fa_icon": "fas fa-history",
+                    "help_text": "Consumed inside modules/local/update_cumulative_stats/main.nf as part of the realtime threshold dictionary. The default of one million minutes effectively disables the alert; set lower (e.g. 60) on live runs to detect when input files have started lagging behind sequencing wall-clock. Declared explicitly so the GUI's parameter_mapping.create_nextflow_params output passes strict schema validation; the GUI emits this key from nanometa_live/core/config/parameter_mapping.py."
                 },
-                "trim_adapters": {
+                "report_write_interval": {
+                    "type": "integer",
+                    "default": 5,
+                    "minimum": 0,
+                    "description": "Write cumulative Kraken2 report every N batches (0 = every batch).",
+                    "fa_icon": "fas fa-pen"
+                },
+                "skip_fastqc_realtime": {
                     "type": "boolean",
                     "default": true,
-                    "description": "Trim adapters during basecalling using Dorado's built-in adapter trimming.",
-                    "fa_icon": "fas fa-cut",
-                    "help_text": "Recommended by ONT. Uses Dorado's built-in adapter detection and trimming."
+                    "description": "Skip FastQC in real-time mode (SeqKit provides sufficient QC statistics).",
+                    "fa_icon": "fas fa-forward"
                 },
-                "trim_barcodes": {
-                    "type": "boolean",
-                    "default": true,
-                    "description": "Trim barcodes during demultiplexing.",
-                    "fa_icon": "fas fa-cut"
+                "validation_aggregate_interval": {
+                    "type": "integer",
+                    "default": 0,
+                    "minimum": 0,
+                    "description": "Emit intermediate validation results every N results (0 = end-of-session only).",
+                    "fa_icon": "fas fa-filter"
                 }
             }
         },
@@ -563,7 +510,7 @@
                     "default": false,
                     "description": "Enable nanopore adapter trimming with PORECHOP.",
                     "fa_icon": "fas fa-cut",
-                    "help_text": "Recommended for filtlong/chopper workflows. Dorado users should use --trim_adapters instead."
+                    "help_text": "Recommended for filtlong/chopper workflows. Disable for upstream basecaller-trimmed reads."
                 },
                 "enable_qc_benchmark": {
                     "type": "boolean",
@@ -613,50 +560,35 @@
                     "description": "Minimum read length for FILTLONG filtering.",
                     "fa_icon": "fas fa-ruler"
                 },
-                "filtlong_keep_percent": {
+                "filtlong_max_length": {
                     "type": "integer",
+                    "description": "Maximum read length for FILTLONG filtering (null = no limit).",
+                    "fa_icon": "fas fa-ruler"
+                },
+                "filtlong_keep_percent": {
+                    "type": "number",
                     "default": 90,
-                    "minimum": 1,
+                    "minimum": 0,
                     "maximum": 100,
-                    "description": "Percentage of best reads to keep with FILTLONG (1-100).",
+                    "description": "Keep top N percent of reads by quality (FILTLONG).",
                     "fa_icon": "fas fa-percent"
                 },
                 "filtlong_target_bases": {
                     "type": "integer",
-                    "default": 0,
                     "minimum": 0,
-                    "description": "Target number of bases to keep with FILTLONG (0 = no limit).",
-                    "fa_icon": "fas fa-bullseye"
+                    "description": "Target total bases retained by FILTLONG (null = no cap).",
+                    "fa_icon": "fas fa-database"
                 },
                 "filtlong_min_mean_q": {
                     "type": "number",
-                    "default": 8.0,
-                    "minimum": 0.0,
-                    "maximum": 50.0,
-                    "description": "Minimum mean quality score for FILTLONG.",
+                    "minimum": 0,
+                    "description": "Minimum mean read quality for FILTLONG (Phred).",
                     "fa_icon": "fas fa-filter"
                 },
-                "fastp_qualified_quality": {
-                    "type": "integer",
-                    "default": 15,
+                "filtlong_min_window_q": {
+                    "type": "number",
                     "minimum": 0,
-                    "maximum": 50,
-                    "description": "Quality threshold for FASTP (phred score).",
-                    "fa_icon": "fas fa-filter"
-                },
-                "fastp_length_required": {
-                    "type": "integer",
-                    "default": 1000,
-                    "minimum": 1,
-                    "description": "Minimum read length required for FASTP.",
-                    "fa_icon": "fas fa-ruler"
-                },
-                "fastp_cut_mean_quality": {
-                    "type": "integer",
-                    "default": 20,
-                    "minimum": 0,
-                    "maximum": 50,
-                    "description": "Mean quality threshold for FASTP sliding window.",
+                    "description": "Minimum window quality for FILTLONG (Phred).",
                     "fa_icon": "fas fa-filter"
                 },
                 "qc_enable_incremental": {
@@ -760,7 +692,7 @@
                 },
                 "kraken2_memory_mapping": {
                     "type": "boolean",
-                    "default": false,
+                    "default": true,
                     "description": "Use memory-mapped database loading (faster, less memory).",
                     "fa_icon": "fas fa-memory"
                 },
@@ -780,73 +712,48 @@
                     "description": "Minimum number of hit groups (0=no filter).",
                     "fa_icon": "fas fa-hashtag"
                 },
-                "kraken2_batch_size": {
-                    "type": "integer",
-                    "default": 10,
-                    "minimum": 1,
-                    "description": "Batch size for parallel Kraken2 classification.",
-                    "fa_icon": "fas fa-layer-group"
-                },
-                "kraken2_db_chunking": {
-                    "type": "boolean",
-                    "default": false,
-                    "description": "Enable database chunking for large datasets.",
-                    "fa_icon": "fas fa-th"
-                },
-                "kraken2_db_merge_strategy": {
-                    "type": "string",
-                    "default": "union",
-                    "enum": ["union", "intersection", "consensus"],
-                    "description": "Merge strategy for multiple database results.",
-                    "fa_icon": "fas fa-code-branch"
-                },
                 "kraken2_enable_incremental": {
                     "type": "boolean",
                     "default": false,
                     "description": "Enable incremental Kraken2 classification with batch caching (PromethION optimization).",
                     "fa_icon": "fas fa-rocket",
-                    "help_text": "Cache batch-level .kraken2 outputs and merge at the end instead of re-classifying the growing dataset. Eliminates O(n²) complexity. Saves 30-90 minutes for 30-batch runs."
+                    "help_text": "Cache batch-level .kraken2 outputs and merge at the end instead of re-classifying the growing dataset. Eliminates O(n\u00b2) complexity. Saves 30-90 minutes for 30-batch runs."
                 },
-                "kraken2_cache_dir": {
-                    "type": "string",
-                    "format": "directory-path",
-                    "description": "Cache directory for incremental Kraken2 outputs (PromethION optimization).",
-                    "fa_icon": "fas fa-folder",
-                    "help_text": "Directory to store batch-level .kraken2 and metadata files when kraken2_enable_incremental is enabled. Defaults to ${outdir}/cache/kraken2."
-                },
-                "kraken2_preload_database": {
-                    "type": "boolean",
-                    "default": false,
-                    "description": "Preload Kraken2 database to shared memory for multi-sample runs (PromethION optimization).",
+                "kraken2_memory_gb": {
+                    "type": "integer",
+                    "default": 12,
+                    "minimum": 4,
+                    "maximum": 256,
+                    "description": "RAM (GB) requested for the Kraken2 process; sized for the database.",
                     "fa_icon": "fas fa-memory",
-                    "help_text": "Load database once into shared memory, reducing RAM requirements 24x for parallel sample processing. Automatically enabled with --realtime_mode via memory-mapping."
+                    "help_text": "Sets the memory request for the Kraken2 classifier process. The default of 12 GB matches the k2_pluspfp_08_GB database; larger databases (k2_pluspf_16gb, k2_standard_64gb) need a correspondingly larger value. Used by conf/modules.config to scale the KRAKEN2 memory directive per task attempt."
                 },
                 "max_concurrent_batches": {
                     "type": "integer",
                     "default": 4,
                     "minimum": 1,
                     "maximum": 32,
-                    "description": "Maximum concurrent batches per sample for backpressure control.",
+                    "description": "Maximum concurrent batches per barcode (advisory; not currently enforced).",
                     "fa_icon": "fas fa-traffic-light",
-                    "help_text": "Limits the number of batches that can be processed concurrently per sample to prevent queue saturation. Increase for systems with more memory and CPU cores."
+                    "help_text": "Reserved for the per-barcode throttle tracked under audit item P2.9. Today this value is logged for visibility but has no enforcement effect: the only real classifier throttle is the global ``--max_classification_forks`` cap on the Kraken2 process declarations. If one slow barcode is starving others, raise ``--max_classification_forks`` to at least the number of barcodes so each barcode can land one classifier slot in steady state."
                 },
                 "max_classification_forks": {
                     "type": "integer",
-                    "default": 8,
+                    "default": 4,
                     "minimum": 1,
                     "maximum": 64,
                     "description": "Maximum parallel Kraken2 classification jobs.",
                     "fa_icon": "fas fa-code-branch",
                     "help_text": "Controls the number of concurrent Kraken2 classification processes. Adjust based on available memory and CPU cores. Each Kraken2 job requires 12GB+ memory with large databases."
                 },
-                "kraken2_sync_interval": {
+                "runtime_metrics_interval_seconds": {
                     "type": "integer",
-                    "default": 10,
-                    "minimum": 1,
-                    "description": "Batches between cumulative report regeneration.",
-                    "fa_icon": "fas fa-sync-alt",
-                    "help_text": "In non-incremental mode, controls how often cumulative reports are regenerated. Lower values provide more frequent updates but increase I/O overhead.",
-                    "hidden": true
+                    "default": 0,
+                    "minimum": 0,
+                    "maximum": 3600,
+                    "description": "Interval in seconds for the realtime_monitoring [runtime-metrics] snapshot (0 = disabled).",
+                    "fa_icon": "fas fa-chart-line",
+                    "help_text": "Audit V5 instrumentation. When > 0 the realtime_monitoring subworkflow logs a structured ``[runtime-metrics] elapsed_s=N files=X batches=Y barcodes=Z batches_per_barcode_min=A batches_per_barcode_max=B`` line every N seconds. Combined with the expanded ``trace.fields`` (submit / start / complete / queue) this gives a 24-barcode field run the data the audit asked for to confirm backpressure behaviour. Default 0 (off) keeps batch-mode runs silent."
                 }
             }
         },
@@ -878,12 +785,27 @@
                     "fa_icon": "fas fa-dna",
                     "help_text": "JSON file mapping taxids to genome/BLAST database paths. Format: {\"taxid\": \"/path/to/genome.fasta\", ...}. Generated by Nanometa Live GenomeDownloadManager."
                 },
+                "validation_taxon_names": {
+                    "type": "string",
+                    "format": "file-path",
+                    "description": "Optional JSON file mapping taxid to species name.",
+                    "fa_icon": "fas fa-tag",
+                    "help_text": "JSON file {\"taxid\": \"Species name\", ...} written by Nanometa Live from the watchlist. Used as the authoritative species-name source when aggregating validation results, so names are deterministic regardless of which per-batch Kraken2 reports reach a realtime aggregation."
+                },
                 "taxids_to_validate": {
                     "type": "string",
                     "default": "auto",
                     "description": "Taxids to validate.",
                     "fa_icon": "fas fa-list-ol",
                     "help_text": "auto: Use all taxids from genomes JSON. all: Validate all classified species-level taxids. Or provide comma-separated list of specific taxids."
+                },
+                "min_batch_reads_for_validation": {
+                    "type": "integer",
+                    "default": 1,
+                    "minimum": 1,
+                    "description": "Per-batch exact-taxid read floor for validation extraction.",
+                    "fa_icon": "fas fa-filter",
+                    "help_text": "A (sample, taxid) pair is only extracted and validated when at least this many reads are classified to the taxid in that batch, gated before EXTRACT_READS_BY_TAXID is scheduled. The default of 1 skips only zero-read taxids, which is results-identical to extracting every taxid every batch while removing the per-batch x per-taxid extraction explosion in realtime runs. This is a per-batch gate, not a cumulative reporting threshold: raising it would skip an organism that accumulates slowly across many batches (e.g. a few reads per batch), so leave it at 1 unless you accept that trade-off."
                 },
                 "blast_evalue": {
                     "type": "number",
@@ -922,6 +844,20 @@
                     "description": "Minimum mapping quality for minimap2.",
                     "fa_icon": "fas fa-signal"
                 },
+                "generate_consensus": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Generate a consensus sequence per validated (sample, taxid) from read mapping.",
+                    "help_text": "Maps extracted reads to the reference with minimap2, then calls a consensus with samtools. Amplicon-aware: positions below consensus_min_depth are masked N and the consensus is trimmed to the covered span. No primer scheme is required.",
+                    "fa_icon": "fas fa-align-center"
+                },
+                "consensus_min_depth": {
+                    "type": "integer",
+                    "default": 10,
+                    "minimum": 1,
+                    "description": "Minimum read depth to call a consensus base.",
+                    "fa_icon": "fas fa-layer-group"
+                },
                 "validation_hit_rate_threshold": {
                     "type": "number",
                     "default": 0.5,
@@ -957,6 +893,40 @@
                     "description": "Deprecated: use taxids_to_validate instead.",
                     "fa_icon": "fas fa-list",
                     "hidden": true
+                },
+                "validation_only": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Run validation without re-running classification.",
+                    "fa_icon": "fas fa-check-double"
+                },
+                "kraken2_output_dir": {
+                    "type": "string",
+                    "format": "directory-path",
+                    "description": "Path to existing Kraken2 output directory (for validation_only mode).",
+                    "fa_icon": "fas fa-folder-open"
+                },
+                "reads_dir": {
+                    "type": "string",
+                    "format": "directory-path",
+                    "description": "Path to existing FASTQ files (for validation_only mode).",
+                    "fa_icon": "fas fa-folder"
+                }
+            }
+        },
+        "canonical_output_options": {
+            "title": "Canonical output options",
+            "type": "object",
+            "fa_icon": "fas fa-file-export",
+            "description": "Parameters for canonical intermediate output formats.",
+            "help_text": "Canonical outputs provide tool-agnostic JSON/TSV files that decouple the frontend from specific analysis tool formats.",
+            "properties": {
+                "write_canonical": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Write canonical JSON/TSV outputs for frontend consumption.",
+                    "fa_icon": "fas fa-toggle-on",
+                    "help_text": "When enabled, each analysis step produces a canonical output file alongside the native tool output. The frontend can read canonical files without tool-specific parsing."
                 }
             }
         },
@@ -1005,158 +975,6 @@
                 }
             }
         },
-        "enhanced_monitoring_options": {
-            "title": "Enhanced monitoring options",
-            "type": "object",
-            "fa_icon": "fas fa-eye",
-            "description": "Advanced monitoring, error handling, and reliability features.",
-            "help_text": "Experimental features for production-scale real-time processing with enhanced error recovery and monitoring capabilities.",
-            "properties": {
-                "enable_enhanced_monitoring": {
-                    "type": "boolean",
-                    "default": false,
-                    "description": "Enable enhanced real-time monitoring with all advanced features.",
-                    "fa_icon": "fas fa-satellite"
-                },
-                "file_stability_time": {
-                    "type": "integer",
-                    "default": 5,
-                    "minimum": 1,
-                    "description": "File stability check time in seconds (file locking detection).",
-                    "fa_icon": "fas fa-hourglass-half"
-                },
-                "max_file_retries": {
-                    "type": "integer",
-                    "default": 3,
-                    "minimum": 1,
-                    "description": "Maximum retry attempts for file processing.",
-                    "fa_icon": "fas fa-redo"
-                },
-                "watchdog_timeout": {
-                    "type": "integer",
-                    "default": 3600,
-                    "minimum": 60,
-                    "description": "Watchdog timeout in seconds (1 hour = 3600s).",
-                    "fa_icon": "fas fa-stopwatch"
-                },
-                "enable_progress_dashboard": {
-                    "type": "boolean",
-                    "default": true,
-                    "description": "Enable real-time progress tracking dashboard.",
-                    "fa_icon": "fas fa-tachometer-alt"
-                },
-                "enable_error_handler": {
-                    "type": "boolean",
-                    "default": false,
-                    "description": "Enable comprehensive error handling with retry logic.",
-                    "fa_icon": "fas fa-shield-alt"
-                },
-                "error_base_delay": {
-                    "type": "integer",
-                    "default": 2,
-                    "minimum": 1,
-                    "description": "Base delay for exponential backoff (seconds).",
-                    "fa_icon": "fas fa-clock"
-                },
-                "error_max_delay": {
-                    "type": "integer",
-                    "default": 300,
-                    "minimum": 10,
-                    "description": "Maximum backoff delay (seconds, 5 minutes).",
-                    "fa_icon": "fas fa-clock"
-                },
-                "error_backoff_factor": {
-                    "type": "number",
-                    "default": 2.0,
-                    "minimum": 1.0,
-                    "maximum": 10.0,
-                    "description": "Exponential backoff growth factor.",
-                    "fa_icon": "fas fa-chart-line"
-                },
-                "error_max_retries": {
-                    "type": "integer",
-                    "default": 10,
-                    "minimum": 1,
-                    "description": "Maximum retry attempts before dead letter queue.",
-                    "fa_icon": "fas fa-redo"
-                },
-                "circuit_breaker_threshold": {
-                    "type": "integer",
-                    "default": 5,
-                    "minimum": 1,
-                    "description": "Number of failures to trigger circuit breaker.",
-                    "fa_icon": "fas fa-power-off"
-                },
-                "circuit_breaker_window": {
-                    "type": "integer",
-                    "default": 300,
-                    "minimum": 10,
-                    "description": "Time window for failure counting (seconds, 5 minutes).",
-                    "fa_icon": "fas fa-window-maximize"
-                }
-            }
-        },
-        "dynamic_resource_allocation_options": {
-            "title": "Dynamic resource allocation options",
-            "type": "object",
-            "fa_icon": "fas fa-server",
-            "description": "Experimental intelligent resource allocation system.",
-            "help_text": "EXPERIMENTAL: Adaptive resource allocation based on input characteristics and system availability. Disabled by default for v1.0 stability.",
-            "properties": {
-                "enable_dynamic_resources": {
-                    "type": "boolean",
-                    "default": false,
-                    "description": "Enable intelligent resource allocation system.",
-                    "fa_icon": "fas fa-brain",
-                    "help_text": "EXPERIMENTAL - disabled by default for v1.0. When enabled, the pipeline will dynamically adjust CPU, memory, and time allocations based on input characteristics."
-                },
-                "optimization_profile": {
-                    "type": "string",
-                    "default": "auto",
-                    "enum": [
-                        "auto",
-                        "high_throughput",
-                        "balanced",
-                        "resource_conservative",
-                        "gpu_optimized",
-                        "realtime_optimized",
-                        "development_testing"
-                    ],
-                    "description": "Resource optimization profile.",
-                    "fa_icon": "fas fa-sliders-h",
-                    "help_text": "auto: intelligent detection, high_throughput: maximize speed, balanced: speed/resource tradeoff, resource_conservative: minimize resource usage, gpu_optimized: GPU workloads, realtime_optimized: real-time processing, development_testing: development/testing."
-                },
-                "resource_safety_factor": {
-                    "type": "number",
-                    "default": 0.8,
-                    "minimum": 0.1,
-                    "maximum": 1.0,
-                    "description": "Safety factor for resource allocation (0.0-1.0).",
-                    "fa_icon": "fas fa-shield-alt",
-                    "help_text": "Multiplier applied to predicted resource requirements to add safety margin. Lower values = more conservative allocation."
-                },
-                "max_parallel_jobs": {
-                    "type": "integer",
-                    "default": 4,
-                    "minimum": 1,
-                    "description": "Maximum parallel jobs for resource optimization.",
-                    "fa_icon": "fas fa-tasks"
-                },
-                "enable_gpu_optimization": {
-                    "type": "boolean",
-                    "default": true,
-                    "description": "Enable GPU-specific optimizations.",
-                    "fa_icon": "fas fa-microchip"
-                },
-                "resource_monitoring_interval": {
-                    "type": "integer",
-                    "default": 30,
-                    "minimum": 1,
-                    "description": "System monitoring interval (seconds).",
-                    "fa_icon": "fas fa-heartbeat"
-                }
-            }
-        },
         "reporting_visualization_options": {
             "title": "Reporting and visualization options",
             "type": "object",
@@ -1169,12 +987,6 @@
                     "default": false,
                     "description": "Enable multi-sample NanoPlot comparison plots.",
                     "fa_icon": "fas fa-chart-bar"
-                },
-                "enable_multiqc_custom_content": {
-                    "type": "boolean",
-                    "default": true,
-                    "description": "Enable nanopore-specific custom content in MultiQC.",
-                    "fa_icon": "fas fa-file-alt"
                 },
                 "enable_krona_plots": {
                     "type": "boolean",
@@ -1190,12 +1002,6 @@
                     "fa_icon": "fas fa-forward",
                     "help_text": "Disables Krona visualization. Required on ARM Mac where the Krona container has permission issues. Equivalent to --enable_krona_plots false."
                 },
-                "enable_dorado_mqc": {
-                    "type": "boolean",
-                    "default": true,
-                    "description": "Include Dorado basecalling statistics in MultiQC.",
-                    "fa_icon": "fas fa-dna"
-                },
                 "enable_nanopore_stats_mqc": {
                     "type": "boolean",
                     "default": true,
@@ -1203,59 +1009,18 @@
                     "fa_icon": "fas fa-chart-line"
                 }
             }
-        },
-        "testing_performance_options": {
-            "title": "Testing and performance options",
-            "type": "object",
-            "fa_icon": "fas fa-vial",
-            "description": "Development, testing, and performance benchmarking parameters.",
-            "help_text": "Options for test coverage tracking and performance regression detection during development.",
-            "properties": {
-                "enable_test_coverage_tracking": {
-                    "type": "boolean",
-                    "default": false,
-                    "description": "Enable test coverage monitoring.",
-                    "fa_icon": "fas fa-check-circle",
-                    "hidden": true
-                },
-                "enable_performance_benchmarks": {
-                    "type": "boolean",
-                    "default": false,
-                    "description": "Enable performance regression testing.",
-                    "fa_icon": "fas fa-tachometer-alt",
-                    "hidden": true
-                },
-                "test_coverage_threshold": {
-                    "type": "integer",
-                    "default": 95,
-                    "minimum": 0,
-                    "maximum": 100,
-                    "description": "Minimum test coverage threshold (P0+P1).",
-                    "fa_icon": "fas fa-percentage",
-                    "hidden": true
-                },
-                "performance_regression_threshold": {
-                    "type": "number",
-                    "default": 0.1,
-                    "minimum": 0.0,
-                    "maximum": 1.0,
-                    "description": "Performance regression threshold (10%).",
-                    "fa_icon": "fas fa-percent",
-                    "hidden": true
-                }
-            }
         }
     },
     "properties": {},
     "allOf": [
         {
+            "$ref": "#/$defs/input_mode_selection"
+        },
+        {
             "$ref": "#/$defs/input_output_options"
         },
         {
             "$ref": "#/$defs/realtime_processing_options"
-        },
-        {
-            "$ref": "#/$defs/dorado_basecalling_options"
         },
         {
             "$ref": "#/$defs/quality_control_options"
@@ -1270,16 +1035,10 @@
             "$ref": "#/$defs/assembly_options"
         },
         {
-            "$ref": "#/$defs/enhanced_monitoring_options"
-        },
-        {
-            "$ref": "#/$defs/dynamic_resource_allocation_options"
+            "$ref": "#/$defs/canonical_output_options"
         },
         {
             "$ref": "#/$defs/reporting_visualization_options"
-        },
-        {
-            "$ref": "#/$defs/testing_performance_options"
         },
         {
             "$ref": "#/$defs/reference_genome_options"

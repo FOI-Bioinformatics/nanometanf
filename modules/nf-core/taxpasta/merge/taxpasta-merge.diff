@@ -1,0 +1,38 @@
+Changes in component 'nf-core/taxpasta/merge'
+'modules/nf-core/taxpasta/merge/environment.yml' is unchanged
+'modules/nf-core/taxpasta/merge/meta.yml' is unchanged
+Changes in 'taxpasta/merge/main.nf':
+--- modules/nf-core/taxpasta/merge/main.nf
++++ modules/nf-core/taxpasta/merge/main.nf
+@@ -49,7 +49,7 @@
+ 
+     cat <<-END_VERSIONS > versions.yml
+     "${task.process}":
+-        taxpasta: \$(taxpasta --version)
++        taxpasta: 0.7.0
+     END_VERSIONS
+     """
+ }
+
+'modules/nf-core/taxpasta/merge/tests/main.nf.test.snap' is unchanged
+Changes in 'taxpasta/merge/tests/main.nf.test':
+--- modules/nf-core/taxpasta/merge/tests/main.nf.test
++++ modules/nf-core/taxpasta/merge/tests/main.nf.test
+@@ -3,6 +3,7 @@
+     name "Test Process TAXPASTA_MERGE"
+     script "../main.nf"
+     process "TAXPASTA_MERGE"
++    tag "fast"
+     tag "modules"
+     tag "modules_nfcore"
+     tag "taxpasta"
+@@ -99,6 +100,7 @@
+     test("sarscov2 - metagenome - kraken report - stub") {
+ 
+         options "-stub"
++    tag "stub"
+ 
+         when {
+             process {
+
+************************************************************

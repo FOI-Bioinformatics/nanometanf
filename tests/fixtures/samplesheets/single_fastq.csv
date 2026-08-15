@@ -1,2 +1,2 @@
 sample,fastq,barcode
-REAL_TEST_SINGLE,/Users/andreassjodin/Desktop/ONT/demodata_ONT/data/nanometa_testdata/single_fastq/FAV31270_pass_barcode02_c46c7db7_4eab4af1_11.fastq.gz,
+REAL_TEST_SINGLE,https://raw.githubusercontent.com/nf-core/test-datasets/modules/data/genomics/sarscov2/nanopore/fastq/test.fastq.gz,

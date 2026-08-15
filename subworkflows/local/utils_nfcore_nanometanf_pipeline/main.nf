@@ -78,7 +78,7 @@ workflow PIPELINE_INITIALISATION {
 
     //
     // Create channel from input file provided through params.input
-    // Only parse samplesheet if params.input is provided (not for barcode_discovery or POD5 modes)
+    // Only parse samplesheet if params.input is provided (not for barcode_discovery modes)
     //
 
     if (params.input) {
@@ -106,7 +106,7 @@ workflow PIPELINE_INITIALISATION {
             }
             .set { ch_samplesheet }
     } else {
-        // Empty channel for non-samplesheet input modes (barcode_discovery, POD5, real-time)
+        // Empty channel for non-samplesheet input modes (barcode_discovery, real-time)
         ch_samplesheet = Channel.empty()
     }
 
@@ -224,7 +224,6 @@ def genomeExistsError() {
 def toolCitationText() {
     def citation_text = [
             "Tools used in the workflow included:",
-            "Dorado (Oxford Nanopore Technologies),",
             params.kraken2_db ? "Kraken2 (Wood et al. 2019)," : "",
             params.skip_fastp ? "" : "FASTP (Chen et al. 2018),",
             params.skip_nanoplot ? "" : "NanoPlot (De Coster et al. 2018),",
@@ -238,12 +237,11 @@ def toolCitationText() {
 
 def toolBibliographyText() {
     def reference_text = [
-            "<li>Oxford Nanopore Technologies. Dorado basecaller. URL: https://github.com/nanoporetech/dorado</li>",
             params.kraken2_db ? "<li>Wood, D.E., Lu, J. & Langmead, B. Improved metagenomic analysis with Kraken 2. Genome Biology 20, 257 (2019). doi: 10.1186/s13059-019-1891-0</li>" : "",
             params.skip_fastp ? "" : "<li>Chen, S., Zhou, Y., Chen, Y., & Gu, J. (2018). fastp: an ultra-fast all-in-one FASTQ preprocessor. Bioinformatics, 34(17), i884-i890. doi: 10.1093/bioinformatics/bty560</li>",
             params.skip_nanoplot ? "" : "<li>De Coster, W., D'Hert, S., Schultz, D. T., Cruts, M., & Van Broeckhoven, C. (2018). NanoPack: visualizing and processing long-read sequencing data. Bioinformatics, 34(15), 2666-2669. doi: 10.1093/bioinformatics/bty149</li>",
             params.blast_validation ? "<li>Camacho, C., Coulouris, G., Avagyan, V., Ma, N., Papadopoulos, J., Bealer, K., & Madden, T. L. (2009). BLAST+: architecture and applications. BMC Bioinformatics, 10, 421. doi: 10.1186/1471-2105-10-421</li>" : "",
-            "<li>Ewels, P., Magnusson, M., Lundin, S., & Käller, M. (2016). MultiQC: summarize analysis results for multiple tools and samples in a single report. Bioinformatics, 32(19), 3047-3048. doi: 10.1093/bioinformatics/btw354</li>"
+            "<li>Ewels, P., Magnusson, M., Lundin, S., & Kaller, M. (2016). MultiQC: summarize analysis results for multiple tools and samples in a single report. Bioinformatics, 32(19), 3047-3048. doi: 10.1093/bioinformatics/btw354</li>"
         ].join(' ').trim()
 
     return reference_text

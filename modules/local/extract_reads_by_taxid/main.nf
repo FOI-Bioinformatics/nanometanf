@@ -11,7 +11,13 @@ process EXTRACT_READS_BY_TAXID {
     tuple val(meta), path(reads), path(kraken_output), val(taxid)
 
     output:
-    tuple val(meta), path("*_taxid${taxid}.fastq.gz"), emit: reads
+    // ``reads`` is optional: a taxid with zero classified reads in this batch
+    // emits no FASTQ, so the downstream BLAST/minimap2 validators are not
+    // scheduled for it. In a realtime run most watchlist taxids are absent from
+    // any given batch; validating them on empty input was the bulk of the
+    // per-batch x per-taxid task explosion (see issue #29). ``stats`` is always
+    // emitted so the extracted-read count is still recorded.
+    tuple val(meta), path("*_taxid${taxid}.fastq.gz"), emit: reads, optional: true
     tuple val(meta), path("*_extraction_stats.json"), emit: stats
     path "versions.yml", emit: versions
 
@@ -36,10 +42,11 @@ process EXTRACT_READS_BY_TAXID {
         seqtk subseq "${reads}" read_ids.txt | gzip -c > "${prefix}_taxid${taxid}.fastq.gz"
         echo "Extracted \$EXTRACTED_COUNT reads for taxid ${taxid} from sample ${prefix}" >&2
     else
-        # Create empty gzipped file if no reads found
-        gzip -c < /dev/null > "${prefix}_taxid${taxid}.fastq.gz"
-        echo "WARNING: No reads found for taxid ${taxid} in sample ${prefix}" >&2
-        echo "  This may be expected if the taxid was not detected by Kraken2" >&2
+        # No reads for this taxid in this batch: emit NO FASTQ (the reads output
+        # is optional) so the downstream validators skip it. Nothing to validate
+        # on an empty extraction, and scheduling BLAST/minimap2 on it was pure
+        # overhead. The stats JSON below still records the zero count.
+        echo "No reads found for taxid ${taxid} in sample ${prefix}; skipping validation for this batch" >&2
     fi
 
     # Count total classified reads for this sample

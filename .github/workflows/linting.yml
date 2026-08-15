@@ -18,3 +18,39 @@ jobs:
 
       - name: Run pre-commit
         run: pre-commit run --all-files
+
+  nf-core-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.13
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install Nextflow
+        # nf-core pipelines lint shells out to ``nextflow config`` while
+        # validating the pipeline; without an executable on PATH the
+        # linter aborts with FileNotFoundError before producing a report.
+        # Direct install bypasses nf-core/setup-nextflow@v2 Cloudflare
+        # 520 failures observed 2026-05-28.
+        env:
+          NXF_VER: "26.04.0"
+        run: |
+          curl -fsSL get.nextflow.io | bash
+          sudo install -m 0755 nextflow /usr/local/bin/nextflow
+          nextflow -v
+
+      - name: Install nf-core tools
+        run: pip install "nf-core==3.5.2"
+
+      - name: Run nf-core pipelines lint
+        run: nf-core pipelines lint --dir . --markdown lint_results.md
+
+      - name: Upload lint report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: nf-core-lint-report
+          path: lint_results.md

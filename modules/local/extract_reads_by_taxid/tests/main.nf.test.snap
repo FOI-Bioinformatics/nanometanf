@@ -1,0 +1,14 @@
+{
+    "Should emit per-taxid read extraction stub outputs": {
+        "content": [
+            [
+                "versions.yml:md5,30510543b0f673939507fb1cdee9774f"
+            ]
+        ],
+        "timestamp": "2026-04-26T22:45:21.190714",
+        "meta": {
+            "nf-test": "0.9.4",
+            "nextflow": "25.04.7"
+        }
+    }
+}

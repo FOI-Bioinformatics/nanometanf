@@ -1,0 +1,66 @@
+{
+  "session_info": {
+    "session_start": 1640995200000,
+    "session_start_formatted": "2022-01-01T00:00:00Z",
+    "total_batches": 1,
+    "last_update": 1640995200000,
+    "last_update_formatted": "2022-01-01T00:00:00Z"
+  },
+  "totals": {
+    "total_files": 2,
+    "total_size_bytes": 94371840,
+    "total_size_mb": 90.0,
+    "total_estimated_reads": 18000,
+    "total_compressed_files": 2
+  },
+  "averages": {
+    "avg_files_per_batch": 2.0,
+    "avg_batch_size_mb": 90.0,
+    "avg_reads_per_batch": 18000.0,
+    "avg_file_size_mb": 45.0
+  },
+  "performance": {
+    "files_per_second": 0,
+    "mb_per_second": 0,
+    "reads_per_second": 0,
+    "batches_per_minute": 0,
+    "session_duration_seconds": 0.0
+  },
+  "trends": {
+    "batch_timestamps": [
+      1640995200000
+    ],
+    "batch_file_counts": [
+      2
+    ],
+    "batch_sizes_mb": [
+      90.0
+    ],
+    "batch_read_counts": [
+      18000
+    ]
+  },
+  "quality_trends": {
+    "compression_ratios": [
+      1.0
+    ],
+    "priority_scores": [
+      80.0
+    ],
+    "large_file_ratios": [
+      0.5
+    ]
+  },
+  "source_summary": {
+    "unique_directories": [
+      "/data/run1"
+    ],
+    "unique_samples": [
+      "sample_1",
+      "sample_2"
+    ],
+    "directory_totals": {
+      "/data/run1": 2
+    }
+  }
+}
