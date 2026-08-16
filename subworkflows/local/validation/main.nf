@@ -183,7 +183,19 @@ workflow VALIDATION {
     ch_sample_with_hist = ch_sample_data
         .map { meta, reads, kraken_output ->
             // Exact-taxid read histogram for this batch, matching EXTRACT's rule.
-            [ meta, reads, kraken_output, BatchUtils.exactTaxidReadCounts(kraken_output) ]
+            // null means the assignment file could not be read at all (a work
+            // directory the NIO provider cannot reach, a truncated file). That is
+            // not the same as "no reads", and the gate below must not treat it as
+            // such: silently skipping every taxid would turn an infrastructure
+            // fault into an empty validation report on a green run.
+            def hist = BatchUtils.exactTaxidReadCounts(kraken_output)
+            if (hist == null) {
+                log.warn "Validation gate: could not read the Kraken2 per-read " +
+                         "assignments for sample '${meta.id}' (${kraken_output}). " +
+                         "Validating every requested taxid for this batch instead " +
+                         "of gating on read counts."
+            }
+            [ meta, reads, kraken_output, hist ]
         }
 
     //
@@ -194,6 +206,13 @@ workflow VALIDATION {
     ch_validation_tasks = ch_sample_with_hist
         .combine(ch_filtered_genomes)
         .filter { meta, reads, kraken_output, hist, taxid, genome ->
+            // Fail open when the histogram is unavailable: the gate exists to
+            // avoid scheduling extractions that would find nothing, and being
+            // wrong in that direction only costs CPU, whereas being wrong in the
+            // other direction drops a detection.
+            if (hist == null) {
+                return true
+            }
             def n = (hist[taxid.toString()] ?: 0)
             def keep = n >= reads_floor
             if (!keep) {
@@ -470,11 +489,23 @@ workflow VALIDATION {
         // state lives in the ValidationSnapshotAccumulator below.
         def ch_tagged = ch_blast_cumulative_stats.map { k, f -> [k, f, false] }
             .mix(ch_minimap2_cumulative_stats.map { k, f -> [k, f, false] })
-            .mix(
-                EXTRACT_READS_BY_TAXID.out.stats
-                    .filter { meta, f -> meta.batch_id != null }
-                    .map { meta, f -> ["ext|${meta.id}|${meta.taxid}", f, false] }
-            )
+            // Per-batch extraction stats are deliberately NOT fed to the realtime
+            // aggregation. Their key held only the LATEST batch's count while the
+            // blast/minimap2 stats beside them are cumulative, so one entry mixed
+            // two horizons: a pair that accumulated 1,200 mapped reads over thirty
+            // batches but extracted 40 in the last one rendered as
+            // "extracted_reads: 40, mapped_reads: 1200".
+            //
+            // Dropping them is not a loss of information. With no extraction entry
+            // the aggregator falls back to the cumulative stats' own `total_reads`
+            // for kraken_reads/extracted_reads, and that field is exactly the
+            // run-so-far extracted-read count -- VALIDATION_CUMULATIVE_AGGREGATOR
+            // sums it over the batch stats, each of which is the read count of that
+            // batch's extracted FASTQ. So both figures become cumulative and agree.
+            // It also keeps the snapshot smaller, which is the N7 concern above.
+            //
+            // Batch mode is unaffected: AGGREGATE_VALIDATION_RESULTS still collects
+            // ch_extraction_stats, where the horizons already match.
             .mix(
                 // Kraken2 reports carry the taxid->species names the aggregator
                 // needs and arrive one per batch, so they double as the per-batch

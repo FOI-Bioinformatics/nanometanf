@@ -192,26 +192,51 @@ class BatchUtils {
      * the head process replaces N per-taxid extraction launches with a single
      * parse, and matching EXTRACT's exact-taxid rule means the gate count equals
      * what extraction would find (issue #6). Pure: reads the file, returns a new
-     * map, mutates nothing shared. A null or missing file yields an empty map.
+     * map, mutates nothing shared.
      *
-     * @param krakenOutput  Kraken2 output file (path/File of tab-separated C/U lines)
-     * @return  map of taxid (String) -> classified read count (Integer)
+     * Uses the NIO Path API, not java.io.File. A work directory on S3 or Azure
+     * yields a Path whose java.io.File equivalent never exists, so the old code
+     * returned an empty histogram for every batch, the gate below dropped EVERY
+     * (sample, taxid) pair, and validation produced nothing at all -- announced
+     * only at log.debug. An unreadable file is now reported as such: null means
+     * "no gate information", which the caller must treat as "do not gate", NOT
+     * as "zero reads". An empty map still means the file was read and held no
+     * classified reads.
+     *
+     * Note this parses the whole per-read assignment file synchronously on a
+     * Nextflow dataflow thread, once per (sample, batch). That cost is inherent
+     * to gating in the head process and is not addressed here.
+     *
+     * @param krakenOutput  Kraken2 output file (Path/File of tab-separated C/U lines)
+     * @return  map of taxid (String) -> classified read count (Integer), or null
+     *          if the file could not be read
      */
     static Map exactTaxidReadCounts(Object krakenOutput) {
-        def hist = [:]
         if (krakenOutput == null) {
-            return hist
+            return null
         }
-        def f = krakenOutput instanceof File ? krakenOutput : new File(krakenOutput.toString())
-        if (!f.exists()) {
-            return hist
+        java.nio.file.Path path
+        if (krakenOutput instanceof java.nio.file.Path) {
+            path = (java.nio.file.Path) krakenOutput
+        } else if (krakenOutput instanceof File) {
+            path = ((File) krakenOutput).toPath()
+        } else {
+            path = new File(krakenOutput.toString()).toPath()
         }
-        f.eachLine { line ->
-            def cols = line.split('\t')
-            if (cols.size() >= 3 && cols[0] == 'C') {
-                def tx = cols[2]
-                hist[tx] = (hist[tx] ?: 0) + 1
+        if (!java.nio.file.Files.exists(path)) {
+            return null
+        }
+        def hist = [:]
+        try {
+            path.eachLine { line ->
+                def cols = line.split('\t')
+                if (cols.size() >= 3 && cols[0] == 'C') {
+                    def tx = cols[2]
+                    hist[tx] = (hist[tx] ?: 0) + 1
+                }
             }
+        } catch (Exception e) {
+            return null
         }
         return hist
     }

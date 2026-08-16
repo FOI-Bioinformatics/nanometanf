@@ -6,7 +6,7 @@ process KRAKEN2_FINAL_AGGREGATOR {
     // Stateless: all input arrives via channels, no outdir reads.
 
     conda "${moduleDir}/environment.yml"
-    container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
+    container "${ workflow.containerEngine in ['singularity', 'apptainer'] && !task.ext.singularity_pull_docker_container ?
         'https://depot.galaxyproject.org/singularity/python:3.11' :
         'quay.io/biocontainers/python:3.11' }"
 
@@ -28,6 +28,7 @@ process KRAKEN2_FINAL_AGGREGATOR {
     #!/usr/bin/env python3
 
     import json
+    import re
     import sys
     import glob
     from pathlib import Path
@@ -39,8 +40,15 @@ process KRAKEN2_FINAL_AGGREGATOR {
 
     # Discover batch files staged into the work directory by Nextflow
     # Files are staged flat or as a list depending on channel cardinality
-    batch_output_files = sorted(glob.glob('batch_*.kraken2.output.txt'))
-    batch_report_files = sorted(glob.glob('batch_*.kraken2.report.txt'))
+    # Sorted by NUMERIC batch id. A plain sort orders batch_1, batch_10, batch_2,
+    # which put the concatenated per-read output out of batch order (the report
+    # merge is a sum and was unaffected). Non-conforming names sort last.
+    def batch_index(path):
+        m = re.match(r'batch_(\\d+)\\.', path)
+        return (0, int(m.group(1))) if m else (1, 0)
+
+    batch_output_files = sorted(glob.glob('batch_*.kraken2.output.txt'), key=batch_index)
+    batch_report_files = sorted(glob.glob('batch_*.kraken2.report.txt'), key=batch_index)
 
     print(f"  Found {len(batch_output_files)} output files, {len(batch_report_files)} report files", file=sys.stderr)
 

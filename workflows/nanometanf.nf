@@ -181,23 +181,16 @@ workflow NANOMETANF {
     // INPUT VALIDATION: Verify external resources before pipeline execution
     //
 
-    // Validate Kraken2 database when classification is enabled
-    if (!params.skip_kraken2) {
-        if (!params.kraken2_db) {
-            error "Kraken2 classification is enabled but params.kraken2_db is not set. " +
-                  "Provide a database path with --kraken2_db or set --skip_kraken2 true."
-        }
-        def kraken2_db_dir = file(params.kraken2_db)
-        if (!kraken2_db_dir.exists()) {
-            error "Kraken2 database directory does not exist: ${params.kraken2_db}"
-        }
-        def has_hash = file("${params.kraken2_db}/hash.k2d").exists()
-        def has_taxo = file("${params.kraken2_db}/taxo.k2d").exists()
-        if (!has_hash || !has_taxo) {
-            error "Kraken2 database at ${params.kraken2_db} appears incomplete. " +
-                  "Expected hash.k2d and taxo.k2d inside the directory."
-        }
-    }
+    // Kraken2 database validation lives in WorkflowNanometanf.validateKraken2Database,
+    // called from PIPELINE_INITIALISATION before this workflow runs. A second copy
+    // used to sit here and it only ever did harm: it asserted hash.k2d and taxo.k2d
+    // inside the path unconditionally, which is false for the two forms the lib
+    // validator accepts and the workflow below implements -- a .tar.gz/.tgz archive
+    // (extracted by UNTAR further down) and a remote URL (fetched at runtime).
+    // conf/test.config sets exactly such a URL, so `-profile test,docker` could not
+    // reach classification at all. The lib validator is also the stricter of the two
+    // on real directories (it checks opts.k2d as well) and the only one the failure
+    // paths tests observe, because it runs first.
 
     // Validate output directory is writable
     def outdir = file(params.outdir)
@@ -486,11 +479,17 @@ workflow NANOMETANF {
     // Collects tool identity and sample list for frontend discovery
     //
     if (params.write_canonical != false) {
-        // Collect unique sample IDs (realtime mode emits duplicates per batch)
+        // Collect unique sample IDs (realtime mode emits duplicates per batch).
+        // .ifEmpty([]) so a run that detected no samples at all still reaches
+        // MANIFEST_WRITER: .collect() on an empty channel emits nothing, which
+        // leaves the process unscheduled and the run finishing with no manifest
+        // -- the one artifact a consumer would read to find out that nothing was
+        // processed.
         def ch_sample_ids = DEMULTIPLEXING.out.samples
             .map { meta, reads -> meta.id }
             .unique()
             .collect()
+            .ifEmpty([])
 
         // Samples that actually emitted QC output. A sample whose QC task
         // failed is absorbed by conf/error_isolation.config so the other
@@ -626,6 +625,41 @@ workflow NANOMETANF {
         ch_versions = ch_versions.mix(MANIFEST_WRITER.out.versions)
     }
 
+    // Placed BEFORE the version collation below, not after. ch_versions is a
+    // local variable and .mix() REBINDS it, so softwareVersionsToYAML captures
+    // whatever channel the name pointed at when it was called -- a later
+    // ch_versions = ch_versions.mix(...) creates a new channel the collation
+    // never sees. This block used to sit after it, so MULTIQC_NANOPORE_STATS
+    // was absent from nanometanf_software_mqc_versions.yml on every run.
+    //
+    // MODULE: Generate nanopore-specific MultiQC custom content (optional)
+    //
+    if (params.enable_nanopore_stats_mqc) {
+        // Collect SeqKit/FASTP stats as file inputs for nanopore statistics.
+        // The upstream QC_ANALYSIS subworkflow attaches ``.ifEmpty([])`` to
+        // ``qc_json`` so the top-level test harness sees an emission even
+        // when every QC task failed. That synthetic ``[]`` placeholder
+        // must be dropped before any tuple-destructuring closure
+        // ``{ meta, stats_file -> ... }``; otherwise it crashes with
+        // ``MissingMethodException``. Same guard pattern as in the
+        // ``QC_ANALYSIS.out.qc_json.collect{ it[1] }`` consumers above.
+        // Use the ch_qc_json channel captured in both QC branches: when QC is
+        // skipped (skip_fastp + skip_nanoplot) QC_ANALYSIS is never invoked, so
+        // referencing QC_ANALYSIS.out here aborts the run with "Access to
+        // 'QC_ANALYSIS.out' is undefined".
+        ch_stats_files = ch_qc_json
+            .filter { it instanceof List && it.size() >= 2 && it[1] != null }
+            .map { meta, stats_file -> stats_file }
+            .collect()
+
+        MULTIQC_NANOPORE_STATS (
+            ch_stats_files,
+            'nanometanf'
+        )
+        ch_versions = ch_versions.mix(MULTIQC_NANOPORE_STATS.out.versions)
+        ch_multiqc_files = ch_multiqc_files.mix(MULTIQC_NANOPORE_STATS.out.multiqc_files)
+    }
+
     //
     // Collate and save software versions
     //
@@ -669,34 +703,6 @@ workflow NANOMETANF {
             newLine: true
         ).set { ch_collated_versions }
 
-    //
-    // MODULE: Generate nanopore-specific MultiQC custom content (optional)
-    //
-    if (params.enable_nanopore_stats_mqc) {
-        // Collect SeqKit/FASTP stats as file inputs for nanopore statistics.
-        // The upstream QC_ANALYSIS subworkflow attaches ``.ifEmpty([])`` to
-        // ``qc_json`` so the top-level test harness sees an emission even
-        // when every QC task failed. That synthetic ``[]`` placeholder
-        // must be dropped before any tuple-destructuring closure
-        // ``{ meta, stats_file -> ... }``; otherwise it crashes with
-        // ``MissingMethodException``. Same guard pattern as in the
-        // ``QC_ANALYSIS.out.qc_json.collect{ it[1] }`` consumers above.
-        // Use the ch_qc_json channel captured in both QC branches: when QC is
-        // skipped (skip_fastp + skip_nanoplot) QC_ANALYSIS is never invoked, so
-        // referencing QC_ANALYSIS.out here aborts the run with "Access to
-        // 'QC_ANALYSIS.out' is undefined".
-        ch_stats_files = ch_qc_json
-            .filter { it instanceof List && it.size() >= 2 && it[1] != null }
-            .map { meta, stats_file -> stats_file }
-            .collect()
-
-        MULTIQC_NANOPORE_STATS (
-            ch_stats_files,
-            'nanometanf'
-        )
-        ch_versions = ch_versions.mix(MULTIQC_NANOPORE_STATS.out.versions)
-        ch_multiqc_files = ch_multiqc_files.mix(MULTIQC_NANOPORE_STATS.out.multiqc_files)
-    }
 
     //
     // MODULE: MultiQC - Comprehensive quality control report

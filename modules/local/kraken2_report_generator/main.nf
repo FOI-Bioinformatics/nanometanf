@@ -6,7 +6,7 @@ process KRAKEN2_REPORT_GENERATOR {
     // No shared state, no outdir reads. Cumulative merging done by FINAL_AGGREGATOR.
 
     conda "${moduleDir}/environment.yml"
-    container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
+    container "${ workflow.containerEngine in ['singularity', 'apptainer'] && !task.ext.singularity_pull_docker_container ?
         'https://depot.galaxyproject.org/singularity/krakentools:1.2--pyh5e36f6f_0' :
         'quay.io/biocontainers/krakentools:1.2--pyh5e36f6f_0' }"
 
@@ -25,7 +25,6 @@ process KRAKEN2_REPORT_GENERATOR {
     script:
     def prefix = meta.id
     def batch_id = meta.batch_id
-    def args = task.ext.args ?: ''
     """
     #!/usr/bin/env python3
 

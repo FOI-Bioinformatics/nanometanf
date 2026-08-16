@@ -510,7 +510,7 @@
                     "default": false,
                     "description": "Enable nanopore adapter trimming with PORECHOP.",
                     "fa_icon": "fas fa-cut",
-                    "help_text": "Recommended for filtlong/chopper workflows. Disable for upstream basecaller-trimmed reads."
+                    "help_text": "Applies to the chopper and filtlong QC tools, which have no adapter handling of their own. Ignored (with a warning) for fastp, which removes adapters itself. Disable for reads already trimmed by the basecaller."
                 },
                 "enable_qc_benchmark": {
                     "type": "boolean",

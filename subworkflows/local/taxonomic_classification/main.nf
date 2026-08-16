@@ -194,7 +194,50 @@ workflow TAXONOMIC_CLASSIFICATION {
                 // incompatible with watchPath() which never closes in true streaming mode.
                 // This stateful .map() assigns batch_id as files arrive without blocking.
                 //
-                def sample_batch_counters = [:].withDefault { 0 }
+                // Batch numbering resumes from what is already on disk rather than
+                // restarting at 0. KRAKEN2_OUTPUT_MERGER publishes
+                // kraken2/<sample>/batches/batch_<id>.kraken2.output.txt, and the
+                // head-process counter is in-memory only, so a second run against a
+                // populated outdir used to reissue batch_0, batch_1, ... and
+                // overwrite the previous run's batch files and per-batch reports.
+                // That matters because relaunching against an existing outdir is a
+                // supported operator action -- Nanometa Live's output-collision
+                // modal offers "Continue (with -resume)".
+                //
+                // The scan runs once per sample, the first time that sample is seen,
+                // and only picks a starting integer. It is safe against the publish
+                // race in both directions: files from a PRIOR run are complete before
+                // this run starts, and this run has published nothing for the sample
+                // yet (this is its first batch). Guessing high would only leave a gap
+                // in the numbering, which KRAKEN2_FINAL_AGGREGATOR tolerates -- it
+                // globs batch_* rather than counting from zero.
+                //
+                // Note this does NOT make a realtime restart reproducible: under
+                // watchPath the file arrival order is not stable, so batch N of the
+                // second run holds different reads than batch N of the first. It
+                // stops the second run destroying the first run's outputs; it does
+                // not merge the two runs.
+                def sample_batch_counters = [:].withDefault { sample_id ->
+                    def batches_dir = java.nio.file.Paths.get(
+                        "${params.outdir}/kraken2/${sample_id}/batches")
+                    if (!java.nio.file.Files.isDirectory(batches_dir)) {
+                        return 0
+                    }
+                    def highest = -1
+                    java.nio.file.Files.newDirectoryStream(batches_dir, 'batch_*.kraken2.output.txt').each { entry ->
+                        def matcher = (entry.fileName.toString() =~ /^batch_(\d+)\.kraken2\.output\.txt$/)
+                        if (matcher.find()) {
+                            def id = matcher.group(1) as int
+                            if (id > highest) {
+                                highest = id
+                            }
+                        }
+                    }
+                    if (highest >= 0) {
+                        log.info "Resuming batch numbering for sample '${sample_id}' at ${highest + 1} (found batch_0..batch_${highest} in the output directory)"
+                    }
+                    return highest + 1
+                }
 
                 ch_reads_with_batch = ch_reads
                     .map { meta, reads ->
@@ -289,6 +332,53 @@ workflow TAXONOMIC_CLASSIFICATION {
                 def batch_write_counter = [:].withDefault { 0 }
                 def write_interval = params.report_write_interval ?: 5
 
+                // Writes the run-so-far cumulative kreport for one sample.
+                // Shared by the interval-gated progressive write below and the
+                // end-of-session flush in onComplete, so the two cannot drift in
+                // format or row order. The caller must hold the state lock.
+                //
+                // Invoked as write_cumulative_report.call(...), not
+                // write_cumulative_report(...): under the strict (v2) parser that
+                // is the default from Nextflow 26.04, a bare name followed by
+                // parentheses is resolved as a method call and a local variable
+                // holding a Closure does not satisfy it -- the script fails to
+                // compile with "`write_cumulative_report` is not defined".
+                def write_cumulative_report = { sample_id, state ->
+                    def outdir = new File("${params.outdir}/kraken2")
+                    outdir.mkdirs()
+                    def total = state.total_reads ?: 1
+
+                    // Depth first, NOT by descending cumulative reads. The name
+                    // column keeps its two-space-per-level indentation, so an
+                    // indent-stack reader resolves a row's parent from the nearest
+                    // preceding row with a smaller indent. Sorting by abundance
+                    // leaves that indentation in place while destroying the order
+                    // it relies on, which silently re-parents taxa (a phylum reads
+                    // as a child of whichever domain now precedes it). KreportTree
+                    // keeps siblings in descending-cumul order within the correct
+                    // tree.
+                    def sb = new StringBuilder()
+                    KreportTree.depthFirstOrder(state.taxa).each { taxid ->
+                        def tdata = state.taxa[taxid]
+                        if (tdata == null) {
+                            return
+                        }
+                        def pct = String.format("%.2f", ((tdata.cumul as double) / total) * 100.0)
+                        sb.append("${pct}\t${tdata.cumul}\t${tdata.reads}\t${tdata.rank}\t${taxid}\t${tdata.name}\n")
+                    }
+
+                    // Atomic write: temp file then rename
+                    def temp = new File(outdir, "${sample_id}.cumulative.kraken2.report.txt.tmp")
+                    temp.text = sb.toString()
+                    def target = new File(outdir, "${sample_id}.cumulative.kraken2.report.txt")
+                    if (!temp.renameTo(target)) {
+                        // renameTo can fail silently; fall back to copy+delete
+                        target.text = temp.text
+                        temp.delete()
+                        log.debug "Progressive report: renameTo failed, used copy fallback for ${sample_id}"
+                    }
+                }
+
                 KRAKEN2_REPORT_GENERATOR.out.taxid_counts
                     .subscribe(onNext: { item ->
                         def sample_label = "unknown"
@@ -339,42 +429,7 @@ workflow TAXONOMIC_CLASSIFICATION {
                                 if (write_interval <= 0
                                     || batch_write_counter[sample_id] % write_interval == 0) {
 
-                                    // Write progressive cumulative kreport for dashboard
-                                    def outdir = new File("${params.outdir}/kraken2")
-                                    outdir.mkdirs()
-                                    def total = state.total_reads ?: 1
-
-                                    // Depth first, NOT by descending cumulative reads.
-                                    // The name column keeps its two-space-per-level
-                                    // indentation, so an indent-stack reader resolves a
-                                    // row's parent from the nearest preceding row with a
-                                    // smaller indent. Sorting by abundance leaves that
-                                    // indentation in place while destroying the order it
-                                    // relies on, which silently re-parents taxa (a phylum
-                                    // reads as a child of whichever domain now precedes
-                                    // it). KreportTree keeps siblings in descending-cumul
-                                    // order within the correct tree.
-                                    def sb = new StringBuilder()
-                                    KreportTree.depthFirstOrder(state.taxa).each { taxid ->
-                                        def tdata = state.taxa[taxid]
-                                        if (tdata == null) {
-                                            return
-                                        }
-                                        def pct = String.format("%.2f", ((tdata.cumul as double) / total) * 100.0)
-                                        sb.append("${pct}\t${tdata.cumul}\t${tdata.reads}\t${tdata.rank}\t${taxid}\t${tdata.name}\n")
-                                    }
-
-                                    // Atomic write: temp file then rename
-                                    def temp = new File(outdir, "${sample_id}.cumulative.kraken2.report.txt.tmp")
-                                    temp.text = sb.toString()
-                                    def target = new File(outdir, "${sample_id}.cumulative.kraken2.report.txt")
-                                    if (!temp.renameTo(target)) {
-                                        // renameTo can fail silently; fall back to copy+delete
-                                        target.text = temp.text
-                                        temp.delete()
-                                        log.debug "Progressive report: renameTo failed, used copy fallback for ${sample_id}"
-                                    }
-
+                                    write_cumulative_report.call(sample_id, state)
                                     log.debug "Progressive cumulative report updated for ${sample_id}: ${state.total_reads} reads, ${state.taxa.size()} taxa"
 
                                     // Memory diagnostic at every write: total live taxa across all in-flight samples
@@ -396,6 +451,26 @@ workflow TAXONOMIC_CLASSIFICATION {
                         // cumulative report is produced by KRAKEN2_FINAL_AGGREGATOR.
                         try {
                             BatchUtils.withLock(cumulative_taxa_state) {
+                                // Final flush, and the reason the race with
+                                // KRAKEN2_FINAL_AGGREGATOR is now harmless. Both write
+                                // kraken2/<id>.cumulative.kraken2.report.txt and nothing
+                                // orders a head-process write against a task's publishDir
+                                // copy. Without this flush the subscriber's last write
+                                // could be an interval-gated partial one (batch 25 of 27)
+                                // landing AFTER the aggregator published the complete
+                                // file, leaving two batches missing from the run's final
+                                // report. onNext callbacks are serial and onComplete runs
+                                // after the last of them, so flushing here makes the
+                                // subscriber's final write complete by construction --
+                                // whichever of the two writers lands last, the file on
+                                // disk covers every batch.
+                                cumulative_taxa_state.each { sample_id, state ->
+                                    try {
+                                        write_cumulative_report.call(sample_id, state)
+                                    } catch (Exception flush_error) {
+                                        log.warn "End-of-session cumulative flush failed for '${sample_id}': ${flush_error.message}"
+                                    }
+                                }
                                 def released = cumulative_taxa_state.size()
                                 cumulative_taxa_state.clear()
                                 batch_write_counter.clear()
@@ -419,23 +494,42 @@ workflow TAXONOMIC_CLASSIFICATION {
                     .map { meta, output_file ->
                         return tuple(meta.id, output_file)
                     }
-                    .groupTuple(by: 0, remainder: true)
+                    .groupTuple(by: 0)
 
                 // Collect batch report files per sample
                 ch_sample_reports = KRAKEN2_OUTPUT_MERGER.out.batch_report_copy
                     .map { meta, report_file ->
                         return tuple(meta.id, report_file)
                     }
-                    .groupTuple(by: 0, remainder: true)
+                    .groupTuple(by: 0)
 
-                // Join outputs and reports by sample_id, then run aggregation
-                // Both channels come from the same OUTPUT_MERGER process, so cardinality
-                // always matches. Use remainder:true to allow partial results if
-                // errorStrategy permits some batch failures.
+                // Join outputs and reports by sample_id, then run aggregation.
+                // Both channels come from the same OUTPUT_MERGER process, so
+                // cardinality always matches. (The groupTuple calls above no longer
+                // pass remainder:true -- that option only has an effect alongside
+                // `size:`, so it never allowed the partial results its comment
+                // claimed. Batch loss is reported by the completeness check below
+                // instead.)
+                // ``batch_count`` is the number of batch ids ASSIGNED to the sample,
+                // read from the head-process counter, not the number of files that
+                // survived to here. It used to be ``outputs.size()`` -- the size of
+                // the very list the module then globbed in its work directory -- so
+                // the module's "expected N, found M" check compared a number against
+                // itself, could never fire, and ``batches_complete`` was true by
+                // construction. A batch dropped by conf/error_isolation.config
+                // (exit 1/2 on any of the three KRAKEN2 processes is 'ignore') left
+                // no trace at all. The counter is final by the time this runs:
+                // groupTuple emits only once its upstream channel has closed, which
+                // is after every batch has been assigned an id.
                 ch_aggregator_input = ch_sample_outputs
                     .join(ch_sample_reports, by: 0, remainder: true)
                     .map { sample_id, outputs, reports ->
-                        return tuple([id: sample_id, batch_count: outputs.size()], outputs, reports)
+                        def assigned_batches = BatchUtils.withLock(sample_batch_counters) {
+                            sample_batch_counters[sample_id] as int
+                        }
+                        return tuple(
+                            [id: sample_id, batch_count: assigned_batches],
+                            outputs, reports)
                     }
 
                 KRAKEN2_FINAL_AGGREGATOR (

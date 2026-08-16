@@ -3,13 +3,13 @@ process CANONICAL_VALIDATION_WRITER {
     label 'process_single'
 
     conda "${moduleDir}/environment.yml"
-    container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
+    container "${ workflow.containerEngine in ['singularity', 'apptainer'] && !task.ext.singularity_pull_docker_container ?
         'https://depot.galaxyproject.org/singularity/python:3.11' :
         'quay.io/biocontainers/python:3.11' }"
 
-    publishDir "${params.outdir}/canonical/validation/",
-        mode: params.publish_dir_mode,
-        saveAs: { filename -> filename }
+    // Publishing is configured in conf/modules.config, which is included after
+    // this module and overrides any publishDir set here. An in-module block was
+    // therefore inert while reading as the module's publish target.
 
     input:
     tuple val(meta), path(alignment), val(tool_name), val(input_format)
