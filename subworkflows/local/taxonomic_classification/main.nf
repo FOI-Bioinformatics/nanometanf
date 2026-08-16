@@ -302,13 +302,23 @@ workflow TAXONOMIC_CLASSIFICATION {
                                 def batch_counts = new groovy.json.JsonSlurper().parseText(taxid_file.text)
                                 def state = cumulative_taxa_state[sample_id]
 
-                                // Merge batch taxa into cumulative state
+                                // Merge batch taxa into cumulative state.
+                                // `parent` comes from KRAKEN2_REPORT_GENERATOR, which
+                                // recovers it from the batch report's own row order and
+                                // indentation. It is carried here because the cumulative
+                                // report must be written depth first (see the write
+                                // below); a taxa map alone cannot say where a row goes.
                                 batch_counts.taxa.each { taxid, data ->
                                     if (!state.taxa.containsKey(taxid)) {
                                         state.taxa[taxid] = [
                                             reads: 0, cumul: 0,
-                                            rank: data.rank, name: data.name
+                                            rank: data.rank, name: data.name,
+                                            parent: data.parent
                                         ]
+                                    } else if (state.taxa[taxid].parent == null && data.parent != null) {
+                                        // A taxon can appear as a root in one batch and
+                                        // with its lineage in a later, deeper one.
+                                        state.taxa[taxid].parent = data.parent
                                     }
                                     state.taxa[taxid].reads += (data.reads as int)
                                     state.taxa[taxid].cumul += (data.cumul as int)
@@ -334,10 +344,22 @@ workflow TAXONOMIC_CLASSIFICATION {
                                     outdir.mkdirs()
                                     def total = state.total_reads ?: 1
 
+                                    // Depth first, NOT by descending cumulative reads.
+                                    // The name column keeps its two-space-per-level
+                                    // indentation, so an indent-stack reader resolves a
+                                    // row's parent from the nearest preceding row with a
+                                    // smaller indent. Sorting by abundance leaves that
+                                    // indentation in place while destroying the order it
+                                    // relies on, which silently re-parents taxa (a phylum
+                                    // reads as a child of whichever domain now precedes
+                                    // it). KreportTree keeps siblings in descending-cumul
+                                    // order within the correct tree.
                                     def sb = new StringBuilder()
-                                    state.taxa.sort { a, b ->
-                                        (b.value.cumul as int) <=> (a.value.cumul as int) ?: a.key <=> b.key
-                                    }.each { taxid, tdata ->
+                                    KreportTree.depthFirstOrder(state.taxa).each { taxid ->
+                                        def tdata = state.taxa[taxid]
+                                        if (tdata == null) {
+                                            return
+                                        }
                                         def pct = String.format("%.2f", ((tdata.cumul as double) / total) * 100.0)
                                         sb.append("${pct}\t${tdata.cumul}\t${tdata.reads}\t${tdata.rank}\t${taxid}\t${tdata.name}\n")
                                     }

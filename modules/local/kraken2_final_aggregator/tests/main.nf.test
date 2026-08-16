@@ -48,7 +48,7 @@ nextflow_process {
         // No ``options "-stub"`` override: exercise the actual Python in
         // the script block to guard the end-of-session aggregation
         // contract (batch concatenation, per-taxid cumulative summing,
-        // descending sort by cumulative count) against future regressions.
+        // depth-first row ordering) against future regressions.
         // Pure-Python module: host python3 is sufficient locally; CI
         // resolves the python:3.11 container under the docker profile.
         options ""
@@ -124,6 +124,123 @@ nextflow_process {
                     assert stats.classified_reads == 3
                     assert stats.unclassified_reads == 3
                     assert stats.unique_taxa == 1
+                }
+            )
+        }
+    }
+
+    test("real execution - merged report re-parses to the source tree") {
+        // A Kraken2 report states its taxonomy twice: rows are depth first, and
+        // the name column is indented two spaces per rank level. An indent-stack
+        // reader resolves each row's parent from the nearest preceding row with
+        // a smaller indent, so the two must agree.
+        //
+        // The counts below are chosen so the pre-fix descending-cumul sort is
+        // demonstrably wrong. Merged cumulative reads are root 95, Bacteria 50,
+        // Archaea 45, Euryarchaeota 44, Proteobacteria 20, unclassified 5;
+        // sorting by that emits Proteobacteria (indent 4) straight after
+        // Euryarchaeota (indent 4), so a reader takes Proteobacteria to be a
+        // child of Archaea. The phylum moves domain, from row order alone.
+        options ""
+
+        tag "real_execution"
+
+        setup {
+            // Basenames must match the module's ``batch_*`` discovery glob;
+            // the subdirectory keeps them from colliding with the fixtures of
+            // the other real-execution test in this file.
+            file("${outputDir}/tree").mkdirs()
+            file("${outputDir}/tree/batch_0.kraken2.output.txt").text = [
+                'C\tread1\t1224\t100\t1224:1',
+                'U\tread2\t0\t100\t0:100',
+                ''
+            ].join('\n')
+            file("${outputDir}/tree/batch_0.kraken2.report.txt").text = [
+                '5.00\t5\t5\tU\t0\tunclassified',
+                '45.00\t45\t0\tR\t1\troot',
+                '25.00\t25\t5\tD\t2\t  Bacteria',
+                '20.00\t20\t20\tP\t1224\t    Proteobacteria',
+                ''
+            ].join('\n')
+
+            file("${outputDir}/tree/batch_1.kraken2.output.txt").text = [
+                'C\tread3\t28890\t100\t28890:1',
+                'C\tread4\t2157\t100\t2157:1',
+                ''
+            ].join('\n')
+            file("${outputDir}/tree/batch_1.kraken2.report.txt").text = [
+                '0.00\t0\t0\tU\t0\tunclassified',
+                '50.00\t50\t0\tR\t1\troot',
+                '25.00\t25\t5\tD\t2\t  Bacteria',
+                '45.00\t45\t1\tD\t2157\t  Archaea',
+                '44.00\t44\t44\tP\t28890\t    Euryarchaeota',
+                ''
+            ].join('\n')
+        }
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id: 'tree_sample', batch_count: 2 ],
+                    [
+                        file("${outputDir}/tree/batch_0.kraken2.output.txt"),
+                        file("${outputDir}/tree/batch_1.kraken2.output.txt")
+                    ],
+                    [
+                        file("${outputDir}/tree/batch_0.kraken2.report.txt"),
+                        file("${outputDir}/tree/batch_1.kraken2.report.txt")
+                    ]
+                ]
+                """
+            }
+        }
+
+        then {
+            def report_lines = path(process.out.cumulative_report.get(0).get(1)).readLines()
+                                   .findAll { it.trim() }
+            def taxids = report_lines.collect { it.split('\t')[4] }
+
+            // Parse the EMITTED file the way an external kreport reader does:
+            // parent is the nearest preceding row with a smaller indent.
+            def reparsed = [:]
+            def stack = []
+            report_lines.each { line ->
+                def fields = line.split('\t')
+                def taxid = fields[4]
+                def name = fields.length > 5 ? fields[5] : ''
+                def indent = name.length() - name.replaceAll(/^ +/, '').length()
+                while (!stack.isEmpty() && stack[-1][0] >= indent) {
+                    stack.remove(stack.size() - 1)
+                }
+                reparsed[taxid] = stack.isEmpty() ? null : stack[-1][1]
+                stack.add([indent, taxid])
+            }
+
+            assertAll(
+                { assert process.success },
+
+                // The property under test: the merged report describes the same
+                // tree the batch reports did.
+                { assert reparsed == ['1': null, '2': '1', '1224': '2',
+                                      '2157': '1', '28890': '2157', '0': null] },
+                // Named individually so a failure says which taxon moved.
+                { assert reparsed['1224'] == '2' },
+                { assert reparsed['28890'] == '2157' },
+
+                // Depth first, siblings by descending cumulative reads.
+                { assert taxids == ['1', '2', '1224', '2157', '28890', '0'] },
+                // No taxon emitted twice or dropped.
+                { assert taxids.size() == taxids.unique().size() },
+
+                // Counts still sum across batches.
+                {
+                    def by_taxid = report_lines.collectEntries {
+                        def f = it.split('\t'); [(f[4]): f[1]]
+                    }
+                    assert by_taxid['1'] == '95'
+                    assert by_taxid['2'] == '50'
+                    assert by_taxid['0'] == '5'
                 }
             )
         }
