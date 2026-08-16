@@ -513,12 +513,53 @@ workflow NANOMETANF {
         // back to DEMULTIPLEXING.out.samples -- so a skipped-QC run reports
         // every sample as produced, which is correct: no QC ran, so no sample
         // failed QC.
-        def ch_produced_sample_ids = ch_qc_reads
+        def ch_qc_produced_ids = ch_qc_reads
             .filter { it instanceof List && it.size() >= 2 && it[0] instanceof Map }
-            .map { meta, reads -> meta.id }
+            .map { meta, reads -> [ meta.id, 'qc' ] }
             .unique()
-            .collect()
-            .ifEmpty([])
+
+        // A sample can also be lost AFTER QC. conf/error_isolation.config sets
+        // errorStrategy 'ignore' on exit 1/2 for all three KRAKEN2 processes --
+        // the normal failure codes for them -- so a barcode whose classification
+        // died leaves its QC output intact and simply produces no report. Judging
+        // "produced" on QC alone marked such a sample healthy and let the
+        // manifest claim a <sample>.classification.json that was never written.
+        // For a screening tool that is the worst kind of wrong: the sample reads
+        // as screened and clear when it was never screened at all.
+        //
+        // TAXONOMIC_CLASSIFICATION.out.report carries the
+        // EMIT_EMPTY_KRAKEN2_REPORT placeholder too, so a sample whose post-QC
+        // FASTQ was legitimately empty still counts as produced -- it was
+        // screened and found to hold nothing, which is a result, not a failure.
+        //
+        // The intersection is a keyed .join rather than a .collect on each side
+        // followed by List.intersect: .combine and .merge spread a List emission
+        // across the output tuple, so two collected id lists arrive as loose
+        // Strings and the intersect lands on the first sample name instead of
+        // the list. Joining the per-sample streams keeps the ids as keys, and a
+        // plain join (no remainder) emits only keys present on both sides,
+        // which is the intersection by definition.
+        //
+        // The presence-decides contract is preserved: .collect().ifEmpty([])
+        // closes every branch, so the manifest always gets a determined answer.
+        def ch_produced_sample_ids
+        if (params.kraken2_db && !params.skip_kraken2) {
+            def ch_classified_ids = TAXONOMIC_CLASSIFICATION.out.report
+                .filter { it instanceof List && it.size() >= 2 && it[0] instanceof Map && it[1] != null }
+                .map { meta, report -> [ meta.id, 'classified' ] }
+                .unique()
+            ch_produced_sample_ids = ch_qc_produced_ids
+                .join(ch_classified_ids)
+                .map { sample_id, qc_marker, classified_marker -> sample_id }
+                .collect()
+                .ifEmpty([])
+        } else {
+            // Classification did not run, so it cannot have failed a sample.
+            ch_produced_sample_ids = ch_qc_produced_ids
+                .map { sample_id, qc_marker -> sample_id }
+                .collect()
+                .ifEmpty([])
+        }
 
         def effective_classifier = (params.kraken2_db && !params.skip_kraken2) ? (params.classifier ?: 'kraken2') : ""
         def effective_qc_tool = (!params.skip_fastp || !params.skip_nanoplot) ? (params.qc_tool ?: 'chopper') : ""
