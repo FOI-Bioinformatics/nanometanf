@@ -22,6 +22,11 @@
  * on every stat update overran the maxForks=1 live aggregator; once per batch
  * keeps the JSON fresh without hammering the single serialised slot.
  *
+ * An ``interval`` of 0 or less means no periodic aggregation at all: the caller's
+ * end-of-session emission is then the only one. That is what
+ * params.validation_aggregate_interval = 0 has always been documented to mean, in
+ * both nextflow.config and nextflow_schema.json.
+ *
  * update() is synchronized because Nextflow may run the calling operator on
  * multiple threads; it returns a fresh copy of the value set so callers never
  * see the internal collection mutate underneath them.
@@ -33,9 +38,35 @@ class ValidationSnapshotAccumulator {
     private final int interval
 
     ValidationSnapshotAccumulator(int interval) {
-        // A boundary count modulo interval of <= 0 would never (or always
-        // erratically) trigger; floor at 1 so interval=1 means "every batch".
-        this.interval = Math.max(1, interval)
+        // Kept verbatim, NOT floored at 1. The floor used to turn the documented
+        // "0 = end-of-session only" into "aggregate on every batch" -- the exact
+        // load issue #29 was filed for, reinstated by default, with no value left
+        // that could express the documented behaviour.
+        this.interval = interval
+    }
+
+    /**
+     * Snapshot key for a Kraken2 report.
+     *
+     * Keyed by sample and by KIND, not by batch id. Keying per batch made the
+     * store grow for the whole run while every emission re-emitted the entire
+     * set, so the Nth aggregation staged and parsed N reports through a
+     * maxForks=1 process -- quadratic work for taxid-to-species names that
+     * barely change. Two entries per sample bound that: the latest per-batch
+     * report, and the end-of-session cumulative one, which supersedes nothing
+     * and is never overwritten by a batch report because it lands under its own
+     * key.
+     *
+     * The null check is explicit: batch_id 0 is the first realtime batch and is
+     * Groovy-falsy, so a truthiness test would file it as the cumulative report
+     * and let batch 0 overwrite the run's complete one.
+     *
+     * @param sampleId  meta.id
+     * @param batchId   meta.batch_id, or null for the cumulative report
+     * @return  snapshot key
+     */
+    static String krakenKey(Object sampleId, Object batchId) {
+        return "krak|${sampleId}|${batchId != null ? 'batch' : 'final'}".toString()
     }
 
     /**
@@ -51,7 +82,7 @@ class ValidationSnapshotAccumulator {
     synchronized List update(String key, Object file, boolean isBoundary) {
         store[key] = file
         boolean shouldAggregate = false
-        if (isBoundary) {
+        if (isBoundary && interval > 0) {
             boundaryCount += 1
             shouldAggregate = (boundaryCount % interval == 0)
         }

@@ -465,7 +465,7 @@
                     "type": "integer",
                     "default": 0,
                     "minimum": 0,
-                    "description": "Emit intermediate validation results every N results (0 = end-of-session only).",
+                    "description": "Realtime only: rebuild the aggregate validation_results.json every Nth batch. 0 = end-of-session only, which is the default; the per-(sample, taxid) cumulative files under validation/ are refreshed every batch either way.",
                     "fa_icon": "fas fa-filter"
                 }
             }

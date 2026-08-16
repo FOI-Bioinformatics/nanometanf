@@ -59,6 +59,56 @@ nextflow_function {
         }
     }
 
+    test("interval 0 means end-of-session only: no boundary ever triggers") {
+        // params.validation_aggregate_interval defaults to 0, and both
+        // nextflow.config and nextflow_schema.json document 0 as "end-of-session
+        // only". A Math.max(1, interval) floor used to turn that into "aggregate
+        // on every batch" -- the issue #29 load, reinstated by default, with no
+        // value left that could ask for the documented behaviour.
+        //
+        // The snapshot must still be maintained: the caller's end-of-session
+        // .last() emission publishes it, so the final set has to be complete.
+        when {
+            function {
+                """
+                input[0] = [
+                    ['krak1', 'r1', true],
+                    ['stat', 'f1', false],
+                    ['krak2', 'r2', true],
+                    ['krak3', 'r3', true],
+                ]
+                input[1] = 0
+                """
+            }
+        }
+        then {
+            assertAll(
+                { assert function.result.every { !it[0] } },
+                // The set the end-of-session emission will carry.
+                { assert function.result[-1][1] == ['r1', 'f1', 'r2', 'r3'] }
+            )
+        }
+    }
+
+    test("a negative interval is treated as end-of-session only, not as every batch") {
+        // The schema floors at 0, so this is defensive: whatever a negative
+        // value means, it must not mean "aggregate constantly".
+        when {
+            function {
+                """
+                input[0] = [
+                    ['krak1', 'r1', true],
+                    ['krak2', 'r2', true],
+                ]
+                input[1] = -1
+                """
+            }
+        }
+        then {
+            assert function.result.every { !it[0] }
+        }
+    }
+
     test("stat-only updates never trigger an aggregation") {
         when {
             function {

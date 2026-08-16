@@ -294,20 +294,21 @@ workflow VALIDATION {
         ch_versions = ch_versions.mix(BLASTN_VALIDATION.out.versions.first())
 
         // Realtime only: maintain a run-so-far cumulative BLAST table + stats per
-        // (sample, taxid). Pair this batch's table with its stats (for the
-        // per-batch read count) and the prior cumulative files from the outdir;
-        // the aggregator merges + recomputes. The ext.when guard plus this
+        // (sample, taxid). The accumulator hands the aggregator every batch seen
+        // so far for the pair, so each aggregation is computed from its inputs
+        // alone. It must NOT read the prior cumulative out of params.outdir:
+        // that read is not ordered against the aggregator task writing the same
+        // path, so concurrent batches both saw the same prior and the later
+        // publish dropped the earlier batch's hits. The ext.when guard plus this
         // filter keep it a no-op in batch mode.
+        def blast_batches = new CumulativeBatchAccumulator()
         ch_blast_cumulative_input = BLASTN_VALIDATION.out.results
             .join(BLASTN_VALIDATION.out.stats)
             .filter { meta, tsv, stats -> meta.batch_id != null }
             .map { meta, tsv, stats ->
-                def base = "${params.outdir}/validation/blast/${meta.id}_taxid${meta.taxid}"
-                def prior_tsv = file("${base}.blast.tsv")
-                def prior_stats = file("${base}.blast_stats.json")
-                [ meta, meta.taxid, tsv, stats,
-                  prior_tsv.exists() ? prior_tsv : [],
-                  prior_stats.exists() ? prior_stats : [] ]
+                def accumulated = blast_batches.accumulate(
+                    "${meta.id}|${meta.taxid}", meta.batch_id, tsv, stats)
+                [ meta, meta.taxid, accumulated[0], accumulated[1] ]
             }
         BLAST_CUMULATIVE_AGGREGATOR(ch_blast_cumulative_input, 'blast')
         ch_versions = ch_versions.mix(BLAST_CUMULATIVE_AGGREGATOR.out.versions.first())
@@ -333,16 +334,14 @@ workflow VALIDATION {
 
         // Realtime only: maintain a run-so-far cumulative PAF + stats per
         // (sample, taxid). See the BLAST branch above for the rationale.
+        def minimap2_batches = new CumulativeBatchAccumulator()
         ch_minimap2_cumulative_input = MINIMAP2_VALIDATION.out.alignments
             .join(MINIMAP2_VALIDATION.out.stats)
             .filter { meta, paf, stats -> meta.batch_id != null }
             .map { meta, paf, stats ->
-                def base = "${params.outdir}/validation/minimap2/${meta.id}_taxid${meta.taxid}"
-                def prior_paf = file("${base}.paf")
-                def prior_stats = file("${base}.minimap2_stats.json")
-                [ meta, meta.taxid, paf, stats,
-                  prior_paf.exists() ? prior_paf : [],
-                  prior_stats.exists() ? prior_stats : [] ]
+                def accumulated = minimap2_batches.accumulate(
+                    "${meta.id}|${meta.taxid}", meta.batch_id, paf, stats)
+                [ meta, meta.taxid, accumulated[0], accumulated[1] ]
             }
         MINIMAP2_CUMULATIVE_AGGREGATOR(ch_minimap2_cumulative_input, 'minimap2')
         ch_versions = ch_versions.mix(MINIMAP2_CUMULATIVE_AGGREGATOR.out.versions.first())
@@ -436,11 +435,27 @@ workflow VALIDATION {
     //    directory by filename suffix, so the combined snapshot is passed as the
     //    first path input and the remaining inputs are empty.
     //
+    //    How OFTEN that re-aggregation runs is params.validation_aggregate_interval,
+    //    default 0 = only at end of session. That default does not leave the
+    //    dashboard blank during a run: the per-(sample, taxid) cumulative files
+    //    under validation/{blast,minimap2}/ are refreshed every batch regardless,
+    //    and Nanometa Live's ValidationParser always scans those individually
+    //    rather than relying on validation_results.json alone. Set the interval
+    //    to N > 0 to also rebuild the aggregate JSON every Nth batch.
+    //
     ch_validation_json = Channel.empty()
     ch_validation_summary = Channel.empty()
 
     if (params.realtime_mode) {
-        def interval = (params.validation_aggregate_interval ?: 1) as int
+        // Explicit null check, not `?: 1`. The elvis form treated the DEFAULT
+        // value of 0 as unset and substituted 1, so the documented
+        // "0 = end-of-session only" (nextflow.config and nextflow_schema.json
+        // both say so) silently became "aggregate on every batch" -- and no
+        // value could express the documented behaviour. 0 now means what it
+        // says: ch_periodic stays empty and the ch_final emission below is the
+        // single end-of-session aggregation.
+        def interval = (params.validation_aggregate_interval == null ? 0 :
+                        params.validation_aggregate_interval) as int
 
         def ch_blast_cumulative_stats = (validation_method == 'blast' || validation_method == 'both') ?
             BLAST_CUMULATIVE_AGGREGATOR.out.stats.map { meta, taxid, f -> ["blast|${meta.id}|${taxid}", f] } :
@@ -463,15 +478,26 @@ workflow VALIDATION {
             .mix(
                 // Kraken2 reports carry the taxid->species names the aggregator
                 // needs and arrive one per batch, so they double as the per-batch
-                // aggregation heartbeat (tagged true). ch_kraken_reports delivers
-                // the per-batch reports (meta has batch_id) plus the end-of-session
-                // cumulative report (no batch_id); key each uniquely with an
-                // explicit null check so batch_id 0 is not mistaken for the
-                // cumulative, so the snapshot accumulates every report.
+                // aggregation heartbeat (tagged true).
+                //
+                // Keyed by sample and kind (see krakenKey), NOT by batch id. Per
+                // batch, the store grew for the whole run and every emission
+                // re-emitted all of it, so the Nth aggregation staged and parsed
+                // N reports through the maxForks=1 aggregator: on 24 barcodes x
+                // 30 files that is ~260k staging operations for names that
+                // hardly change. Two entries per sample bound it -- the latest
+                // batch report during the run, and the end-of-session cumulative
+                // one, which lands under its own key and so is never overwritten.
+                //
+                // The cost: mid-run, a taxon detected in an earlier batch and
+                // absent from the current one resolves no species name from the
+                // reports. params.validation_taxon_names is the authoritative
+                // seed for exactly this (Nanometa Live always writes it), and
+                // the end-of-session aggregation gets the complete cumulative
+                // report, so the artifact that lasts is fully named.
                 ch_kraken_reports
                     .map { meta, r ->
-                        def tag = meta.batch_id != null ? meta.batch_id : 'final'
-                        ["krak|${meta.id}|${tag}", r, true]
+                        [ ValidationSnapshotAccumulator.krakenKey(meta.id, meta.batch_id), r, true ]
                     }
             )
 
