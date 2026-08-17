@@ -147,12 +147,25 @@ workflow REALTIME_MONITORING {
             ? Channel.fromList(existing_list)
             : Channel.empty()
 
-        // Watch for new files being created or modified
+        // Watch for new files being created or modified.
+        //
+        // ch_new must stay the RAW watchPath queue: the timeout timer
+        // terminates the stream by binding a PoisonPill into it (see
+        // below), and rebinding this name to an operator's output channel
+        // makes that bind fail into its catch-all -- the stream then never
+        // closes and the run hangs until an external timeout (observed as
+        // a 60-minute CI cancel, 2026-08-17). The hidden-file exclusion is
+        // therefore applied downstream, after the mix.
         def ch_new = Channel.watchPath(full_pattern, 'create,modify')
-            .filter { !it.name.startsWith('.') }
 
-        // Combine existing files (processed first) with new files (watched continuously)
+        // Combine existing files (processed first) with new files (watched
+        // continuously). Hidden files are excluded here: macOS writes
+        // AppleDouble "._name.fastq.gz" sidecars beside every file on
+        // exFAT/USB media and the glob matches them (gzip then fails the
+        // QC process). The PoisonPill never reaches the filter closure --
+        // operators terminate on it without invoking user code.
         def ch_watched = ch_existing.mix(ch_new)
+            .filter { !it.name.startsWith('.') }
 
         //
         // TIMEOUT LOGIC: Intelligent inactivity timeout with grace period (v1.2.1+)
