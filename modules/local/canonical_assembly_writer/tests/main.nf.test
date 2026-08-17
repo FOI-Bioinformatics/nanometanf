@@ -4,15 +4,52 @@ nextflow_process {
     script "../main.nf"
     process "CANONICAL_ASSEMBLY_WRITER"
 
-    options "-stub"
-
     tag "module"
     tag "canonical_assembly_writer"
     tag "canonical"
-    tag "stub"
     tag "fast"
 
+    // Real execution against Flye-shaped inputs. The FLYE module emits a
+    // GZIPPED fasta; the writer read it as plain text and crashed with
+    // UnicodeDecodeError on the gzip magic byte -- caught in the 2026-08-17
+    // assembly E2E, invisible to the stub test below because stub mode never
+    // runs assembly_to_canonical.py at all.
+    test("Should parse a gzipped Flye assembly with per-contig GC") {
+
+        when {
+            process {
+                """
+                input[0] = [ [ id: 'gzsample' ],
+                    file("\${projectDir}/modules/local/canonical_assembly_writer/tests/fixtures/flye_assembly_info.txt", checkIfExists: true) ]
+                input[1] = [ [ id: 'gzsample' ],
+                    file("\${projectDir}/modules/local/canonical_assembly_writer/tests/fixtures/flye_assembly.fasta.gz", checkIfExists: true) ]
+                input[2] = 'flye'
+                input[3] = '2.9.5'
+                """
+            }
+        }
+
+        then {
+            assert process.success
+            with(process.out.canonical.get(0)) {
+                assert get(0).id == 'gzsample'
+                def stats = new groovy.json.JsonSlurper().parse(path(get(1)).toFile())
+                assert stats.summary.total_contigs == 2
+                assert stats.summary.total_length == 72
+                assert stats.summary.gc_content != null
+                // contig_1: 24 A/C/G/T-mix bases + 24 G/C bases = 33/48 GC
+                def c1 = stats.contigs.find { it.name == 'contig_1' }
+                assert c1.gc_content > 0.5 && c1.is_circular == true
+                def c2 = stats.contigs.find { it.name == 'contig_2' }
+                assert c2.gc_content == 0.0
+            }
+        }
+    }
+
     test("Should emit canonical assembly stub outputs") {
+
+        options "-stub"
+        tag "stub"
 
         setup {
             file("${outputDir}").mkdirs()
