@@ -95,9 +95,19 @@ workflow INPUT_SCANNER {
             }
     }
 
-    ch_all_samples.ifEmpty {
-        log.warn "WARNING: No FASTQ files found in input directory '${input_dir}'. Check the path and file extensions."
-    }
+    // .ifEmpty returns a NEW channel; calling it without binding the result only
+    // creates a dangling channel that nothing consumes, so the warning never
+    // fired. .subscribe(onComplete:) observes the same condition on the channel
+    // that is actually emitted.
+    def saw_any_sample = new java.util.concurrent.atomic.AtomicBoolean(false)
+    ch_all_samples.subscribe(
+        onNext: { saw_any_sample.set(true) },
+        onComplete: {
+            if (!saw_any_sample.get()) {
+                log.warn "WARNING: No FASTQ files found in input directory '${input_dir}'. Check the path and file extensions."
+            }
+        }
+    )
 
     emit:
     samples  = ch_all_samples   // channel: [ val(meta), [path(reads)] ]

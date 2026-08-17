@@ -3,7 +3,7 @@ process BLASTN_VALIDATION {
     label 'process_medium'
 
     conda "${moduleDir}/environment.yml"
-    container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
+    container "${ workflow.containerEngine in ['singularity', 'apptainer'] && !task.ext.singularity_pull_docker_container ?
         'oras://community.wave.seqera.io/library/blast_seqtk_python:0c6e3044e41ecb64' :
         'community.wave.seqera.io/library/blast_seqtk_python:0c6e3044e41ecb64' }"
 
@@ -39,8 +39,13 @@ process BLASTN_VALIDATION {
     # Convert FASTQ to FASTA for BLAST
     seqtk seq -A "${reads}" > query.fasta
 
-    # Count query sequences
-    TOTAL_READS=\$(grep -c "^>" query.fasta || echo 0)
+    # Count query sequences. `grep -c` prints 0 AND exits 1 on no match, so the
+    # old `|| echo 0` appended a second line and TOTAL_READS became "0\\n0" --
+    # which made the arithmetic test below print "integer expression expected"
+    # and only happened to reach the right branch. `|| true` keeps the count,
+    # and the default fills in if grep produced nothing at all.
+    TOTAL_READS=\$(grep -c "^>" query.fasta || true)
+    TOTAL_READS=\${TOTAL_READS:-0}
 
     # Determine if reference is a FASTA file or pre-built BLAST database
     # Check for BLAST database index files (.nhr, .nin, .nsq)

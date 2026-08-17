@@ -6,7 +6,7 @@ process KRAKEN2_REPORT_GENERATOR {
     // No shared state, no outdir reads. Cumulative merging done by FINAL_AGGREGATOR.
 
     conda "${moduleDir}/environment.yml"
-    container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
+    container "${ workflow.containerEngine in ['singularity', 'apptainer'] && !task.ext.singularity_pull_docker_container ?
         'https://depot.galaxyproject.org/singularity/krakentools:1.2--pyh5e36f6f_0' :
         'quay.io/biocontainers/krakentools:1.2--pyh5e36f6f_0' }"
 
@@ -25,7 +25,6 @@ process KRAKEN2_REPORT_GENERATOR {
     script:
     def prefix = meta.id
     def batch_id = meta.batch_id
-    def args = task.ext.args ?: ''
     """
     #!/usr/bin/env python3
 
@@ -45,6 +44,14 @@ process KRAKEN2_REPORT_GENERATOR {
     batch_classified = 0
     batch_unclassified = 0
 
+    # Kraken2 states the taxonomy twice: rows are depth first, and the name
+    # column is indented two spaces per rank level. Recover each row's parent
+    # here with an indent stack, while the row order is still available -- the
+    # taxid-keyed map below has no order, and the cumulative writer that
+    # consumes it must re-emit the rows depth first or an indent-stack reader
+    # will re-parent them.
+    indent_stack = []
+
     with open('${batch_report}') as f:
         for line in f:
             line = line.rstrip('\\n')
@@ -59,11 +66,18 @@ process KRAKEN2_REPORT_GENERATOR {
                     taxid = parts[4]
                     name = parts[5] if len(parts) > 5 else ''
 
+                    indent = len(name) - len(name.lstrip(' '))
+                    while indent_stack and indent_stack[-1][0] >= indent:
+                        indent_stack.pop()
+                    parent = indent_stack[-1][1] if indent_stack else None
+                    indent_stack.append((indent, taxid))
+
                     batch_taxa[taxid] = {
                         'reads': reads,
                         'cumul': cumul,
                         'rank': rank,
-                        'name': name
+                        'name': name,
+                        'parent': parent
                     }
 
                     if taxid == '0':

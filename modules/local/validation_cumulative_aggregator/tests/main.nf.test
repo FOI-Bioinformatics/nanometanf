@@ -11,18 +11,19 @@ nextflow_process {
     tag "cumulative"
     tag "fast"
 
-    // Fixtures use the REAL per-(sample,taxid) names (batch and prior are both
-    // <prefix>.paf, equal to the cumulative output name), so these tests fail
-    // without the stageAs disambiguation in the module.
-    test("minimap2 cumulative - first batch (no prior)") {
+    // Fixtures use the REAL per-(sample,taxid) names: every batch file for a
+    // pair is <prefix>.paf, which is also the cumulative output name. Passing
+    // two of them in one list is the point -- it exercises the indexed stageAs
+    // that keeps same-named batch files from colliding in the work directory,
+    // and keeps them out of the output matching set.
+    test("minimap2 cumulative - single batch") {
         when {
             process {
                 """
                 input[0] = [
                     [ id:'test', single_end:true ], "2697049",
-                    file("\${projectDir}/modules/local/validation_cumulative_aggregator/tests/fixtures/batch/test_taxid2697049.paf", checkIfExists: true),
-                    file("\${projectDir}/modules/local/validation_cumulative_aggregator/tests/fixtures/batch/test_taxid2697049.minimap2_stats.json", checkIfExists: true),
-                    [], []
+                    [ file("\${projectDir}/modules/local/validation_cumulative_aggregator/tests/fixtures/batch/test_taxid2697049.paf", checkIfExists: true) ],
+                    [ file("\${projectDir}/modules/local/validation_cumulative_aggregator/tests/fixtures/batch/test_taxid2697049.minimap2_stats.json", checkIfExists: true) ]
                 ]
                 input[1] = 'minimap2'
                 """
@@ -43,18 +44,26 @@ nextflow_process {
         }
     }
 
-    test("minimap2 cumulative - second batch accumulates over prior") {
+    test("minimap2 cumulative - two batches accumulate") {
         when {
             process {
                 """
-                // Batch (r3,r4; total_reads=3) over prior cumulative (r1,r2; total_reads=2).
-                // Expect total_reads 5, mapped 4 (dedup), hit_rate 0.8.
+                // Two batches of the same (sample, taxid), both named
+                // test_taxid2697049.paf: r1,r2 (total_reads=2) and r3,r4
+                // (total_reads=3). Expect total_reads 5, mapped 4 (dedup),
+                // hit_rate 0.8 -- the same figures the prior+batch form gave,
+                // now derived from the batch set rather than from a file read
+                // out of the publish directory.
                 input[0] = [
                     [ id:'test', single_end:true ], "2697049",
-                    file("\${projectDir}/modules/local/validation_cumulative_aggregator/tests/fixtures/batch/test_taxid2697049.paf", checkIfExists: true),
-                    file("\${projectDir}/modules/local/validation_cumulative_aggregator/tests/fixtures/batch/test_taxid2697049.minimap2_stats.json", checkIfExists: true),
-                    file("\${projectDir}/modules/local/validation_cumulative_aggregator/tests/fixtures/prior/test_taxid2697049.paf", checkIfExists: true),
-                    file("\${projectDir}/modules/local/validation_cumulative_aggregator/tests/fixtures/prior/test_taxid2697049.minimap2_stats.json", checkIfExists: true)
+                    [
+                        file("\${projectDir}/modules/local/validation_cumulative_aggregator/tests/fixtures/prior/test_taxid2697049.paf", checkIfExists: true),
+                        file("\${projectDir}/modules/local/validation_cumulative_aggregator/tests/fixtures/batch/test_taxid2697049.paf", checkIfExists: true)
+                    ],
+                    [
+                        file("\${projectDir}/modules/local/validation_cumulative_aggregator/tests/fixtures/prior/test_taxid2697049.minimap2_stats.json", checkIfExists: true),
+                        file("\${projectDir}/modules/local/validation_cumulative_aggregator/tests/fixtures/batch/test_taxid2697049.minimap2_stats.json", checkIfExists: true)
+                    ]
                 ]
                 input[1] = 'minimap2'
                 """
@@ -76,16 +85,20 @@ nextflow_process {
         }
     }
 
-    test("blast cumulative - second batch accumulates over prior") {
+    test("blast cumulative - two batches accumulate") {
         when {
             process {
                 """
                 input[0] = [
                     [ id:'test', single_end:true ], "2697049",
-                    file("\${projectDir}/modules/local/validation_cumulative_aggregator/tests/fixtures/batch/test_taxid2697049.blast.tsv", checkIfExists: true),
-                    file("\${projectDir}/modules/local/validation_cumulative_aggregator/tests/fixtures/batch/test_taxid2697049.blast_stats.json", checkIfExists: true),
-                    file("\${projectDir}/modules/local/validation_cumulative_aggregator/tests/fixtures/prior/test_taxid2697049.blast.tsv", checkIfExists: true),
-                    file("\${projectDir}/modules/local/validation_cumulative_aggregator/tests/fixtures/prior/test_taxid2697049.blast_stats.json", checkIfExists: true)
+                    [
+                        file("\${projectDir}/modules/local/validation_cumulative_aggregator/tests/fixtures/prior/test_taxid2697049.blast.tsv", checkIfExists: true),
+                        file("\${projectDir}/modules/local/validation_cumulative_aggregator/tests/fixtures/batch/test_taxid2697049.blast.tsv", checkIfExists: true)
+                    ],
+                    [
+                        file("\${projectDir}/modules/local/validation_cumulative_aggregator/tests/fixtures/prior/test_taxid2697049.blast_stats.json", checkIfExists: true),
+                        file("\${projectDir}/modules/local/validation_cumulative_aggregator/tests/fixtures/batch/test_taxid2697049.blast_stats.json", checkIfExists: true)
+                    ]
                 ]
                 input[1] = 'blast'
                 """
@@ -114,9 +127,8 @@ nextflow_process {
                 """
                 input[0] = [
                     [ id:'test', single_end:true ], "2697049",
-                    file("\${projectDir}/modules/local/validation_cumulative_aggregator/tests/fixtures/batch/test_taxid2697049.paf", checkIfExists: true),
-                    file("\${projectDir}/modules/local/validation_cumulative_aggregator/tests/fixtures/batch/test_taxid2697049.minimap2_stats.json", checkIfExists: true),
-                    [], []
+                    [ file("\${projectDir}/modules/local/validation_cumulative_aggregator/tests/fixtures/batch/test_taxid2697049.paf", checkIfExists: true) ],
+                    [ file("\${projectDir}/modules/local/validation_cumulative_aggregator/tests/fixtures/batch/test_taxid2697049.minimap2_stats.json", checkIfExists: true) ]
                 ]
                 input[1] = 'minimap2'
                 """

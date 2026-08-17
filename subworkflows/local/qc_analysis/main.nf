@@ -76,7 +76,22 @@ workflow QC_ANALYSIS {
     //
     // OPTIONAL: Adapter trimming with PORECHOP (nanopore-specific)
     //
-    if (enable_adapter_trimming && qc_tool == 'filtlong') {
+    // Applies to chopper as well as filtlong. The gate used to be filtlong-only
+    // while the schema help said "Recommended for filtlong/chopper workflows" and
+    // conf/qc_profiles.config turns the flag on in four profiles -- so an operator
+    // running the DEFAULT tool (chopper) with --enable_adapter_trimming got no
+    // trimming and no indication of it. The plumbing was never tool-specific:
+    // ch_adapter_trimmed feeds all three branches below.
+    //
+    // fastp is excluded because it does its own adapter handling through the
+    // adapter_fasta input, and stacking PORECHOP in front of it would trim twice.
+    // Saying so is the point -- an ignored flag must not be silent.
+    if (enable_adapter_trimming && qc_tool == 'fastp') {
+        log.warn "--enable_adapter_trimming is ignored for qc_tool 'fastp': fastp " +
+                 "performs its own adapter removal. Use qc_tool 'chopper' or " +
+                 "'filtlong' for PORECHOP-based trimming."
+    }
+    if (enable_adapter_trimming && (qc_tool == 'filtlong' || qc_tool == 'chopper')) {
         PORECHOP_PORECHOP (
             ch_reads
         )
@@ -248,7 +263,7 @@ workflow QC_ANALYSIS {
         // upstream watchPath channel finally closes.
         def ch_grouped_batch_stats = ch_seqkit_stats
             .map { meta, stats -> tuple(meta.id, meta, stats) }
-            .groupTuple(by: 0, remainder: true)
+            .groupTuple(by: 0)
             .map { sample_id, metas, stats_list ->
                 def base = metas[0] ?: [:]
                 def cumulative_meta = [

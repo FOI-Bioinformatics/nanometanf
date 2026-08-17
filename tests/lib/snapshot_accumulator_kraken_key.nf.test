@@ -1,0 +1,118 @@
+nextflow_function {
+
+    name "Test ValidationSnapshotAccumulator.krakenKey (bounded report snapshot)"
+    script "tests/lib/snapshot_accumulator_functions.nf"
+    function "krakenSnapshotKeys"
+
+    tag "unit"
+    tag "fast"
+    tag "validation"
+    tag "realtime"
+
+    // Kraken2 reports were keyed into the snapshot per BATCH. The store only
+    // grows and every emission re-emits the whole set, so the Nth aggregation
+    // staged and parsed N reports through the maxForks=1 AGGREGATE_VALIDATION_LIVE
+    // process: quadratic work, on a serialised slot, for taxid-to-species names
+    // that barely change. On 24 barcodes x 30 files that is ~260k staging
+    // operations -- the same shape of load that wedged a run in issue #29.
+    //
+    // Keying by sample and kind bounds it at two entries per sample: the latest
+    // per-batch report, and the end-of-session cumulative one under its own key
+    // so a batch report can never overwrite it.
+
+    test("many batches of one sample collapse to a single key") {
+        when {
+            function {
+                """
+                input[0] = [
+                    ['barcode01', 0], ['barcode01', 1], ['barcode01', 2],
+                    ['barcode01', 3], ['barcode01', 4], ['barcode01', 5],
+                ]
+                """
+            }
+        }
+        then {
+            def keys = function.result[0]
+            def snapshot = function.result[1]
+            assertAll(
+                { assert keys.unique() == ['krak|barcode01|batch'] },
+                // Six reports in, one file held: the bound that makes the
+                // aggregation cost flat in the number of batches.
+                { assert snapshot.size() == 1 },
+                // The one held is the latest.
+                { assert snapshot == ['barcode01_batch5.report'] }
+            )
+        }
+    }
+
+    test("the cumulative report gets its own key and survives later batches") {
+        // The end-of-session cumulative report is the only one that names every
+        // taxon the run saw, so it must not be displaced by a batch report that
+        // happens to arrive after it.
+        when {
+            function {
+                """
+                input[0] = [
+                    ['barcode01', 0],
+                    ['barcode01', null],
+                    ['barcode01', 1],
+                ]
+                """
+            }
+        }
+        then {
+            def keys = function.result[0]
+            def snapshot = function.result[1]
+            assertAll(
+                { assert keys == ['krak|barcode01|batch',
+                                  'krak|barcode01|final',
+                                  'krak|barcode01|batch'] },
+                { assert snapshot.size() == 2 },
+                { assert snapshot.contains('barcode01_batchnull.report') },
+                { assert snapshot.contains('barcode01_batch1.report') }
+            )
+        }
+    }
+
+    test("batch 0 is a batch, not the cumulative report") {
+        // batch_id 0 is the first realtime batch and is Groovy-falsy. A
+        // truthiness test here would file it under the 'final' key, so batch 0
+        // would overwrite the run's complete cumulative report -- and the names
+        // in the end-of-session JSON would come from the first batch alone.
+        when {
+            function {
+                """
+                input[0] = [ ['barcode01', 0] ]
+                """
+            }
+        }
+        then {
+            assert function.result[0] == ['krak|barcode01|batch']
+        }
+    }
+
+    test("samples stay separate") {
+        when {
+            function {
+                """
+                input[0] = [
+                    ['barcode01', 0], ['barcode02', 0],
+                    ['barcode01', 1], ['barcode02', null],
+                ]
+                """
+            }
+        }
+        then {
+            def snapshot = function.result[1]
+            assertAll(
+                { assert function.result[0].unique().toSet() == [
+                    'krak|barcode01|batch', 'krak|barcode02|batch',
+                    'krak|barcode02|final'
+                ].toSet() },
+                // Two samples, three entries: bounded by sample count, not by
+                // how many batches either sample produced.
+                { assert snapshot.size() == 3 }
+            )
+        }
+    }
+}

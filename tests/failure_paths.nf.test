@@ -312,4 +312,74 @@ nextflow_pipeline {
                 "loses the fact that the barcode was attempted at all"
         }
     }
+
+    // The same contract, one stage later. 2026-08-16.
+    //
+    // conf/error_isolation.config covers eight processes, but failed_samples
+    // was derived from the QC channel alone, so only CHOPPER and
+    // FASTP_STREAMING failures were ever recorded. All three KRAKEN2 processes
+    // are isolated on exit 1/2 as well, and a barcode whose classification dies
+    // keeps its QC output -- it just emits no report. It therefore counted as
+    // produced, failed_samples came out [], and the manifest went on claiming a
+    // <sample>.classification.json that was never written.
+    //
+    // For a screening tool that is the worst reading available: the sample
+    // looks screened and clear when it was never screened. The GUI's own
+    // compensation (mark samples present in available-samples but absent from
+    // sample-file-mapping) cannot catch the realtime variant either, where
+    // earlier batches did write files before a later one died.
+    //
+    // QC is skipped here so the QC arm cannot be what flags the samples --
+    // ch_qc_reads then falls back to the demultiplexed samples and reports
+    // every one as produced. Anything named in failed_samples is named by the
+    // classification arm alone. Before that arm existed this test saw an empty
+    // failed_samples on a run that classified nothing at all.
+
+    test("a sample whose classification produced nothing is named as failed") {
+
+        config "./classification_failure_isolation.config"
+
+        when {
+            params {
+                input = null
+                input_dir = "$projectDir/tests/fixtures/flat_multisample"
+                outdir = "$outputDir"
+                kraken2_db = "$projectDir/tests/fixtures/kraken2_db"
+                skip_fastp = true
+                skip_nanoplot = true
+                skip_multiqc = true
+                run_validation = false
+                blast_validation = false
+                max_cpus = 2
+                max_memory = '4.GB'
+                max_time = '10.min'
+            }
+        }
+
+        then {
+            assert workflow.success :
+                "classification emitting nothing aborted the run; isolation is " +
+                "what keeps the other barcodes alive"
+
+            def manifest_file = file("${outputDir}/canonical/_manifest.json")
+            assert manifest_file.exists() : "no manifest was written"
+            def manifest = new groovy.json.JsonSlurper().parse(manifest_file)
+
+            assert manifest.samples.size() > 0 :
+                "no samples were detected, so this test proves nothing"
+
+            assert manifest.failed_samples != null :
+                "failed_samples is null on a run where classification produced " +
+                "nothing; 'not determined' is indistinguishable from 'nothing " +
+                "failed' to every consumer of this manifest"
+
+            // The assertion that fails without the classification arm: QC
+            // produced every sample, so the QC-only derivation returns [].
+            assert manifest.failed_samples.toSet() == manifest.samples.toSet() :
+                "classification produced no report for any sample, yet " +
+                "failed_samples is ${manifest.failed_samples} against a sample " +
+                "list of ${manifest.samples}; a sample that was never screened " +
+                "is being reported as screened"
+        }
+    }
 }

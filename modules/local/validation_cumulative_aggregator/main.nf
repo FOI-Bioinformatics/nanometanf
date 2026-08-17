@@ -1,31 +1,36 @@
 // Maintain a run-so-far cumulative view of per-(sample, taxid) validation
-// results during realtime processing. Each batch is merged with the prior
-// cumulative file from the output directory and the statistics are recomputed
-// over the merged set, mirroring the schema of MINIMAP2_VALIDATION /
-// BLASTN_VALIDATION. Coverage breadth is recomputed (it is not additive);
-// total_reads is accumulated across batches because it is not present in the
-// alignment files. This follows the state-file pattern used by
-// modules/local/update_cumulative_stats.
+// results during realtime processing. Every batch seen so far for the
+// (sample, taxid) pair is merged and the statistics are recomputed over the
+// merged set, mirroring the schema of MINIMAP2_VALIDATION / BLASTN_VALIDATION.
+// Coverage breadth is recomputed (it is not additive); total_reads is summed
+// across the batch stats because it is not present in the alignment files.
+//
+// The batch set arrives through the channel, from CumulativeBatchAccumulator.
+// An earlier version instead read the PRIOR cumulative file out of
+// params.outdir -- the module's own output path -- which raced the task that
+// writes it and silently dropped batches. Nothing in this module may read the
+// publish directory: the result must be a pure function of its inputs, so that
+// a concurrent or late aggregation can only ever be less complete, never wrong.
 process VALIDATION_CUMULATIVE_AGGREGATOR {
     tag "${meta.id}:taxid${taxid}:${method}"
     label 'process_single'
 
     conda "${moduleDir}/environment.yml"
-    container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
+    container "${ workflow.containerEngine in ['singularity', 'apptainer'] && !task.ext.singularity_pull_docker_container ?
         'https://depot.galaxyproject.org/singularity/python:3.12' :
         'quay.io/biocontainers/python:3.12' }"
 
     input:
-    // Inputs are staged under fixed generic names so they never collide with
-    // the cumulative OUTPUT name (<prefix>.paf / <prefix>.*_stats.json). Without
-    // this, batch_file == output name and Nextflow excludes it from the output
-    // matching set ("Missing output file"). It also avoids the prior-vs-batch
-    // same-basename collision (both are <prefix>.paf on disk).
+    // Every batch result for this (sample, taxid) carries the SAME basename
+    // (<prefix>.paf / <prefix>.*_stats.json), which is also the cumulative
+    // output name. The indexed stageAs patterns solve both problems at once:
+    // the '*' is replaced with a per-file index so same-named batch files do
+    // not collide in the work directory, and the generic prefix keeps them out
+    // of the output matching set (an input sharing the output name is excluded
+    // from it, giving "Missing output file").
     tuple val(meta), val(taxid),
-        path(batch_file, stageAs: 'batch_input'),
-        path(batch_stats, stageAs: 'batch_stats.json'),
-        path(prior_file, stageAs: 'prior_input'),
-        path(prior_stats, stageAs: 'prior_stats.json')
+        path(batch_files, stageAs: 'batch_input_*'),
+        path(batch_stats, stageAs: 'batch_stats_*')
     val method
 
     output:
@@ -52,12 +57,13 @@ process VALIDATION_CUMULATIVE_AGGREGATOR {
         #!/bin/bash
         set -euo pipefail
 
-        # Merge the prior cumulative PAF (if any) with this batch's PAF. The
+        # Merge every batch PAF seen so far for this (sample, taxid). The
         # per-read dedup in the recompute below collapses any duplicate primary
         # alignments seen across batches.
         : > merged.paf
-        if [ -s "prior_input" ]; then cat "prior_input" >> merged.paf; fi
-        if [ -s "batch_input" ]; then cat "batch_input" >> merged.paf; fi
+        for batch_paf in batch_input_*; do
+            if [ -s "\$batch_paf" ]; then cat "\$batch_paf" >> merged.paf; fi
+        done
         cp merged.paf "${prefix}.paf"
 
         python3 << 'PYEOF'
@@ -77,8 +83,9 @@ def total_reads_of(path):
     return 0
 
 # total_reads is the per-batch classified-read count and is NOT in the PAF, so
-# accumulate it across batches: prior cumulative + this batch.
-cum_total = total_reads_of("prior_stats.json") + total_reads_of("batch_stats.json")
+# sum it over the batch stats. Summing the batch set rather than carrying a
+# running total means a re-run of the same batch cannot inflate the figure.
+cum_total = sum(total_reads_of(p) for p in sorted(Path(".").glob("batch_stats_*")))
 
 seen = set()
 hits = 0
@@ -157,11 +164,13 @@ END_VERSIONS
         #!/bin/bash
         set -euo pipefail
 
-        # Merge the prior cumulative BLAST table (if any) with this batch's. The
-        # per-qseqid dedup in the recompute keeps the merged hit set well-defined.
+        # Merge every batch BLAST table seen so far for this (sample, taxid).
+        # The per-qseqid dedup in the recompute keeps the merged hit set
+        # well-defined.
         : > merged.blast.tsv
-        if [ -s "prior_input" ]; then cat "prior_input" >> merged.blast.tsv; fi
-        if [ -s "batch_input" ]; then cat "batch_input" >> merged.blast.tsv; fi
+        for batch_tsv in batch_input_*; do
+            if [ -s "\$batch_tsv" ]; then cat "\$batch_tsv" >> merged.blast.tsv; fi
+        done
         cp merged.blast.tsv "${prefix}.blast.tsv"
 
         python3 << 'PYEOF'
@@ -179,7 +188,7 @@ def total_reads_of(path):
             return 0
     return 0
 
-cum_total = total_reads_of("prior_stats.json") + total_reads_of("batch_stats.json")
+cum_total = sum(total_reads_of(p) for p in sorted(Path(".").glob("batch_stats_*")))
 
 hits = 0
 seen = set()

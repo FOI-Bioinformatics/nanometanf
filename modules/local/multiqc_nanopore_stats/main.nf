@@ -3,7 +3,7 @@ process MULTIQC_NANOPORE_STATS {
     label 'process_single'
 
     conda "${moduleDir}/environment.yml"
-    container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
+    container "${ workflow.containerEngine in ['singularity', 'apptainer'] && !task.ext.singularity_pull_docker_container ?
         'https://depot.galaxyproject.org/singularity/multiqc:1.21--pyhdfd78af_0' :
         'quay.io/biocontainers/multiqc:1.21--pyhdfd78af_0' }"
 
@@ -43,8 +43,18 @@ process MULTIQC_NANOPORE_STATS {
     # history.
     samples = {}
 
-    tsv_files = sorted(glob.glob('*/*.tsv'))
-    json_files = sorted(glob.glob('*/*.json'))
+    # Sort by the NUMERIC stage index, not lexicographically. Inputs are staged
+    # under '1/', '2/', ... '10/', '11/' and a plain sort orders those as
+    # 1, 10, 11, 2 -- so with "later overwrites earlier" the surviving row for a
+    # sample was whichever batch happened to land in the highest-sorting-by-string
+    # directory, typically batch 9, not the latest one. Files whose parent is not
+    # a number sort last but keep a stable relative order.
+    def stage_order(path):
+        parent = os.path.basename(os.path.dirname(path))
+        return (0, int(parent), path) if parent.isdigit() else (1, 0, path)
+
+    tsv_files = sorted(glob.glob('*/*.tsv'), key=stage_order)
+    json_files = sorted(glob.glob('*/*.json'), key=stage_order)
 
     for f in tsv_files:
         # SeqKit stats TSV format
@@ -63,8 +73,16 @@ process MULTIQC_NANOPORE_STATS {
                     'Min Read Length': int(row.get('min_len', 0)),
                     'Max Read Length': int(row.get('max_len', 0)),
                     'N50': int(row.get('N50', 0)),
-                    'Mean Quality': round(float(row.get('Q2', 0)), 1) if row.get('Q2') else 0,
                 }
+                # AvgQual is the mean Phred quality; it is present because
+                # SEQKIT_STATS runs with --all (see the module's ext.args
+                # default) and SEQKIT_MERGE_STATS carries the column through.
+                # This used to read Q2, which in `seqkit stats` is the second
+                # quartile of read LENGTH -- so the "Mean Quality" column
+                # reported a median read length, e.g. 4821 shown as a Phred
+                # score. Omitted rather than faked when the column is absent.
+                if row.get('AvgQual'):
+                    samples[sample_id]['Mean Quality'] = round(float(row['AvgQual']), 1)
 
     for f in json_files:
         if os.path.basename(f).endswith('_mqc.json'):
@@ -82,7 +100,13 @@ process MULTIQC_NANOPORE_STATS {
                 'Total Reads': src.get('total_reads', 0),
                 'Total Bases': src.get('total_bases', 0),
                 'Mean Read Length': round(src.get('total_bases', 0) / max(src.get('total_reads', 1), 1), 1),
-                'Mean Quality': round(src.get('q30_rate', 0) * 30, 1),
+                # No 'Mean Quality' here on purpose. fastp's summary carries no
+                # mean Phred score, and the previous q30_rate * 30 was arithmetic
+                # with no meaning: a run with 100% of bases at Q30+ reported
+                # exactly 30.0, and one at 50% reported 15.0, a score no read in
+                # it necessarily had. Q20/Q30 rates below are the real fastp
+                # quality figures; the seqkit branch supplies a true mean via
+                # AvgQual.
                 'Q20 Rate': round(src.get('q20_rate', 0) * 100, 1),
                 'Q30 Rate': round(src.get('q30_rate', 0) * 100, 1),
             }
@@ -102,19 +126,45 @@ process MULTIQC_NANOPORE_STATS {
         "data": samples
     }
 
-    # Quality distribution bar graph
-    quality_data = {
-        "id": "nanopore_quality",
-        "section_name": "Quality Score Distribution",
-        "description": "Mean quality scores across samples",
-        "plot_type": "bargraph",
-        "pconfig": {
-            "id": "nanopore_quality_plot",
-            "title": "Quality Score Distribution",
-            "ylab": "Mean Quality Score"
-        },
-        "data": {s: {"Quality Score": d.get("Mean Quality", 0)} for s, d in samples.items()}
+    # Quality distribution bar graph, plotted only for samples that actually
+    # have a mean Phred score. seqkit supplies one (AvgQual); fastp does not,
+    # and the removed q30_rate * 30 stand-in was not a quality score at all.
+    # Plotting a column of zeros in its place is not an option either: MultiQC
+    # raises "No datasets to plot" and fails the whole report, so a run whose
+    # only QC tool is fastp needs a section that carries the explanation
+    # instead of a chart.
+    quality_scores = {
+        s: d["Mean Quality"] for s, d in samples.items()
+        if d.get("Mean Quality") is not None
     }
+
+    if quality_scores:
+        quality_data = {
+            "id": "nanopore_quality",
+            "section_name": "Quality Score Distribution",
+            "description": "Mean quality scores across samples",
+            "plot_type": "bargraph",
+            "pconfig": {
+                "id": "nanopore_quality_plot",
+                "title": "Quality Score Distribution",
+                "ylab": "Mean Quality Score"
+            },
+            "data": {s: {"Quality Score": v} for s, v in quality_scores.items()}
+        }
+    else:
+        quality_data = {
+            "id": "nanopore_quality",
+            "section_name": "Quality Score Distribution",
+            "description": "No mean quality score is available for this run",
+            "plot_type": "html",
+            "data": (
+                "<p>The QC tool used in this run does not report a mean Phred "
+                "quality score. fastp reports the proportion of bases at or above "
+                "Q20 and Q30, which are shown in the Nanopore Sequencing Statistics "
+                "table above; seqkit reports a true mean (AvgQual) and does produce "
+                "this chart.</p>"
+            )
+        }
 
     # Write MultiQC JSON files
     with open('${prefix}_nanopore_stats_mqc.json', 'w') as f:

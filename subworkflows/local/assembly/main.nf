@@ -96,14 +96,28 @@ workflow ASSEMBLY {
     //
     ch_canonical_assembly = Channel.empty()
     if (params.write_canonical != false && assembler == 'flye') {
-        // Flye provides assembly_info.txt; miniasm does not produce equivalent stats
-        // Guard against empty input from failed upstream assembly
-        def ch_assembly_info_filtered = ch_assembly_info.filter { it instanceof List && it.size() >= 2 && it[1] != null }
-        def ch_assembly_filtered = ch_assembly.filter { it instanceof List && it.size() >= 2 && it[1] != null }
+        // Flye provides assembly_info.txt; miniasm does not produce equivalent stats.
+        //
+        // The two inputs are JOINED on meta, not passed as two independently
+        // filtered channels. Nextflow pairs separate queue-channel inputs by
+        // emission order, so the nth assembly_info met the nth assembly -- fine
+        // only while both channels carry exactly the same samples in the same
+        // order. Either filter dropping an entry (a failed assembly absorbed by
+        // conf/error_isolation.config, which sets 'ignore' on exit 1/2 for FLYE)
+        // shifts every later pair by one, and the writer then describes one
+        // sample's contigs with another sample's assembly stats -- silently, since
+        // both files exist and parse. The join makes a missing half drop the pair
+        // instead of corrupting its neighbours.
+        def ch_assembly_paired = ch_assembly_info
+            .filter { it instanceof List && it.size() >= 2 && it[1] != null }
+            .join(
+                ch_assembly.filter { it instanceof List && it.size() >= 2 && it[1] != null },
+                by: 0
+            )
 
         CANONICAL_ASSEMBLY_WRITER (
-            ch_assembly_info_filtered,
-            ch_assembly_filtered,
+            ch_assembly_paired.map { meta, info, assembly -> [ meta, info ] },
+            ch_assembly_paired.map { meta, info, assembly -> [ meta, assembly ] },
             Channel.value(assembler),
             Channel.value("auto")
         )

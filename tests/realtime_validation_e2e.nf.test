@@ -1,0 +1,184 @@
+nextflow_pipeline {
+
+    name "Realtime + validation, end to end"
+    script "../main.nf"
+
+    tag "pipeline"
+    tag "realtime"
+    tag "validation"
+    tag "real_execution"
+
+    // The suite had realtime WITHOUT validation (tests/realtime_classification.nf.test)
+    // and validation WITHOUT realtime (tests/validation_assembly_stub_matrix.nf.test),
+    // so the realtime validation path -- the one the field deployment actually runs --
+    // had no end-to-end cover at all. Every defect below was found by reading it.
+    //
+    // This runs the real tools against tests/fixtures/kraken2_real, a functional
+    // mini Kraken2 database whose reads all classify to taxid 562, paired with
+    // tests/fixtures/validation/test_genomes.json which maps 562 to a genome. It
+    // therefore needs a container or conda environment; run it with
+    // `-profile test,conda` (or docker). It is tagged real_execution so a stub-only
+    // CI shard can skip it.
+    //
+    // Scope limit, stated because it bounds what this proves: the fixture holds one
+    // FASTQ, so the run has one batch per sample. That exercises every stage of the
+    // wiring, and the cumulative aggregator over a one-element batch set, but it
+    // does not exercise accumulation ACROSS batches. The cross-batch behaviour is
+    // pinned by unit tests instead (tests/lib/cumulative_batch_accumulator.nf.test,
+    // tests/lib/kreport_tree.nf.test, tests/lib/snapshot_accumulator*.nf.test).
+
+    test("realtime run validates a detected taxid and aggregates once at end of session") {
+
+        when {
+            params {
+                input = null
+                realtime_mode = true
+                nanopore_output_dir = "$projectDir/tests/fixtures/kraken2_real/reads"
+                outdir = "$outputDir"
+
+                kraken2_db = "$projectDir/tests/fixtures/kraken2_real/db"
+                kraken2_memory_mapping = false
+
+                // Validation needs both Kraken2 read-level outputs; the pipeline
+                // refuses to start without them (workflows/nanometanf.nf).
+                run_validation = true
+                save_reads_assignment = true
+                save_output_fastqs = true
+                pathogen_genomes = "$projectDir/tests/fixtures/validation/test_genomes.json"
+                taxids_to_validate = "562"
+                validation_method = "minimap2"
+
+                // Default cadence: rebuild the aggregate JSON only at end of session.
+                validation_aggregate_interval = 0
+                // Flush the progressive cumulative report on every batch so the
+                // one-batch fixture reaches the writer.
+                report_write_interval = 1
+
+                // Bound the watchPath so the run terminates.
+                max_files = 1
+                realtime_timeout_minutes = 1
+                realtime_processing_grace_period = 1
+
+                skip_nanoplot = true
+                skip_multiqc = true
+                enable_taxpasta_standardization = false
+                max_cpus = 2
+                max_memory = '6.GB'
+                max_time = '20.min'
+            }
+        }
+
+        then {
+            assertAll(
+                { assert workflow.success : "realtime validation run failed" },
+
+                // --- Classification reached the cumulative report -----------------
+                {
+                    def cumulative = file("${outputDir}/kraken2")
+                        .listFiles()
+                        .findAll { it.name.endsWith('.cumulative.kraken2.report.txt') }
+                    assert cumulative : "no cumulative Kraken2 report was written"
+
+                    def lines = cumulative[0].readLines().findAll { it.trim() }
+                    assert lines : "the cumulative report is empty"
+
+                    // Every row carries the six kreport columns. split with a
+                    // limit of -1 keeps trailing empty fields: this minimal fixture
+                    // database has no name for the root node, and the default split
+                    // would drop that column and make a well-formed row look short.
+                    lines.each { line ->
+                        assert line.split('\t', -1).length >= 6 :
+                            "malformed cumulative report row: ${line}"
+                    }
+
+                    // Depth first: an indent-stack parse must never resolve a
+                    // parent that has not been emitted yet. Sorting the rows by
+                    // abundance (the pre-fix behaviour) breaks exactly this,
+                    // because a deep row can follow a shallower one from another
+                    // subtree and be re-parented under it.
+                    def emitted = [] as Set
+                    def stack = []
+                    lines.each { line ->
+                        def fields = line.split('\t', -1)
+                        def taxid = fields[4]
+                        def name = fields.length > 5 ? fields[5] : ''
+                        def indent = name.length() - name.replaceAll(/^ +/, '').length()
+                        while (!stack.isEmpty() && stack[-1][0] >= indent) {
+                            stack.remove(stack.size() - 1)
+                        }
+                        def parent = stack.isEmpty() ? null : stack[-1][1]
+                        if (parent != null) {
+                            assert emitted.contains(parent) :
+                                "row ${taxid} claims parent ${parent}, which was not emitted before it"
+                        }
+                        stack.add([indent, taxid])
+                        emitted.add(taxid)
+                    }
+
+                    // The fixture classifies everything to 562.
+                    assert lines.any { it.split('\t', -1)[4] == '562' } :
+                        "taxid 562 is absent from the cumulative report"
+                },
+
+                // --- Validation produced the cumulative per-(sample, taxid) files --
+                {
+                    def mm2_dir = file("${outputDir}/validation/minimap2")
+                    assert mm2_dir.exists() : "no validation/minimap2 directory"
+
+                    def stats = mm2_dir.listFiles().findAll {
+                        it.name.endsWith('_taxid562.minimap2_stats.json')
+                    }
+                    assert stats :
+                        "the cumulative aggregator wrote no stats for taxid 562; " +
+                        "files present: ${mm2_dir.listFiles()*.name}"
+
+                    def parsed = new groovy.json.JsonSlurper().parse(stats[0])
+                    assert parsed.taxid == 562
+                    assert parsed.validation_method == 'minimap2'
+                    // total_reads is summed over the batch stats by the aggregator;
+                    // reads were extracted, so it must not be zero.
+                    assert parsed.total_reads > 0 :
+                        "cumulative total_reads is ${parsed.total_reads}; the batch " +
+                        "stats were not summed"
+                },
+
+                // --- The aggregate JSON was rebuilt exactly once ------------------
+                {
+                    def live = workflow.trace.tasks().findAll {
+                        it.name.contains('AGGREGATE_VALIDATION_LIVE')
+                    }
+                    // validation_aggregate_interval = 0 means end-of-session only.
+                    // Before the fix the elvis coercion turned 0 into 1 and this ran
+                    // once per batch boundary, hammering a maxForks=1 process.
+                    assert live.size() == 1 :
+                        "expected a single end-of-session aggregation with " +
+                        "validation_aggregate_interval = 0, got ${live.size()}: ${live*.name}"
+                },
+
+                {
+                    def results = file("${outputDir}/validation/validation_results.json")
+                    assert results.exists() : "no validation_results.json was written"
+                    def payload = new groovy.json.JsonSlurper().parse(results)
+                    assert payload.results : "validation_results.json carries no results"
+                    // The detected taxid is reported for the sample it came from.
+                    def taxids = payload.results.values().collectMany { it.keySet() }
+                    assert taxids.contains('562') :
+                        "taxid 562 missing from validation_results.json: ${taxids}"
+                },
+
+                // --- The manifest still records the sample as produced ------------
+                {
+                    def manifest_file = file("${outputDir}/canonical/_manifest.json")
+                    assert manifest_file.exists() : "no manifest was written"
+                    def manifest = new groovy.json.JsonSlurper().parse(manifest_file)
+                    assert manifest.samples : "manifest lists no samples"
+                    // Classification succeeded, so nothing is failed. This is the
+                    // arm added for the classification-failure case; it must not
+                    // produce false positives on a healthy run.
+                    assert manifest.failed_samples == [] :
+                        "a healthy realtime run reported failed samples: ${manifest.failed_samples}"
+                }
+            )
+        }
+    }
+}

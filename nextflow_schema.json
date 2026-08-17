@@ -465,7 +465,7 @@
                     "type": "integer",
                     "default": 0,
                     "minimum": 0,
-                    "description": "Emit intermediate validation results every N results (0 = end-of-session only).",
+                    "description": "Realtime only: rebuild the aggregate validation_results.json every Nth batch. 0 = end-of-session only, which is the default; the per-(sample, taxid) cumulative files under validation/ are refreshed every batch either way.",
                     "fa_icon": "fas fa-filter"
                 }
             }
@@ -510,7 +510,7 @@
                     "default": false,
                     "description": "Enable nanopore adapter trimming with PORECHOP.",
                     "fa_icon": "fas fa-cut",
-                    "help_text": "Recommended for filtlong/chopper workflows. Disable for upstream basecaller-trimmed reads."
+                    "help_text": "Applies to the chopper and filtlong QC tools, which have no adapter handling of their own. Ignored (with a warning) for fastp, which removes adapters itself. Disable for reads already trimmed by the basecaller."
                 },
                 "enable_qc_benchmark": {
                     "type": "boolean",

@@ -3,7 +3,7 @@ process KRAKEN2_OPTIMIZED {
     label 'process_high'
 
     conda "${moduleDir}/environment.yml"
-    container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
+    container "${ workflow.containerEngine in ['singularity', 'apptainer'] && !task.ext.singularity_pull_docker_container ?
         'https://community-cr-prod.seqera.io/docker/registry/v2/blobs/sha256/29/29ed8f68315625eca61a3de9fcb7b8739fe8da23f5779eda3792b9d276aa3b8f/data' :
         'community.wave.seqera.io/library/kraken2_coreutils_pigz:45764814c4bb5bf3' }"
 
@@ -94,10 +94,15 @@ process KRAKEN2_OPTIMIZED {
     END_TIMESTAMP=\$(date -Iseconds)
     DURATION=\$((END_TIME - START_TIME))
 
-    # Extract classification statistics from report
+    # Extract classification statistics from report.
+    # The rank code is column 4; column 1 is the percentage. Testing \$1=="U"
+    # never matched, so UNCLASSIFIED_SEQS was always 0 and CLASSIFIED_SEQS
+    # summed every row -- the performance JSON reported 100% classification on
+    # every run regardless of the data. Matches
+    # kraken2_incremental_classifier/main.nf, which uses \$4.
     TOTAL_SEQS=\$(awk '{total+=\$3} END {print total+0}' ${prefix}.kraken2.report.txt)
-    CLASSIFIED_SEQS=\$(awk '\$1!="U" {total+=\$3} END {print total+0}' ${prefix}.kraken2.report.txt)
-    UNCLASSIFIED_SEQS=\$(awk '\$1=="U" {print \$3; found=1} END {if(!found) print 0}' ${prefix}.kraken2.report.txt)
+    CLASSIFIED_SEQS=\$(awk '\$4!="U" {total+=\$3} END {print total+0}' ${prefix}.kraken2.report.txt)
+    UNCLASSIFIED_SEQS=\$(awk '\$4=="U" {print \$3; found=1} END {if(!found) print 0}' ${prefix}.kraken2.report.txt)
 
     # Calculate peak memory usage
     if [ -f mem_usage.tmp ]; then

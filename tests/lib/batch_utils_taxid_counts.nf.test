@@ -27,7 +27,14 @@ nextflow_function {
         }
     }
 
-    test("null input returns an empty map") {
+    // "unreadable" and "no classified reads" must not share a return value. The
+    // gate drops any (sample, taxid) pair whose count is below the floor, so an
+    // empty map for an unreadable file dropped EVERY pair and validation produced
+    // nothing -- reported only at log.debug. That is what a work directory on S3
+    // or Azure looked like, where the old java.io.File check never found the file.
+    // null now means "no gate information" and the caller fails open.
+
+    test("null input returns null, not an empty histogram") {
         when {
             function {
                 """
@@ -36,15 +43,37 @@ nextflow_function {
             }
         }
         then {
-            assert function.result == [:]
+            assert function.result == null
         }
     }
 
-    test("missing file returns an empty map") {
+    test("missing file returns null, not an empty histogram") {
         when {
             function {
                 """
                 input[0] = '/nonexistent/path/does_not_exist.txt'
+                """
+            }
+        }
+        then {
+            assert function.result == null
+        }
+    }
+
+    test("a readable file with no classified reads returns an empty map") {
+        // The other side of the distinction: this file WAS read, and genuinely
+        // holds nothing to validate, so the gate should skip its taxids.
+        setup {
+            file("${outputDir}/unclassified_only.txt").text = [
+                'U\tread1\t0\t100\t0:100',
+                'U\tread2\t0\t100\t0:100',
+                ''
+            ].join('\n')
+        }
+        when {
+            function {
+                """
+                input[0] = file('${outputDir}/unclassified_only.txt')
                 """
             }
         }

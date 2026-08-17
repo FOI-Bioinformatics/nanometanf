@@ -1,0 +1,103 @@
+nextflow_function {
+
+    name "Test CumulativeBatchAccumulator (realtime validation batch set)"
+    script "tests/lib/cumulative_batch_accumulator_functions.nf"
+    function "accumulateSequence"
+
+    tag "unit"
+    tag "fast"
+    tag "validation"
+    tag "realtime"
+
+    // The cumulative validation aggregator used to read the prior cumulative
+    // file out of params.outdir -- its own output path -- from a channel .map,
+    // with no ordering against the task that writes it. Concurrent batches of
+    // one (sample, taxid) then both merged onto the same prior and the later
+    // publish dropped the earlier batch. This accumulator replaces that read:
+    // the aggregator is handed the whole batch set, so its output depends only
+    // on its inputs. The properties below are what make that safe.
+
+    test("each emission carries every batch seen so far for its key") {
+        when {
+            function {
+                """
+                input[0] = [
+                    ['bc01|263', 0, 'b0.paf', 'b0.json'],
+                    ['bc01|263', 1, 'b1.paf', 'b1.json'],
+                    ['bc01|263', 2, 'b2.paf', 'b2.json'],
+                ]
+                """
+            }
+        }
+        then {
+            // Monotone growth is what lets maxForks 1 guarantee the most
+            // complete result is also the last one published.
+            assert function.result == [
+                [['b0.paf'], ['b0.json']],
+                [['b0.paf', 'b1.paf'], ['b0.json', 'b1.json']],
+                [['b0.paf', 'b1.paf', 'b2.paf'], ['b0.json', 'b1.json', 'b2.json']],
+            ]
+        }
+    }
+
+    test("keys accumulate independently") {
+        // One barcode's batches must never leak into another's cumulative file,
+        // nor one taxid's into another's.
+        when {
+            function {
+                """
+                input[0] = [
+                    ['bc01|263', 0, 'a0.paf', 'a0.json'],
+                    ['bc02|263', 0, 'b0.paf', 'b0.json'],
+                    ['bc01|1280', 0, 'c0.paf', 'c0.json'],
+                    ['bc01|263', 1, 'a1.paf', 'a1.json'],
+                ]
+                """
+            }
+        }
+        then {
+            assert function.result == [
+                [['a0.paf'], ['a0.json']],
+                [['b0.paf'], ['b0.json']],
+                [['c0.paf'], ['c0.json']],
+                [['a0.paf', 'a1.paf'], ['a0.json', 'a1.json']],
+            ]
+        }
+    }
+
+    test("a re-emitted batch replaces its entry instead of duplicating it") {
+        // A retried task re-emits the same batch id. Counting it twice would
+        // double its reads in the recomputed total_reads.
+        when {
+            function {
+                """
+                input[0] = [
+                    ['bc01|263', 0, 'b0.paf', 'b0.json'],
+                    ['bc01|263', 1, 'b1.paf', 'b1.json'],
+                    ['bc01|263', 0, 'b0-retry.paf', 'b0-retry.json'],
+                ]
+                """
+            }
+        }
+        then {
+            assert function.result[2] == [
+                ['b0-retry.paf', 'b1.paf'], ['b0-retry.json', 'b1.json']
+            ]
+        }
+    }
+
+    test("batch id 0 is a real batch, not an absent one") {
+        // The first realtime batch is id 0, which is Groovy-falsy. Any
+        // truthiness test on it drops the whole first batch of every pair.
+        when {
+            function {
+                """
+                input[0] = [ ['bc01|263', 0, 'b0.paf', 'b0.json'] ]
+                """
+            }
+        }
+        then {
+            assert function.result == [ [['b0.paf'], ['b0.json']] ]
+        }
+    }
+}

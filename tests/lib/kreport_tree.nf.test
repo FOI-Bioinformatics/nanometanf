@@ -1,0 +1,139 @@
+nextflow_function {
+
+    name "Test KreportTree (depth-first ordering of merged Kraken2 reports)"
+    script "tests/lib/kreport_tree_functions.nf"
+    function "reportRoundTrip"
+
+    tag "unit"
+    tag "fast"
+    tag "classification"
+    tag "realtime"
+
+    // A Kraken2 report states its taxonomy twice: depth-first row order, and
+    // two-space-per-level indentation in the name column. An indent-stack
+    // parser -- how Pavian, KrakenTools and the Nanometa Live loaders read a
+    // kreport -- resolves each row's parent from the nearest preceding row with
+    // a smaller indent, so the two must agree. The cumulative writers used to
+    // emit merged rows sorted by descending cumulative reads, which keeps the
+    // indentation while destroying the order it depends on.
+    //
+    // The acceptance property below is the one that catches this: parentage
+    // re-parsed from the EMITTED rows must equal parentage parsed from the
+    // source reports.
+
+    test("merged report re-parses to the same tree as its sources") {
+        // Two batches over a two-domain tree. The counts are chosen so a
+        // descending-cumul sort is demonstrably wrong: merged cumulative reads
+        // are root 95, Bacteria 50, Archaea 45, Euryarchaeota 44,
+        // Proteobacteria 20, unclassified 5. Sorting by that puts
+        // Proteobacteria (indent 4) directly after Euryarchaeota (indent 4), so
+        // an indent-stack parser reads Proteobacteria as a child of Archaea
+        // rather than of Bacteria -- a misplaced phylum, from row order alone.
+        when {
+            function {
+                """
+                input[0] = [
+                    [
+                        [ 5,  5,  'U', '0',    'unclassified'        ],
+                        [ 45, 0,  'R', '1',    'root'                ],
+                        [ 25, 5,  'D', '2',    '  Bacteria'          ],
+                        [ 20, 20, 'P', '1224', '    Proteobacteria'  ],
+                    ],
+                    [
+                        [ 0,  0,  'U', '0',     'unclassified'       ],
+                        [ 50, 0,  'R', '1',     'root'               ],
+                        [ 25, 5,  'D', '2',     '  Bacteria'         ],
+                        [ 45, 1,  'D', '2157',  '  Archaea'          ],
+                        [ 44, 44, 'P', '28890', '    Euryarchaeota'  ],
+                    ],
+                ]
+                """
+            }
+        }
+        then {
+            def order          = function.result[0]
+            def reparsed       = function.result[1]
+            def source_parents = function.result[2]
+
+            assertAll(
+                // The property under test: the merged file must describe the
+                // same tree its sources did.
+                { assert reparsed == source_parents },
+
+                // Spelled out, so a failure names the taxon that moved.
+                { assert source_parents == ['0': null, '1': null, '2': '1',
+                                            '1224': '2', '2157': '1', '28890': '2157'] },
+                { assert reparsed['1224'] == '2' },
+                { assert reparsed['28890'] == '2157' },
+
+                // Depth first, siblings by descending cumulative reads:
+                // Bacteria (50) before Archaea (45), each followed by its own
+                // subtree, and every taxon emitted exactly once.
+                { assert order == ['1', '2', '1224', '2157', '28890', '0'] },
+                { assert order.size() == order.unique().size() }
+            )
+        }
+    }
+
+    test("a taxon first seen in a later batch is placed under its own parent") {
+        // Archaea and Euryarchaeota are absent from batch one entirely. Their
+        // parentage can only come from batch two, and they must still land
+        // inside the tree rather than being appended as roots.
+        when {
+            function {
+                """
+                input[0] = [
+                    [
+                        [ 10, 0,  'R', '1', 'root'       ],
+                        [ 10, 10, 'D', '2', '  Bacteria' ],
+                    ],
+                    [
+                        [ 8, 0, 'R', '1',     'root'              ],
+                        [ 8, 1, 'D', '2157',  '  Archaea'         ],
+                        [ 7, 7, 'P', '28890', '    Euryarchaeota' ],
+                    ],
+                ]
+                """
+            }
+        }
+        then {
+            def order    = function.result[0]
+            def reparsed = function.result[1]
+            assertAll(
+                { assert reparsed == function.result[2] },
+                { assert reparsed['2157'] == '1' },
+                { assert reparsed['28890'] == '2157' },
+                { assert order == ['1', '2', '2157', '28890'] }
+            )
+        }
+    }
+
+    test("unindented rows degrade to roots without losing a taxon") {
+        // The EMIT_EMPTY_KRAKEN2_REPORT placeholder and any hand-written report
+        // may carry no indentation at all. Every row then parses as a root,
+        // which is a faithful reading of the input; what must not happen is a
+        // taxon disappearing from the merged output.
+        when {
+            function {
+                """
+                input[0] = [
+                    [
+                        [ 3, 3, 'S', '562',  'Escherichia coli'  ],
+                        [ 9, 9, 'S', '1280', 'Staphylococcus aureus' ],
+                    ],
+                ]
+                """
+            }
+        }
+        then {
+            def order = function.result[0]
+            assertAll(
+                { assert function.result[1] == function.result[2] },
+                { assert order.size() == 2 },
+                { assert order.toSet() == ['562', '1280'].toSet() },
+                // Roots are ordered by descending cumulative reads.
+                { assert order == ['1280', '562'] }
+            )
+        }
+    }
+}
