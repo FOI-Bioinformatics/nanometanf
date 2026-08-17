@@ -11,9 +11,13 @@
 > verification was on macOS/arm64 only. On the runner image the monitor
 > thread still leaks and the job runs past the 45 min cap, so
 > `.github/workflows/nf-test.yml` continues to exclude every
-> `tests/realtime_*.nf.test` case and realtime coverage remains a local
-> development run. Treat "resolved" as platform-specific until a green
-> realtime run exists in CI.
+> `tests/realtime_*.nf.test` case from the ubuntu test job. Since
+> 2026-08-17 the realtime + validation e2e (tag `real_execution`,
+> `tests/realtime_validation_e2e.nf.test`) runs in CI on a macOS/arm64
+> runner (the `realtime-e2e` job), where clean JVM exit is verified; the
+> rest of the realtime suite remains a local development run. Treat
+> "resolved" as platform-specific: the ubuntu exclusion stands until a
+> green realtime run exists on that runner image.
 >
 > Re-verified 2026-07-29 on macOS/arm64, Nextflow 26.04.0: the manual test
 > `subworkflows/local/taxonomic_classification/tests/realtime_cumulative_emit.nf.test`

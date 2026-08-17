@@ -98,9 +98,10 @@ jobs:
         # FileAlterationMonitor thread on the GitHub runner and hangs
         # the job past its timeout (the 26.04.0 fix claim in
         # docs/upstream-issues/26-watchpath-cleanup-hang.md does not
-        # hold on this runner image). Realtime coverage stays in local
-        # development runs; the rest of the integration matrix runs in
-        # CI.
+        # hold on this runner image). The realtime + validation e2e
+        # (tag real_execution) runs in the macOS realtime-e2e job below,
+        # where clean JVM exit is verified; the rest of the realtime
+        # suite stays in local development runs.
         #
         # The tests/lib/*.nf.test cases below are pure Groovy unit tests of
         # the batch/interleave/detect helpers. They were excluded along with
@@ -163,6 +164,77 @@ jobs:
             tests/lib/cross_batch_interleaver.nf.test \
             tests/lib/input_detector.nf.test \
             tests/lib/snapshot_accumulator.nf.test
+
+  realtime-e2e:
+    # The realtime + validation end-to-end test (tag: real_execution,
+    # tests/realtime_validation_e2e.nf.test) is the one pipeline-level cover
+    # for the path a field deployment actually runs: live watchPath ->
+    # incremental Kraken2 -> cumulative validation -> end-of-session
+    # aggregation, against the real mini database fixture.
+    #
+    # It cannot join the ubuntu test job above: watchPath still leaks the
+    # FileAlterationMonitor thread on the ubuntu runner image and the JVM
+    # hangs after the run completes
+    # (docs/upstream-issues/26-watchpath-cleanup-hang.md). Clean exit is
+    # verified on macOS/arm64 (2026-05-10 and 2026-07-29), so this job runs
+    # there. Docker is unavailable on GitHub's macOS runners, so it uses the
+    # conda profile; bioconda ships osx-arm64 builds of every tool the test
+    # needs (checked 2026-08-17 for kraken2, chopper, minimap2, seqkit).
+    #
+    # The first run builds the per-module conda envs; the cache keyed on the
+    # environment.yml set makes later runs a few minutes. timeout-minutes
+    # caps a surprise hang either way.
+    name: Realtime e2e (real_execution, macOS)
+    runs-on: macos-15
+    timeout-minutes: 60
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Install Nextflow
+        run: |
+          curl -fsSL get.nextflow.io | bash
+          sudo install -m 0755 nextflow /usr/local/bin/nextflow
+          nextflow -v
+
+      - name: Set up Miniforge
+        uses: conda-incubator/setup-miniconda@v3
+        with:
+          miniforge-version: latest
+          auto-activate-base: true
+
+      - name: Cache Nextflow conda environments
+        uses: actions/cache@v4
+        with:
+          path: ~/nxf-conda-cache
+          key: nxf-conda-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('modules/**/environment.yml') }}
+          restore-keys: |
+            nxf-conda-${{ runner.os }}-${{ runner.arch }}-
+
+      - name: Install nf-test
+        run: |
+          curl -fsSL https://get.nf-test.com | bash
+          sudo install -m 0755 nf-test /usr/local/bin/nf-test
+          nf-test version
+
+      - name: Every test fixture must exist on a fresh clone
+        run: python3 tests/lib/fixtures_are_tracked.py
+
+      - name: Run the real_execution e2e test
+        # bash -el so the conda initialisation from setup-miniconda applies
+        # to Nextflow's `conda env create` child processes.
+        shell: bash -el {0}
+        run: |
+          export NXF_CONDA_CACHEDIR="$HOME/nxf-conda-cache"
+          nf-test test --profile test,conda \
+            --tag real_execution \
+            tests/realtime_validation_e2e.nf.test
 
   singularity:
     # Singularity/Apptainer is offered in nextflow.config and is the

@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- CI job `realtime-e2e`: runs the `real_execution`-tagged realtime +
+  validation end-to-end test on a macOS/arm64 runner under the conda
+  profile, with the per-module conda environments cached. The test could
+  not join the ubuntu job because watchPath still leaks its monitor thread
+  on that runner image (docs/upstream-issues/26-watchpath-cleanup-hang.md).
+
 ## [1.6.1] - 2026-08-17
 
 Patch release: the pipeline-side remediation of the 2026-08-16 cross-repo
