@@ -7,6 +7,60 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.6.1] - 2026-08-17
+
+Patch release: the pipeline-side remediation of the 2026-08-16 cross-repo
+audit (the matching GUI fixes shipped in nanometa_live 0.9.0).
+
+### Fixed
+- Cumulative Kraken2 reports are emitted in depth-first order via the new
+  KreportTree helper; the previous abundance sort broke the indentation-encoded
+  taxonomy for every downstream kreport parser. The progressive writer and the
+  final aggregator now both produce complete files (shared writer plus an
+  end-of-session flush), and the report generator emits parent taxids so
+  parentage survives the taxid-keyed progressive state.
+- The realtime cumulative validation aggregator is race-free by construction:
+  each aggregation receives the complete batch set seen so far
+  (CumulativeBatchAccumulator) instead of reading prior state back from the
+  publish directory, so a concurrent batch can no longer erase an earlier one.
+- validation_aggregate_interval = 0 now means end-of-session only, as
+  documented; the per-batch Kraken2 snapshot is bounded (latest batch plus the
+  cumulative report per sample) instead of growing without bound; the
+  aggregate no longer mixes a latest-batch extraction count with cumulative
+  alignment counts.
+- failed_samples covers classification: produced is QC output intersected
+  with classification reports, so a sample whose Kraken2 failed under error
+  isolation is named instead of reported as screened. The batch-completeness
+  check uses the assigned-batch high-water mark and can actually fail; a
+  relaunch against a populated outdir seeds batch numbering instead of
+  overwriting the prior run's files.
+- Platform resource profiles are real: the dead per-profile Kraken2 memory
+  directives are replaced by params the load order honours (MinION 64 GB,
+  PromethION 32 GB with a 256 GB ceiling, promethion_8 unclamped from the
+  16 GB base ceiling), and an explicit --kraken2_memory_gb is no longer
+  silently capped without a platform profile.
+- kraken2_optimized read the wrong report column and always claimed a 100%
+  classification rate; MULTIQC_NANOPORE_STATS versions reach the versions
+  YAML; MultiQC "Mean Quality" reports seqkit AvgQual instead of a read-length
+  quartile, and the fastp branch drops its fabricated quality column.
+- enable_adapter_trimming works for chopper (and warns for fastp) instead of
+  being silently ignored; assembly canonical outputs are joined on meta
+  instead of paired positionally; exactTaxidReadCounts uses the Path API so
+  object-storage work directories do not silently drop validation; the inline
+  kraken2_db startup guard that rejected tar.gz archives is removed in favour
+  of the earlier, more complete lib validator.
+- Housekeeping: container selectors recognise apptainer across all modules,
+  dead in-module publishDir blocks removed, manifest --samples quoted, a
+  zero-sample run still writes a manifest, the Kraken2 errorStrategy has a
+  single source (error_isolation.config).
+
+### Added
+- tests/realtime_validation_e2e.nf.test: an end-to-end realtime+validation
+  run against the real mini Kraken2 database (tagged real_execution), pinning
+  report parseability, cumulative validation, single end-of-session
+  aggregation, and an empty failed_samples on a healthy run.
+
+
 ## [1.6.0] - 2026-08-15
 
 
