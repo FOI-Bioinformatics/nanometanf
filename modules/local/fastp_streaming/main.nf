@@ -41,21 +41,31 @@ process FASTP_STREAMING {
     def fail_fastq = save_trimmed_fail && meta.single_end ? "--failed_out ${prefix}.fail.fastq.gz" : save_trimmed_fail && !meta.single_end ? "--failed_out ${prefix}.paired.fail.fastq.gz --unpaired1 ${prefix}_1.fail.fastq.gz --unpaired2 ${prefix}_2.fail.fastq.gz" : ''
     def out_fq1 = discard_trimmed_pass ?: ( meta.single_end ? "--out1 ${prefix}.fastp.fastq.gz" : "--out1 ${prefix}_1.fastp.fastq.gz" )
     def out_fq2 = discard_trimmed_pass ?: "--out2 ${prefix}_2.fastp.fastq.gz"
-    // Determine whether input is a single file or a list to decide if concatenation is needed
     def input_files = reads instanceof List ? reads : [reads]
-    def num_files = input_files.size()
+    // Concatenate/normalise the batch into one genuinely-gzipped stream.
+    // The previous cat/symlink trusted the .gz suffix: a plain FASTQ got a
+    // .fastq.gz name and fastp failed on the missing gzip header, and a
+    // mixed plain+gz batch cat'ed into an invalid stream. Sniff the gzip
+    // magic per file and gzip what is not already gzip (concatenated gzip
+    // members are a valid gzip stream). A distinct intermediate name avoids
+    // self-append when an input is staged as ${prefix}.fastq.gz.
+    def normalise_input = """
+        rm -f ${prefix}.concat.fastq.gz
+        for f in ${input_files.join(' ')}; do
+            if [ "\$(head -c 2 "\$f" | od -An -tx1 | tr -dc '0-9a-f')" = "1f8b" ]; then
+                cat "\$f" >> ${prefix}.concat.fastq.gz
+            else
+                gzip -c "\$f" >> ${prefix}.concat.fastq.gz
+            fi
+        done"""
     if ( task.ext.args?.contains('--interleaved_in') ) {
         """
         # Streaming mode: handle single or multiple input files
-        if [ ${num_files} -gt 1 ]; then
-            cat ${reads} > ${prefix}.fastq.gz
-        else
-            [ ! -f ${prefix}.fastq.gz ] && ln -sf ${reads} ${prefix}.fastq.gz
-        fi
+        ${normalise_input}
 
         fastp \\
             --stdout \\
-            --in1 ${prefix}.fastq.gz \\
+            --in1 ${prefix}.concat.fastq.gz \\
             --thread $task.cpus \\
             --json ${prefix}.fastp.json \\
             --html ${prefix}.fastp.html \\
@@ -73,14 +83,10 @@ process FASTP_STREAMING {
     } else if (meta.single_end) {
         """
         # Streaming mode: handle single or multiple input files for single-end data
-        if [ ${num_files} -gt 1 ]; then
-            cat ${reads} > ${prefix}.fastq.gz
-        else
-            [ ! -f ${prefix}.fastq.gz ] && ln -sf ${reads} ${prefix}.fastq.gz
-        fi
+        ${normalise_input}
 
         fastp \\
-            --in1 ${prefix}.fastq.gz \\
+            --in1 ${prefix}.concat.fastq.gz \\
             $out_fq1 \\
             --thread $task.cpus \\
             --json ${prefix}.fastp.json \\

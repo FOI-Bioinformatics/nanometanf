@@ -46,6 +46,11 @@ process KRAKEN2_OPTIMIZED {
     def memory_mapping = (use_memory_mapping && task.attempt == 1) ? "--memory-mapping" : ""
     def confidence = confidence_threshold > 0 ? "--confidence ${confidence_threshold}" : ""
     def min_hit_groups = minimum_hit_groups > 0 ? "--minimum-hit-groups ${minimum_hit_groups}" : ""
+    // --gzip-compressed only when every input actually is gzip: kraken2
+    // aborts on a plain FASTQ passed with the flag, and realtime batches
+    // may deliver uncompressed files.
+    def read_list = reads instanceof List ? reads : [reads]
+    def gzip_flag = read_list.every { it.name.endsWith('.gz') } ? "--gzip-compressed" : ""
 
     """
     #!/bin/bash
@@ -72,7 +77,7 @@ process KRAKEN2_OPTIMIZED {
         --db $db \\
         --threads $task.cpus \\
         --report ${prefix}.kraken2.report.txt \\
-        --gzip-compressed \\
+        $gzip_flag \\
         $memory_mapping \\
         $confidence \\
         $min_hit_groups \\
@@ -113,6 +118,15 @@ process KRAKEN2_OPTIMIZED {
         PEAK_MEM_MB=0
     fi
 
+    # Rates are computed BEFORE the heredoc with a single-quoted awk program
+    # and -v variables. The previous double-quoted awk inside the heredoc's
+    # command substitutions arrived in the shell with its inner quotes
+    # stripped (the Groovy escape collapses), so awk errored and both rate
+    # fields rendered EMPTY -- invalid JSON on every real run. Never seen
+    # because this module had no real test execution (2026-08-17 sweep).
+    CLASSIFICATION_RATE=\$(awk -v t="\$TOTAL_SEQS" -v c="\$CLASSIFIED_SEQS" 'BEGIN {printf "%.2f", (t > 0 ? c / t * 100 : 0)}')
+    SEQS_PER_SEC=\$(awk -v t="\$TOTAL_SEQS" -v d="\$DURATION" 'BEGIN {printf "%.2f", (d > 0 ? t / d : 0)}')
+
     # Generate performance metrics JSON
     cat > ${prefix}.kraken2.performance.json <<EOF
 {
@@ -124,10 +138,10 @@ process KRAKEN2_OPTIMIZED {
     "total_sequences": \$TOTAL_SEQS,
     "classified_sequences": \$CLASSIFIED_SEQS,
     "unclassified_sequences": \$UNCLASSIFIED_SEQS,
-    "classification_rate": \$(awk "BEGIN {printf \"%.2f\", (\$TOTAL_SEQS > 0 ? \$CLASSIFIED_SEQS / \$TOTAL_SEQS * 100 : 0)}")
+    "classification_rate": \$CLASSIFICATION_RATE
   },
   "performance_metrics": {
-    "sequences_per_second": \$(awk "BEGIN {printf \"%.2f\", (\$DURATION > 0 ? \$TOTAL_SEQS / \$DURATION : 0)}"),
+    "sequences_per_second": \$SEQS_PER_SEC,
     "peak_memory_mb": \$PEAK_MEM_MB,
     "threads_used": $task.cpus
   },
@@ -146,8 +160,8 @@ EOF
     echo "========================================" >&2
     echo "Sample: ${meta.id}" >&2
     echo "Duration: \${DURATION}s" >&2
-    echo "Classified: \$CLASSIFIED_SEQS / \$TOTAL_SEQS (\$(awk "BEGIN {printf \"%.1f\", (\$TOTAL_SEQS > 0 ? \$CLASSIFIED_SEQS / \$TOTAL_SEQS * 100 : 0)}")%)" >&2
-    echo "Speed: \$(awk "BEGIN {printf \"%.0f\", (\$DURATION > 0 ? \$TOTAL_SEQS / \$DURATION : 0)}") seqs/sec" >&2
+    echo "Classified: \$CLASSIFIED_SEQS / \$TOTAL_SEQS (\$CLASSIFICATION_RATE%)" >&2
+    echo "Speed: \$SEQS_PER_SEC seqs/sec" >&2
     echo "Peak memory: \${PEAK_MEM_MB} MB" >&2
     echo "========================================" >&2
 

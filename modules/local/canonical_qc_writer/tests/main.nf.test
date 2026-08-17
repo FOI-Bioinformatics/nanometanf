@@ -13,6 +13,67 @@ nextflow_process {
     tag "stub"
     tag "fast"
 
+    // Real execution of qc_to_canonical.py against both dispatch branches.
+    // The stub test below never runs the script, so a silent-zero parse of a
+    // drifted column set was invisible (2026-08-17 stub-coverage sweep). The
+    // seqkit fixture carries the exact 19-column --tabular --all header,
+    // which is also what SEQKIT_MERGE_STATS re-emits as *.cumulative.tsv --
+    // the incremental path no pipeline test enables.
+    test("Should parse a real seqkit TSV with non-zero statistics") {
+
+        options ""
+
+        when {
+            process {
+                """
+                input[0] = [ [ id: 'seqkitsample' ],
+                    file("\${projectDir}/modules/local/canonical_qc_writer/tests/fixtures/seqkit_stats.tsv", checkIfExists: true) ]
+                input[1] = 'seqkit'
+                input[2] = '2.8.0'
+                """
+            }
+        }
+
+        then {
+            assert process.success
+            with(process.out.canonical.get(0)) {
+                def stats = new groovy.json.JsonSlurper().parse(path(get(1)).toFile())
+                def after = stats.after_filtering
+                assert after.total_reads == 1500
+                assert after.n50 == 1650
+                assert after.q20_rate > 0.9
+                assert after.gc_content > 0.4
+            }
+        }
+    }
+
+    test("Should parse a real fastp JSON with before and after sections") {
+
+        options ""
+
+        when {
+            process {
+                """
+                input[0] = [ [ id: 'fastpsample' ],
+                    file("\${projectDir}/modules/local/canonical_qc_writer/tests/fixtures/fastp_report.json", checkIfExists: true) ]
+                input[1] = 'fastp'
+                input[2] = '1.0.1'
+                """
+            }
+        }
+
+        then {
+            assert process.success
+            with(process.out.canonical.get(0)) {
+                def stats = new groovy.json.JsonSlurper().parse(path(get(1)).toFile())
+                assert stats.before_filtering != null
+                assert stats.before_filtering.total_reads == 2000
+                assert stats.after_filtering.total_reads == 1500
+                assert stats.filtering_result.too_short_reads == 100
+            }
+        }
+    }
+
     test("Should emit canonical QC stub outputs") {
 
         setup {

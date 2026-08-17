@@ -46,6 +46,11 @@ process KRAKEN2_INCREMENTAL_CLASSIFIER {
     // errorStrategy = { task.exitStatus == 139 ? 'retry' : 'finish' }
     // and maxRetries = 1 so the retry kicks in automatically.
     def memory_mapping = (use_memory_mapping && task.attempt == 1) ? "--memory-mapping" : ""
+    // --gzip-compressed only when every input actually is gzip: kraken2
+    // aborts on a plain FASTQ passed with the flag, and realtime batches
+    // may deliver uncompressed files.
+    def read_list = reads instanceof List ? reads : [reads]
+    def gzip_flag = read_list.every { it.name.endsWith('.gz') } ? "--gzip-compressed" : ""
 
     """
     #!/bin/bash
@@ -66,7 +71,7 @@ process KRAKEN2_INCREMENTAL_CLASSIFIER {
         --db ${db} \\
         --threads ${task.cpus} \\
         --report ${prefix}.kraken2.report.txt \\
-        --gzip-compressed \\
+        $gzip_flag \\
         $memory_mapping \\
         $unclassified_option \\
         $classified_option \\

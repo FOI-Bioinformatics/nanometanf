@@ -180,4 +180,44 @@ nextflow_process {
             )
         }
     }
+
+    // Real execution with a PLAIN (uncompressed) FASTQ. --gzip-compressed
+    // used to be unconditional, so a realtime batch delivered uncompressed
+    // aborted kraken2 on the missing gzip header; the flag is now derived
+    // from the input names (2026-08-17 stub-coverage sweep). The gzipped
+    // path is exercised for real by tests/realtime_validation_e2e.nf.test.
+    test("Should classify a plain FASTQ batch without the gzip flag") {
+
+        options ""
+
+        setup {
+            file("${outputDir}").mkdirs()
+            def src = file("${projectDir}/tests/fixtures/kraken2_real/reads/barcode01/reads.fastq.gz")
+            def dest = file("${outputDir}/plain_batch.fastq")
+            dest.withOutputStream { out ->
+                new java.util.zip.GZIPInputStream(src.newInputStream()).transferTo(out)
+            }
+        }
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id:'plainbatch', single_end:true, batch_id:0 ],
+                    [ file("${outputDir}/plain_batch.fastq") ]
+                ]
+                input[1] = file("\${projectDir}/tests/fixtures/kraken2_real/db", checkIfExists: true)
+                input[2] = false
+                input[3] = false
+                input[4] = false
+                """
+            }
+        }
+
+        then {
+            assert process.success
+            def report = path(process.out.report.get(0).get(1)).text
+            assert report.split('\n').any { it.split('\t').size() >= 5 && it.split('\t')[3] in ['R', 'U'] }
+        }
+    }
 }
