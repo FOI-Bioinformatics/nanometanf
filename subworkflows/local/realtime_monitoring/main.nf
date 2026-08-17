@@ -123,6 +123,10 @@ workflow REALTIME_MONITORING {
         } else if (existing_files != null && existing_files.exists()) {
             existing_list = [existing_files]
         }
+        // Hidden files are never sequencing output. macOS writes AppleDouble
+        // "._*" sidecars beside every file on exFAT/USB media, the glob above
+        // matches them, and gzip then fails the QC process (2026-08-17).
+        existing_list = existing_list.findAll { !it.name.startsWith('.') }
 
         // Round-robin interleave existing files by parent (barcode) directory so
         // take(max_files) selects fairly across all barcodes rather than in
@@ -145,6 +149,7 @@ workflow REALTIME_MONITORING {
 
         // Watch for new files being created or modified
         def ch_new = Channel.watchPath(full_pattern, 'create,modify')
+            .filter { !it.name.startsWith('.') }
 
         // Combine existing files (processed first) with new files (watched continuously)
         def ch_watched = ch_existing.mix(ch_new)

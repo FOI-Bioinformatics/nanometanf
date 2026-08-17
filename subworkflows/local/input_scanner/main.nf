@@ -24,7 +24,7 @@ workflow INPUT_SCANNER {
             .map { barcode_dir ->
                 def barcode = barcode_dir.getName()
                 def fastq_files = []
-                barcode_dir.eachFileMatch(~/.+\.(fastq|fastq\.gz|fq|fq\.gz)$/) { f ->
+                barcode_dir.eachFileMatch(~/[^.].*\.(fastq|fastq\.gz|fq|fq\.gz)$/) { f ->
                     fastq_files.add(f)
                 }
                 if (fastq_files.size() > 0) {
@@ -46,7 +46,7 @@ workflow INPUT_SCANNER {
             .filter { it.isDirectory() }
             .map { unclass_dir ->
                 def fastq_files = []
-                unclass_dir.eachFileMatch(~/.+\.(fastq|fastq\.gz|fq|fq\.gz)$/) { f ->
+                unclass_dir.eachFileMatch(~/[^.].*\.(fastq|fastq\.gz|fq|fq\.gz)$/) { f ->
                     fastq_files.add(f)
                 }
                 if (fastq_files.size() > 0) {
@@ -69,7 +69,12 @@ workflow INPUT_SCANNER {
         //
         // Flat directory mode: group by sample ID
         //
+        // The extra filter drops hidden files: Java NIO globs match leading
+        // dots, so macOS AppleDouble sidecars ("._sample.fastq.gz", written
+        // beside every file on exFAT/USB media) were scanned as real FASTQ
+        // inputs and failed CHOPPER with "not in gzip format" (2026-08-17).
         ch_all_samples = Channel.fromPath(["${input_dir}/*.{fastq,fastq.gz,fq,fq.gz}", "${input_dir}/**/*.{fastq,fastq.gz,fq,fq.gz}"])
+            .filter { !it.name.startsWith('.') }
             .map { f ->
                 def sample_id = InputDetector.extractSampleId(
                     f,
