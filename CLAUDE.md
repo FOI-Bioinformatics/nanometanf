@@ -25,7 +25,7 @@ sequencing data analysis. It covers:
 POD5 basecalling via Dorado was removed in the 2026-04 refactor and the
 `use_dorado` / `pod5_input_dir` parameters are no longer accepted.
 
-**Current version:** 1.5.1dev (development); 1.5.0 (released)
+**Current version:** 1.6.0 (released 2026-08-15)
 **nf-core lint score:** 96/100
 
 ---
@@ -101,7 +101,7 @@ outdir/kraken2/
 ```groovy
 // Scalable streaming architecture (v1.5+)
 max_concurrent_batches   = 4    // ADVISORY (not enforced; see audit P2.9)
-max_classification_forks = 8    // Max parallel Kraken2 jobs (global cap, enforced via process maxForks)
+max_classification_forks = 4    // Max parallel Kraken2 jobs (global cap, enforced via process maxForks)
 ```
 
 > `max_concurrent_batches` is logged for visibility but has no
@@ -126,6 +126,14 @@ The manifest PREDICTS its output files from the sample list -- MANIFEST_WRITER
 runs in its own work directory and cannot see the publishDir -- so a sample
 whose QC died is listed exactly like a healthy one. `failed_samples` is what
 distinguishes them, and nanometa_live reads it to mark such samples.
+
+Since the 2026-08-16 audit (finding N8), "produced" is QC output INTERSECTED
+with classification reports when classification ran (a keyed join, not
+collect+intersect -- combine spreads a List emission into loose Strings), so a
+sample whose whole-sample Kraken2 failed under error isolation is also named.
+A PARTIAL classification failure (some batches classify, one dies) is still
+invisible here; the per-sample aggregation_stats.json batch high-water check
+covers that side.
 
 Three values, three meanings, and they must not collapse:
 
@@ -503,7 +511,7 @@ Enforced at the schema level via a `oneOf` constraint
 ### Scalable Streaming (v1.5+)
 
 - `--max_concurrent_batches` - Advisory only; not currently enforced (default: 4, see audit P2.9)
-- `--max_classification_forks` - Max parallel Kraken2 jobs (default: 8)
+- `--max_classification_forks` - Max parallel Kraken2 jobs (default: 4)
 - `--kraken2_enable_incremental` - Enable scalable streaming architecture
 
 ### Runtime metrics (audit V5)
@@ -605,7 +613,7 @@ gh pr create --title "Title" --body "Description"
 ---
 
 **Last updated:** 2026-05-30
-**Version:** 1.5.1dev (development); 1.5.0 (released)
+**Version:** 1.6.0 (released 2026-08-15)
 **Maintainer:** foi-bioinformatics team (@andreassjodin)
 
 ### Recent changes (v1.5.0)
