@@ -951,6 +951,13 @@
                     "fa_icon": "fas fa-cogs",
                     "help_text": "flye: polished assemblies with repeat resolution (default), miniasm: fast draft assemblies. Future versions may include canu, raven, shasta."
                 },
+                "flye_meta": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Run Flye in metagenome mode (--meta).",
+                    "fa_icon": "fas fa-layer-group",
+                    "help_text": "Metagenome mode handles uneven coverage across mixed communities and is the correct model for this pipeline's typical input. Disable only for single-isolate assemblies."
+                },
                 "genome_size": {
                     "type": "string",
                     "default": "5m",

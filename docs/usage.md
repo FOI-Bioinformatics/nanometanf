@@ -440,8 +440,13 @@ nextflow run foi-bioinformatics/nanometanf \
 ```bash
 --enable_assembly           # Enable genome assembly
 --assembler <tool>          # flye or miniasm
+--flye_meta <bool>          # Flye metagenome mode (--meta); default true, disable for single isolates
 --genome_size <size>        # Expected genome size (e.g., 5m, 3.2g)
 ```
+
+Contigs, assembly graphs, and Flye's assembly statistics are published to
+`<outdir>/assembly/`; the canonical assembly JSON for downstream consumers is
+written to `<outdir>/canonical/assembly/`.
 
 #### Adapter Trimming
 
