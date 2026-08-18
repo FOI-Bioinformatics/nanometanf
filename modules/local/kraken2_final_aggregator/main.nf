@@ -156,11 +156,26 @@ process KRAKEN2_FINAL_AGGREGATOR {
             seen.add(taxid)
             ordered_taxa.append(taxid)
 
+    # Percent denominator: prefer the concatenated per-read output count,
+    # but fall back to the merged report's own totals (root cumulative +
+    # unclassified) when the output files were empty -- a batch cache
+    # produced before the classifier wrote per-read output (2026-08-18)
+    # otherwise zeroes the percent column of the whole report.
+    pct_total = total_reads
+    if pct_total == 0:
+        pct_total = sum(
+            merged_taxa[t]['cumul'] for t in merged_taxa
+            if merged_taxa[t]['rank'] in ('R', 'U')
+        )
+        if pct_total > 0:
+            print(f"  WARNING: per-read output files were empty; percent "
+                  f"column computed from report totals ({pct_total})", file=sys.stderr)
+
     # Write merged report in standard Kraken2 format
     with open(cumulative_report_file, 'w') as out:
         for taxid in ordered_taxa:
             data = merged_taxa[taxid]
-            pct = (data['cumul'] / total_reads * 100) if total_reads > 0 else 0
+            pct = (data['cumul'] / pct_total * 100) if pct_total > 0 else 0
             out.write(f"{pct:.2f}\\t{data['cumul']}\\t{data['reads']}\\t{data['rank']}\\t{taxid}\\t{data['name']}\\n")
 
     print(f"  Generated cumulative report with {len(merged_taxa)} taxa", file=sys.stderr)

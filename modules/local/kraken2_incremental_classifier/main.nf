@@ -4,8 +4,8 @@ process KRAKEN2_INCREMENTAL_CLASSIFIER {
 
     conda "${moduleDir}/environment.yml"
     container "${ workflow.containerEngine in ['singularity', 'apptainer'] && !task.ext.singularity_pull_docker_container ?
-        'https://community-cr-prod.seqera.io/docker/registry/v2/blobs/sha256/29/29ed8f68315625eca61a3de9fcb7b8739fe8da23f5779eda3792b9d276aa3b8f/data' :
-        'community.wave.seqera.io/library/kraken2_coreutils_pigz:45764814c4bb5bf3' }"
+        'https://community-cr-prod.seqera.io/docker/registry/v2/blobs/sha256/0f/0f827dcea51be6b5c32255167caa2dfb65607caecdc8b067abd6b71c267e2e82/data' :
+        'community.wave.seqera.io/library/kraken2_coreutils_pigz:920ecc6b96e2ba71' }"
 
     input:
     tuple val(meta), path(reads)
@@ -36,7 +36,15 @@ process KRAKEN2_INCREMENTAL_CLASSIFIER {
     def unclassified = meta.single_end ? "${prefix}.unclassified.fastq" : "${prefix}.unclassified#.fastq"
     def classified_option = save_output_fastqs ? "--classified-out ${classified}" : ""
     def unclassified_option = save_output_fastqs ? "--unclassified-out ${unclassified}" : ""
-    def readclassification_option = save_reads_assignment ? "--output ${prefix}.kraken2.classifiedreads.txt" : "--output /dev/null"
+    // Per-read classifications go to --output; with that flag set kraken2
+    // writes NOTHING to stdout, so the previous "--output classifiedreads
+    // plus stdout > kraken2.output.txt" produced an empty output file on
+    // every batch. The merger then cached empty batches and
+    // KRAKEN2_FINAL_AGGREGATOR counted total_reads = 0, zeroing the percent
+    // column of every realtime cumulative report (2026-08-18 realtime
+    // audit). --output ALWAYS targets the kraken2.output.txt contract file;
+    // the classifiedreads emit is a copy made below when requested.
+    def readclassification_option = "--output ${prefix}.kraken2.output.txt"
     // Drop --memory-mapping on retry. kraken2 with --memory-mapping
     // mmap()s the hash.k2d file; on certain filesystems (NFS, GlusterFS,
     // CIFS, FUSE) the mmap'd pages may return invalid data once the
@@ -78,7 +86,13 @@ process KRAKEN2_INCREMENTAL_CLASSIFIER {
         $readclassification_option \\
         $paired \\
         $args \\
-        ${reads} > ${prefix}.kraken2.output.txt
+        ${reads}
+
+    # The reads-assignment emit is the same per-read stream under its
+    # published name; keep it a copy so both consumers stay independent.
+    if [ "$save_reads_assignment" == "true" ]; then
+        cp ${prefix}.kraken2.output.txt ${prefix}.kraken2.classifiedreads.txt
+    fi
 
     # Compress output FASTQs if required
     if [ "$save_output_fastqs" == "true" ] && ls *.fastq 1> /dev/null 2>&1; then

@@ -80,6 +80,16 @@ nextflow_process {
                 { assert stats.containsKey('avg_mapq') },
                 { assert stats.containsKey('avg_identity') },
                 { assert stats.containsKey('ref_name') },
+                // Confirmation floors (cross-repo contract): 4 mapped reads
+                // at high hit rate and identity are NOT a confirmation --
+                // the pre-floor code wrote 'confirmed' here, which is how a
+                // single index-hopped read in a negative control shipped as
+                // a confirmed Tier 1 select agent in realtime mode
+                // (2026-08-18 realtime audit).
+                { assert stats.validation_status == 'uncertain' },
+                // Real genome breadth must ride the cumulative stats; the
+                // GUI and the exported artifact read it from here.
+                { assert stats.containsKey('genome_breadth') },
                 { assert path(process.out.minimap2_cumulative.get(0).get(2)).readLines().size() == 4 }
             )
         }
@@ -115,6 +125,9 @@ nextflow_process {
                 { assert stats.validation_method == 'blast' },
                 { assert stats.containsKey('avg_identity') },
                 { assert stats.containsKey('min_evalue') },
+                // min_reads floor (cross-repo contract): 4 hits cannot
+                // confirm, mirroring BLASTN_VALIDATION.
+                { assert stats.validation_status == 'uncertain' },
                 { assert path(process.out.blast_cumulative.get(0).get(2)).readLines().size() == 4 }
             )
         }
