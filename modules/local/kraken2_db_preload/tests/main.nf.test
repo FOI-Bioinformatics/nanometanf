@@ -4,36 +4,81 @@ nextflow_process {
     script "../main.nf"
     process "KRAKEN2_DB_PRELOAD"
 
-    options "-stub"
-
     tag "module"
     tag "kraken2_db_preload"
-    tag "classification"
-    tag "stub"
-    tag "fast"
+    tag "kraken2"
 
-    test("Should pass through Kraken2 database under -stub") {
+    test("small database is read into the page cache") {
+
+        tag "real"
 
         setup {
-            def db = file("${outputDir}/kraken2_db_stub")
+            def db = file("${outputDir}/db")
             db.mkdirs()
-            file("${db}/hash.k2d").text = ""
-            file("${db}/taxo.k2d").text = ""
-            file("${db}/opts.k2d").text = ""
+            file("${db}/hash.k2d").text = "x" * 4096
+            file("${db}/taxo.k2d").text = "t" * 512
+            file("${db}/opts.k2d").text = "o" * 64
         }
 
         when {
             process {
                 """
-                input[0] = file("${outputDir}/kraken2_db_stub")
+                input[0] = file("${outputDir}/db")
                 """
             }
         }
 
         then {
+            def status = path(process.out.status.get(0)).text
             assertAll(
                 { assert process.success },
-                { assert snapshot(process.out.versions).match() }
+                { assert process.out.db },
+                { assert status.startsWith('preloaded') :
+                    "a database smaller than available memory must be " +
+                    "warmed into the page cache; status was: ${status}" },
+            )
+        }
+    }
+
+    test("database larger than available memory skips the read") {
+        // Preloading a database the page cache cannot hold is pure churn:
+        // the OS evicts the pages as fast as dd loads them, so the
+        // sequential read costs minutes and warms nothing (2026-08-18
+        // kraken2 optimization audit, item 4). The fixture hash.k2d is a
+        // SPARSE 64 GiB file -- st_size is what the guard compares, no
+        // disk is consumed, and if the guard regresses the test fails on
+        // a wrong status rather than hanging: reading sparse zeroes is
+        // fast enough to finish, and the status file then says
+        // 'preloaded' where 'skipped' is required.
+
+        tag "real"
+
+        setup {
+            def db = file("${outputDir}/bigdb")
+            db.mkdirs()
+            def raf = new RandomAccessFile(new File("${db}/hash.k2d"), "rw")
+            raf.setLength(64L * 1024 * 1024 * 1024)
+            raf.close()
+            file("${db}/taxo.k2d").text = "t" * 512
+            file("${db}/opts.k2d").text = "o" * 64
+        }
+
+        when {
+            process {
+                """
+                input[0] = file("${outputDir}/bigdb")
+                """
+            }
+        }
+
+        then {
+            def status = path(process.out.status.get(0)).text
+            assertAll(
+                { assert process.success },
+                { assert process.out.db },
+                { assert status.startsWith('skipped') :
+                    "a 64 GiB hash.k2d must not be dd'd through a smaller " +
+                    "page cache; status was: ${status}" },
             )
         }
     }

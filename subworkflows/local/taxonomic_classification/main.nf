@@ -120,25 +120,30 @@ workflow TAXONOMIC_CLASSIFICATION {
     // Memory-mapping enables OS-level database caching, eliminating redundant disk I/O across batches
     //
     def auto_enable_optimizations = params.realtime_mode && !params.kraken2_use_optimizations
-    // Auto-disable memory-mapping on ARM (Apple Silicon / aarch64) where x86 emulation
-    // via Rosetta can cause SIGSEGV crashes with memory-mapped Kraken2 databases.
-    def is_arm = System.getProperty('os.arch')?.contains('aarch64') || System.getProperty('os.arch')?.contains('arm')
-    def use_memory_mapping = is_arm ? false : params.kraken2_memory_mapping
-    if (is_arm && params.kraken2_memory_mapping) {
-        log.warn "ARM architecture detected - disabling Kraken2 memory-mapping to avoid SIGSEGV under emulation"
-    }
+    // ONE memory-mapping decision, taken from the param alone. This value
+    // must stay in lock-step with conf/modules.config, whose
+    // KRAKEN2_KRAKEN2 ext.args reads params.kraken2_memory_mapping
+    // directly: an earlier ARM force-disable here produced a split brain,
+    // where the standard path ran --memory-mapping on ARM (via ext.args)
+    // while this subworkflow logged it as disabled, skipped the preload,
+    // and stripped the flag from the incremental/optimized paths -- so
+    // realtime mode on an ARM Mac re-loaded the full database on every
+    // batch. The ARM guard's premise (SIGSEGV under Rosetta) did not
+    // reproduce: the 2026-08-18 release check ran 51 tasks with
+    // --memory-mapping under Rosetta with zero faults. The per-module
+    // retry (attempt > 1 drops the flag) remains the safety net for
+    // filesystems where mmap genuinely misbehaves (NFS, GlusterFS, CIFS).
+    def use_memory_mapping = params.kraken2_memory_mapping
     def use_optimizations = params.realtime_mode ? true : params.kraken2_use_optimizations
 
     if (auto_enable_optimizations && classifier == 'kraken2') {
         log.info "=== Phase 2: Database Preloading Enabled ==="
         log.info "Real-time mode detected - automatically enabling Kraken2 optimizations:"
-        log.info "  - Memory-mapped database loading: ${use_memory_mapping ? 'ENABLED' : 'DISABLED (ARM Mac compatible mode)'}"
+        log.info "  - Memory-mapped database loading: ${use_memory_mapping ? 'ENABLED' : 'DISABLED (--kraken2_memory_mapping false)'}"
         if (use_memory_mapping) {
             log.info "  - Database cached in OS page cache for reuse across batches"
             log.info "  - Eliminates repeated database loading (30+ batches -> 1 load)"
             log.info "  - Estimated time savings: 1-3 minutes per batch after first load"
-        } else {
-            log.info "  - Note: Set --kraken2_memory_mapping true for faster performance on x86 systems"
         }
     }
 
