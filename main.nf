@@ -104,17 +104,43 @@ workflow VALIDATION_ONLY {
     }
 
     // Build channels from existing Kraken2 output files
-    // Kraken2 classified reads (FASTQ)
-    ch_classified_reads = Channel.fromFilePairs(
-        "${params.reads_dir}/*.fastq{,.gz}",
-        size: 1,
-        flat: true
-    ).map { sample_id, fastq ->
-        def meta = [id: sample_id]
-        [ meta, fastq ]
-    }.ifEmpty {
-        error "No FASTQ files found in ${params.reads_dir}. Expected " +
-              "*.fastq or *.fastq.gz."
+    //
+    // Per-sample read pools. Prefer the classified FASTQs the original run
+    // published into kraken2_output_dir (*.kraken2.classified.fastq.gz):
+    // one file per sample, the stem IS the sample id (which the join in the
+    // validation subworkflow matches against the Kraken2 outputs), and it is
+    // the same pool main-mode validation consumes. The reads_dir glob is the
+    // fallback for outdirs without saved classified FASTQs; it only works
+    // for flat directories whose file stems equal sample ids -- a by_barcode
+    // layout (barcode01/reads.fastq.gz) matches nothing, which made
+    // on-demand validation impossible for multiplexed runs (2026-08-18).
+    def classified_suffix = '.kraken2.classified.fastq.gz'
+    def classified_pools = file(
+        "${params.kraken2_output_dir}/*${classified_suffix}"
+    )
+    if (classified_pools) {
+        ch_classified_reads = Channel.fromList(
+            classified_pools instanceof List ? classified_pools : [classified_pools]
+        ).map { fastq ->
+            def meta = [id: fastq.name - classified_suffix]
+            [ meta, fastq ]
+        }
+    } else {
+        ch_classified_reads = Channel.fromFilePairs(
+            "${params.reads_dir}/*.fastq{,.gz}",
+            size: 1,
+            flat: true
+        ).map { sample_id, fastq ->
+            def meta = [id: sample_id]
+            [ meta, fastq ]
+        }.ifEmpty {
+            error "No *${classified_suffix} files in " +
+                  "${params.kraken2_output_dir} and no *.fastq/*.fastq.gz " +
+                  "directly in ${params.reads_dir}. Either re-run the " +
+                  "pipeline with save_output_fastqs, or point --reads_dir at " +
+                  "a flat directory of per-sample FASTQ files named by " +
+                  "sample id."
+        }
     }
 
     // Kraken2 raw output (per-read classification)
