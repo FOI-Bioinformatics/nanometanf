@@ -64,6 +64,12 @@ process MINIMAP2_VALIDATION {
 
     # Generate minimap2 stats using awk
     # PAF format: qname qlen qstart qend strand tname tlen tstart tend nmatch alen mapq [tags...]
+    # awk MUST read the sorted stream from stdin: the single-pass interval
+    # merge below assumes ascending target starts. A trailing file argument
+    # here makes awk read the unsorted PAF instead (understating breadth)
+    # and leaves sort writing into a drained pipe -- SIGPIPE / exit 141 for
+    # any PAF over the 64 KB pipe buffer. Regression-covered by the "real
+    # run" nf-test in tests/main.nf.test.
     sort -k8,8n "${prefix}.paf" | awk -v total_reads="\$TOTAL_READS" \
         -v min_mapq="${min_mapq}" \
         -v hit_threshold="${hit_threshold}" \
@@ -195,7 +201,7 @@ process MINIMAP2_VALIDATION {
 
         printf "Minimap2 validation: %d/%d mapped (%.1f%%), avg identity %.1f%%, status: %s\\n", \
             hits, total_reads, hit_rate * 100, avg_id, status > "/dev/stderr"
-    }' "${prefix}.paf"
+    }'
 
     cat <<-END_VERSIONS > versions.yml
 "${task.process}":

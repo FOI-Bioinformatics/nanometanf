@@ -4,15 +4,15 @@ nextflow_process {
     script "../main.nf"
     process "MINIMAP2_VALIDATION"
 
-    options "-stub"
-
     tag "module"
     tag "minimap2_validation"
     tag "validation"
-    tag "stub"
-    tag "fast"
 
     test("Should emit minimap2 validation stub outputs") {
+
+        options "-stub"
+        tag "stub"
+        tag "fast"
 
         setup {
             file("${outputDir}").mkdirs()
@@ -42,6 +42,61 @@ nextflow_process {
                 { assert process.out.alignments },
                 { assert process.out.stats },
                 { assert snapshot(process.out.versions).match() }
+            )
+        }
+    }
+
+    test("real run: breadth from sorted intervals, large PAF survives the sort pipe") {
+        // Regression guard for two defects the stub test cannot see, both in
+        // the awk stats block (2026-08-18, found on a real Bioshield run):
+        //
+        // 1. The awk invocation carried the PAF as a trailing FILE argument,
+        //    so it read the unsorted file and ignored the `sort -k8,8n` pipe
+        //    entirely. The single-pass interval merge assumes ascending
+        //    target starts; on out-of-order input it understates breadth.
+        //    These reads are deliberately supplied in DESCENDING target
+        //    position order, so the unfixed code reports breadth near one
+        //    read's span (~0.005) instead of the true ~0.50.
+        // 2. With awk not draining the pipe, `sort` took SIGPIPE once the
+        //    PAF exceeded the 64 KB pipe buffer, failing the task with exit
+        //    141 under pipefail. 1000 alignment rows (~120 KB) trip it;
+        //    the tiny fixtures used elsewhere never did.
+
+        tag "real"
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id: 'bc01', taxid: 9999 ],
+                    file("\${projectDir}/modules/local/minimap2_validation/tests/fixtures/reads.fastq"),
+                    file("\${projectDir}/modules/local/minimap2_validation/tests/fixtures/reference.fasta")
+                ]
+                input[1] = 'map-ont'
+                input[2] = 10
+                input[3] = 0.5
+                input[4] = 90.0
+                """
+            }
+        }
+
+        then {
+            def stats = new groovy.json.JsonSlurper().parse(file(process.out.stats.get(0).get(1)))
+            assertAll(
+                { assert process.success },
+                { assert stats.total_reads == 1000 },
+                // Perfect-match 500 bp substrings: essentially all map.
+                { assert stats.mapped_reads >= 950 },
+                { assert stats.avg_identity >= 99.0 },
+                // Reads tile positions 0..50,450 of a 100 kb reference, so
+                // true breadth is ~0.50. The unsorted-merge defect reported
+                // ~0.005 here.
+                { assert stats.genome_breadth >= 0.45 },
+                { assert stats.genome_breadth <= 0.56 },
+                { assert stats.ref_length == 100000 },
+                // 1000 high-identity reads over half the genome clear every
+                // confirmation floor.
+                { assert stats.validation_status == 'confirmed' },
             )
         }
     }
