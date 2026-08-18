@@ -335,7 +335,11 @@ workflow TAXONOMIC_CLASSIFICATION {
                     [total_reads: 0, classified_reads: 0, unclassified_reads: 0, taxa: [:]]
                 }
                 def batch_write_counter = [:].withDefault { 0 }
-                def write_interval = params.report_write_interval ?: 5
+                // Null-safe, not elvis: ?: treats the documented "0 = every
+                // batch" value as falsy and silently turned it into the old
+                // default of 5, so the every-batch setting never worked.
+                def write_interval = (params.report_write_interval == null
+                    ? 1 : params.report_write_interval) as int
 
                 // Writes the run-so-far cumulative kreport for one sample.
                 // Shared by the interval-gated progressive write below and the
@@ -424,23 +428,44 @@ workflow TAXONOMIC_CLASSIFICATION {
 
                                 batch_write_counter[sample_id] = batch_write_counter[sample_id] + 1
 
-                                // Write the live progressive report every N batches.
+                                // Write the live progressive report. The FIRST batch of a
+                                // sample ALWAYS flushes, whatever the configured interval:
+                                // until this file exists the dashboard's cumulative tier
+                                // is blind (Sequences Analyzed sat at 0 for six minutes on
+                                // the 2026-08-18 realtime audit while the verdict banner,
+                                // fed from latest-batch data, already showed ACTION
+                                // REQUIRED). The interval only thins SUBSEQUENT writes --
+                                // and its default is now 1, because the expensive half
+                                // (the state merge above) runs every batch regardless;
+                                // the gate skips only a string build and one small atomic
+                                // write, a saving that rounds to zero next to the batch's
+                                // classification work.
                                 // A per-batch "final batch" flag is not knowable in a
                                 // streaming watchPath run, so the definitive end-of-
                                 // session report is produced by KRAKEN2_FINAL_AGGREGATOR
                                 // (it writes the same kraken2/<id>.cumulative.kraken2.
                                 // report.txt from the per-batch files on disk), and the
                                 // in-memory state is released in onComplete below.
-                                if (write_interval <= 0
+                                if (batch_write_counter[sample_id] == 1
+                                    || write_interval <= 0
                                     || batch_write_counter[sample_id] % write_interval == 0) {
 
                                     write_cumulative_report.call(sample_id, state)
                                     log.debug "Progressive cumulative report updated for ${sample_id}: ${state.total_reads} reads, ${state.taxa.size()} taxa"
 
-                                    // Memory diagnostic at every write: total live taxa across all in-flight samples
+                                    // Memory diagnostic: total live taxa across all
+                                    // in-flight samples. INFO only every 10th batch per
+                                    // sample -- at the per-batch write cadence this line
+                                    // would otherwise dominate the log on a multi-barcode
+                                    // run -- DEBUG on the batches in between.
                                     def live_samples = cumulative_taxa_state.size()
                                     def live_taxa = cumulative_taxa_state.values().sum(0) { it.taxa.size() }
-                                    log.info "[cumulative-state] ${live_samples} sample(s) in flight, ${live_taxa} total live taxa entries"
+                                    def state_msg = "[cumulative-state] ${live_samples} sample(s) in flight, ${live_taxa} total live taxa entries"
+                                    if (batch_write_counter[sample_id] % 10 == 0) {
+                                        log.info state_msg
+                                    } else {
+                                        log.debug state_msg
+                                    }
                                 } // end write interval check
                             }
                         } catch (Exception e) {

@@ -467,9 +467,9 @@
                 },
                 "report_write_interval": {
                     "type": "integer",
-                    "default": 5,
+                    "default": 1,
                     "minimum": 0,
-                    "description": "Write cumulative Kraken2 report every N batches (0 = every batch).",
+                    "description": "Write the progressive cumulative Kraken2 report every N batches (a sample's first batch always flushes; 0 also means every batch).",
                     "fa_icon": "fas fa-pen"
                 },
                 "skip_fastqc_realtime": {
