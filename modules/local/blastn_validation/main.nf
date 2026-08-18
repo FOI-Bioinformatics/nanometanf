@@ -30,6 +30,7 @@ process BLASTN_VALIDATION {
     def max_target_seqs = task.ext.max_target_seqs ?: blast_max_target_seqs ?: 1
     def hit_threshold = validation_hit_rate_threshold ?: 0.5
     def identity_threshold = validation_identity_threshold ?: 90.0
+    def min_reads = params.validation_min_reads ?: 10
     def sample_id = meta.id
     def taxid = meta.taxid
     """
@@ -152,7 +153,13 @@ min_evalue = min(evalues) if evalues else 1.0
 hit_threshold = ${hit_threshold}
 identity_threshold = ${identity_threshold}
 
-if hit_rate >= hit_threshold and avg_identity >= identity_threshold:
+# A confirmation needs read support as well as percentages: at low n the
+# percentages are unstable, and one index-hopped read at 97% identity used to
+# be "confirmed". Must stay equal to nanometa_live's MIN_READS_FOR_CONFIRMED;
+# a cross-repo contract test asserts it.
+min_reads = ${min_reads}
+
+if hit_rate >= hit_threshold and avg_identity >= identity_threshold and hits >= min_reads:
     status = "confirmed"
 elif hit_rate >= hit_threshold * 0.5 or avg_identity >= identity_threshold * 0.9:
     status = "uncertain"

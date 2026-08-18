@@ -28,6 +28,13 @@ process MINIMAP2_VALIDATION {
     def min_mapq = task.ext.min_mapq ?: minimap2_min_mapq ?: 10
     def hit_threshold = validation_hit_rate_threshold ?: 0.5
     def identity_threshold = validation_identity_threshold ?: 90.0
+    // Shared confirmation floors. Hit rate and identity alone called a
+    // single index-hopped read "confirmed": on a real negative control one
+    // read covered 0.07% of the genome at 1x and still passed. These must
+    // stay equal to nanometa_live's MIN_READS_FOR_CONFIRMED /
+    // MIN_BREADTH_FOR_CONFIRMED; a cross-repo contract test asserts it.
+    def min_reads = params.validation_min_reads ?: 10
+    def min_breadth = params.validation_min_breadth ?: 0.05
     def sample_id = meta.id
     def taxid = meta.taxid
     """
@@ -57,10 +64,12 @@ process MINIMAP2_VALIDATION {
 
     # Generate minimap2 stats using awk
     # PAF format: qname qlen qstart qend strand tname tlen tstart tend nmatch alen mapq [tags...]
-    awk -v total_reads="\$TOTAL_READS" \
+    sort -k8,8n "${prefix}.paf" | awk -v total_reads="\$TOTAL_READS" \
         -v min_mapq="${min_mapq}" \
         -v hit_threshold="${hit_threshold}" \
         -v identity_threshold="${identity_threshold}" \
+        -v min_reads="${min_reads}" \
+        -v min_breadth="${min_breadth}" \
         -v sample_id="${sample_id}" \
         -v taxid="${taxid}" \
         -v preset="${preset}" \
@@ -84,6 +93,24 @@ process MINIMAP2_VALIDATION {
         }
 
         if (mapq >= min_mapq) {
+            # Genome breadth: merge target intervals. Input arrives sorted by
+            # target start (see the sort pipe), so one pass is enough -- awk
+            # has no portable sort. avg_coverage below is per-READ query
+            # coverage and cannot answer "how much of the genome did we see".
+            tstart = \$8 + 0
+            tend   = \$9 + 0
+            if (tend > tstart && tend <= tlen) {
+                aligned_bp += tend - tstart
+                if (!have_iv) {
+                    cur_start = tstart; cur_end = tend; have_iv = 1
+                } else if (tstart > cur_end) {
+                    covered_bp += cur_end - cur_start
+                    cur_start = tstart; cur_end = tend
+                } else if (tend > cur_end) {
+                    cur_end = tend
+                }
+            }
+
             # Deduplicate by read name
             if (!(qname in seen)) {
                 seen[qname] = 1
@@ -126,7 +153,17 @@ process MINIMAP2_VALIDATION {
         avg_id     = (id_n > 0) ? id_sum / id_n : 0.0
         avg_cov    = (cov_n > 0) ? cov_sum / cov_n : 0.0
 
-        if (hit_rate >= hit_threshold && avg_id >= identity_threshold)
+        if (have_iv) covered_bp += cur_end - cur_start
+        genome_breadth = (ref_max_len > 0) ? covered_bp / ref_max_len : 0.0
+        local_depth    = (covered_bp > 0) ? aligned_bp / covered_bp : 0.0
+        # Amplicon-like coverage -- a small share of the genome at high local
+        # depth -- is legitimate and must not be downgraded for thin breadth.
+        # Same test the GUI coverage plots use.
+        concentrated = (genome_breadth <= 0.05 && local_depth >= 10 && covered_bp >= 200)
+
+        if (hit_rate >= hit_threshold && avg_id >= identity_threshold \
+            && hits >= min_reads \
+            && (genome_breadth >= min_breadth || concentrated))
             status = "confirmed"
         else if (hit_rate >= hit_threshold * 0.5 || avg_id >= identity_threshold * 0.9)
             status = "uncertain"
@@ -149,6 +186,7 @@ process MINIMAP2_VALIDATION {
         printf "  \\"avg_mapq\\": %.2f,\\n", avg_mapq > out_file
         printf "  \\"avg_identity\\": %.2f,\\n", avg_id > out_file
         printf "  \\"avg_coverage\\": %.4f,\\n", avg_cov > out_file
+        printf "  \\"genome_breadth\\": %.6f,\\n", genome_breadth > out_file
         printf "  \\"validation_status\\": \\"%s\\",\\n", status > out_file
         printf "  \\"ref_name\\": \\"%s\\",\\n", ref_max_name > out_file
         printf "  \\"ref_length\\": %d,\\n", ref_max_len > out_file

@@ -93,7 +93,12 @@ nextflow_process {
                 { assert stats.blast_hits == 2 },
                 { assert stats.hit_rate <= 1.0 },
                 { assert stats.validation_method == 'blast' },
-                { assert stats.validation_status == 'confirmed' },
+                // Two reads at 100% identity is NOT a confirmation: the
+                // status rule now also requires validation_min_reads (10).
+                // Percentages are unstable at low n, and one index-hopped
+                // read used to be written out as "confirmed" for a Tier 1
+                // select agent (2026-08-18 cross-repo threshold alignment).
+                { assert stats.validation_status == 'uncertain' },
             )
         }
     }
