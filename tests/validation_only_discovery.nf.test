@@ -1,0 +1,51 @@
+nextflow_pipeline {
+
+    name "Validation-only entry discovers samples from a multiplexed run"
+    script "../main.nf"
+
+    // Regression guard for the on-demand validation path (2026-08-18).
+    // The GUI invokes `--validation_only` against an existing outdir with
+    // `--reads_dir` pointing at the ORIGINAL input directory. Under
+    // by_barcode sample handling that directory holds barcode subfolders
+    // (barcode01/reads.fastq.gz), which the old flat glob
+    // `${reads_dir}/*.fastq{,.gz}` could not see -- every multiplexed
+    // on-demand validation died with "No FASTQ files found" before a single
+    // process ran. Even for flat layouts the glob was fragile: the file STEM
+    // became meta.id, and unless it happened to equal the Kraken2 sample id
+    // the join in the validation subworkflow silently dropped the sample.
+    //
+    // The classified FASTQ pools the original run published into
+    // kraken2_output_dir (*.kraken2.classified.fastq.gz) have neither
+    // problem: one file per sample, stem == sample id, and they are the same
+    // read pool main-mode validation consumes. The entry now prefers them.
+
+    tag "pipeline"
+    tag "validation"
+    tag "validation_only"
+    tag "stub"
+
+    test("by_barcode reads_dir with classified FASTQs in kraken2_output_dir") {
+        options "-stub"
+        when {
+            params {
+                validation_only = true
+                run_validation = true
+                outdir = "$outputDir"
+                reads_dir = "$projectDir/tests/fixtures/validation_only/reads"
+                kraken2_output_dir = "$projectDir/tests/fixtures/validation_only/kraken2"
+                pathogen_genomes = "$projectDir/tests/fixtures/validation/test_genomes.json"
+                taxids_to_validate = '562'
+                validation_method = 'both'
+                max_cpus = 2
+                max_memory = '4.GB'
+                max_time = '5.min'
+            }
+        }
+        then {
+            assert workflow.success :
+                "validation_only failed against a by_barcode input layout: " +
+                ((workflow.errorReport ?: '') + '\n' +
+                 (workflow.stdout?.join('\n') ?: '')).take(400)
+        }
+    }
+}

@@ -49,6 +49,17 @@ process VALIDATION_CUMULATIVE_AGGREGATOR {
     def preset = params.minimap2_preset ?: "map-ont"
     def hit_threshold = params.validation_hit_rate_threshold ?: 0.5
     def identity_threshold = params.validation_identity_threshold ?: 90.0
+    // Shared confirmation floors -- the same contract MINIMAP2_VALIDATION /
+    // BLASTN_VALIDATION apply, and nanometa_live's MIN_READS_FOR_CONFIRMED /
+    // MIN_BREADTH_FOR_CONFIRMED mirror (pinned by the cross-repo contract
+    // test). This module was the fourth verdict site and the one the
+    // 2026-08-18 contract fix missed: in realtime mode it REWRITES the flat
+    // per-pair stats every batch with a status computed from hit rate and
+    // identity alone, so a single index-hopped read in a negative control
+    // shipped as "confirmed" for a Tier 1 select agent -- the exact defect
+    // fixed that morning in the per-batch modules, resurfacing one layer up.
+    def min_reads = params.validation_min_reads ?: 10
+    def min_breadth = params.validation_min_breadth ?: 0.05
     def blast_evalue = params.blast_evalue ?: "1e-10"
     def blast_perc_identity = params.blast_perc_identity ?: 90
     def blast_max_target_seqs = params.blast_max_target_seqs ?: 1
@@ -73,6 +84,8 @@ from pathlib import Path
 min_mapq = ${min_mapq}
 hit_threshold = ${hit_threshold}
 identity_threshold = ${identity_threshold}
+min_reads = ${min_reads}
+min_breadth = ${min_breadth}
 
 def total_reads_of(path):
     if path and Path(path).exists() and Path(path).stat().st_size > 0:
@@ -93,6 +106,8 @@ mapq_sum = 0.0; mapq_n = 0
 id_sum = 0.0; id_n = 0
 cov_sum = 0.0; cov_n = 0
 ref_max_len = 0; ref_max_name = ""
+intervals = []
+aligned_bp = 0
 
 with open("merged.paf") as fh:
     for line in fh:
@@ -102,33 +117,67 @@ with open("merged.paf") as fh:
         qname = cols[0]
         qlen = int(cols[1]); qstart = int(cols[2]); qend = int(cols[3])
         tname = cols[5]; tlen = int(cols[6])
+        tstart = int(cols[7]); tend = int(cols[8])
         nmatch = int(cols[9]); alen = int(cols[10]); mapq = int(cols[11])
         if tlen > ref_max_len:
             ref_max_len = tlen; ref_max_name = tname
-        if mapq >= min_mapq and qname not in seen:
-            seen.add(qname)
-            hits += 1
-            mapq_sum += mapq; mapq_n += 1
-            identity = -1.0
-            for tag in cols[12:]:
-                if tag.startswith("dv:f:"):
-                    identity = (1.0 - float(tag.split(":")[2])) * 100.0
-                    break
-            if identity < 0 and alen > 0:
-                identity = nmatch / alen * 100.0
-            if identity >= 0:
-                id_sum += identity; id_n += 1
-            span = abs(qend - qstart)
-            if qlen > 0:
-                cov_sum += span / qlen; cov_n += 1
+        if mapq >= min_mapq:
+            # Genome breadth intervals: every mapq-passing alignment
+            # contributes (mirrors MINIMAP2_VALIDATION's awk, which adds
+            # intervals before the per-read dedup).
+            if tend > tstart and tend <= tlen:
+                intervals.append((tstart, tend))
+                aligned_bp += tend - tstart
+            if qname not in seen:
+                seen.add(qname)
+                hits += 1
+                mapq_sum += mapq; mapq_n += 1
+                identity = -1.0
+                for tag in cols[12:]:
+                    if tag.startswith("dv:f:"):
+                        identity = (1.0 - float(tag.split(":")[2])) * 100.0
+                        break
+                if identity < 0 and alen > 0:
+                    identity = nmatch / alen * 100.0
+                if identity >= 0:
+                    id_sum += identity; id_n += 1
+                span = abs(qend - qstart)
+                if qlen > 0:
+                    cov_sum += span / qlen; cov_n += 1
+
+# Genome breadth over the merged batch set: interval-merge, not additive --
+# the same measure MINIMAP2_VALIDATION emits per batch and nanometa_live's
+# paf_breadth() recomputes from the cumulative PAF.
+covered_bp = 0
+intervals.sort()
+cur_start = cur_end = None
+for s, e in intervals:
+    if cur_start is None:
+        cur_start, cur_end = s, e
+    elif s > cur_end:
+        covered_bp += cur_end - cur_start
+        cur_start, cur_end = s, e
+    elif e > cur_end:
+        cur_end = e
+if cur_start is not None:
+    covered_bp += cur_end - cur_start
 
 if ref_max_name == "":
     ref_max_name = "unknown"; ref_max_len = 0
+genome_breadth = covered_bp / ref_max_len if ref_max_len > 0 else 0.0
+local_depth = aligned_bp / covered_bp if covered_bp > 0 else 0.0
+# Amplicon-like coverage -- a small share of the genome at high local depth --
+# is legitimate and must stay confirmable. Same rule as the per-batch module
+# and the GUI coverage plots.
+concentrated = genome_breadth <= 0.05 and local_depth >= 10 and covered_bp >= 200
+
 hit_rate = hits / cum_total if cum_total > 0 else 0.0
 avg_mapq = mapq_sum / mapq_n if mapq_n > 0 else 0.0
 avg_id = id_sum / id_n if id_n > 0 else 0.0
 avg_cov = cov_sum / cov_n if cov_n > 0 else 0.0
-if hit_rate >= hit_threshold and avg_id >= identity_threshold:
+if (hit_rate >= hit_threshold and avg_id >= identity_threshold
+        and hits >= min_reads
+        and (genome_breadth >= min_breadth or concentrated)):
     status = "confirmed"
 elif hit_rate >= hit_threshold * 0.5 or avg_id >= identity_threshold * 0.9:
     status = "uncertain"
@@ -145,6 +194,7 @@ stats = {
     "avg_mapq": round(avg_mapq, 2),
     "avg_identity": round(avg_id, 2),
     "avg_coverage": round(avg_cov, 4),
+    "genome_breadth": round(genome_breadth, 6),
     "validation_status": status,
     "ref_name": ref_max_name,
     "ref_length": ref_max_len,
@@ -179,6 +229,7 @@ from pathlib import Path
 
 hit_threshold = ${hit_threshold}
 identity_threshold = ${identity_threshold}
+min_reads = ${min_reads}
 
 def total_reads_of(path):
     if path and Path(path).exists() and Path(path).stat().st_size > 0:
@@ -212,7 +263,11 @@ hit_rate = hits / cum_total if cum_total > 0 else 0.0
 avg_identity = sum(identities) / len(identities) if identities else 0.0
 avg_coverage = sum(coverages) / len(coverages) if coverages else 0.0
 min_evalue = min(evalues) if evalues else 1.0
-if hit_rate >= hit_threshold and avg_identity >= identity_threshold:
+# min_reads floor as in BLASTN_VALIDATION: percentages are unstable at low n,
+# and a single index-hopped read at 100% hit rate must not confirm. Breadth is
+# deliberately not applied to BLAST (qcovs is per-read query coverage).
+if (hit_rate >= hit_threshold and avg_identity >= identity_threshold
+        and hits >= min_reads):
     status = "confirmed"
 elif hit_rate >= hit_threshold * 0.5 or avg_identity >= identity_threshold * 0.9:
     status = "uncertain"

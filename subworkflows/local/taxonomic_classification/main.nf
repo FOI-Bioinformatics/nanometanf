@@ -120,25 +120,30 @@ workflow TAXONOMIC_CLASSIFICATION {
     // Memory-mapping enables OS-level database caching, eliminating redundant disk I/O across batches
     //
     def auto_enable_optimizations = params.realtime_mode && !params.kraken2_use_optimizations
-    // Auto-disable memory-mapping on ARM (Apple Silicon / aarch64) where x86 emulation
-    // via Rosetta can cause SIGSEGV crashes with memory-mapped Kraken2 databases.
-    def is_arm = System.getProperty('os.arch')?.contains('aarch64') || System.getProperty('os.arch')?.contains('arm')
-    def use_memory_mapping = is_arm ? false : params.kraken2_memory_mapping
-    if (is_arm && params.kraken2_memory_mapping) {
-        log.warn "ARM architecture detected - disabling Kraken2 memory-mapping to avoid SIGSEGV under emulation"
-    }
+    // ONE memory-mapping decision, taken from the param alone. This value
+    // must stay in lock-step with conf/modules.config, whose
+    // KRAKEN2_KRAKEN2 ext.args reads params.kraken2_memory_mapping
+    // directly: an earlier ARM force-disable here produced a split brain,
+    // where the standard path ran --memory-mapping on ARM (via ext.args)
+    // while this subworkflow logged it as disabled, skipped the preload,
+    // and stripped the flag from the incremental/optimized paths -- so
+    // realtime mode on an ARM Mac re-loaded the full database on every
+    // batch. The ARM guard's premise (SIGSEGV under Rosetta) did not
+    // reproduce: the 2026-08-18 release check ran 51 tasks with
+    // --memory-mapping under Rosetta with zero faults. The per-module
+    // retry (attempt > 1 drops the flag) remains the safety net for
+    // filesystems where mmap genuinely misbehaves (NFS, GlusterFS, CIFS).
+    def use_memory_mapping = params.kraken2_memory_mapping
     def use_optimizations = params.realtime_mode ? true : params.kraken2_use_optimizations
 
     if (auto_enable_optimizations && classifier == 'kraken2') {
         log.info "=== Phase 2: Database Preloading Enabled ==="
         log.info "Real-time mode detected - automatically enabling Kraken2 optimizations:"
-        log.info "  - Memory-mapped database loading: ${use_memory_mapping ? 'ENABLED' : 'DISABLED (ARM Mac compatible mode)'}"
+        log.info "  - Memory-mapped database loading: ${use_memory_mapping ? 'ENABLED' : 'DISABLED (--kraken2_memory_mapping false)'}"
         if (use_memory_mapping) {
             log.info "  - Database cached in OS page cache for reuse across batches"
             log.info "  - Eliminates repeated database loading (30+ batches -> 1 load)"
             log.info "  - Estimated time savings: 1-3 minutes per batch after first load"
-        } else {
-            log.info "  - Note: Set --kraken2_memory_mapping true for faster performance on x86 systems"
         }
     }
 
@@ -330,7 +335,11 @@ workflow TAXONOMIC_CLASSIFICATION {
                     [total_reads: 0, classified_reads: 0, unclassified_reads: 0, taxa: [:]]
                 }
                 def batch_write_counter = [:].withDefault { 0 }
-                def write_interval = params.report_write_interval ?: 5
+                // Null-safe, not elvis: ?: treats the documented "0 = every
+                // batch" value as falsy and silently turned it into the old
+                // default of 5, so the every-batch setting never worked.
+                def write_interval = (params.report_write_interval == null
+                    ? 1 : params.report_write_interval) as int
 
                 // Writes the run-so-far cumulative kreport for one sample.
                 // Shared by the interval-gated progressive write below and the
@@ -419,23 +428,44 @@ workflow TAXONOMIC_CLASSIFICATION {
 
                                 batch_write_counter[sample_id] = batch_write_counter[sample_id] + 1
 
-                                // Write the live progressive report every N batches.
+                                // Write the live progressive report. The FIRST batch of a
+                                // sample ALWAYS flushes, whatever the configured interval:
+                                // until this file exists the dashboard's cumulative tier
+                                // is blind (Sequences Analyzed sat at 0 for six minutes on
+                                // the 2026-08-18 realtime audit while the verdict banner,
+                                // fed from latest-batch data, already showed ACTION
+                                // REQUIRED). The interval only thins SUBSEQUENT writes --
+                                // and its default is now 1, because the expensive half
+                                // (the state merge above) runs every batch regardless;
+                                // the gate skips only a string build and one small atomic
+                                // write, a saving that rounds to zero next to the batch's
+                                // classification work.
                                 // A per-batch "final batch" flag is not knowable in a
                                 // streaming watchPath run, so the definitive end-of-
                                 // session report is produced by KRAKEN2_FINAL_AGGREGATOR
                                 // (it writes the same kraken2/<id>.cumulative.kraken2.
                                 // report.txt from the per-batch files on disk), and the
                                 // in-memory state is released in onComplete below.
-                                if (write_interval <= 0
+                                if (batch_write_counter[sample_id] == 1
+                                    || write_interval <= 0
                                     || batch_write_counter[sample_id] % write_interval == 0) {
 
                                     write_cumulative_report.call(sample_id, state)
                                     log.debug "Progressive cumulative report updated for ${sample_id}: ${state.total_reads} reads, ${state.taxa.size()} taxa"
 
-                                    // Memory diagnostic at every write: total live taxa across all in-flight samples
+                                    // Memory diagnostic: total live taxa across all
+                                    // in-flight samples. INFO only every 10th batch per
+                                    // sample -- at the per-batch write cadence this line
+                                    // would otherwise dominate the log on a multi-barcode
+                                    // run -- DEBUG on the batches in between.
                                     def live_samples = cumulative_taxa_state.size()
                                     def live_taxa = cumulative_taxa_state.values().sum(0) { it.taxa.size() }
-                                    log.info "[cumulative-state] ${live_samples} sample(s) in flight, ${live_taxa} total live taxa entries"
+                                    def state_msg = "[cumulative-state] ${live_samples} sample(s) in flight, ${live_taxa} total live taxa entries"
+                                    if (batch_write_counter[sample_id] % 10 == 0) {
+                                        log.info state_msg
+                                    } else {
+                                        log.debug state_msg
+                                    }
                                 } // end write interval check
                             }
                         } catch (Exception e) {

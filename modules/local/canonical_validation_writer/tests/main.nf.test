@@ -13,6 +13,59 @@ nextflow_process {
     tag "stub"
     tag "fast"
 
+    // Real execution of alignment_to_canonical.py's BLAST branch, which no
+    // pipeline test reaches (realtime_validation_e2e covers only the PAF
+    // branch). Pins the 15-column outfmt-6 parse and the 12-column legacy
+    // fallback (2026-08-17 stub-coverage sweep).
+    test("Should parse 15-column BLAST outfmt-6 for real") {
+
+        options ""
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id: 'blastsample', taxid: 2697049 ],
+                    file("\${projectDir}/modules/local/validation_cumulative_aggregator/tests/fixtures/batch/test_taxid2697049.blast.tsv", checkIfExists: true),
+                    'blast',
+                    'blast'
+                ]
+                """
+            }
+        }
+
+        then {
+            assert process.success
+            def lines = path(process.out.canonical.get(0).get(1)).text.split('\n')
+            assert lines[0].split('\t').contains('identity')
+            assert lines.size() >= 3  // header + the fixture's alignments
+        }
+    }
+
+    test("Should parse legacy 12-column BLAST without crashing") {
+
+        options ""
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id: 'legacysample', taxid: 562 ],
+                    file("\${projectDir}/modules/local/canonical_validation_writer/tests/fixtures/legacy12col.blast.tsv", checkIfExists: true),
+                    'blast',
+                    'blast'
+                ]
+                """
+            }
+        }
+
+        then {
+            assert process.success
+            def lines = path(process.out.canonical.get(0).get(1)).text.split('\n')
+            assert lines.size() == 2  // header + one alignment
+        }
+    }
+
     test("Should emit canonical validation stub outputs") {
 
         setup {

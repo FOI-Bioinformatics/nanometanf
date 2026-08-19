@@ -4,16 +4,77 @@ nextflow_process {
     script "../main.nf"
     process "FASTP_STREAMING"
 
-    options "-stub"
-
     tag "module"
     tag "fastp_streaming"
     tag "qc"
     tag "realtime"
-    tag "stub"
     tag "fast"
 
+    // Real execution against the two input shapes the old code broke on
+    // (2026-08-17 stub-coverage sweep). The previous cat/symlink trusted the
+    // .gz suffix: a plain FASTQ was symlinked to ${prefix}.fastq.gz and fastp
+    // failed on the missing gzip header; a mixed plain+gz batch cat'ed into
+    // an invalid stream. Stub mode never runs the script, so only real
+    // execution can pin this.
+    test("Should process a plain (uncompressed) FASTQ batch") {
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id: 'plainsample', single_end: true ],
+                    [ file("\${projectDir}/modules/local/fastp_streaming/tests/fixtures/plain.fastq", checkIfExists: true) ],
+                    []
+                ]
+                input[1] = false
+                input[2] = false
+                input[3] = false
+                """
+            }
+        }
+
+        then {
+            assert process.success
+            with(process.out.json.get(0)) {
+                def stats = new groovy.json.JsonSlurper().parse(path(get(1)).toFile())
+                assert stats.summary.before_filtering.total_reads == 4
+            }
+        }
+    }
+
+    test("Should concatenate a mixed plain and gzipped batch") {
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id: 'mixedsample', single_end: true ],
+                    [
+                        file("\${projectDir}/modules/local/fastp_streaming/tests/fixtures/plain.fastq", checkIfExists: true),
+                        file("\${projectDir}/modules/local/fastp_streaming/tests/fixtures/batch2.fastq.gz", checkIfExists: true),
+                    ],
+                    []
+                ]
+                input[1] = false
+                input[2] = false
+                input[3] = false
+                """
+            }
+        }
+
+        then {
+            assert process.success
+            with(process.out.json.get(0)) {
+                def stats = new groovy.json.JsonSlurper().parse(path(get(1)).toFile())
+                assert stats.summary.before_filtering.total_reads == 6
+            }
+        }
+    }
+
     test("Should emit fastp streaming stub outputs for single-end input") {
+
+        options "-stub"
+        tag "stub"
 
         setup {
             file("${outputDir}").mkdirs()

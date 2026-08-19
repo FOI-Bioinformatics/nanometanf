@@ -1,0 +1,165 @@
+// Real execution of the four param-gated paths no test previously enabled:
+// kraken2_enable_incremental, qc_enable_incremental, kraken2_use_optimizations,
+// enable_nanoplot_comparison (2026-08-17 stub-coverage sweep).
+//
+// These are not exotic options: the field deployment profiles (conf/field.config,
+// conf/minion.config, conf/promethion*.config) set the two incremental params to
+// true, so before this file the exact configuration field hardware runs had no
+// test coverage at all. All four paths are reachable in batch mode, which keeps
+// these tests free of the realtime watchPath/timeout machinery.
+nextflow_pipeline {
+
+    name "Param-gated pipeline paths (field-profile defaults)"
+    script "../main.nf"
+
+    tag "pipeline"
+    tag "integration"
+    tag "classification"
+    tag "field_profiles"
+
+    test("batch run with kraken2_enable_incremental writes cumulative + per-batch reports") {
+        when {
+            params {
+                input = false
+                barcode_input_dir = "$projectDir/tests/fixtures/kraken2_real/reads"
+                outdir = "$outputDir"
+                realtime_mode = false
+                classifier = 'kraken2'
+                kraken2_db = "$projectDir/tests/fixtures/kraken2_real/db"
+                kraken2_enable_incremental = true
+                skip_fastp = true
+                skip_nanoplot = true
+                skip_multiqc = true
+                blast_validation = false
+                max_cpus = 2
+                max_memory = '4.GB'
+                max_time = '15.min'
+            }
+        }
+        then {
+            assert workflow.success
+
+            // The incremental chain (classifier -> merger -> report generator
+            // -> final aggregator) must deliver the cumulative report the
+            // dashboard's loader priority expects, with real classification.
+            def cumulative = []
+            new File("${outputDir}/kraken2").eachFileRecurse { f ->
+                if (f.name.endsWith('.cumulative.kraken2.report.txt')) cumulative << f
+            }
+            assert cumulative.size() > 0 : "no cumulative report from KRAKEN2_FINAL_AGGREGATOR"
+            assert cumulative.any { it.text.contains('562') } : "cumulative report classified nothing to taxid 562"
+
+            // Per-batch drill-down reports are preserved.
+            def batch_reports = []
+            new File("${outputDir}/kraken2").eachFileRecurse { f ->
+                if (f.name.contains('_batch') && f.name.endsWith('.kraken2.report.txt')) batch_reports << f
+            }
+            assert batch_reports.size() > 0 : "no per-batch reports from KRAKEN2_REPORT_GENERATOR"
+        }
+    }
+
+    test("batch run with kraken2_use_optimizations classifies and writes valid performance JSON") {
+        when {
+            params {
+                input = false
+                barcode_input_dir = "$projectDir/tests/fixtures/kraken2_real/reads"
+                outdir = "$outputDir"
+                realtime_mode = false
+                classifier = 'kraken2'
+                kraken2_db = "$projectDir/tests/fixtures/kraken2_real/db"
+                kraken2_use_optimizations = true
+                // ARM hosts force memory mapping off inside the subworkflow;
+                // leaving the param at its default keeps this portable.
+                skip_fastp = true
+                skip_nanoplot = true
+                skip_multiqc = true
+                blast_validation = false
+                max_cpus = 2
+                max_memory = '4.GB'
+                max_time = '15.min'
+            }
+        }
+        then {
+            assert workflow.success
+
+            def reports = []
+            new File("${outputDir}/kraken2").eachFileRecurse { f ->
+                if (f.name.endsWith('.kraken2.report.txt')) reports << f
+            }
+            assert reports.size() > 0 : "no Kraken2 report from KRAKEN2_OPTIMIZED"
+            assert reports.any { it.text.contains('562') } : "optimized run classified nothing to taxid 562"
+
+            // The performance JSON was invalid on every real run until the
+            // 2026-08-17 heredoc-quoting fix; parse it and check the counters.
+            def perf = []
+            new File("${outputDir}").eachFileRecurse { f ->
+                if (f.name.endsWith('.kraken2.performance.json')) perf << f
+            }
+            assert perf.size() > 0 : "no performance JSON from KRAKEN2_OPTIMIZED"
+            def stats = new groovy.json.JsonSlurper().parse(perf[0])
+            assert stats.classification_statistics.total_sequences > 0
+            assert stats.classification_statistics.classification_rate != null
+        }
+    }
+
+    test("batch run with qc_enable_incremental + nanoplot comparison aggregates QC for real") {
+        when {
+            params {
+                input = false
+                barcode_input_dir = "$projectDir/tests/fixtures/kraken2_real/reads"
+                outdir = "$outputDir"
+                realtime_mode = false
+                classifier = 'kraken2'
+                kraken2_db = "$projectDir/tests/fixtures/kraken2_real/db"
+                qc_enable_incremental = true
+                enable_nanoplot_comparison = true
+                skip_nanoplot = false
+                // The fixture reads are short; the default 1000 bp floor
+                // would discard them all and test the empty-input path
+                // instead of the aggregation path.
+                chopper_minlength = 1
+                chopper_quality = 0
+                skip_multiqc = true
+                blast_validation = false
+                max_cpus = 2
+                max_memory = '8.GB'
+                max_time = '20.min'
+            }
+        }
+        then {
+            assert workflow.success
+
+            // SEQKIT_MERGE_STATS: the cumulative TSV must exist and carry a
+            // non-zero read count (the parser returning silent zeros is the
+            // failure mode the canonical_qc_writer sweep flagged).
+            def cumulative_tsv = []
+            new File("${outputDir}").eachFileRecurse { f ->
+                if (f.name.endsWith('.cumulative.tsv')) cumulative_tsv << f
+            }
+            assert cumulative_tsv.size() > 0 : "no cumulative TSV from SEQKIT_MERGE_STATS"
+            def lines = cumulative_tsv[0].readLines()
+            assert lines.size() >= 2 : "cumulative TSV has no data row"
+            def header = lines[0].split('\t').toList()
+            def row = lines[1].split('\t')
+            def n_reads = row[header.indexOf('num_seqs')].replace(',', '') as long
+            assert n_reads > 0 : "cumulative TSV reports zero reads"
+
+            // The canonical QC JSON downstream of the cumulative TSV.
+            def qc_json = []
+            new File("${outputDir}/canonical").eachFileRecurse { f ->
+                if (f.name.endsWith('.qc_stats.json')) qc_json << f
+            }
+            assert qc_json.size() > 0 : "no canonical QC JSON written"
+            def qc = new groovy.json.JsonSlurper().parse(qc_json[0])
+            assert qc.after_filtering.total_reads > 0 : "canonical QC parsed to silent zeros"
+
+            // NANOPLOT_COMPARE produced the multi-sample comparison dir.
+            def comparison = []
+            new File("${outputDir}").eachDirRecurse { d ->
+                if (d.name.endsWith('_comparison')) comparison << d
+            }
+            assert comparison.size() > 0 : "no comparison dir from NANOPLOT_COMPARE"
+            assert comparison[0].listFiles().any { it.name.endsWith('.txt') || it.name.endsWith('.html') }
+        }
+    }
+}

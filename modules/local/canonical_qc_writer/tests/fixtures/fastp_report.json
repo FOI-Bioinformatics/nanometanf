@@ -1,0 +1,26 @@
+{
+ "summary": {
+  "before_filtering": {
+   "total_reads": 2000,
+   "total_bases": 2800000,
+   "q20_rate": 0.91,
+   "q30_rate": 0.78,
+   "gc_content": 0.42,
+   "read1_mean_length": 1400
+  },
+  "after_filtering": {
+   "total_reads": 1500,
+   "total_bases": 2100000,
+   "q20_rate": 0.94,
+   "q30_rate": 0.83,
+   "gc_content": 0.41,
+   "read1_mean_length": 1400
+  }
+ },
+ "filtering_result": {
+  "passed_filter_reads": 1500,
+  "low_quality_reads": 400,
+  "too_many_N_reads": 0,
+  "too_short_reads": 100
+ }
+}

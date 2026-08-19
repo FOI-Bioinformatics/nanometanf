@@ -6,6 +6,7 @@ computes GC content from a FASTA file.
 """
 
 import argparse
+import gzip
 import json
 import os
 import sys
@@ -13,8 +14,22 @@ import tempfile
 from datetime import datetime, timezone
 
 
+def _open_fasta(fasta_path):
+    """Open a FASTA file for text reading, transparently handling gzip.
+
+    The FLYE module emits gzipped FASTA (*.assembly.fasta.gz); reading it
+    as plain text fails with UnicodeDecodeError on the gzip magic byte.
+    Sniff the magic rather than trusting the extension.
+    """
+    with open(fasta_path, "rb") as probe:
+        magic = probe.read(2)
+    if magic == b"\x1f\x8b":
+        return gzip.open(fasta_path, "rt")
+    return open(fasta_path, "r")
+
+
 def compute_gc_from_fasta(fasta_path):
-    """Compute GC content from a FASTA file.
+    """Compute GC content from a FASTA file (plain or gzipped).
 
     Returns GC fraction (0.0-1.0) across all sequences, or None if
     the file cannot be read or contains no sequence data.
@@ -22,7 +37,7 @@ def compute_gc_from_fasta(fasta_path):
     gc_count = 0
     total_count = 0
 
-    with open(fasta_path, "r") as f:
+    with _open_fasta(fasta_path) as f:
         for line in f:
             if line.startswith(">"):
                 continue
@@ -39,7 +54,7 @@ def compute_gc_from_fasta(fasta_path):
 
 
 def compute_gc_per_contig(fasta_path):
-    """Compute GC content per contig from a FASTA file.
+    """Compute GC content per contig from a FASTA file (plain or gzipped).
 
     Returns a dictionary mapping contig name to GC fraction.
     """
@@ -48,7 +63,7 @@ def compute_gc_per_contig(fasta_path):
     gc_count = 0
     total_count = 0
 
-    with open(fasta_path, "r") as f:
+    with _open_fasta(fasta_path) as f:
         for line in f:
             if line.startswith(">"):
                 if current_name is not None and total_count > 0:

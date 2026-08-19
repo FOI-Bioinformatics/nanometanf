@@ -4,15 +4,88 @@ nextflow_process {
     script "../main.nf"
     process "KRAKEN2_OPTIMIZED"
 
-    options "-stub"
-
     tag "module"
     tag "kraken2_optimized"
     tag "classification"
-    tag "stub"
     tag "fast"
 
+    // Real execution: this module had ZERO real coverage anywhere in the
+    // suite (unreachable in every pipeline test), so its awk report parsing
+    // and the performance-JSON heredoc had never run (2026-08-17 sweep).
+    test("Should classify gzipped reads against the mini database") {
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id: 'realgz', single_end: true ],
+                    file("\${projectDir}/tests/fixtures/kraken2_real/reads/barcode01/reads.fastq.gz", checkIfExists: true)
+                ]
+                input[1] = file("\${projectDir}/tests/fixtures/kraken2_real/db", checkIfExists: true)
+                input[2] = false
+                input[3] = false
+                input[4] = false
+                input[5] = 0.0
+                input[6] = 0
+                """
+            }
+        }
+
+        then {
+            assert process.success
+            def perf = new groovy.json.JsonSlurper().parse(
+                path(process.out.performance_metrics.get(0)).toFile())
+            assert perf.classification_statistics.total_sequences > 0
+            // The mini fixture DB emits blank name columns; assert on the
+            // rank/taxid structure instead (root row, tab-separated).
+            def report = path(process.out.report.get(0).get(1)).text
+            assert report.split('\n').any { it.split('\t').size() >= 5 && it.split('\t')[3] in ['R', 'U'] }
+        }
+    }
+
+    // A plain (uncompressed) FASTQ used to abort: --gzip-compressed was
+    // unconditional, so kraken2 rejected the missing gzip header. The flag
+    // is now derived from the input names.
+    test("Should classify a plain FASTQ without the gzip flag") {
+
+        setup {
+            file("${outputDir}").mkdirs()
+            def src = file("${projectDir}/tests/fixtures/kraken2_real/reads/barcode01/reads.fastq.gz")
+            def dest = file("${outputDir}/plain_reads.fastq")
+            dest.withOutputStream { out ->
+                new java.util.zip.GZIPInputStream(src.newInputStream()).transferTo(out)
+            }
+        }
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id: 'realplain', single_end: true ],
+                    file("${outputDir}/plain_reads.fastq")
+                ]
+                input[1] = file("\${projectDir}/tests/fixtures/kraken2_real/db", checkIfExists: true)
+                input[2] = false
+                input[3] = false
+                input[4] = false
+                input[5] = 0.0
+                input[6] = 0
+                """
+            }
+        }
+
+        then {
+            assert process.success
+            def perf = new groovy.json.JsonSlurper().parse(
+                path(process.out.performance_metrics.get(0)).toFile())
+            assert perf.classification_statistics.total_sequences > 0
+        }
+    }
+
     test("Should emit Kraken2 report and performance metrics under -stub") {
+
+        options "-stub"
+        tag "stub"
 
         setup {
             file("${outputDir}").mkdirs()

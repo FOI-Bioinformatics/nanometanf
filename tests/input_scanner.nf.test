@@ -112,4 +112,28 @@ nextflow_workflow {
             assert (files instanceof List ? files : [files]).size() == 2
         }
     }
+
+    test("Should ignore macOS AppleDouble sidecar files") {
+
+        // macOS writes "._<name>" AppleDouble sidecars beside every file on
+        // exFAT/USB media (the normal field-laptop transfer path). They are
+        // not gzip, so scanning them as FASTQ fails CHOPPER downstream.
+        when {
+            workflow {
+                """
+                input[0] = "$projectDir/tests/fixtures/appledouble_input"
+                input[1] = null
+                """
+            }
+        }
+
+        then {
+            assert workflow.success
+            def all_files = workflow.out.samples.collectMany { it[1] instanceof List ? it[1] : [it[1]] }
+            def names = all_files.collect { file(it.toString()).name }
+            assert names.contains("sample.fastq.gz")
+            assert !names.any { it.startsWith("._") }
+        }
+    }
+
 }
