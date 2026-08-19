@@ -7,12 +7,69 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.7.0] - 2026-08-19
+
+Minor release: validation-verdict correctness, Kraken2 performance, and
+realtime reporting. Every fix below was found by executing the pipeline on
+real sequencing data through the Nanometa Live GUI -- batch and realtime --
+not by unit tests. Pairs with nanometa_live 0.10.0; the two repositories are
+released together.
+
 ### Added
 - CI job `realtime-e2e`: runs the `real_execution`-tagged realtime +
   validation end-to-end test on a macOS/arm64 runner under the conda
   profile, with the per-module conda environments cached. The test could
   not join the ubuntu job because watchPath still leaks its monitor thread
   on that runner image (docs/upstream-issues/26-watchpath-cleanup-hang.md).
+- `validation_min_reads` (10) and `validation_min_breadth` (0.05): the
+  confirmation floors, applied by BLASTN_VALIDATION, MINIMAP2_VALIDATION and
+  VALIDATION_CUMULATIVE_AGGREGATOR alike, with an amplicon exemption for
+  focused high-depth coverage. A cross-repo contract test in nanometa_live
+  fails if either side drifts.
+- `genome_breadth` in the minimap2 and cumulative validation statistics,
+  measured from the PAF by interval merge.
+
+### Changed
+- Kraken2 memory mapping is decided by `--kraken2_memory_mapping` alone. The
+  classification subworkflow's ARM opt-out contradicted `modules.config`,
+  which passed the flag regardless: realtime runs on ARM re-loaded the whole
+  database on every batch while the log claimed mapping was disabled. The
+  per-module retry without the flag remains the safety net.
+- `KRAKEN2_DB_PRELOAD` runs whenever memory mapping is on, and skips (with a
+  status file explaining why) when the database exceeds 70% of available
+  memory, where preloading only churns the page cache.
+- The progressive cumulative report is written every batch, and a sample's
+  first batch always flushes. The previous default (every fifth batch) left
+  the dashboard's cumulative tier blind for the first minutes of a run while
+  gating only a small file write; the state merge always ran per batch.
+- kraken2 pinned at 2.1.6 in the incremental and optimized modules, matching
+  the nf-core module. 2.1.5 segfaults under Rosetta with `--memory-mapping`
+  (every first attempt on an ARM host), which is what the removed ARM opt-out
+  had been working around.
+
+### Fixed
+- Validation no longer confirms an organism on evidence that cannot support
+  it: a single index-hopped read covering 0.07% of a genome shipped as
+  `confirmed` for a Tier 1 select agent. Read support and real genome breadth
+  are now required, in the per-batch modules and in the realtime cumulative
+  aggregator, which rewrites the published per-pair statistics every batch.
+- MINIMAP2_VALIDATION reads the sorted PAF stream: awk received the file as
+  an argument and ignored the `sort` pipe, so breadth was computed from
+  unsorted intervals and `sort` took SIGPIPE on any PAF above the pipe buffer
+  (exit 141, task failure).
+- KRAKEN2_INCREMENTAL_CLASSIFIER writes per-read output to the file the
+  merger consumes. With `--output` set, kraken2 writes nothing to stdout, so
+  every realtime batch cached an empty output file and the final aggregator
+  counted zero reads, zeroing the percent column of every cumulative report.
+- `--validation_only` discovers samples from the classified FASTQs published
+  by the original run, so on-demand validation works for multiplexed
+  (`by_barcode`) inputs; the previous flat glob over `--reads_dir` matched
+  nothing and aborted before any process ran.
+- Assembly: gzipped FASTA is read correctly in `assembly_to_canonical.py`,
+  Flye runs in metagenome mode by default, and assembly outputs are published.
+- Realtime: hidden files are excluded from input scanning without displacing
+  the PoisonPill target that ends a watchPath session.
+- Remote institutional configs are opt-in rather than a launch dependency.
 
 ## [1.6.1] - 2026-08-17
 
@@ -1427,7 +1484,7 @@ This release focuses on backend stability and API documentation for Nanometa Liv
 - Kraken2 database must be pre-downloaded (not included)
 - Windows support limited (use WSL2)
 
-## [Unreleased]
+## Historical roadmap (superseded)
 
 ### Planned for Future Versions (v1.2.0+)
 
