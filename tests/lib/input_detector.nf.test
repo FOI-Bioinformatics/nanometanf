@@ -57,6 +57,30 @@ nextflow_function {
         }
     }
 
+    test("extractSampleId should group the unclassified bin as one sample") {
+
+        function "extractSampleId"
+
+        when {
+            function {
+                """
+                input[0] = "/data/fastq_pass/unclassified/FBE98306_pass_unclassified_521926d8_4f0210db_0_chunk_0000.fastq.gz"
+                input[1] = null
+                input[2] = null
+                """
+            }
+        }
+
+        then {
+            // MinKNOW writes an unclassified/ bin beside the barcode dirs in
+            // every demultiplexed run. The parent directory names the sample,
+            // exactly as for barcodeNN/ -- falling through to the filename
+            // stem made every chunk file its own sample (132 phantom samples
+            // on the 2026-08-25 soak run, polluting the GUI sample selector).
+            assert function.result == "unclassified"
+        }
+    }
+
     test("extractSampleId should use regex when provided") {
 
         function "extractSampleId"

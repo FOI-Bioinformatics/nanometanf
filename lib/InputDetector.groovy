@@ -56,8 +56,11 @@ class InputDetector {
         def filename = f.name
         def stem = filename.replaceAll(/\.(fastq|fq)(\.gz)?$/, '')
 
-        // 1. Subdirectory-based: parent is barcode dir
-        if (parentName && parentName =~ /^barcode\d+$/) {
+        // 1. Subdirectory-based: parent is a barcode dir or the unclassified
+        //    bin MinKNOW writes beside them. Both name the sample; without
+        //    the latter every chunk file in unclassified/ fell through to
+        //    the filename stem and became its own sample.
+        if (parentName && (parentName =~ /^barcode\d+$/ || parentName == 'unclassified')) {
             return parentName
         }
 

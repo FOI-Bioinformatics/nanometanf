@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- Realtime mode treated every file in MinKNOW's `unclassified/` bin as its
+  own sample: `InputDetector.extractSampleId` recognised only `barcodeNN`
+  parent directories, so unclassified chunk files fell through to the
+  filename stem (132 phantom samples on a four-barcode soak run, polluting
+  the GUI sample selector, Organisms and QC tabs). The parent directory now
+  names the sample for `unclassified/` exactly as for barcode dirs, matching
+  the scan-mode input_scanner, and the realtime meta gains
+  `barcode: "unclassified"` for parity with scan mode.
+
 ## [1.7.0] - 2026-08-19
 
 Minor release: validation-verdict correctness, Kraken2 performance, and

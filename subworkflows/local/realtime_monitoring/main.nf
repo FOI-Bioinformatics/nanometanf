@@ -437,8 +437,9 @@ workflow REALTIME_MONITORING {
                 )
                 meta.id = sample_id
 
-                // Add barcode metadata if applicable
-                if (sample_id =~ /^barcode\d+$/) {
+                // Add barcode metadata if applicable; the unclassified bin
+                // carries it too, matching the scan-mode input_scanner.
+                if (sample_id =~ /^barcode\d+$/ || sample_id == 'unclassified') {
                     meta.barcode = sample_id
                 }
 
