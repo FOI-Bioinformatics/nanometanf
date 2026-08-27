@@ -409,7 +409,13 @@ workflow NANOMETANF {
             // Queue channels are consumed after one emission, breaking streaming workflows
             // Value channels can be reused across multiple emissions (required for watchPath)
             ch_classification_db = UNTAR.out.untar.map { meta, db -> db }.first()
-            ch_versions = ch_versions.mix(UNTAR.out.versions)
+            // The nf-core UNTAR module reports its version through the
+            // topic-style emit (versions_untar, topic: versions); it has no
+            // plain `versions` emit, and mixing the eval-tuple into the
+            // yml-based ch_versions would break softwareVersionsToYAML.
+            // Referencing UNTAR.out.versions crashed EVERY tar.gz-database
+            // run at wiring time (2026-08-27), so no version line for tar
+            // is the accepted trade-off.
         } else {
             // Use directory path directly
             // STREAMING-FIX: Use .first() to convert queue channel to value channel
