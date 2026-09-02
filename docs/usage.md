@@ -355,10 +355,18 @@ nextflow run foi-bioinformatics/nanometanf \
 ```bash
 --skip_fastp                # Skip FASTP quality filtering
 --skip_nanoplot             # Skip NanoPlot QC
---fastp_qualified_quality <int>     # Min quality score (default: 15)
---fastp_length_required <int>       # Min read length (default: 1000)
---fastp_cut_mean_quality <int>      # Sliding window quality (default: 20)
+--qc_tool <chopper|fastp|filtlong>  # Read filter (default: chopper)
+--chopper_minlength <int>           # Min read length, chopper (default: 1000; 1 disables)
+--chopper_quality <int>             # Min mean read quality, chopper (default: 10)
+--fastp_length_required <int>       # Min read length, fastp (default: 1000; 1 disables)
+--fastp_average_qual <int>          # Min mean read quality, fastp (default: 10)
+--fastp_qualified_quality <int>     # Per-base phred floor, fastp (default: 15)
+--filtlong_min_length <int>         # Min read length, filtlong (default: 1000)
 ```
+
+The length and mean-quality floors apply to whichever QC tool is selected;
+each tool reads its own parameter set, and the pipeline applies the same
+defaults to all three so a run filters the same reads whichever tool it uses.
 
 #### Taxonomic Classification
 

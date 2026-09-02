@@ -36,6 +36,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   stage and exit status. Nanometa Live reads the markers into the run report.
 
 ### Fixed
+- **The fastp QC tool now applies the read filter.** `qc_tool fastp` ran
+  with fastp's own 15 bp default and no mean-quality floor; the chopper_*
+  values had no counterpart, so a cutoff raised or lowered for a fastp run
+  changed nothing, and the `fastp_*` keys that `conf/qc_profiles.config`,
+  `docs/usage.md` and `docs/output.md` referred to existed nowhere
+  (nanometa_live read-length audit, 2026-09-02). `fastp_length_required`
+  (1000), `fastp_average_qual` (10) and `fastp_qualified_quality` (15) are
+  real parameters, reach FASTP and FASTP_STREAMING through `ext.args`, and
+  the first two default to chopper's values so the filter means the same
+  thing whichever tool runs. The unread `fastp_cut_mean_quality` is gone
+  from the QC profiles. Runs with `qc_tool fastp` and default parameters
+  now drop reads under 1000 bp or a mean quality of 10, as chopper runs do.
+  `conf/production.config` builds its FASTP arguments from the same
+  parameters in a closure (a plain string interpolated them as null under
+  `-c`) and no longer passes `--disable_quality_filtering false`, which
+  disabled fastp's quality filter with a stray token after it.
 - **Real-time intake no longer has a start-up blind window.** Nextflow starts
   the `watchPath` directory listener in a session igniter, after the whole
   script has been evaluated, and treats everything present at that moment as

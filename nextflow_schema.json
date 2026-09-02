@@ -574,6 +574,29 @@
                     "description": "Number of bases to trim from read end (CHOPPER).",
                     "fa_icon": "fas fa-cut"
                 },
+                "fastp_length_required": {
+                    "type": "integer",
+                    "default": 1000,
+                    "minimum": 1,
+                    "description": "Minimum read length for FASTP filtering (--length_required). 1 disables.",
+                    "fa_icon": "fas fa-ruler"
+                },
+                "fastp_average_qual": {
+                    "type": "integer",
+                    "default": 10,
+                    "minimum": 0,
+                    "maximum": 50,
+                    "description": "Minimum mean read quality for FASTP filtering (--average_qual). 0 disables.",
+                    "fa_icon": "fas fa-filter"
+                },
+                "fastp_qualified_quality": {
+                    "type": "integer",
+                    "default": 15,
+                    "minimum": 0,
+                    "maximum": 50,
+                    "description": "Per-base phred floor for FASTP's qualified-base test (--qualified_quality_phred).",
+                    "fa_icon": "fas fa-filter"
+                },
                 "filtlong_min_length": {
                     "type": "integer",
                     "default": 1000,
