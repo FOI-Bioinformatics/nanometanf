@@ -2,18 +2,19 @@
 
 Date: 2026-05-29
 Sim data: nanorunner `--mock quick_3species --read-count 4000`, seed=1
+
 - 3 barcodes (one per species), 14 files each, ~1333 reads per barcode, 4000 reads total
-Kraken2 DB: `k2_pluspfp_08_GB_20251015` (~8 GB)
-Hardware: 11 cores / 18 GB RAM (ARM Mac, conda profile)
-Resource caps: `max_cpus=8`, `max_memory=12.GB`, `kraken2_memory_mapping=false`
+  Kraken2 DB: `k2_pluspfp_08_GB_20251015` (~8 GB)
+  Hardware: 11 cores / 18 GB RAM (ARM Mac, conda profile)
+  Resource caps: `max_cpus=8`, `max_memory=12.GB`, `kraken2_memory_mapping=false`
 
 ## Results
 
-| ID | Mode | Input | realtime_mode | Profile | Wall (s) | Trace tasks | Notes |
-|----|------|-------|---------------|---------|----------|-------------|-------|
-| A1 | incremental (streaming) | nanopore_output_dir (watchPath) | true | minion,conda | 380 | 243 | Real work done by 285s; hung on JVM exit for 30+ min — see bug below |
-| A2 | optimized (memory-map flags) | input_dir (batch scan) | false | conda | 271 | 27 | Clean exit |
-| A3 | standard (no flags) | input_dir (batch scan) | false | conda | 243 | 27 | Clean exit |
+| ID  | Mode                         | Input                           | realtime_mode | Profile      | Wall (s) | Trace tasks | Notes                                                                |
+| --- | ---------------------------- | ------------------------------- | ------------- | ------------ | -------- | ----------- | -------------------------------------------------------------------- |
+| A1  | incremental (streaming)      | nanopore_output_dir (watchPath) | true          | minion,conda | 380      | 243         | Real work done by 285s; hung on JVM exit for 30+ min — see bug below |
+| A2  | optimized (memory-map flags) | input_dir (batch scan)          | false         | conda        | 271      | 27          | Clean exit                                                           |
+| A3  | standard (no flags)          | input_dir (batch scan)          | false         | conda        | 243      | 27          | Clean exit                                                           |
 
 A1's wall is computed from earliest task `.command.begin` to MULTIQC `.exitcode` rather than the Nextflow `WALL_SECONDS`, because the actual JVM hung 30+ min past pipeline completion (see Bug 1). The 380s also includes one-time conda env builds that A2/A3 inherited cached.
 
@@ -21,11 +22,11 @@ A1's wall is computed from earliest task `.command.begin` to MULTIQC `.exitcode`
 
 All three modes produced **identical** species-level reads on the same input:
 
-| Barcode | Expected genome | Reads | Top species (A1/A2/A3 all match) |
-|---------|-----------------|-------|----------------------------------|
-| barcode01 | GCF_000005845.2 (E. coli) | 1334 | 181 → Escherichia coli |
-| barcode02 | GCF_000013425.1 (S. aureus) | 1333 | 573 → Staphylococcus aureus |
-| barcode03 | GCF_000009045.1 (B. subtilis) | 1333 | 145 → Bacillus subtilis |
+| Barcode   | Expected genome               | Reads | Top species (A1/A2/A3 all match) |
+| --------- | ----------------------------- | ----- | -------------------------------- |
+| barcode01 | GCF_000005845.2 (E. coli)     | 1334  | 181 → Escherichia coli           |
+| barcode02 | GCF_000013425.1 (S. aureus)   | 1333  | 573 → Staphylococcus aureus      |
+| barcode03 | GCF_000009045.1 (B. subtilis) | 1333  | 145 → Bacillus subtilis          |
 
 Confirms classifier mode is a runtime-architecture choice, not a result-affecting one — comparison is fair.
 
@@ -42,7 +43,7 @@ under platform profiles.
 ## Trace task counts
 
 A1 ran 243 task invocations vs A2/A3's 27. The 9x multiplier reflects per-batch
-parallelism: 14 batches per barcode * 3 barcodes * 4 streaming Kraken2 modules
+parallelism: 14 batches per barcode _ 3 barcodes _ 4 streaming Kraken2 modules
 (classifier, merger, report generator, then one aggregator per sample). On 1333
 reads per barcode this overhead dominates; the streaming architecture's benefit
 only shows above the per-task conda-activation cost (~2 s) times the batch count.
@@ -78,6 +79,7 @@ to park on a closure that the realtime-timeout (line 248) doesn't fully cancel.
 default) — Timer block is skipped entirely, pipeline exits cleanly.
 
 **Suggested follow-up**:
+
 1. Reproduce on a smaller test (the `nanoseq_test.nf.test` smoke test if combined
    with realtime + this flag).
 2. Either explicitly `.cancel()` the metrics timer when the realtime-timeout
@@ -85,7 +87,7 @@ default) — Timer block is skipped entirely, pipeline exits cleanly.
 3. Add a regression test alongside the V4 ifEmpty regression
    (`tests/ifempty_sentinel_regression.nf.test`).
 
-## What this run *doesn't* tell you
+## What this run _doesn't_ tell you
 
 - **Throughput at scale**: 4000 reads + 3 barcodes is below the streaming
   architecture's break-even point. Expect different ordering at ~10x barcodes
@@ -124,11 +126,11 @@ B2 also hung past MULTIQC and had to be killed (see Bug 1 update below).
 B3 used an external watchdog that polls for `MULTIQC/.exitcode` and
 kills the JVM 20s later.
 
-| ID | Profile | Kraken2 cpus/mem | max_classification_forks | Wall (s) | Trace tasks | Classification |
-|----|---------|------------------|--------------------------|----------|-------------|----------------|
-| A1 | `minion,conda` | check_max(4,8/1) → 8 cpus, 8 GB | 1 | 380 | 243 | 181/573/145 |
-| B2 | `promethion_8,conda` | 6 cpus, capped to 8 GB | default | 640 | 243 | 181/573/145 |
-| B3 | `promethion,conda`   | 6 cpus, capped to 8 GB | 6 | 632 | 243 | 181/573/145 |
+| ID  | Profile              | Kraken2 cpus/mem                | max_classification_forks | Wall (s) | Trace tasks | Classification |
+| --- | -------------------- | ------------------------------- | ------------------------ | -------- | ----------- | -------------- |
+| A1  | `minion,conda`       | check_max(4,8/1) → 8 cpus, 8 GB | 1                        | 380      | 243         | 181/573/145    |
+| B2  | `promethion_8,conda` | 6 cpus, capped to 8 GB          | default                  | 640      | 243         | 181/573/145    |
+| B3  | `promethion,conda`   | 6 cpus, capped to 8 GB          | 6                        | 632      | 243         | 181/573/145    |
 
 ## Reading the numbers
 
@@ -186,11 +188,11 @@ profile (so the Kraken2 cpu directive comes from `conf/modules.config:cpus
 path-based pattern silently never fired on Nextflow's hash-named work
 dirs, see Bug 2 below).
 
-| ID | forks | Kraken2 cpus/task (modules.config) | Demanded cpu-slots | Wall (s) | Classification |
-|----|-------|------------------------------------|--------------------|----------|----------------|
-| C2 | 2 | max(4, 8/2) = 4 | 8 (fits cap) | 397 | 181/573/145 |
-| C4 | 4 | max(4, 8/4) = 4 (floor) | 16 (2x oversub) | **340** | 181/573/145 |
-| C8 | 8 | max(4, 8/8) = 4 (floor) | 32 (4x oversub) | 372 | 181/573/145 |
+| ID  | forks | Kraken2 cpus/task (modules.config) | Demanded cpu-slots | Wall (s) | Classification |
+| --- | ----- | ---------------------------------- | ------------------ | -------- | -------------- |
+| C2  | 2     | max(4, 8/2) = 4                    | 8 (fits cap)       | 397      | 181/573/145    |
+| C4  | 4     | max(4, 8/4) = 4 (floor)            | 16 (2x oversub)    | **340**  | 181/573/145    |
+| C8  | 8     | max(4, 8/8) = 4 (floor)            | 32 (4x oversub)    | 372      | 181/573/145    |
 
 ## Reading the curve
 
@@ -237,10 +239,10 @@ D isolates the input-mode variable: same incremental Kraken2 path, same
 `max_classification_forks=4`, same DB, same data. Only `realtime_mode`
 and the input parameter differ.
 
-| ID | Input mode | Trace tasks | Wall (s) | Notes |
-|----|------------|-------------|----------|-------|
-| D-realtime (≡ C4) | `nanopore_output_dir` + watchPath | 243 | 340 | Needs watchdog (Bug 1) |
-| D-batch           | `input_dir` (no watch)            | 36  | **321** | Clean exit |
+| ID                | Input mode                        | Trace tasks | Wall (s) | Notes                  |
+| ----------------- | --------------------------------- | ----------- | -------- | ---------------------- |
+| D-realtime (≡ C4) | `nanopore_output_dir` + watchPath | 243         | 340      | Needs watchdog (Bug 1) |
+| D-batch           | `input_dir` (no watch)            | 36          | **321**  | Clean exit             |
 
 ## Reading the numbers
 
@@ -268,17 +270,17 @@ fewer moving parts, and side-steps the realtime-mode JVM hang entirely.
 
 # Overview across all axes
 
-| ID | Mode | Profile | Input | forks | Wall (s) | Tasks | Notes |
-|----|------|---------|-------|-------|----------|-------|-------|
-| A1 | incremental | minion,conda | watchPath (realtime) | 1 | 380 | 243 | first cold-conda run |
-| A2 | optimized   | conda        | input_dir            | -- | 271 | 27  | classifier alt path |
-| A3 | standard    | conda        | input_dir            | -- | 243 | 27  | classifier alt path |
-| B2 | incremental | promethion_8,conda | watchPath      | default | 640 | 243 | profile penalty |
-| B3 | incremental | promethion,conda   | watchPath      | 6 | 632 | 243 | profile penalty |
-| C2 | incremental | conda        | watchPath           | 2 | 397 | 243 | underutilized |
-| C4 | incremental | conda        | watchPath           | 4 | **340** | 243 | sweet spot |
-| C8 | incremental | conda        | watchPath           | 8 | 372 | 243 | mild oversub |
-| D-batch | incremental | conda    | input_dir          | 4 | **321** | 36 | fastest end-to-end |
+| ID      | Mode        | Profile            | Input                | forks   | Wall (s) | Tasks | Notes                |
+| ------- | ----------- | ------------------ | -------------------- | ------- | -------- | ----- | -------------------- |
+| A1      | incremental | minion,conda       | watchPath (realtime) | 1       | 380      | 243   | first cold-conda run |
+| A2      | optimized   | conda              | input_dir            | --      | 271      | 27    | classifier alt path  |
+| A3      | standard    | conda              | input_dir            | --      | 243      | 27    | classifier alt path  |
+| B2      | incremental | promethion_8,conda | watchPath            | default | 640      | 243   | profile penalty      |
+| B3      | incremental | promethion,conda   | watchPath            | 6       | 632      | 243   | profile penalty      |
+| C2      | incremental | conda              | watchPath            | 2       | 397      | 243   | underutilized        |
+| C4      | incremental | conda              | watchPath            | 4       | **340**  | 243   | sweet spot           |
+| C8      | incremental | conda              | watchPath            | 8       | 372      | 243   | mild oversub         |
+| D-batch | incremental | conda              | input_dir            | 4       | **321**  | 36    | fastest end-to-end   |
 
 ## Top take-aways
 
@@ -320,4 +322,3 @@ fewer moving parts, and side-steps the realtime-mode JVM hang entirely.
 - **Memory pressure at full DB load.** 12 GB cap was never hit because
   `kraken2_memory_mapping: false` keeps each fork resident, and the DB
   is only 8 GB. PromethION-class memory profiles untested.
-

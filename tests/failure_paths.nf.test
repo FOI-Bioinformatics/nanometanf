@@ -382,4 +382,45 @@ nextflow_pipeline {
                 "is being reported as screened"
         }
     }
+
+    test("a QC task failure absorbed by error isolation leaves a lost-input marker") {
+
+        // The run succeeds -- that is what error isolation is for -- but a
+        // file that dies in CHOPPER is never an expected batch, so neither the
+        // manifest nor aggregation_stats.json can see it (nanometa_live
+        // round-4 audit, H20). The afterScript marker is the one record of
+        // what was lost, and it must name the input file.
+        config "./qc_failure_marker.config"
+
+        when {
+            params {
+                input = "$projectDir/tests/fixtures/samplesheets/minimal.csv"
+                outdir = "$outputDir"
+                qc_tool = 'chopper'
+                skip_kraken2 = true
+                blast_validation = false
+                skip_nanoplot = true
+                max_cpus = 2
+                max_memory = '4.GB'
+                max_time = '5.min'
+            }
+        }
+
+        then {
+            assert workflow.success : "an exit-2 CHOPPER failure must be isolated, not fail the run"
+            assert workflow.trace.failed().any { it.name.contains('CHOPPER') } :
+                "the forced CHOPPER failure did not happen; the marker test proves nothing"
+
+            def markers = path("$outputDir/pipeline_info/lost_inputs").list()
+                .findAll { it.toString().endsWith('.json') }
+            assert markers.size() == 1 : "expected one lost-input marker, found ${markers}"
+            def marker = new groovy.json.JsonSlurper().parseText(markers[0].text)
+            assert marker.stage == 'CHOPPER'
+            assert marker.sample == 'TEST_SAMPLE'
+            assert marker.exit_status == 2
+            assert marker.input_files.size() == 1
+            assert marker.input_files[0].endsWith('test.fastq.gz') :
+                "the marker must name the lost input, got ${marker.input_files}"
+        }
+    }
 }

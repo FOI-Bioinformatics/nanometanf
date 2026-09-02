@@ -5,11 +5,106 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.8.0] - 2026-09-02
+
+Real-time runs end truthfully and continue for real. Pairs with
+nanometa_live 0.16.0. Everything below was found by driving real-time runs
+through the Nanometa Live GUI (round-4 audit, 2026-09-01/02) or by the
+2026-09-02 read-length audit, and each fix was verified on a live run, a
+replay of captured snapshots or a drill against the real tools.
+
+### Added
+
+- **Continue (`-resume`) in real-time mode now continues the run.** Nextflow's
+  task cache cannot help a real-time run (per-file wall-clock meta, a batch
+  counter that resumes at N+1, a cumulative accumulator that started from
+  zero), so a Continue into a populated outdir re-emitted every existing
+  input file; the aggregate the operator watched fell 9,697 -> 3,473 before
+  climbing back and the batch tree doubled (nanometa_live round-4 audit,
+  H15/H19). The pipeline now keeps a ledger of finished inputs
+  (`pipeline_info/processed_inputs.tsv`, one line per classified batch),
+  skips ledgered files at intake when `-resume` is set, seeds the progressive
+  cumulative report from the previous run's per-batch taxid counts, and
+  hands the previous run's batch files to
+  `KRAKEN2_FINAL_AGGREGATOR` so the end-of-session cumulative covers both
+  runs. A file the previous run never finished is not in the ledger and is
+  classified again. `lib/RealtimeResume.groovy`; unit tests in
+  `tests/lib/realtime_resume.nf.test`.
+- **An input lost to error isolation is recorded.** `conf/error_isolation.config`
+  ignores exit 1/2 on the QC and classification processes so one bad file
+  cannot stop a run, but nothing said which file was lost: the trace names
+  the sample, the manifest names failed samples, and `aggregation_stats.json`
+  cannot see a QC-stage loss because batch ids are assigned after QC
+  (round-4 audit, H20: a corrupt chunk died in CHOPPER with "Error is
+  ignored" and every surface reported a complete run). Those processes now
+  run `bin/nanometanf_lost_input_marker.sh` as their `afterScript`, which
+  writes one JSON marker per absorbed failure under
+  `pipeline_info/lost_inputs/` naming the staged input files, their sample,
+  stage and exit status. Nanometa Live reads the markers into the run report.
+
+### Fixed
+
+- **The fastp QC tool now applies the read filter.** `qc_tool fastp` ran
+  with fastp's own 15 bp default and no mean-quality floor; the chopper*\*
+  values had no counterpart, so a cutoff raised or lowered for a fastp run
+  changed nothing, and the `fastp*\*`keys that`conf/qc_profiles.config`,
+`docs/usage.md`and`docs/output.md`referred to existed nowhere
+(nanometa_live read-length audit, 2026-09-02).`fastp_length_required`(1000),`fastp_average_qual`(10) and`fastp_qualified_quality`(15) are
+real parameters, reach FASTP and FASTP_STREAMING through`ext.args`, and
+the first two default to chopper's values so the filter means the same
+thing whichever tool runs. The unread `fastp_cut_mean_quality`is gone
+from the QC profiles. Runs with`qc_tool fastp`and default parameters
+now drop reads under 1000 bp or a mean quality of 10, as chopper runs do.`conf/production.config`builds its FASTP arguments from the same
+parameters in a closure (a plain string interpolated them as null under`-c`) and no longer passes `--disable_quality_filtering false`, which
+  disabled fastp's quality filter with a stray token after it.
+- **Real-time intake no longer has a start-up blind window.** Nextflow starts
+  the `watchPath` directory listener in a session igniter, after the whole
+  script has been evaluated, and treats everything present at that moment as
+  its baseline; the listing of existing files ran at script evaluation, so a
+  file that landed between the two was in neither set and was never
+  classified (nanometa_live round-4 audit, H4). The watcher is now created
+  first and the listing runs from a later igniter, with a second listing ten
+  seconds in, and a path is handed on once however many of the three report
+  it. The listing itself is `RealtimeIntake.listInputs` rather than `file()`:
+  Nextflow's glob walk aborts on the first entry that vanishes mid-walk (a
+  producer renaming a temporary name into place) and returns a partial
+  listing -- a drill feeding 100 files across the start-up saw one listing
+  return 21 of the 30 present. The same drill against the previous intake
+  lost one file to the blind window; against the new intake it takes all 100. Files inside `fastq_fail/` and `fastq_skip/` are excluded like hidden
+  files. `lib/RealtimeIntake.groovy`; unit tests in
+  `tests/lib/realtime_intake.nf.test`.
+- **The real-time timeout is an inactivity timer, as every text said it
+  was.** It was a one-shot wall-clock timer scheduled at construction; a
+  run whose files kept landing every 15 s was cut at timeout plus grace and
+  reported complete with 14 of 47 input files never classified (round-4
+  audit, H1). Every detected file now resets the idle clock and a daemon
+  timer fires the stop sentinel once the idle time exceeds the budget; the
+  `max_files` path is unchanged. Per-batch seqkit filenames carry
+  `batch_id` (two files for one barcode in the same second overwrote each
+  other under `publishDir`), and the real-time watch pattern includes `.fq`
+  to match the input detector.
+- Pointing `--kraken2_db` at a `.tar.gz` archive crashed at workflow wiring
+  (`UNTAR.out.versions` no longer exists on the topic-style module), so
+  every archive-database run failed before any process started.
+- iGenomes now defaults off. nf-schema validates `igenomes_base` as a
+  directory path, which needs the nf-amazon plugin to stat the s3 default,
+  and offline the plugin cannot be downloaded: every air-gapped run failed
+  parameter validation before starting. The pipeline only consults iGenomes
+  when `--genome` is passed explicitly.
+- A real-time session that received no input file at all aborted in the QC
+  subworkflow: with no SEQKIT_STATS task the `.ifEmpty([])` sentinel reached
+  the batch-stats aggregation's destructuring map ("Invalid method invocation
+  `call` with arguments: []"). A Continue whose every input the previous run
+  had already classified is the common way to get there. The aggregation now
+  drops the sentinel like the other consumers; pinned in
+  `tests/realtime_classification.nf.test`.
+
 ## [1.7.1] - 2026-08-25
 
 Patch release. Pairs with nanometa_live 0.13.0.
 
 ### Fixed
+
 - Realtime mode treated every file in MinKNOW's `unclassified/` bin as its
   own sample: `InputDetector.extractSampleId` recognised only `barcodeNN`
   parent directories, so unclassified chunk files fell through to the
@@ -28,6 +123,7 @@ not by unit tests. Pairs with nanometa_live 0.10.0; the two repositories are
 released together.
 
 ### Added
+
 - CI job `realtime-e2e`: runs the `real_execution`-tagged realtime +
   validation end-to-end test on a macOS/arm64 runner under the conda
   profile, with the per-module conda environments cached. The test could
@@ -42,6 +138,7 @@ released together.
   measured from the PAF by interval merge.
 
 ### Changed
+
 - Kraken2 memory mapping is decided by `--kraken2_memory_mapping` alone. The
   classification subworkflow's ARM opt-out contradicted `modules.config`,
   which passed the flag regardless: realtime runs on ARM re-loaded the whole
@@ -60,6 +157,7 @@ released together.
   had been working around.
 
 ### Fixed
+
 - Validation no longer confirms an organism on evidence that cannot support
   it: a single index-hopped read covering 0.07% of a genome shipped as
   `confirmed` for a Tier 1 select agent. Read support and real genome breadth
@@ -89,6 +187,7 @@ Patch release: the pipeline-side remediation of the 2026-08-16 cross-repo
 audit (the matching GUI fixes shipped in nanometa_live 0.9.0).
 
 ### Fixed
+
 - Cumulative Kraken2 reports are emitted in depth-first order via the new
   KreportTree helper; the previous abundance sort broke the indentation-encoded
   taxonomy for every downstream kreport parser. The progressive writer and the
@@ -131,14 +230,13 @@ audit (the matching GUI fixes shipped in nanometa_live 0.9.0).
   single source (error_isolation.config).
 
 ### Added
+
 - tests/realtime_validation_e2e.nf.test: an end-to-end realtime+validation
   run against the real mini Kraken2 database (tagged real_execution), pinning
   report parseability, cumulative validation, single end-of-session
   aggregation, and an empty failed_samples on a healthy run.
 
-
 ## [1.6.0] - 2026-08-15
-
 
 ### Added
 

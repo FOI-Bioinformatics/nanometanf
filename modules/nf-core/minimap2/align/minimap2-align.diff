@@ -1,0 +1,38 @@
+Changes in component 'nf-core/minimap2/align'
+'modules/nf-core/minimap2/align/environment.yml' is unchanged
+'modules/nf-core/minimap2/align/meta.yml' is unchanged
+Changes in 'minimap2/align/main.nf':
+--- modules/nf-core/minimap2/align/main.nf
++++ modules/nf-core/minimap2/align/main.nf
+@@ -4,7 +4,7 @@
+ 
+     // Note: the versions here need to match the versions used in the mulled container below and minimap2/index
+     conda "${moduleDir}/environment.yml"
+-    container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
++    container "${ workflow.containerEngine in ['singularity', 'apptainer'] && !task.ext.singularity_pull_docker_container ?
+         'https://community-cr-prod.seqera.io/docker/registry/v2/blobs/sha256/66/66dc96eff11ab80dfd5c044e9b3425f52d818847b9c074794cf0c02bfa781661/data' :
+         'community.wave.seqera.io/library/minimap2_samtools:33bb43c18d22e29c' }"
+ 
+
+'modules/nf-core/minimap2/align/tests/main.nf.test.snap' is unchanged
+Changes in 'minimap2/align/tests/main.nf.test':
+--- modules/nf-core/minimap2/align/tests/main.nf.test
++++ modules/nf-core/minimap2/align/tests/main.nf.test
+@@ -4,6 +4,7 @@
+     script "../main.nf"
+     process "MINIMAP2_ALIGN"
+ 
++    tag "fast"
+     tag "modules"
+     tag "modules_nfcore"
+     tag "minimap2"
+@@ -250,6 +251,7 @@
+     test("sarscov2 - fastq, fasta, true, [], false, false - stub") {
+ 
+         options "-stub"
++    tag "stub"
+ 
+         when {
+             process {
+
+************************************************************

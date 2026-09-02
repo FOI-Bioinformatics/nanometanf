@@ -1,0 +1,38 @@
+Changes in component 'nf-core/seqkit/stats'
+'modules/nf-core/seqkit/stats/environment.yml' is unchanged
+'modules/nf-core/seqkit/stats/meta.yml' is unchanged
+Changes in 'seqkit/stats/main.nf':
+--- modules/nf-core/seqkit/stats/main.nf
++++ modules/nf-core/seqkit/stats/main.nf
+@@ -3,7 +3,7 @@
+     label 'process_low'
+ 
+     conda "${moduleDir}/environment.yml"
+-    container "${workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container
++    container "${workflow.containerEngine in ['singularity', 'apptainer'] && !task.ext.singularity_pull_docker_container
+         ? 'https://depot.galaxyproject.org/singularity/seqkit:2.9.0--h9ee0642_0'
+         : 'biocontainers/seqkit:2.9.0--h9ee0642_0'}"
+ 
+
+'modules/nf-core/seqkit/stats/tests/main.nf.test.snap' is unchanged
+Changes in 'seqkit/stats/tests/main.nf.test':
+--- modules/nf-core/seqkit/stats/tests/main.nf.test
++++ modules/nf-core/seqkit/stats/tests/main.nf.test
+@@ -4,6 +4,7 @@
+     script "../main.nf"
+     process "SEQKIT_STATS"
+ 
++    tag "fast"
+     tag "modules"
+     tag "modules_nfcore"
+     tag "seqkit"
+@@ -118,6 +119,7 @@
+     test("single_end - stub") {
+ 
+         options "-stub"
++    tag "stub"
+ 
+         when {
+             process {
+
+************************************************************

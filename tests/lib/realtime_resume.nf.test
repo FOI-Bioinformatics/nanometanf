@@ -1,0 +1,150 @@
+nextflow_function {
+
+    name "Test RealtimeResume (Continue into a populated real-time outdir)"
+    script "tests/lib/realtime_resume_functions.nf"
+    tag "unit"
+    tag "fast"
+    tag "realtime"
+    tag "resume"
+
+    // A Continue into a populated outdir used to re-emit every existing input
+    // file and restart the cumulative counts from zero (nanometa_live round-4
+    // audit, H15/H19). These pin the three pieces that make Continue mean
+    // continue: the processed-input ledger, the shared merge the seeding
+    // reuses, and the discovery of the previous run's per-batch files.
+
+    test("the ledger round-trips the finished inputs and tolerates a torn tail") {
+        function "ledgerRoundTrip"
+        when {
+            function {
+                """
+                input[0] = "${outputDir}/ledger_a"
+                input[1] = [
+                    ['barcode05', 0, '/watch/barcode05/a.fastq.gz'],
+                    ['barcode05', 1, '/watch/barcode05/b.fastq.gz'],
+                    ['barcode06', 0, '/watch/barcode06/c.fastq.gz'],
+                ]
+                """
+            }
+        }
+        then {
+            assert function.success
+            assert function.result == [
+                '/watch/barcode05/a.fastq.gz',
+                '/watch/barcode05/b.fastq.gz',
+                '/watch/barcode06/c.fastq.gz',
+            ]
+        }
+    }
+
+    test("a missing ledger is an empty set, a torn last line is dropped") {
+        function "readLedgerText"
+        when {
+            function {
+                """
+                input[0] = "${outputDir}/ledger_b"
+                input[1] = "sample_id\\tbatch_id\\tsource_file\\tcompleted_at\\nbarcode05\\t0\\t/watch/a.fastq.gz\\t2026-09-02T10:00:00\\nbarcode05\\t1"
+                """
+            }
+        }
+        then {
+            assert function.success
+            assert function.result == ['/watch/a.fastq.gz']
+        }
+    }
+
+    test("no ledger at all yields nothing to skip") {
+        function "readLedgerText"
+        when {
+            function {
+                """
+                input[0] = "${outputDir}/ledger_c"
+                input[1] = null
+                """
+            }
+        }
+        then {
+            assert function.success
+            assert function.result == []
+        }
+    }
+
+    test("merging batches sums reads and keeps the first lineage, filling a null parent later") {
+        function "mergeSequence"
+        when {
+            function {
+                """
+                input[0] = [
+                    [total_reads: 10, classified_reads: 8, unclassified_reads: 2,
+                     taxa: ['562': [reads: 3, cumul: 3, rank: 'S', name: 'Escherichia coli', parent: null]]],
+                    [total_reads: 5, classified_reads: 5, unclassified_reads: 0,
+                     taxa: ['562': [reads: 2, cumul: 2, rank: 'S', name: 'Escherichia coli', parent: '561'],
+                            '561': [reads: 0, cumul: 2, rank: 'G', name: 'Escherichia', parent: '543']]],
+                ]
+                """
+            }
+        }
+        then {
+            assert function.success
+            def st = function.result
+            assert st.total_reads == 15
+            assert st.classified_reads == 13
+            assert st.unclassified_reads == 2
+            assert st.taxa['562'].reads == 5
+            assert st.taxa['562'].cumul == 5
+            assert st.taxa['562'].parent == '561'
+            assert st.taxa['561'].cumul == 2
+        }
+    }
+
+    test("previous per-batch taxid counts are found per sample in batch order") {
+        function "priorCounts"
+        when {
+            function {
+                """
+                input[0] = "${outputDir}/prior_a"
+                input[1] = [
+                    'kraken2/barcode05/stats/batch_10_taxid_counts.json': '{"sample_id":"barcode05","batch_id":10,"total_reads":1,"taxa":{}}',
+                    'kraken2/barcode05/stats/batch_2_taxid_counts.json':  '{"sample_id":"barcode05","batch_id":2,"total_reads":1,"taxa":{}}',
+                    'kraken2/barcode05/stats/batch_2_report_stats.json':  '{"not":"counts"}',
+                    'kraken2/barcode06/stats/batch_0_taxid_counts.json':  'not json at all',
+                    'kraken2/barcode07/batch_reports/batch_0.kraken2.report.txt': 'x',
+                ]
+                """
+            }
+        }
+        then {
+            assert function.success
+            assert function.result[0] == ['barcode05': [2, 10]]
+            assert function.result[1] == 1
+        }
+    }
+
+    test("previous batch files are listed as [sample, file] pairs, merger naming only") {
+        function "priorBatches"
+        when {
+            function {
+                """
+                input[0] = "${outputDir}/prior_b"
+                input[1] = [
+                    'kraken2/barcode05/batches/batch_1.kraken2.output.txt': 'x',
+                    'kraken2/barcode05/batches/batch_0.kraken2.output.txt': 'x',
+                    'kraken2/barcode05/batch_reports/batch_0.kraken2.report.txt': 'x',
+                    'kraken2/barcode05/batch_reports/barcode05_batch0.kraken2.report.txt': 'x',
+                    'kraken2/barcode06/batches/batch_0.kraken2.output.txt': 'x',
+                ]
+                input[2] = 'batches'
+                input[3] = 'kraken2.output.txt'
+                """
+            }
+        }
+        then {
+            assert function.success
+            assert function.result == [
+                ['barcode05', 'batch_0.kraken2.output.txt'],
+                ['barcode05', 'batch_1.kraken2.output.txt'],
+                ['barcode06', 'batch_0.kraken2.output.txt'],
+            ]
+        }
+    }
+}

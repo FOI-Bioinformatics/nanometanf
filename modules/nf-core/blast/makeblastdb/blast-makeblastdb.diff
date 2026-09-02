@@ -1,0 +1,266 @@
+Changes in component 'nf-core/blast/makeblastdb'
+'modules/nf-core/blast/makeblastdb/environment.yml' is unchanged
+'modules/nf-core/blast/makeblastdb/meta.yml' is unchanged
+Changes in 'blast/makeblastdb/main.nf':
+--- modules/nf-core/blast/makeblastdb/main.nf
++++ modules/nf-core/blast/makeblastdb/main.nf
+@@ -3,7 +3,7 @@
+     label 'process_medium'
+ 
+     conda "${moduleDir}/environment.yml"
+-    container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
++    container "${ workflow.containerEngine in ['singularity', 'apptainer'] && !task.ext.singularity_pull_docker_container ?
+         'https://community-cr-prod.seqera.io/docker/registry/v2/blobs/sha256/0c/0c86cbb145786bf5c24ea7fb13448da5f7d5cd124fd4403c1da5bc8fc60c2588/data':
+         'community.wave.seqera.io/library/blast:2.17.0--d4fb881691596759' }"
+ 
+
+Changes in 'blast/makeblastdb/tests/main.nf.test.snap':
+--- modules/nf-core/blast/makeblastdb/tests/main.nf.test.snap
++++ modules/nf-core/blast/makeblastdb/tests/main.nf.test.snap
+@@ -1,25 +1,52 @@
+ {
+-    "makeblastdb - fasta": {
++    "makeblastdb - fasta - stub": {
+         "content": [
+-            [
+-                "genome.fasta.ndb",
+-                "genome.fasta.nhr",
+-                "genome.fasta.nin",
+-                "genome.fasta.njs",
+-                "genome.fasta.not",
+-                "genome.fasta.nsq",
+-                "genome.fasta.ntf",
+-                "genome.fasta.nto"
+-            ],
+-            [
+-                "genome.fasta.ndb:md5,0d553c830656469211de113c5022f06d",
+-                "genome.fasta.nhr:md5,f4b4ddb034fd3dd7b25c89e9d50c004e",
+-                "genome.fasta.not:md5,1e53e9d08f1d23af0299cfa87478a7bb",
+-                "genome.fasta.nsq:md5,982cbc7d9e38743b9b1037588862b9da",
+-                "genome.fasta.ntf:md5,de1250813f0c7affc6d12dac9d0fb6bb",
+-                "genome.fasta.nto:md5,33cdeccccebe80329f1fdbee7f5874cb"
+-            ],
+             {
++                "0": [
++                    [
++                        {
++                            "id": "test"
++                        },
++                        [
++                            "genome.fasta:md5,6e9fe4042a72f2345f644f239272b7e6",
++                            "genome.fasta.fasta:md5,d41d8cd98f00b204e9800998ecf8427e",
++                            "genome.fasta.fasta.ndb:md5,d41d8cd98f00b204e9800998ecf8427e",
++                            "genome.fasta.fasta.nhr:md5,d41d8cd98f00b204e9800998ecf8427e",
++                            "genome.fasta.fasta.nin:md5,d41d8cd98f00b204e9800998ecf8427e",
++                            "genome.fasta.fasta.njs:md5,d41d8cd98f00b204e9800998ecf8427e",
++                            "genome.fasta.fasta.not:md5,d41d8cd98f00b204e9800998ecf8427e",
++                            "genome.fasta.fasta.nsq:md5,d41d8cd98f00b204e9800998ecf8427e",
++                            "genome.fasta.fasta.ntf:md5,d41d8cd98f00b204e9800998ecf8427e",
++                            "genome.fasta.fasta.nto:md5,d41d8cd98f00b204e9800998ecf8427e"
++                        ]
++                    ]
++                ],
++                "1": [
++                    [
++                        "BLAST_MAKEBLASTDB",
++                        "makeblastdb",
++                        "2.17.0+"
++                    ]
++                ],
++                "db": [
++                    [
++                        {
++                            "id": "test"
++                        },
++                        [
++                            "genome.fasta:md5,6e9fe4042a72f2345f644f239272b7e6",
++                            "genome.fasta.fasta:md5,d41d8cd98f00b204e9800998ecf8427e",
++                            "genome.fasta.fasta.ndb:md5,d41d8cd98f00b204e9800998ecf8427e",
++                            "genome.fasta.fasta.nhr:md5,d41d8cd98f00b204e9800998ecf8427e",
++                            "genome.fasta.fasta.nin:md5,d41d8cd98f00b204e9800998ecf8427e",
++                            "genome.fasta.fasta.njs:md5,d41d8cd98f00b204e9800998ecf8427e",
++                            "genome.fasta.fasta.not:md5,d41d8cd98f00b204e9800998ecf8427e",
++                            "genome.fasta.fasta.nsq:md5,d41d8cd98f00b204e9800998ecf8427e",
++                            "genome.fasta.fasta.ntf:md5,d41d8cd98f00b204e9800998ecf8427e",
++                            "genome.fasta.fasta.nto:md5,d41d8cd98f00b204e9800998ecf8427e"
++                        ]
++                    ]
++                ],
+                 "versions_makeblastdb": [
+                     [
+                         "BLAST_MAKEBLASTDB",
+@@ -29,11 +56,11 @@
+                 ]
+             }
+         ],
++        "timestamp": "2026-03-23T22:35:52.173792",
+         "meta": {
+-            "nf-test": "0.9.3",
+-            "nextflow": "25.10.3"
+-        },
+-        "timestamp": "2026-02-11T14:44:37.88135"
++            "nf-test": "0.9.4",
++            "nextflow": "25.10.4"
++        }
+     },
+     "makeblastdb - fasta.gz - stub": {
+         "content": [
+@@ -92,46 +119,10 @@
+                 ]
+             }
+         ],
++        "timestamp": "2026-03-23T22:35:58.365519",
+         "meta": {
+-            "nf-test": "0.9.3",
+-            "nextflow": "25.10.3"
+-        },
+-        "timestamp": "2026-02-11T14:44:47.814955"
+-    },
+-    "makeblastdb - fasta.gz": {
+-        "content": [
+-            [
+-                "genome.fasta.ndb",
+-                "genome.fasta.nhr",
+-                "genome.fasta.nin",
+-                "genome.fasta.njs",
+-                "genome.fasta.not",
+-                "genome.fasta.nsq",
+-                "genome.fasta.ntf",
+-                "genome.fasta.nto"
+-            ],
+-            [
+-                "genome.fasta.ndb:md5,0d553c830656469211de113c5022f06d",
+-                "genome.fasta.nhr:md5,f4b4ddb034fd3dd7b25c89e9d50c004e",
+-                "genome.fasta.not:md5,1e53e9d08f1d23af0299cfa87478a7bb",
+-                "genome.fasta.nsq:md5,982cbc7d9e38743b9b1037588862b9da",
+-                "genome.fasta.ntf:md5,de1250813f0c7affc6d12dac9d0fb6bb",
+-                "genome.fasta.nto:md5,33cdeccccebe80329f1fdbee7f5874cb"
+-            ],
+-            {
+-                "versions_makeblastdb": [
+-                    [
+-                        "BLAST_MAKEBLASTDB",
+-                        "makeblastdb",
+-                        "2.17.0+"
+-                    ]
+-                ]
+-            }
+-        ],
+-        "meta": {
+-            "nf-test": "0.9.3",
+-            "nextflow": "25.10.3"
+-        },
+-        "timestamp": "2026-02-11T14:44:42.886952"
++            "nf-test": "0.9.4",
++            "nextflow": "25.10.4"
++        }
+     }
+ }
+'modules/nf-core/blast/makeblastdb/tests/nextflow.config' is unchanged
+Changes in 'blast/makeblastdb/tests/main.nf.test':
+--- modules/nf-core/blast/makeblastdb/tests/main.nf.test
++++ modules/nf-core/blast/makeblastdb/tests/main.nf.test
+@@ -4,12 +4,16 @@
+     script "../main.nf"
+     process "BLAST_MAKEBLASTDB"
+     config "./nextflow.config"
++
++    options "-stub"
++    tag "fast"
++    tag "stub"
+     tag "modules"
+     tag "modules_nfcore"
+     tag "blast"
+     tag "blast/makeblastdb"
+ 
+-    test("makeblastdb - fasta") {
++    test("makeblastdb - fasta - stub") {
+ 
+         when {
+             process {
+@@ -22,33 +26,14 @@
+         then {
+             assertAll(
+                 { assert process.success },
+-                {
+-                    assert process.out.db.size() == 1
+-
+-                    def all_files = ( new File(process.out.db[0][1]) ).listFiles()
+-                    def stable_file_names = [
+-                        'genome.fasta.ndb',
+-                        'genome.fasta.nhr',
+-                        'genome.fasta.not',
+-                        'genome.fasta.nsq',
+-                        'genome.fasta.ntf',
+-                        'genome.fasta.nto'
+-                    ]
+-
+-                    def stable_files = all_files.findAll { it.name in stable_file_names }.toSorted()
+-
+-                    assert snapshot(
+-                        all_files.collect { it.name }.toSorted(),
+-                        stable_files,
+-                        process.out.findAll { key, val -> key.startsWith("versions") }
+-                    ).match()
+-                }
++                { assert process.out.db.size() == 1 },
++                { assert snapshot(process.out).match() }
+             )
+         }
+ 
+     }
+ 
+-    test("makeblastdb - fasta.gz") {
++    test("makeblastdb - fasta.gz - stub") {
+ 
+         when {
+             process {
+@@ -61,45 +46,7 @@
+         then {
+             assertAll(
+                 { assert process.success },
+-                {
+-                    assert process.out.db.size() == 1
+-
+-                    def all_files = ( new File(process.out.db[0][1]) ).listFiles()
+-                    def stable_file_names = [
+-                        'genome.fasta.ndb',
+-                        'genome.fasta.nhr',
+-                        'genome.fasta.not',
+-                        'genome.fasta.nsq',
+-                        'genome.fasta.ntf',
+-                        'genome.fasta.nto'
+-                    ]
+-
+-                    def stable_files = all_files.findAll { it.name in stable_file_names }.toSorted()
+-
+-                    assert snapshot(
+-                        all_files.collect { it.name }.toSorted(),
+-                        stable_files,
+-                        process.out.findAll { key, val -> key.startsWith("versions") }
+-                    ).match()
+-                }
+-            )
+-        }
+-    }
+-
+-    test("makeblastdb - fasta.gz - stub"){
+-        options '-stub'
+-
+-        when {
+-            process {
+-                """
+-                input[0] = [ [id:'test'], file(params.modules_testdata_base_path + 'genomics/sarscov2/genome/genome.fasta.gz', checkIfExists: true) ]
+-                """
+-            }
+-        }
+-
+-        then {
+-            assertAll(
+-                { assert process.success },
++                { assert process.out.db.size() == 1 },
+                 { assert snapshot(process.out).match() }
+             )
+         }
+
+************************************************************

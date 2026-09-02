@@ -76,4 +76,41 @@ nextflow_pipeline {
     // provisions pigz/kraken2/taxpasta). Real classification CONTENT is asserted
     // in batch mode by tests/classification_real.nf.test, which runs in the
     // standard env (kraken2 + taxpasta only).
+
+    test("realtime + kraken2 with no input file at all completes") {
+        // A real-time session that receives nothing -- a Continue whose every
+        // input the previous run had already classified is the common way to
+        // get here -- used to abort in the QC subworkflow: with no
+        // SEQKIT_STATS task the `.ifEmpty([])` sentinel reached the batch-stats
+        // aggregation's destructuring map ("Invalid method invocation `call`
+        // with arguments: []"). The incremental QC aggregation is what
+        // realtime + kraken2_enable_incremental switches on.
+        options "-stub"
+        when {
+            params {
+                input = false
+                realtime_mode = true
+                nanopore_output_dir = "$projectDir/tests/fixtures/empty_barcode_structure"
+                file_pattern = "**/*.fastq.gz"
+                outdir = "$outputDir"
+                classifier = 'kraken2'
+                kraken2_db = "$projectDir/tests/fixtures/kraken2_db"
+                kraken2_enable_incremental = true
+                realtime_timeout_minutes = 1
+                realtime_processing_grace_period = 1
+                blast_validation = false
+                skip_nanoplot = true
+                enable_realtime_stats = false
+                max_cpus = 2
+                max_memory = '4.GB'
+                max_time = '15.min'
+            }
+        }
+        then {
+            def err = (workflow.errorReport ?: '') + '\n' + (workflow.stdout?.join('\n') ?: '')
+            assert !err.contains('Invalid method invocation `call`')
+            assert !err.contains('MissingMethodException')
+            assert workflow.success
+        }
+    }
 }

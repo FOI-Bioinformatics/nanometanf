@@ -268,6 +268,16 @@ nextflow run foi-bioinformatics/nanometanf \
 - `--max_files`: Maximum files to process (optional, for testing)
 - `--adaptive_batching`: Enable dynamic batch sizing
 
+**Which files are taken:** every file under `--nanopore_output_dir` that
+matches `--file_pattern` is processed once, whether it was present at start
+or arrived later. Hidden files (the `._*` sidecars macOS writes on exFAT and
+USB media) and anything inside a `fastq_fail/` or `fastq_skip/` folder are
+ignored, so the directory may be a MinKNOW run folder or its `fastq_pass/`.
+Files are listed at start-up and once more ten seconds later, and the watcher
+reports later arrivals; a file seen by more than one of these is processed
+once. A file written in place rather than renamed into place can be picked up
+before it is complete; producers should write to a temporary name and rename.
+
 **When to use:**
 
 - Active sequencing in progress
@@ -345,10 +355,18 @@ nextflow run foi-bioinformatics/nanometanf \
 ```bash
 --skip_fastp                # Skip FASTP quality filtering
 --skip_nanoplot             # Skip NanoPlot QC
---fastp_qualified_quality <int>     # Min quality score (default: 15)
---fastp_length_required <int>       # Min read length (default: 1000)
---fastp_cut_mean_quality <int>      # Sliding window quality (default: 20)
+--qc_tool <chopper|fastp|filtlong>  # Read filter (default: chopper)
+--chopper_minlength <int>           # Min read length, chopper (default: 1000; 1 disables)
+--chopper_quality <int>             # Min mean read quality, chopper (default: 10)
+--fastp_length_required <int>       # Min read length, fastp (default: 1000; 1 disables)
+--fastp_average_qual <int>          # Min mean read quality, fastp (default: 10)
+--fastp_qualified_quality <int>     # Per-base phred floor, fastp (default: 15)
+--filtlong_min_length <int>         # Min read length, filtlong (default: 1000)
 ```
+
+The length and mean-quality floors apply to whichever QC tool is selected;
+each tool reads its own parameter set, and the pipeline applies the same
+defaults to all three so a run filters the same reads whichever tool it uses.
 
 #### Taxonomic Classification
 
@@ -525,6 +543,43 @@ nextflow run foi-bioinformatics/nanometanf \
   -profile conda \
   -resume
 ```
+
+### Continue a Real-time Run
+
+`-resume` behaves differently for a real-time run because Nextflow's task
+cache cannot recognise its tasks (each file's batch number is assigned on
+arrival). The pipeline keeps its own record instead:
+
+- `pipeline_info/processed_inputs.tsv` lists every input file whose batch
+  reached a per-batch report (`sample_id`, `batch_id`, `source_file`,
+  `completed_at`). It is written as batches complete, not at intake.
+- With `-resume` into the same `--outdir`, files listed in the ledger are
+  skipped and the log states how many. A file the previous run never
+  finished is classified again.
+- The progressive cumulative report (`kraken2/<sample>.cumulative.kraken2.report.txt`)
+  is seeded from the previous run's `kraken2/<sample>/stats/batch_N_taxid_counts.json`,
+  and the end-of-session aggregation includes the previous run's batch files,
+  so both cover the whole outdir rather than the second run alone.
+
+```bash
+nextflow run FOI-Bioinformatics/nanometanf -profile conda \
+  --realtime_mode --nanopore_output_dir /data/run1/fastq_pass \
+  --outdir results/run1 --kraken2_db /path/to/db \
+  -resume
+```
+
+Delete `pipeline_info/processed_inputs.tsv` to force every file to be
+classified again.
+
+### Inputs Lost to Error Isolation
+
+`conf/error_isolation.config` ignores exit codes 1 and 2 on the QC and
+classification processes so a single unreadable file cannot stop a run. Each
+absorbed failure writes a JSON marker under `pipeline_info/lost_inputs/`
+(`stage`, `sample`, `exit_status`, `input_files`, `work_dir`). The reads of
+those files are absent from every count; check this directory before reading
+a run as complete. Nextflow's own summary still ends with "completed
+successfully, but with errored process(es)" in that case.
 
 ## Troubleshooting
 

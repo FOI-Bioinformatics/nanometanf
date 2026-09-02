@@ -11,3 +11,9 @@ testing*
 *.pyc
 bin/
 ro-crate-metadata.json
+# Test fixtures are data, not source: they are inputs to the tools under test
+# and several are compared byte for byte, so reformatting them can invalidate
+# a fixture. (A BLAST .njs is also metadata, not JavaScript, and prettier
+# cannot parse it at all.)
+tests/fixtures/
+**/tests/fixtures/

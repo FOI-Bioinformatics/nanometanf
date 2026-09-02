@@ -261,7 +261,14 @@ workflow QC_ANALYSIS {
         // SEQKIT_MERGE_STATS receives the canonical per-sample tuple it
         // expects. remainder: true flushes the partial group when the
         // upstream watchPath channel finally closes.
+        // ch_seqkit_stats carries the `.ifEmpty([])` sentinel; when no
+        // SEQKIT_STATS task ran at all (a real-time run that received no new
+        // file, e.g. a Continue whose every input the previous run had already
+        // classified) the bare `[]` reached this destructuring map and aborted
+        // the session with "Invalid method invocation `call` with arguments:
+        // []". Same guard as ch_qc_reads_tuples below.
         def ch_grouped_batch_stats = ch_seqkit_stats
+            .filter { it instanceof List && it.size() >= 2 && it[0] instanceof Map }
             .map { meta, stats -> tuple(meta.id, meta, stats) }
             .groupTuple(by: 0)
             .map { sample_id, metas, stats_list ->

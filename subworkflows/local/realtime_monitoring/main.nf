@@ -111,61 +111,132 @@ workflow REALTIME_MONITORING {
             } as java.util.TimerTask, period_ms, period_ms)
         }
 
-        // Use file() function directly to find existing files - more reliable than Channel.fromPath
-        // The file() function with glob patterns returns a list of matching files
-        def full_pattern = "${watch_dir}/${file_pattern}"
-        def existing_files = file(full_pattern)
-
-        // file() returns a single Path if one match, a List if multiple, or empty list if none
-        def existing_list = []
-        if (existing_files instanceof List) {
-            existing_list = existing_files.findAll { it.exists() }
-        } else if (existing_files != null && existing_files.exists()) {
-            existing_list = [existing_files]
-        }
-        // Hidden files are never sequencing output. macOS writes AppleDouble
-        // "._*" sidecars beside every file on exFAT/USB media, the glob above
-        // matches them, and gzip then fails the QC process (2026-08-17).
-        existing_list = existing_list.findAll { !it.name.startsWith('.') }
-
-        // Round-robin interleave existing files by parent (barcode) directory so
-        // take(max_files) selects fairly across all barcodes rather than in
-        // filesystem order. See BatchUtils.interleaveFilesByParentDir.
-        existing_list = BatchUtils.interleaveFilesByParentDir(existing_list)
-
-        def existing_count = existing_list.size()
-
-        if (existing_count > 0) {
-            log.info "Found ${existing_count} existing files - will process immediately"
-            existing_list.each { f -> log.info "  - ${f.name}" }
-        } else {
-            log.info "No existing files found - waiting for new files..."
-        }
-
-        // Create channel from existing files
-        def ch_existing = existing_count > 0
-            ? Channel.fromList(existing_list)
-            : Channel.empty()
-
-        // Watch for new files being created or modified.
+        // Watch for new files being created or modified. The watcher is
+        // created BEFORE the scan of existing files, and the scan runs from
+        // a later igniter (Channel.fromList binds in one): Nextflow starts
+        // the directory listener inside a session igniter and takes the
+        // directory contents at that moment as its never-reported baseline,
+        // so a scan taken at script evaluation left every file that landed
+        // between the two in neither set (nanometa_live round-4 audit, H4).
+        // Igniters run in creation order, and the listener snapshots its
+        // baseline synchronously before returning, so the scan below sees
+        // that baseline in full; a file both see is deduplicated by the
+        // seen-set (lib/RealtimeIntake.groovy).
         //
         // ch_new must stay the RAW watchPath queue: the timeout timer
         // terminates the stream by binding a PoisonPill into it (see
         // below), and rebinding this name to an operator's output channel
         // makes that bind fail into its catch-all -- the stream then never
         // closes and the run hangs until an external timeout (observed as
-        // a 60-minute CI cancel, 2026-08-17). The hidden-file exclusion is
-        // therefore applied downstream, after the mix.
+        // a 60-minute CI cancel, 2026-08-17). The exclusions are therefore
+        // applied downstream, after the mix.
+        def full_pattern = "${watch_dir}/${file_pattern}"
         def ch_new = Channel.watchPath(full_pattern, 'create,modify')
 
+        // Continue (-resume) into a populated outdir: skip the inputs the
+        // previous run finished classifying. Nextflow's task cache cannot do
+        // this for a real-time run (see lib/RealtimeResume.groovy), so
+        // without the ledger a Continue re-emitted every existing file and
+        // the aggregate fell to zero and climbed again (nanometa_live
+        // round-4 audit, H15/H19). A file the previous run never finished is
+        // not in the ledger and is processed again.
+        def already_processed = workflow.resume
+            ? RealtimeResume.readProcessedInputs(params.outdir.toString())
+            : ([] as Set)
+
+        def seen_paths = RealtimeIntake.newSeenSet()
+
+        // Existing files, listed when the igniter fires (see above), and
+        // listed once more after a short delay: a directory walk taken while
+        // a sequencer renames files into the folder can return a partial
+        // listing (a drill that fed 100 files across the start-up saw one
+        // walk return 21 of the 30 present, scattered, while the same walk
+        // in a quiet directory is exact), and the watcher's first polls are
+        // its most exposed. The second listing costs one glob; anything it
+        // repeats is dropped by the seen-set. The listing is
+        // RealtimeIntake.listInputs, not file(): Nextflow's glob walk aborts
+        // on the first entry that vanishes mid-walk (a producer renaming a
+        // temporary name into place) and returns the partial listing.
+        def sweep_delay_ms = 10000L
+        def ch_existing = Channel.fromList([0, 1]).flatMap { sweep ->
+            if (sweep > 0) {
+                Thread.sleep(sweep_delay_ms)
+            }
+            def existing_list = RealtimeIntake.listInputs(watch_dir, file_pattern)
+            // Hidden files are AppleDouble "._*" sidecars on exFAT/USB media
+            // (gzip then fails the QC process, 2026-08-17); fastq_fail/ and
+            // fastq_skip/ are MinKNOW's rejected reads.
+            def parts = RealtimeIntake.partitionExisting(existing_list)
+            existing_list = parts.inputs
+            parts.excluded.each { reason, n ->
+                log.info "Ignoring ${n} matched file(s): ${reason}"
+            }
+
+            if (already_processed) {
+                def before = existing_list.size()
+                existing_list = existing_list.findAll { !(it.toString() in already_processed) }
+                if (sweep == 0) {
+                    log.info "Continue: skipping ${before - existing_list.size()} of ${before} existing input files already classified by the previous run in ${params.outdir} (pipeline_info/processed_inputs.tsv)"
+                }
+            }
+
+            // Round-robin interleave existing files by parent (barcode)
+            // directory so take(max_files) selects fairly across all
+            // barcodes rather than in filesystem order. See
+            // BatchUtils.interleaveFilesByParentDir.
+            existing_list = BatchUtils.interleaveFilesByParentDir(existing_list)
+
+            if (sweep > 0) {
+                def unseen = existing_list.findAll {
+                    !(it.toAbsolutePath().normalize().toString() in seen_paths)
+                }
+                // A file younger than a few polls is simply not reported
+                // yet; an older one was missed by the first listing or the
+                // watcher and is worth a line in the log.
+                def now_ms = System.currentTimeMillis()
+                def missed = unseen.findAll { f ->
+                    now_ms - java.nio.file.Files.getLastModifiedTime(f).toMillis() > 3000L
+                }
+                if (missed) {
+                    log.info "Start-up sweep: ${missed.size()} file(s) older than 3 s that neither the first listing nor the watcher had handed on"
+                    missed.each { f -> log.info "  - ${f.name}" }
+                } else if (unseen) {
+                    log.debug "Start-up sweep: ${unseen.size()} file(s) not yet reported by the watcher"
+                }
+                return unseen
+            }
+
+            def existing_count = existing_list.size()
+            if (existing_count > 0) {
+                log.info "Found ${existing_count} existing files - will process immediately"
+                existing_list.each { f -> log.info "  - ${f.name}" }
+            } else {
+                log.info "No existing files found - waiting for new files..."
+            }
+
+            // Log truncation warning if take() will exclude some existing files
+            if (params.max_files && existing_count > params.max_files.toInteger()) {
+                def limit = params.max_files.toInteger()
+                def included = existing_list.take(limit)
+                def excluded = existing_list.drop(limit)
+                def included_counts = included.countBy { it.parent.name }
+                def excluded_counts = excluded.countBy { it.parent.name }
+                log.warn "take(${limit}) will truncate ${existing_count} existing files"
+                log.warn "  Included per directory: ${included_counts}"
+                log.warn "  Excluded per directory: ${excluded_counts}"
+            }
+            return existing_list
+        }
+
         // Combine existing files (processed first) with new files (watched
-        // continuously). Hidden files are excluded here: macOS writes
-        // AppleDouble "._name.fastq.gz" sidecars beside every file on
-        // exFAT/USB media and the glob matches them (gzip then fails the
-        // QC process). The PoisonPill never reaches the filter closure --
-        // operators terminate on it without invoking user code.
+        // continuously). The PoisonPill never reaches the filter closures --
+        // operators terminate on it without invoking user code. A path is
+        // handed on once: the scan and the watcher overlap by design, and
+        // the watcher re-emits a file whose mtime changes ('modify').
         def ch_watched = ch_existing.mix(ch_new)
-            .filter { !it.name.startsWith('.') }
+            .filter { RealtimeIntake.isInput(it) }
+            .filter { !(it.toString() in already_processed) }
+            .filter { RealtimeIntake.firstSighting(seen_paths, it) }
 
         //
         // TIMEOUT LOGIC: Intelligent inactivity timeout with grace period (v1.2.1+)
@@ -179,18 +250,18 @@ workflow REALTIME_MONITORING {
         // complete by the time watchPath sees them, so no settling is
         // needed. Callers producing non-atomic appended writes should use
         // a wrapper that renames into place instead of relying on settling.
-        def ch_all_files = ch_watched
-
-        // Log truncation warning if take() will exclude some existing files
-        if (params.max_files && existing_count > params.max_files.toInteger()) {
-            def limit = params.max_files.toInteger()
-            def included = existing_list.take(limit)
-            def excluded = existing_list.drop(limit)
-            def included_counts = included.countBy { it.parent.name }
-            def excluded_counts = excluded.countBy { it.parent.name }
-            log.warn "take(${limit}) will truncate ${existing_count} existing files"
-            log.warn "  Included per directory: ${included_counts}"
-            log.warn "  Excluded per directory: ${excluded_counts}"
+        //
+        // last_file_at feeds the inactivity timer below: every emission,
+        // existing or watched, resets it. Before this the timer was a
+        // one-shot scheduled at construction, so a run whose files kept
+        // arriving was cut at realtime_timeout_minutes + grace of wall
+        // clock and reported complete (nanometa_live round-4 audit, H1:
+        // 14 of 47 input files never classified).
+        def last_file_at = new java.util.concurrent.atomic.AtomicLong(System.currentTimeMillis())
+        def ch_all_files = ch_watched.map { f ->
+            last_file_at.set(System.currentTimeMillis())
+            log.debug "Real-time intake: ${f}"
+            f
         }
 
         // Apply timeout and/or max_files limits.
@@ -232,17 +303,20 @@ workflow REALTIME_MONITORING {
             def grace = (params.realtime_processing_grace_period ?: 0) as Integer
             def total_timeout_ms = (params.realtime_timeout_minutes.toInteger() + grace) * 60L * 1000L
 
-            log.info "Real-time timeout enabled: stop after ${params.realtime_timeout_minutes} minutes (idle) plus ${grace} minute grace period"
-            log.info "Total wall-clock budget: ${total_timeout_ms} ms"
+            log.info "Real-time timeout enabled: stop after ${params.realtime_timeout_minutes} minutes without a new file, plus ${grace} minute grace period"
+            log.info "Inactivity budget: ${total_timeout_ms} ms since the last file"
 
-            // Schedule a one-shot sentinel emission on a Java daemon
-            // Timer. We intentionally avoid Channel.interval here: that
-            // factory keeps emitting on its scheduler until the JVM
-            // exits and is awkward to cancel cleanly when .take(N)
-            // satisfies the cap first. A daemon Timer is GC-collected
-            // along with its queue when no consumers remain, so a
-            // cap-fires-first run does not pin the JVM open waiting
-            // for a sentinel that no one is reading.
+            // A daemon Timer checks the idle time periodically and emits the
+            // sentinel once no file has arrived for total_timeout_ms. It was
+            // a one-shot scheduled at construction, which made the parameter
+            // a wall-clock cap while every operator-facing text (this log
+            // line, nextflow.config, the GUI) described an inactivity stop.
+            // We intentionally avoid Channel.interval here: that factory
+            // keeps emitting on its scheduler until the JVM exits and is
+            // awkward to cancel cleanly when .take(N) satisfies the cap
+            // first. A daemon Timer is GC-collected along with its queue
+            // when no consumers remain, so a cap-fires-first run does not
+            // pin the JVM open waiting for a sentinel that no one is reading.
             //
             // The sentinel is delivered by binding values into a GPars
             // DataflowQueue (the type that backs every Nextflow channel)
@@ -254,7 +328,16 @@ workflow REALTIME_MONITORING {
             // channel completion.
             ch_timeout = new groovyx.gpars.dataflow.DataflowQueue()
             realtime_timer = new Timer('realtime-timeout', /* isDaemon */ true)
-            realtime_timer.schedule({
+            def timeout_fired = new java.util.concurrent.atomic.AtomicBoolean(false)
+            // intdiv: Groovy's `/` on longs yields a BigDecimal and makes
+            // Math.min ambiguous.
+            long quarter_budget_ms = total_timeout_ms.intdiv(4L) as long
+            long check_period_ms = Math.max(1000L, Math.min(15000L, quarter_budget_ms))
+            realtime_timer.scheduleAtFixedRate({
+                def idle_ms = System.currentTimeMillis() - last_file_at.get()
+                if (idle_ms < total_timeout_ms || !timeout_fired.compareAndSet(false, true)) {
+                    return
+                }
                 try {
                     ch_timeout.bind(TIMEOUT_SENTINEL)
                     ch_timeout.bind(groovyx.gpars.dataflow.operator.PoisonPill.instance)
@@ -270,12 +353,12 @@ workflow REALTIME_MONITORING {
                     } catch (Exception inner) {
                         // ch_new already closed by an earlier termination path
                     }
-                    log.info "Real-time timeout fired after ${total_timeout_ms} ms"
+                    log.info "Real-time timeout fired: no new file for ${idle_ms} ms (budget ${total_timeout_ms} ms)"
                 } catch (Exception e) {
                     // Queue already closed by an earlier termination path.
                 }
                 realtime_timer.cancel()
-            } as TimerTask, total_timeout_ms)
+            } as TimerTask, check_period_ms, check_period_ms)
 
             ch_input_files = ch_input_files
                 .mix(ch_timeout)
@@ -445,6 +528,9 @@ workflow REALTIME_MONITORING {
 
                 meta.single_end = true
                 meta.batch_time = new Date().format('yyyy-MM-dd_HH-mm-ss')
+                // The input this batch came from, for the processed-input
+                // ledger a Continue reads (lib/RealtimeResume.groovy).
+                meta.source_file = file.toString()
 
                 return [ meta, file ]
             }

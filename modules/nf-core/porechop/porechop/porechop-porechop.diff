@@ -1,0 +1,39 @@
+Changes in component 'nf-core/porechop/porechop'
+'modules/nf-core/porechop/porechop/environment.yml' is unchanged
+'modules/nf-core/porechop/porechop/meta.yml' is unchanged
+Changes in 'porechop/porechop/main.nf':
+--- modules/nf-core/porechop/porechop/main.nf
++++ modules/nf-core/porechop/porechop/main.nf
+@@ -3,7 +3,7 @@
+     label 'process_medium'
+ 
+     conda "${moduleDir}/environment.yml"
+-    container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
++    container "${ workflow.containerEngine in ['singularity', 'apptainer'] && !task.ext.singularity_pull_docker_container ?
+         'https://community-cr-prod.seqera.io/docker/registry/v2/blobs/sha256/2b/2bce1f10c51906a66c4c4d3a7485394f67e304177192ad1cce6cf586a3a18bae/data' :
+         'community.wave.seqera.io/library/porechop_pigz:d1655e5b5bad786c' }"
+ 
+
+'modules/nf-core/porechop/porechop/tests/main.nf.test.snap' is unchanged
+'modules/nf-core/porechop/porechop/tests/nextflow.config' is unchanged
+Changes in 'porechop/porechop/tests/main.nf.test':
+--- modules/nf-core/porechop/porechop/tests/main.nf.test
++++ modules/nf-core/porechop/porechop/tests/main.nf.test
+@@ -5,6 +5,7 @@
+     process "PORECHOP_PORECHOP"
+     config "./nextflow.config"
+ 
++    tag "fast"
+     tag "modules"
+     tag "modules_nfcore"
+     tag "porechop"
+@@ -38,6 +39,7 @@
+ 
+     test("stub") {
+         options "-stub"
++    tag "stub"
+ 
+         when {
+             process {
+
+************************************************************

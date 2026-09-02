@@ -388,6 +388,28 @@ workflow TAXONOMIC_CLASSIFICATION {
                     }
                 }
 
+                // Continue (-resume) in real time: seed the accumulator from the
+                // previous run's per-batch taxid counts so the progressive
+                // cumulative report continues from where that run ended instead
+                // of restarting from zero (nanometa_live round-4 audit, H15/H19:
+                // the aggregate fell 9,697 -> 3,473 on a Continue). Each seeded
+                // sample's report is written at once, so the dashboard's
+                // cumulative tier never shows the restart.
+                if (workflow.resume && params.realtime_mode) {
+                    def seed_warnings = []
+                    def prior_counts = RealtimeResume.priorTaxidCounts(params.outdir.toString(), seed_warnings)
+                    seed_warnings.each { log.warn "Continue: could not read a previous batch's taxid counts: ${it}" }
+                    BatchUtils.withLock(cumulative_taxa_state) {
+                        prior_counts.each { sample_id, batches ->
+                            def state = cumulative_taxa_state[sample_id]
+                            batches.each { RealtimeResume.mergeBatchCounts(state, it) }
+                            batch_write_counter[sample_id] = batches.size()
+                            write_cumulative_report.call(sample_id, state)
+                            log.info "Continue: cumulative counts for ${sample_id} seeded from ${batches.size()} previous batch(es), ${state.total_reads} reads"
+                        }
+                    }
+                }
+
                 KRAKEN2_REPORT_GENERATOR.out.taxid_counts
                     .subscribe(onNext: { item ->
                         def sample_label = "unknown"
@@ -401,30 +423,22 @@ workflow TAXONOMIC_CLASSIFICATION {
                                 def batch_counts = new groovy.json.JsonSlurper().parseText(taxid_file.text)
                                 def state = cumulative_taxa_state[sample_id]
 
-                                // Merge batch taxa into cumulative state.
-                                // `parent` comes from KRAKEN2_REPORT_GENERATOR, which
-                                // recovers it from the batch report's own row order and
-                                // indentation. It is carried here because the cumulative
-                                // report must be written depth first (see the write
-                                // below); a taxa map alone cannot say where a row goes.
-                                batch_counts.taxa.each { taxid, data ->
-                                    if (!state.taxa.containsKey(taxid)) {
-                                        state.taxa[taxid] = [
-                                            reads: 0, cumul: 0,
-                                            rank: data.rank, name: data.name,
-                                            parent: data.parent
-                                        ]
-                                    } else if (state.taxa[taxid].parent == null && data.parent != null) {
-                                        // A taxon can appear as a root in one batch and
-                                        // with its lineage in a later, deeper one.
-                                        state.taxa[taxid].parent = data.parent
-                                    }
-                                    state.taxa[taxid].reads += (data.reads as int)
-                                    state.taxa[taxid].cumul += (data.cumul as int)
+                                // Merge batch taxa into cumulative state. The merge
+                                // lives in RealtimeResume so that seeding the state
+                                // from a previous run's per-batch counts (below) and
+                                // the live path cannot drift.
+                                RealtimeResume.mergeBatchCounts(state, batch_counts)
+
+                                // Ledger of finished inputs, read by a Continue
+                                // (lib/RealtimeResume.groovy). Written here, once the
+                                // batch has a per-batch report, and not at intake: a
+                                // file the run was cut before classifying must be
+                                // processed again next time.
+                                if (params.realtime_mode && meta.source_file) {
+                                    RealtimeResume.recordProcessedInput(
+                                        params.outdir.toString(), sample_id, meta.batch_id,
+                                        meta.source_file.toString())
                                 }
-                                state.total_reads += (batch_counts.total_reads as int)
-                                state.classified_reads += (batch_counts.classified_reads as int)
-                                state.unclassified_reads += (batch_counts.unclassified_reads as int)
 
                                 batch_write_counter[sample_id] = batch_write_counter[sample_id] + 1
 
@@ -519,11 +533,26 @@ workflow TAXONOMIC_CLASSIFICATION {
                 // This produces the definitive cumulative output from actual files.
                 //
 
+                // Continue (-resume) in real time: the previous run's published
+                // batch files join this run's, so the end-of-session cumulative
+                // covers both runs -- as the seeded progressive report above
+                // already does -- and the aggregator's expected-batch check (the
+                // resumed counter counts both runs) can be satisfied. Staged via
+                // channels, so the module keeps reading only its work directory.
+                def resume_realtime = workflow.resume && params.realtime_mode
+                def ch_prior_outputs = resume_realtime
+                    ? Channel.fromList(RealtimeResume.priorBatchFiles(params.outdir.toString(), 'batches', 'kraken2.output.txt'))
+                    : Channel.empty()
+                def ch_prior_reports = resume_realtime
+                    ? Channel.fromList(RealtimeResume.priorBatchFiles(params.outdir.toString(), 'batch_reports', 'kraken2.report.txt'))
+                    : Channel.empty()
+
                 // Collect batch output files per sample
                 ch_sample_outputs = KRAKEN2_OUTPUT_MERGER.out.batch_output
                     .map { meta, output_file ->
                         return tuple(meta.id, output_file)
                     }
+                    .mix(ch_prior_outputs)
                     .groupTuple(by: 0)
 
                 // Collect batch report files per sample
@@ -531,6 +560,7 @@ workflow TAXONOMIC_CLASSIFICATION {
                     .map { meta, report_file ->
                         return tuple(meta.id, report_file)
                     }
+                    .mix(ch_prior_reports)
                     .groupTuple(by: 0)
 
                 // Join outputs and reports by sample_id, then run aggregation.

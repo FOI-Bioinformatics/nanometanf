@@ -218,10 +218,12 @@ jobs:
             nxf-conda-${{ runner.os }}-${{ runner.arch }}-
 
       - name: Install nf-test
-        run: |
-          curl -fsSL https://get.nf-test.com | bash
-          sudo install -m 0755 nf-test /usr/local/bin/nf-test
-          nf-test version
+        # The same pinned action as the shards. The get.nf-test.com
+        # installer answered 403 from the macOS runner twice on
+        # 2026-09-02 before any test ran.
+        uses: nf-core/setup-nf-test@v1
+        with:
+          version: "0.9.5"
 
       - name: Every test fixture must exist on a fresh clone
         run: python3 tests/lib/fixtures_are_tracked.py
