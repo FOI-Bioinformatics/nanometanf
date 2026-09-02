@@ -128,6 +128,22 @@ workflow REALTIME_MONITORING {
         // matches them, and gzip then fails the QC process (2026-08-17).
         existing_list = existing_list.findAll { !it.name.startsWith('.') }
 
+        // Continue (-resume) into a populated outdir: skip the inputs the
+        // previous run finished classifying. Nextflow's task cache cannot do
+        // this for a real-time run (see lib/RealtimeResume.groovy), so
+        // without the ledger a Continue re-emitted every existing file and
+        // the aggregate fell to zero and climbed again (nanometa_live
+        // round-4 audit, H15/H19). A file the previous run never finished is
+        // not in the ledger and is processed again.
+        def already_processed = workflow.resume
+            ? RealtimeResume.readProcessedInputs(params.outdir.toString())
+            : ([] as Set)
+        if (already_processed) {
+            def before = existing_list.size()
+            existing_list = existing_list.findAll { !(it.toString() in already_processed) }
+            log.info "Continue: skipping ${before - existing_list.size()} of ${before} existing input files already classified by the previous run in ${params.outdir} (pipeline_info/processed_inputs.tsv)"
+        }
+
         // Round-robin interleave existing files by parent (barcode) directory so
         // take(max_files) selects fairly across all barcodes rather than in
         // filesystem order. See BatchUtils.interleaveFilesByParentDir.
@@ -166,6 +182,7 @@ workflow REALTIME_MONITORING {
         // operators terminate on it without invoking user code.
         def ch_watched = ch_existing.mix(ch_new)
             .filter { !it.name.startsWith('.') }
+            .filter { !(it.toString() in already_processed) }
 
         //
         // TIMEOUT LOGIC: Intelligent inactivity timeout with grace period (v1.2.1+)
@@ -468,6 +485,9 @@ workflow REALTIME_MONITORING {
 
                 meta.single_end = true
                 meta.batch_time = new Date().format('yyyy-MM-dd_HH-mm-ss')
+                // The input this batch came from, for the processed-input
+                // ledger a Continue reads (lib/RealtimeResume.groovy).
+                meta.source_file = file.toString()
 
                 return [ meta, file ]
             }

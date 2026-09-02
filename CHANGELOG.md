@@ -5,6 +5,45 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- **Continue (`-resume`) in real-time mode now continues the run.** Nextflow's
+  task cache cannot help a real-time run (per-file wall-clock meta, a batch
+  counter that resumes at N+1, a cumulative accumulator that started from
+  zero), so a Continue into a populated outdir re-emitted every existing
+  input file; the aggregate the operator watched fell 9,697 -> 3,473 before
+  climbing back and the batch tree doubled (nanometa_live round-4 audit,
+  H15/H19). The pipeline now keeps a ledger of finished inputs
+  (`pipeline_info/processed_inputs.tsv`, one line per classified batch),
+  skips ledgered files at intake when `-resume` is set, seeds the progressive
+  cumulative report from the previous run's `kraken2/<sample>/stats/
+  batch_N_taxid_counts.json`, and hands the previous run's batch files to
+  `KRAKEN2_FINAL_AGGREGATOR` so the end-of-session cumulative covers both
+  runs. A file the previous run never finished is not in the ledger and is
+  classified again. `lib/RealtimeResume.groovy`; unit tests in
+  `tests/lib/realtime_resume.nf.test`.
+- **An input lost to error isolation is recorded.** `conf/error_isolation.config`
+  ignores exit 1/2 on the QC and classification processes so one bad file
+  cannot stop a run, but nothing said which file was lost: the trace names
+  the sample, the manifest names failed samples, and `aggregation_stats.json`
+  cannot see a QC-stage loss because batch ids are assigned after QC
+  (round-4 audit, H20: a corrupt chunk died in CHOPPER with "Error is
+  ignored" and every surface reported a complete run). Those processes now
+  run `bin/nanometanf_lost_input_marker.sh` as their `afterScript`, which
+  writes one JSON marker per absorbed failure under
+  `pipeline_info/lost_inputs/` naming the staged input files, their sample,
+  stage and exit status. Nanometa Live reads the markers into the run report.
+
+### Fixed
+- A real-time session that received no input file at all aborted in the QC
+  subworkflow: with no SEQKIT_STATS task the `.ifEmpty([])` sentinel reached
+  the batch-stats aggregation's destructuring map ("Invalid method invocation
+  `call` with arguments: []"). A Continue whose every input the previous run
+  had already classified is the common way to get there. The aggregation now
+  drops the sentinel like the other consumers; pinned in
+  `tests/realtime_classification.nf.test`.
+
 ## [1.7.1] - 2026-08-25
 
 Patch release. Pairs with nanometa_live 0.13.0.

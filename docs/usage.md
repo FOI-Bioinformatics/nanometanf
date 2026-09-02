@@ -526,6 +526,43 @@ nextflow run foi-bioinformatics/nanometanf \
   -resume
 ```
 
+### Continue a Real-time Run
+
+`-resume` behaves differently for a real-time run because Nextflow's task
+cache cannot recognise its tasks (each file's batch number is assigned on
+arrival). The pipeline keeps its own record instead:
+
+- `pipeline_info/processed_inputs.tsv` lists every input file whose batch
+  reached a per-batch report (`sample_id`, `batch_id`, `source_file`,
+  `completed_at`). It is written as batches complete, not at intake.
+- With `-resume` into the same `--outdir`, files listed in the ledger are
+  skipped and the log states how many. A file the previous run never
+  finished is classified again.
+- The progressive cumulative report (`kraken2/<sample>.cumulative.kraken2.report.txt`)
+  is seeded from the previous run's `kraken2/<sample>/stats/batch_N_taxid_counts.json`,
+  and the end-of-session aggregation includes the previous run's batch files,
+  so both cover the whole outdir rather than the second run alone.
+
+```bash
+nextflow run FOI-Bioinformatics/nanometanf -profile conda \
+  --realtime_mode --nanopore_output_dir /data/run1/fastq_pass \
+  --outdir results/run1 --kraken2_db /path/to/db \
+  -resume
+```
+
+Delete `pipeline_info/processed_inputs.tsv` to force every file to be
+classified again.
+
+### Inputs Lost to Error Isolation
+
+`conf/error_isolation.config` ignores exit codes 1 and 2 on the QC and
+classification processes so a single unreadable file cannot stop a run. Each
+absorbed failure writes a JSON marker under `pipeline_info/lost_inputs/`
+(`stage`, `sample`, `exit_status`, `input_files`, `work_dir`). The reads of
+those files are absent from every count; check this directory before reading
+a run as complete. Nextflow's own summary still ends with "completed
+successfully, but with errored process(es)" in that case.
+
 ## Troubleshooting
 
 ### Common Issues
