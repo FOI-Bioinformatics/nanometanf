@@ -1,6 +1,6 @@
 {
     "@context": [
-        "https://w3id.org/ro/crate/1.1/context",
+        "https://w3id.org/ro/crate/1.2/context",
         {
             "GithubService": "https://w3id.org/ro/terms/test#GithubService",
             "JenkinsService": "https://w3id.org/ro/terms/test#JenkinsService",
@@ -22,7 +22,7 @@
             "@id": "./",
             "@type": "Dataset",
             "creativeWorkStatus": "InProgress",
-            "datePublished": "2025-10-14T06:34:09+00:00",
+            "datePublished": "2026-09-02T14:10:14+00:00",
             "description": "# foi-bioinformatics/nanometanf\n\n[![GitHub Actions CI Status](https://github.com/foi-bioinformatics/nanometanf/actions/workflows/nf-test.yml/badge.svg)](https://github.com/foi-bioinformatics/nanometanf/actions/workflows/nf-test.yml)\n[![GitHub Actions Linting Status](https://github.com/foi-bioinformatics/nanometanf/actions/workflows/linting.yml/badge.svg)](https://github.com/foi-bioinformatics/nanometanf/actions/workflows/linting.yml)\n[![nf-test](https://img.shields.io/badge/unit_tests-nf--test-337ab7.svg)](https://www.nf-test.com)\n\n[![Nextflow](https://img.shields.io/badge/version-%E2%89%A526.04.0-green?style=flat&logo=nextflow&logoColor=white&color=%230DC09D&link=https%3A%2F%2Fnextflow.io)](https://www.nextflow.io/)\n[![nf-core template version](https://img.shields.io/badge/nf--core_template-3.3.2-green?style=flat&logo=nfcore&logoColor=white&color=%2324B064&link=https%3A%2F%2Fnf-co.re)](https://github.com/nf-core/tools/releases/tag/3.3.2)\n[![run with conda](http://img.shields.io/badge/run%20with-conda-3EB049?labelColor=000000&logo=anaconda)](https://docs.conda.io/en/latest/)\n[![run with docker](https://img.shields.io/badge/run%20with-docker-0db7ed?labelColor=000000&logo=docker)](https://www.docker.com/)\n[![run with singularity](https://img.shields.io/badge/run%20with-singularity-1d355c.svg?labelColor=000000)](https://sylabs.io/docs/)\n[![Launch on Seqera Platform](https://img.shields.io/badge/Launch%20%F0%9F%9A%80-Seqera%20Platform-%234256e7)](https://cloud.seqera.io/launch?pipeline=https://github.com/foi-bioinformatics/nanometanf)\n\n## Introduction\n\n**nanometanf** is an nf-core compliant Nextflow pipeline for Oxford Nanopore\nlong-read sequencing data analysis. It serves as the computational backend for\n[Nanometa Live](https://github.com/FOI-Bioinformatics/nanometa_live) and covers\nquality control (Chopper, FASTP, NanoPlot), taxonomic classification (Kraken2),\nand validation (BLAST, minimap2). Real-time and batch execution modes are\nsupported.\n\nCapabilities:\n\n- Real-time FASTQ monitoring during a sequencing run, using Nextflow `watchPath`\n- Streaming Kraken2 architecture (v1.5+) with per-sample parallelism, append-only\n  batch storage, and incremental taxid counting\n- Pre-demultiplexed barcode directory support (flat or per-barcode layouts)\n- Adaptive batching and configurable concurrency for high-throughput runs\n- Tool-agnostic canonical output layer (`outdir/canonical/`) consumed by Nanometa\n  Live and other frontends; schema in\n  [`docs/development/canonical_output_specification.md`](docs/development/canonical_output_specification.md)\n- Optional runtime-metrics instrumentation (`--runtime_metrics_interval_seconds`)\n  emitting periodic `[runtime-metrics]` log lines plus the standard Nextflow\n  `execution_trace_<ts>.txt` with queue-waiting fields for backpressure analysis\n- nf-core compliance with an extensive nf-test suite (59 pipeline-level + 23\n  module-internal tests; CI matrix runs Nextflow 26.04.0 and `latest-everything`\n  under both Docker and the platform-profile stub-sanity matrix)\n\n## Quick start\n\nThe recommended environment is the `nf-core` conda environment with Nextflow\n26.04.0 or later.\n\nQC only:\n\n```bash\nnextflow run foi-bioinformatics/nanometanf \\\n    --input samplesheet.csv \\\n    --outdir results \\\n    -profile conda\n```\n\nFull analysis with classification:\n\n```bash\nnextflow run foi-bioinformatics/nanometanf \\\n    --input samplesheet.csv \\\n    --kraken2_db /path/to/kraken2_db \\\n    --outdir results \\\n    -profile conda\n```\n\nCI smoke test (Docker is used in CI; locally use conda):\n\n```bash\nnextflow run foi-bioinformatics/nanometanf -profile test,docker --outdir test_results\n```\n\n<details>\n<summary>Real-time monitoring examples</summary>\n\n```bash\n# Watch a directory during sequencing\nnextflow run foi-bioinformatics/nanometanf \\\n    --realtime_mode \\\n    --nanopore_output_dir /path/to/fastq \\\n    --kraken2_db /path/to/db \\\n    --outdir results \\\n    -profile conda\n\n# High-throughput real-time with the streaming classifier (v1.5+)\nnextflow run foi-bioinformatics/nanometanf \\\n    --realtime_mode \\\n    --kraken2_enable_incremental true \\\n    --max_classification_forks 8 \\\n    --nanopore_output_dir /path/to/fastq \\\n    --kraken2_db /path/to/db \\\n    --outdir results \\\n    -profile conda\n\n# Same, with periodic runtime-metrics snapshots written to .nextflow.log\nnextflow run foi-bioinformatics/nanometanf \\\n    --realtime_mode \\\n    --runtime_metrics_interval_seconds 60 \\\n    --nanopore_output_dir /path/to/fastq \\\n    --kraken2_db /path/to/db \\\n    --outdir results \\\n    -profile conda\n```\n\n</details>\n\n## Streaming classification architecture (v1.5+)\n\nFor runs with many barcodes (more than ten), the pipeline uses a streaming\nKraken2 architecture with the following properties:\n\n- **Per-sample parallelism.** Merger and report modules no longer use\n  `maxForks 1` globally; samples are processed independently.\n- **Append-only batch storage.** Each batch is written to its own file with an\n  atomic JSON index. Cumulative output is rebuilt only at end of session,\n  giving O(1) per batch instead of O(n) cumulative rewrites.\n- **Incremental taxid counting.** Per-sample state files accumulate counts\n  without re-reading prior outputs. Per-sample state is released as soon as the\n  final batch of a sample is processed, so the head-process heap does not grow\n  with run length.\n- **Concurrency cap.** `--max_classification_forks` is a global cap on\n  in-flight classification tasks (default 8). `--max_concurrent_batches` is\n  reserved for a future per-barcode throttle and is currently advisory only\n  -- see the audit P2.9 note in `CLAUDE.md` for the workaround.\n\nInternal benchmarks measure roughly four to five times higher throughput on\nruns with twelve or more barcodes compared with the previous architecture.\n\n```bash\nnextflow run foi-bioinformatics/nanometanf \\\n    --realtime_mode \\\n    --kraken2_enable_incremental true \\\n    --max_classification_forks 8 \\\n    ...\n```\n\n## Deployment profiles\n\nHardware-specific profiles set resource defaults for different sequencer\nplatforms and deployment scenarios. Combine with an execution-engine profile\n(`conda`, `docker`, or `singularity`).\n\n| Profile        | Use case               | Description                                           |\n| -------------- | ---------------------- | ----------------------------------------------------- |\n| `test`         | CI and validation      | Minimal dataset with reduced resources for fast tests |\n| `minion`       | MinION / Mk1C          | Conservative memory and CPU allocation                |\n| `promethion`   | PromethION (standard)  | Higher throughput defaults                            |\n| `promethion_8` | PromethION (8-barcode) | Tuned for multiplexed PromethION runs                 |\n| `field`        | Field deployments      | Reduced resource footprint for laptops                |\n\nExamples:\n\n```bash\n# PromethION run on a workstation with conda\nnextflow run foi-bioinformatics/nanometanf -profile promethion,conda --input samplesheet.csv\n\n# MinION field run with conda and real-time monitoring\nnextflow run foi-bioinformatics/nanometanf -profile minion,conda \\\n    --input samplesheet.csv --realtime_mode\n\n# CI smoke test\nnextflow run foi-bioinformatics/nanometanf -profile test,docker\n```\n\nFor additional resource tuning, use one of the platform profiles above, or\npass your own file with `-c my.config`.\n\n> **Note:** `conf/production.config`, `conf/cloud.config` and\n> `conf/cluster.config` are unregistered and currently do not parse\n> (Nextflow strict syntax). They are kept for reference only -- do not\n> pass them with `-c` until they are fixed.\n\n## Documentation\n\n[Documentation index](docs/README.md).\n\nUser documentation:\n\n- [Usage guide](docs/usage.md) -- parameters and execution modes\n- [Output reference](docs/output.md) -- directory layout and file formats\n- [Quick start](docs/user/quickstart.md) -- scenario-based walkthrough\n- [Real-time processing](docs/user/realtime_processing.md)\n- [Performance tuning](docs/user/performance_tuning.md)\n- [Troubleshooting](docs/user/troubleshooting.md)\n\nDevelopment documentation:\n\n- [Development guide](docs/development/README.md)\n- [Canonical output specification](docs/development/canonical_output_specification.md) -- source of truth for `outdir/canonical/`\n- [Testing guide](docs/development/TESTING.md) -- nf-test conventions\n- [CLAUDE.md](CLAUDE.md) -- developer notes for AI-assisted work\n\nRelease information:\n\n- [Current version](docs/releases/CURRENT_VERSION.md)\n- [Release notes](docs/releases/)\n- [Migration guide](docs/releases/MIGRATION_GUIDE.md)\n\n## Pipeline summary\n\n```\nInput -> QC -> Classification -> Validation -> Reports\n  |       |          |                |            |\nFASTQ  Chopper    Kraken2          BLAST       MultiQC\n       FASTP    (streaming)       minimap2     Canonical JSON\n       NanoPlot Taxpasta                       HTML\n```\n\nSupported inputs (mutually exclusive; enforced at schema level via a `oneOf`\nconstraint):\n\n1. `--input` FASTQ samplesheet (standard batch analysis)\n2. `--input_dir` directory scan (auto-detects barcode subdirectories vs. flat\n   layout; replaces the deprecated `--barcode_input_dir`)\n3. `--realtime_mode` + `--nanopore_output_dir` for live FASTQ monitoring\n\nSee the [usage guide](docs/usage.md) for parameter details.\n\n## Credits\n\nnanometanf was originally written by Andreas Sjodin\n([@andreassjodin](https://github.com/andreassjodin)).\n\nThe pipeline is built on the nf-core framework. We thank the nf-core community\nand the developers of the integrated tools.\n\n## Citations\n\nIf you use nanometanf in your work, please cite:\n\n> **nanometanf: an Oxford Nanopore sequencing analysis pipeline.**\n>\n> Andreas Sjodin. _GitHub_ 2025. DOI to be assigned upon Zenodo deposit.\n\nA full list of tool references is available in [CITATIONS.md](CITATIONS.md).\n\nThe nf-core framework reference:\n\n> **The nf-core framework for community-curated bioinformatics pipelines.**\n>\n> Philip Ewels, Alexander Peltzer, Sven Fillinger, Harshil Patel, Johannes\n> Alneberg, Andreas Wilm, Maxime Ulysse Garcia, Paolo Di Tommaso, Sven Nahnsen.\n>\n> _Nat Biotechnol._ 2020 Feb 13. doi: [10.1038/s41587-020-0439-x](https://dx.doi.org/10.1038/s41587-020-0439-x).\n\n## License\n\nReleased under the MIT License. See [LICENSE](LICENSE).\n",
             "hasPart": [
                 {
@@ -39,6 +39,9 @@
                 },
                 {
                     "@id": "docs/"
+                },
+                {
+                    "@id": "lib/"
                 },
                 {
                     "@id": "modules/"
@@ -71,6 +74,9 @@
                     "@id": "LICENSE"
                 },
                 {
+                    "@id": "CODE_OF_CONDUCT.md"
+                },
+                {
                     "@id": "CITATIONS.md"
                 },
                 {
@@ -99,7 +105,7 @@
             },
             "mentions": [
                 {
-                    "@id": "#84ee28ec-537d-4c98-9b3f-50a32625f779"
+                    "@id": "#f93e0be8-34b9-43c4-ba92-e8172bc64e66"
                 }
             ],
             "name": "foi-bioinformatics/nanometanf"
@@ -112,7 +118,7 @@
             },
             "conformsTo": [
                 {
-                    "@id": "https://w3id.org/ro/crate/1.1"
+                    "@id": "https://w3id.org/ro/crate/1.2"
                 },
                 {
                     "@id": "https://w3id.org/workflowhub/workflow-ro-crate/1.0"
@@ -132,7 +138,7 @@
                 }
             ],
             "dateCreated": "",
-            "dateModified": "2025-10-14T08:34:09Z",
+            "dateModified": "2026-09-02T16:10:14Z",
             "dct:conformsTo": "https://bioschemas.org/profiles/ComputationalWorkflow/1.0-RELEASE/",
             "keywords": [
                 "nf-core",
@@ -140,11 +146,6 @@
             ],
             "license": [
                 "MIT"
-            ],
-            "maintainer": [
-                {
-                    "@id": "https://orcid.org/0000-0001-5350-4219"
-                }
             ],
             "name": [
                 "foi-bioinformatics/nanometanf"
@@ -160,7 +161,7 @@
                 "https://nf-co.re/foi-bioinformatics/nanometanf/dev/"
             ],
             "version": [
-                "1.2.0dev"
+                "1.8.1dev"
             ]
         },
         {
@@ -173,14 +174,14 @@
             "url": {
                 "@id": "https://www.nextflow.io/"
             },
-            "version": "!>=24.10.5"
+            "version": ">=26.04.0"
         },
         {
-            "@id": "#84ee28ec-537d-4c98-9b3f-50a32625f779",
+            "@id": "#f93e0be8-34b9-43c4-ba92-e8172bc64e66",
             "@type": "TestSuite",
             "instance": [
                 {
-                    "@id": "#1823ebd1-5142-46ec-a6b2-57c483e4ac3e"
+                    "@id": "#7192431e-5032-4a98-a2c8-2624a152f16f"
                 }
             ],
             "mainEntity": {
@@ -189,7 +190,7 @@
             "name": "Test suite for foi-bioinformatics/nanometanf"
         },
         {
-            "@id": "#1823ebd1-5142-46ec-a6b2-57c483e4ac3e",
+            "@id": "#7192431e-5032-4a98-a2c8-2624a152f16f",
             "@type": "TestInstance",
             "name": "GitHub Actions workflow for testing foi-bioinformatics/nanometanf",
             "resource": "repos/foi-bioinformatics/nanometanf/actions/workflows/nf-test.yml",
@@ -225,6 +226,11 @@
             "@id": "docs/",
             "@type": "Dataset",
             "description": "Markdown files for documenting the pipeline"
+        },
+        {
+            "@id": "lib/",
+            "@type": "Dataset",
+            "description": "Groovy utility functions"
         },
         {
             "@id": "modules/",
@@ -277,6 +283,11 @@
             "description": "The license - should be MIT"
         },
         {
+            "@id": "CODE_OF_CONDUCT.md",
+            "@type": "File",
+            "description": "The nf-core code of conduct"
+        },
+        {
             "@id": "CITATIONS.md",
             "@type": "File",
             "description": "Citations needed when using the pipeline"
@@ -321,7 +332,7 @@
             "@id": "https://orcid.org/0000-0001-5350-4219",
             "@type": "Person",
             "email": "andreas.sjodin@gmail.com",
-            "name": "Andreas Sj\u00f6din"
+            "name": "Andreas Sjödin"
         }
     ]
 }
