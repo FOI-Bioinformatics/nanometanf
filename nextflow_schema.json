@@ -345,10 +345,10 @@
                 },
                 "file_pattern": {
                     "type": "string",
-                    "default": "**.fastq{,.gz}",
+                    "default": "**.{fastq,fq}{,.gz}",
                     "description": "Glob pattern for files to monitor in real-time mode.",
                     "fa_icon": "fas fa-file-code",
-                    "help_text": "Glob pattern to match FASTQ files (compressed or uncompressed) at any depth, including the root of the watched directory and subdirectories."
+                    "help_text": "Glob pattern to match FASTQ files (.fastq or .fq, compressed or uncompressed) at any depth, including the root of the watched directory and subdirectories. Hidden files and anything under fastq_fail/ or fastq_skip/ are excluded at intake."
                 },
                 "sample_name": {
                     "type": "string",
