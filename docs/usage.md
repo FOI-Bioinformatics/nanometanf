@@ -268,6 +268,16 @@ nextflow run foi-bioinformatics/nanometanf \
 - `--max_files`: Maximum files to process (optional, for testing)
 - `--adaptive_batching`: Enable dynamic batch sizing
 
+**Which files are taken:** every file under `--nanopore_output_dir` that
+matches `--file_pattern` is processed once, whether it was present at start
+or arrived later. Hidden files (the `._*` sidecars macOS writes on exFAT and
+USB media) and anything inside a `fastq_fail/` or `fastq_skip/` folder are
+ignored, so the directory may be a MinKNOW run folder or its `fastq_pass/`.
+Files are listed at start-up and once more ten seconds later, and the watcher
+reports later arrivals; a file seen by more than one of these is processed
+once. A file written in place rather than renamed into place can be picked up
+before it is complete; producers should write to a temporary name and rename.
+
 **When to use:**
 
 - Active sequencing in progress

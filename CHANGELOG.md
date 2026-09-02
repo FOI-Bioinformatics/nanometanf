@@ -36,6 +36,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   stage and exit status. Nanometa Live reads the markers into the run report.
 
 ### Fixed
+- **Real-time intake no longer has a start-up blind window.** Nextflow starts
+  the `watchPath` directory listener in a session igniter, after the whole
+  script has been evaluated, and treats everything present at that moment as
+  its baseline; the listing of existing files ran at script evaluation, so a
+  file that landed between the two was in neither set and was never
+  classified (nanometa_live round-4 audit, H4). The watcher is now created
+  first and the listing runs from a later igniter, with a second listing ten
+  seconds in, and a path is handed on once however many of the three report
+  it. The listing itself is `RealtimeIntake.listInputs` rather than `file()`:
+  Nextflow's glob walk aborts on the first entry that vanishes mid-walk (a
+  producer renaming a temporary name into place) and returns a partial
+  listing -- a drill feeding 100 files across the start-up saw one listing
+  return 21 of the 30 present. The same drill against the previous intake
+  lost one file to the blind window; against the new intake it takes all
+  100. Files inside `fastq_fail/` and `fastq_skip/` are excluded like hidden
+  files. `lib/RealtimeIntake.groovy`; unit tests in
+  `tests/lib/realtime_intake.nf.test`.
 - A real-time session that received no input file at all aborted in the QC
   subworkflow: with no SEQKIT_STATS task the `.ifEmpty([])` sentinel reached
   the batch-stats aggregation's destructuring map ("Invalid method invocation

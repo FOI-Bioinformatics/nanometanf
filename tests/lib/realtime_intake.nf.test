@@ -1,0 +1,112 @@
+nextflow_function {
+
+    name "Test RealtimeIntake (start-up scan and watcher reconciliation)"
+    script "tests/lib/realtime_intake_functions.nf"
+    tag "unit"
+    tag "fast"
+    tag "realtime"
+
+    // The watcher and the start-up scan overlap by design since the scan
+    // moved into an igniter (nanometa_live round-4 audit, H4: a file that
+    // landed between the scan and the watcher's baseline was never
+    // classified). A path must be handed on exactly once, and MinKNOW's
+    // rejected reads and AppleDouble sidecars must not be input.
+
+    test("hidden files and MinKNOW fail/skip folders are excluded, the rest is input") {
+        function "reasons"
+        when {
+            function {
+                """
+                input[0] = [
+                    '/run/fastq_pass/barcode01/a.fastq.gz',
+                    '/run/fastq_pass/barcode01/._a.fastq.gz',
+                    '/run/fastq_fail/barcode01/b.fastq.gz',
+                    '/run/fastq_skip/c.fastq.gz',
+                    '/run/fastq_fail_notes/d.fastq.gz',
+                    '/run/fastq_fail',
+                ]
+                """
+            }
+        }
+        then {
+            assert function.success
+            assert function.result == [
+                null,
+                'hidden file',
+                'inside fastq_fail/',
+                'inside fastq_skip/',
+                null,
+                null,
+            ]
+        }
+    }
+
+    test("the scan keeps the inputs and counts the exclusions per reason") {
+        function "partition"
+        when {
+            function {
+                """
+                input[0] = [
+                    '/run/fastq_pass/barcode01/a.fastq.gz',
+                    '/run/fastq_pass/barcode02/b.fastq.gz',
+                    '/run/fastq_pass/barcode02/._b.fastq.gz',
+                    '/run/fastq_fail/barcode01/c.fastq.gz',
+                    '/run/fastq_fail/barcode02/d.fastq.gz',
+                ]
+                """
+            }
+        }
+        then {
+            assert function.success
+            assert function.result[0] == ['a.fastq.gz', 'b.fastq.gz']
+            assert function.result[1] == ['hidden file': 1, 'inside fastq_fail/': 2]
+        }
+    }
+
+    test("a path is a first sighting once, however often the scan and the watcher offer it") {
+        function "sightings"
+        when {
+            function {
+                """
+                input[0] = [
+                    '/watch/barcode01/a.fastq.gz',
+                    '/watch/barcode01/b.fastq.gz',
+                    '/watch/barcode01/a.fastq.gz',
+                    '/watch/barcode01/../barcode01/a.fastq.gz',
+                    '/watch/barcode01/b.fastq.gz',
+                    '/watch/barcode02/a.fastq.gz',
+                ]
+                """
+            }
+        }
+        then {
+            assert function.success
+            assert function.result == [true, true, false, false, false, true]
+        }
+    }
+
+    test("the tolerant listing agrees with Nextflow's file() glob on a quiet tree") {
+        function "listAgainstFileGlob"
+        when {
+            function {
+                """
+                input[0] = "${outputDir}/tree"
+                input[1] = [
+                    'flat_a.fastq.gz', 'flat_b.fq', 'notes.txt',
+                    'barcode01/a.fastq.gz', 'barcode01/b.fastq', 'barcode01/c.fq.gz',
+                    'barcode02/d.fastq.gz', 'fastq_fail/barcode01/e.fastq.gz',
+                ]
+                input[2] = ['*.fastq.gz', '**/*.fastq.gz', '**.{fastq,fq}{,.gz}']
+                """
+            }
+        }
+        then {
+            assert function.success
+            function.result.each { row ->
+                assert row[1] == row[2], "glob ${row[0]}: ours ${row[1]} vs file() ${row[2]}"
+            }
+            assert function.result[0][1] == ['flat_a.fastq.gz']
+            assert function.result[1][1] == ['barcode01/a.fastq.gz', 'barcode02/d.fastq.gz', 'fastq_fail/barcode01/e.fastq.gz']
+        }
+    }
+}
