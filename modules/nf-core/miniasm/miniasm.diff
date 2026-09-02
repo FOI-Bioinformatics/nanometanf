@@ -1,0 +1,187 @@
+Changes in component 'nf-core/miniasm'
+'modules/nf-core/miniasm/environment.yml' is unchanged
+'modules/nf-core/miniasm/meta.yml' is unchanged
+Changes in 'miniasm/main.nf':
+--- modules/nf-core/miniasm/main.nf
++++ modules/nf-core/miniasm/main.nf
+@@ -3,7 +3,7 @@
+     label 'process_high'
+ 
+     conda "${moduleDir}/environment.yml"
+-    container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
++    container "${ workflow.containerEngine in ['singularity', 'apptainer'] && !task.ext.singularity_pull_docker_container ?
+         'https://depot.galaxyproject.org/singularity/miniasm:0.3_r179--h5bf99c6_2' :
+         'biocontainers/miniasm:0.3_r179--h5bf99c6_2' }"
+ 
+
+Changes in 'miniasm/tests/main.nf.test.snap':
+--- modules/nf-core/miniasm/tests/main.nf.test.snap
++++ modules/nf-core/miniasm/tests/main.nf.test.snap
+@@ -1,5 +1,5 @@
+ {
+-    "bacteroides_fragilis - [fastq.gz, paf]- fasta": {
++    "bacteroides_fragilis - [fastq.gz, paf] - fasta - stub": {
+         "content": [
+             {
+                 "0": [
+@@ -8,7 +8,7 @@
+                             "id": "test",
+                             "single_end": true
+                         },
+-                        "test.gfa.gz:md5,60e8b0c635905d20bc5296710749abde"
++                        "test.gfa.gz:md5,68b329da9893e34099c7d8ad5cb9c940"
+                     ]
+                 ],
+                 "1": [
+@@ -17,7 +17,7 @@
+                             "id": "test",
+                             "single_end": true
+                         },
+-                        "test.fasta.gz:md5,3c0c2f48e6e366b43f7a12c43f7cb9e8"
++                        "test.fasta.gz:md5,68b329da9893e34099c7d8ad5cb9c940"
+                     ]
+                 ],
+                 "2": [
+@@ -33,7 +33,7 @@
+                             "id": "test",
+                             "single_end": true
+                         },
+-                        "test.fasta.gz:md5,3c0c2f48e6e366b43f7a12c43f7cb9e8"
++                        "test.fasta.gz:md5,68b329da9893e34099c7d8ad5cb9c940"
+                     ]
+                 ],
+                 "gfa": [
+@@ -42,7 +42,7 @@
+                             "id": "test",
+                             "single_end": true
+                         },
+-                        "test.gfa.gz:md5,60e8b0c635905d20bc5296710749abde"
++                        "test.gfa.gz:md5,68b329da9893e34099c7d8ad5cb9c940"
+                     ]
+                 ],
+                 "versions_miniasm": [
+@@ -54,71 +54,10 @@
+                 ]
+             }
+         ],
++        "timestamp": "2026-03-23T22:36:37.450445",
+         "meta": {
+-            "nf-test": "0.9.3",
+-            "nextflow": "25.10.2"
+-        },
+-        "timestamp": "2026-01-22T16:50:51.951168082"
+-    },
+-    "bacteroides_fragilis - [fastq.gz, paf]- fasta - stub": {
+-        "content": [
+-            {
+-                "0": [
+-                    [
+-                        {
+-                            "id": "test",
+-                            "single_end": true
+-                        },
+-                        "test.gfa.gz:md5,60e8b0c635905d20bc5296710749abde"
+-                    ]
+-                ],
+-                "1": [
+-                    [
+-                        {
+-                            "id": "test",
+-                            "single_end": true
+-                        },
+-                        "test.fasta.gz:md5,3c0c2f48e6e366b43f7a12c43f7cb9e8"
+-                    ]
+-                ],
+-                "2": [
+-                    [
+-                        "MINIASM",
+-                        "miniasm",
+-                        "0.3-r179"
+-                    ]
+-                ],
+-                "assembly": [
+-                    [
+-                        {
+-                            "id": "test",
+-                            "single_end": true
+-                        },
+-                        "test.fasta.gz:md5,3c0c2f48e6e366b43f7a12c43f7cb9e8"
+-                    ]
+-                ],
+-                "gfa": [
+-                    [
+-                        {
+-                            "id": "test",
+-                            "single_end": true
+-                        },
+-                        "test.gfa.gz:md5,60e8b0c635905d20bc5296710749abde"
+-                    ]
+-                ],
+-                "versions_miniasm": [
+-                    [
+-                        "MINIASM",
+-                        "miniasm",
+-                        "0.3-r179"
+-                    ]
+-                ]
+-            }
+-        ],
+-        "meta": {
+-            "nf-test": "0.9.3",
+-            "nextflow": "25.10.2"
+-        },
+-        "timestamp": "2026-01-22T16:50:58.724404158"
++            "nf-test": "0.9.4",
++            "nextflow": "25.10.4"
++        }
+     }
+ }
+Changes in 'miniasm/tests/main.nf.test':
+--- modules/nf-core/miniasm/tests/main.nf.test
++++ modules/nf-core/miniasm/tests/main.nf.test
+@@ -5,11 +5,14 @@
+     script "../main.nf"
+     process "MINIASM"
+ 
++    options "-stub"
++    tag "fast"
++    tag "stub"
+     tag "modules"
+     tag "modules_nfcore"
+     tag "miniasm"
+ 
+-    test("bacteroides_fragilis - [fastq.gz, paf]- fasta") {
++    test("bacteroides_fragilis - [fastq.gz, paf] - fasta - stub") {
+ 
+         when {
+             process {
+@@ -32,27 +35,4 @@
+ 
+     }
+ 
+-    test("bacteroides_fragilis - [fastq.gz, paf]- fasta - stub") {
+-        options "--stub"
+-        when {
+-            process {
+-                """
+-                input[0] = [
+-                    [ id:'test', single_end:true ], // meta map
+-                    file(params.modules_testdata_base_path + 'genomics/prokaryotes/bacteroides_fragilis/nanopore/fastq/test.fastq.gz', checkIfExists: true),
+-                    file(params.modules_testdata_base_path + 'genomics/prokaryotes/bacteroides_fragilis/nanopore/overlap.paf', checkIfExists: true)
+-                ]
+-                """
+-            }
+-        }
+-
+-        then {
+-            assertAll(
+-                { assert process.success },
+-                { assert snapshot(process.out).match() }
+-            )
+-        }
+-
+-    }
+-
+ }
+
+************************************************************

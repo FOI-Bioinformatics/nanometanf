@@ -1,0 +1,38 @@
+Changes in component 'nf-core/flye'
+'modules/nf-core/flye/environment.yml' is unchanged
+'modules/nf-core/flye/meta.yml' is unchanged
+Changes in 'flye/main.nf':
+--- modules/nf-core/flye/main.nf
++++ modules/nf-core/flye/main.nf
+@@ -3,7 +3,7 @@
+     label 'process_high'
+ 
+     conda "${moduleDir}/environment.yml"
+-    container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
++    container "${ workflow.containerEngine in ['singularity', 'apptainer'] && !task.ext.singularity_pull_docker_container ?
+         'https://community-cr-prod.seqera.io/docker/registry/v2/blobs/sha256/fa/fa1c1e961de38d24cf36c424a8f4a9920ddd07b63fdb4cfa51c9e3a593c3c979/data' :
+         'community.wave.seqera.io/library/flye:2.9.5--d577924c8416ccd8' }"
+ 
+
+'modules/nf-core/flye/tests/main.nf.test.snap' is unchanged
+Changes in 'flye/tests/main.nf.test':
+--- modules/nf-core/flye/tests/main.nf.test
++++ modules/nf-core/flye/tests/main.nf.test
+@@ -7,6 +7,7 @@
+     name "Test Process FLYE"
+     script "../main.nf"
+     process "FLYE"
++    tag "fast"
+     tag "flye"
+     tag "modules"
+     tag "modules_nfcore"
+@@ -150,6 +151,7 @@
+     test("flye_pacbio_raw - stub") {
+ 
+         options "-stub"
++    tag "stub"
+ 
+         when {
+             process {
+
+************************************************************

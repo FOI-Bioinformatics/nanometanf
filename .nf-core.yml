@@ -31,9 +31,19 @@ lint:
     - .github/PULL_REQUEST_TEMPLATE.md
     - assets/email_template.txt
     - docs/README.md
+  # Institutional configs are opt-in (see params.custom_config_base above);
+  # this release-mode check asks for the includeConfig line to be
+  # unconditional, which would reintroduce the failure it guards against.
+  included_configs: false
   nextflow_config:
     - manifest.name
     - manifest.homePage
+    # Remote institutional configs are opt-in here: with the nf-core URL as
+    # the default, every online launch died on a transient GitHub error
+    # (HTTP 429 -> "Unable to parse config file", 2026-08-17), and an
+    # air-gapped launch cannot fetch it at all. See the comment at
+    # nextflow.config:232. nanometanf is not an official nf-core pipeline.
+    - custom_config
     - validation.help.beforeText
     - validation.help.afterText
     - validation.summary.beforeText
@@ -59,19 +69,24 @@ lint:
     - tests/barcode_discovery.nf.test
     - tests/main_workflow.nf.test
     - tests/default.nf.test
-    - tests/realtime_barcode_fastq.nf.test
     - tests/nanoseq_test.nf.test
     - tests/parameter_validation.nf.test
-    - tests/realtime_flat_fastq.nf.test
-    - tests/batch_flat_fastq.nf.test
-    - tests/batch_barcode_fastq.nf.test
     - tests/chopper_specific.nf.test
     - tests/input_scanner.nf.test
-    - tests/realtime_processing.nf.test
     - tests/qc_tool_integration.nf.test
     - tests/full_pipeline_stubmode.nf.test
     - tests/multiplex_scaling.nf.test
     - tests/ifempty_sentinel_regression.nf.test
+    - tests/batch_input_modes.nf.test
+    - tests/realtime_input_modes.nf.test
+    - tests/realtime_classification.nf.test
+    - tests/classification_real.nf.test
+    - tests/realtime_validation_e2e.nf.test
+    - tests/realtime_timeout_exit_regression.nf.test
+    - tests/validation_only_discovery.nf.test
+    - tests/validation_assembly_stub_matrix.nf.test
+    - tests/field_profile_paths.nf.test
+    - tests/failure_paths.nf.test
   # The .github/workflows/nf-test.yml in this repo is a customised CI matrix
   # (the wrapper at bin/run-nf-tests.sh sets NXF_OFFLINE only) and
   # does not match the nf-core community-template event triggers. The

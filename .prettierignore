@@ -11,3 +11,6 @@ testing*
 *.pyc
 bin/
 ro-crate-metadata.json
+# BLAST database fixtures: .njs is a BLAST metadata file, not JavaScript,
+# and prettier fails to parse it.
+tests/fixtures/blast_db/

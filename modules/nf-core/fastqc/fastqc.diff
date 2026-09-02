@@ -1,0 +1,38 @@
+Changes in component 'nf-core/fastqc'
+'modules/nf-core/fastqc/environment.yml' is unchanged
+'modules/nf-core/fastqc/meta.yml' is unchanged
+Changes in 'fastqc/main.nf':
+--- modules/nf-core/fastqc/main.nf
++++ modules/nf-core/fastqc/main.nf
+@@ -3,7 +3,7 @@
+     label 'process_low'
+ 
+     conda "${moduleDir}/environment.yml"
+-    container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
++    container "${ workflow.containerEngine in ['singularity', 'apptainer'] && !task.ext.singularity_pull_docker_container ?
+         'https://depot.galaxyproject.org/singularity/fastqc:0.12.1--hdfd78af_0' :
+         'biocontainers/fastqc:0.12.1--hdfd78af_0' }"
+ 
+
+'modules/nf-core/fastqc/tests/main.nf.test.snap' is unchanged
+Changes in 'fastqc/tests/main.nf.test':
+--- modules/nf-core/fastqc/tests/main.nf.test
++++ modules/nf-core/fastqc/tests/main.nf.test
+@@ -4,6 +4,7 @@
+     script "../main.nf"
+     process "FASTQC"
+ 
++    tag "fast"
+     tag "modules"
+     tag "modules_nfcore"
+     tag "fastqc"
+@@ -174,6 +175,7 @@
+     test("sarscov2 single-end [fastq] - stub") {
+ 
+     options "-stub"
++    tag "stub"
+         when {
+             process {
+                 """
+
+************************************************************
