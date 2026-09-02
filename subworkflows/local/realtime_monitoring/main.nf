@@ -179,7 +179,18 @@ workflow REALTIME_MONITORING {
         // complete by the time watchPath sees them, so no settling is
         // needed. Callers producing non-atomic appended writes should use
         // a wrapper that renames into place instead of relying on settling.
-        def ch_all_files = ch_watched
+        //
+        // last_file_at feeds the inactivity timer below: every emission,
+        // existing or watched, resets it. Before this the timer was a
+        // one-shot scheduled at construction, so a run whose files kept
+        // arriving was cut at realtime_timeout_minutes + grace of wall
+        // clock and reported complete (nanometa_live round-4 audit, H1:
+        // 14 of 47 input files never classified).
+        def last_file_at = new java.util.concurrent.atomic.AtomicLong(System.currentTimeMillis())
+        def ch_all_files = ch_watched.map { f ->
+            last_file_at.set(System.currentTimeMillis())
+            f
+        }
 
         // Log truncation warning if take() will exclude some existing files
         if (params.max_files && existing_count > params.max_files.toInteger()) {
@@ -232,17 +243,20 @@ workflow REALTIME_MONITORING {
             def grace = (params.realtime_processing_grace_period ?: 0) as Integer
             def total_timeout_ms = (params.realtime_timeout_minutes.toInteger() + grace) * 60L * 1000L
 
-            log.info "Real-time timeout enabled: stop after ${params.realtime_timeout_minutes} minutes (idle) plus ${grace} minute grace period"
-            log.info "Total wall-clock budget: ${total_timeout_ms} ms"
+            log.info "Real-time timeout enabled: stop after ${params.realtime_timeout_minutes} minutes without a new file, plus ${grace} minute grace period"
+            log.info "Inactivity budget: ${total_timeout_ms} ms since the last file"
 
-            // Schedule a one-shot sentinel emission on a Java daemon
-            // Timer. We intentionally avoid Channel.interval here: that
-            // factory keeps emitting on its scheduler until the JVM
-            // exits and is awkward to cancel cleanly when .take(N)
-            // satisfies the cap first. A daemon Timer is GC-collected
-            // along with its queue when no consumers remain, so a
-            // cap-fires-first run does not pin the JVM open waiting
-            // for a sentinel that no one is reading.
+            // A daemon Timer checks the idle time periodically and emits the
+            // sentinel once no file has arrived for total_timeout_ms. It was
+            // a one-shot scheduled at construction, which made the parameter
+            // a wall-clock cap while every operator-facing text (this log
+            // line, nextflow.config, the GUI) described an inactivity stop.
+            // We intentionally avoid Channel.interval here: that factory
+            // keeps emitting on its scheduler until the JVM exits and is
+            // awkward to cancel cleanly when .take(N) satisfies the cap
+            // first. A daemon Timer is GC-collected along with its queue
+            // when no consumers remain, so a cap-fires-first run does not
+            // pin the JVM open waiting for a sentinel that no one is reading.
             //
             // The sentinel is delivered by binding values into a GPars
             // DataflowQueue (the type that backs every Nextflow channel)
@@ -254,7 +268,16 @@ workflow REALTIME_MONITORING {
             // channel completion.
             ch_timeout = new groovyx.gpars.dataflow.DataflowQueue()
             realtime_timer = new Timer('realtime-timeout', /* isDaemon */ true)
-            realtime_timer.schedule({
+            def timeout_fired = new java.util.concurrent.atomic.AtomicBoolean(false)
+            // intdiv: Groovy's `/` on longs yields a BigDecimal and makes
+            // Math.min ambiguous.
+            long quarter_budget_ms = total_timeout_ms.intdiv(4L) as long
+            long check_period_ms = Math.max(1000L, Math.min(15000L, quarter_budget_ms))
+            realtime_timer.scheduleAtFixedRate({
+                def idle_ms = System.currentTimeMillis() - last_file_at.get()
+                if (idle_ms < total_timeout_ms || !timeout_fired.compareAndSet(false, true)) {
+                    return
+                }
                 try {
                     ch_timeout.bind(TIMEOUT_SENTINEL)
                     ch_timeout.bind(groovyx.gpars.dataflow.operator.PoisonPill.instance)
@@ -270,12 +293,12 @@ workflow REALTIME_MONITORING {
                     } catch (Exception inner) {
                         // ch_new already closed by an earlier termination path
                     }
-                    log.info "Real-time timeout fired after ${total_timeout_ms} ms"
+                    log.info "Real-time timeout fired: no new file for ${idle_ms} ms (budget ${total_timeout_ms} ms)"
                 } catch (Exception e) {
                     // Queue already closed by an earlier termination path.
                 }
                 realtime_timer.cancel()
-            } as TimerTask, total_timeout_ms)
+            } as TimerTask, check_period_ms, check_period_ms)
 
             ch_input_files = ch_input_files
                 .mix(ch_timeout)

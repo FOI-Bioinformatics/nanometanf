@@ -445,9 +445,9 @@
                     "type": "integer",
                     "default": 60,
                     "minimum": 1,
-                    "description": "Stop real-time monitoring after N minutes (wall-clock budget; null = run indefinitely).",
+                    "description": "Stop real-time monitoring after N minutes without a new input file (null = run indefinitely).",
                     "fa_icon": "fas fa-clock",
-                    "help_text": "Automatically stop the pipeline after this many minutes (plus realtime_processing_grace_period) regardless of whether new files are still arriving. Useful for unattended sequencing runs. When combined with max_files the two bounds are enforced independently and whichever fires first stops the watchPath stream. The default (60) avoids indefinite hangs; set to null or a large value to keep monitoring forever."
+                    "help_text": "Automatically stop the pipeline once no new FASTQ file has arrived for this many minutes plus realtime_processing_grace_period. Every file that is detected resets the clock, so a run whose files keep arriving is never cut off. Useful for unattended sequencing runs. When combined with max_files the two bounds are enforced independently and whichever fires first stops the watchPath stream. The default (60) avoids indefinite hangs; set to null to keep monitoring forever."
                 },
                 "realtime_processing_grace_period": {
                     "type": "integer",
