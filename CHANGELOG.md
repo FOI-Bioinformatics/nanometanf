@@ -5,7 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.8.0] - 2026-09-02
+
+Real-time runs end truthfully and continue for real. Pairs with
+nanometa_live 0.16.0. Everything below was found by driving real-time runs
+through the Nanometa Live GUI (round-4 audit, 2026-09-01/02) or by the
+2026-09-02 read-length audit, and each fix was verified on a live run, a
+replay of captured snapshots or a drill against the real tools.
 
 ### Added
 - **Continue (`-resume`) in real-time mode now continues the run.** Nextflow's
@@ -69,6 +75,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   100. Files inside `fastq_fail/` and `fastq_skip/` are excluded like hidden
   files. `lib/RealtimeIntake.groovy`; unit tests in
   `tests/lib/realtime_intake.nf.test`.
+- **The real-time timeout is an inactivity timer, as every text said it
+  was.** It was a one-shot wall-clock timer scheduled at construction; a
+  run whose files kept landing every 15 s was cut at timeout plus grace and
+  reported complete with 14 of 47 input files never classified (round-4
+  audit, H1). Every detected file now resets the idle clock and a daemon
+  timer fires the stop sentinel once the idle time exceeds the budget; the
+  `max_files` path is unchanged. Per-batch seqkit filenames carry
+  `batch_id` (two files for one barcode in the same second overwrote each
+  other under `publishDir`), and the real-time watch pattern includes `.fq`
+  to match the input detector.
+- Pointing `--kraken2_db` at a `.tar.gz` archive crashed at workflow wiring
+  (`UNTAR.out.versions` no longer exists on the topic-style module), so
+  every archive-database run failed before any process started.
+- iGenomes now defaults off. nf-schema validates `igenomes_base` as a
+  directory path, which needs the nf-amazon plugin to stat the s3 default,
+  and offline the plugin cannot be downloaded: every air-gapped run failed
+  parameter validation before starting. The pipeline only consults iGenomes
+  when `--genome` is passed explicitly.
 - A real-time session that received no input file at all aborted in the QC
   subworkflow: with no SEQKIT_STATS task the `.ifEmpty([])` sentinel reached
   the batch-stats aggregation's destructuring map ("Invalid method invocation
