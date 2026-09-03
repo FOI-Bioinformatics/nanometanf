@@ -91,6 +91,30 @@ class RealtimeIntake {
         return null
     }
 
+    /**
+     * Why a PRE-EXISTING path is not input, given a maximum age in minutes
+     * (null = no limit), or null when it is. The age rule applies to the
+     * start-up listing only: a file the watcher reports during the run is
+     * new by definition (params.max_file_age_minutes; nanometa_live audit
+     * round 5, C2: the former max_avg_file_age_minutes was an alert
+     * threshold and excluded nothing).
+     */
+    static String excludedReason(Path path, Integer maxAgeMinutes, long nowMs = System.currentTimeMillis()) {
+        def reason = excludedReason(path)
+        if (reason != null || maxAgeMinutes == null || maxAgeMinutes < 0) {
+            return reason
+        }
+        try {
+            long age_ms = nowMs - Files.getLastModifiedTime(path).toMillis()
+            if (age_ms > maxAgeMinutes * 60000L) {
+                return "older than ${maxAgeMinutes} min"
+            }
+        } catch (IOException ignored) {
+            // A path that vanished is handed on and dropped downstream.
+        }
+        return null
+    }
+
     static boolean isInput(Path path) {
         return excludedReason(path) == null
     }
@@ -99,11 +123,11 @@ class RealtimeIntake {
      * Partition a scanned list into inputs and a per-reason count of the
      * excluded paths, for one log line at start-up.
      */
-    static Map partitionExisting(List<Path> paths) {
+    static Map partitionExisting(List<Path> paths, Integer maxAgeMinutes = null) {
         def inputs = []
         def excluded = new LinkedHashMap<String, Integer>()
         paths.each { p ->
-            def reason = excludedReason(p)
+            def reason = excludedReason(p, maxAgeMinutes)
             if (reason == null) {
                 inputs << p
             } else {

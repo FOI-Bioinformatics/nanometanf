@@ -17,7 +17,7 @@
 */
 
 include { FLYE              } from '../../../modules/nf-core/flye/main'
-include { MINIMAP2_ALIGN    } from '../../../modules/nf-core/minimap2/align/main'
+include { MINIMAP2_AVA      } from '../../../modules/local/minimap2_ava/main'
 include { MINIASM           } from '../../../modules/nf-core/miniasm/main'
 include { CANONICAL_ASSEMBLY_WRITER } from '../../../modules/local/canonical_assembly_writer/main'
 
@@ -59,23 +59,18 @@ workflow ASSEMBLY {
         ch_assembly_info = FLYE.out.txt.ifEmpty([])
     } else if (assembler == 'miniasm') {
         //
-        // MODULE: Run Minimap2 for overlap detection (miniasm prerequisite)
+        // MODULE: all-vs-all read overlaps (miniasm prerequisite). One
+        // input staged once; the reads-as-reference call of the nf-core
+        // align module collided on the staged file name.
         //
-        MINIMAP2_ALIGN (
-            ch_reads,                    // reads
-            ch_reads,                    // reference (self-alignment for overlap)
-            false,                       // bam_format
-            false,                       // bam_index_extension
-            false,                       // cigar_paf_format
-            false                        // cigar_bam
-        )
-        // MINIMAP2_ALIGN emits its version via `topic: versions`; collected centrally.
+        MINIMAP2_AVA ( ch_reads )
+        ch_versions = ch_versions.mix(MINIMAP2_AVA.out.versions)
 
         //
         // MODULE: Run Miniasm for ultra-fast assembly
         //
         ch_miniasm_input = ch_reads
-            .join(MINIMAP2_ALIGN.out.paf, remainder: true)
+            .join(MINIMAP2_AVA.out.paf, remainder: true)
 
         MINIASM (
             ch_miniasm_input

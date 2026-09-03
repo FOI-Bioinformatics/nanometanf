@@ -7,6 +7,10 @@ def detectStructure(String dirPath) {
     return InputDetector.detectStructure(dirPath)
 }
 
-def extractSampleId(String filePath, String regex = null, String sampleName = null) {
-    return InputDetector.extractSampleId(filePath, regex, sampleName)
+def extractSampleId(String filePath, String regex = null, String sampleName = null, String inputRoot = null) {
+    return InputDetector.extractSampleId(filePath, regex, sampleName, inputRoot)
+}
+
+def sampleSubdirs(String dirPath) {
+    return InputDetector.sampleSubdirs(dirPath).collect { it.name }
 }

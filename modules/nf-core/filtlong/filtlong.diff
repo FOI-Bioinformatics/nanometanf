@@ -13,6 +13,33 @@ Changes in 'filtlong/main.nf':
          'https://depot.galaxyproject.org/singularity/filtlong:0.2.1--h9a82719_0' :
          'biocontainers/filtlong:0.2.1--h9a82719_0' }"
  
+@@ -23,13 +23,25 @@
+     def prefix = task.ext.prefix ?: "${meta.id}"
+     def short_reads = !shortreads ? "" : meta.single_end ? "-1 $shortreads" : "-1 ${shortreads[0]} -2 ${shortreads[1]}"
+     if ("$longreads" == "${prefix}.fastq.gz") error "Longread FASTQ input and output names are the same, set prefix in module configuration to disambiguate!"
++    // filtlong takes exactly one positional long-read file. A multi-file
++    // sample (every barcode directory of a MinKNOW run) is concatenated
++    // first; gzip members concatenate as a valid stream. Without this the
++    // extra files are passed as positionals and filtlong exits 1
++    // ("passed in argument, but no positional arguments were ready to
++    // receive it"): nanometa_live audit round 5, 2026-09-03, P1.
++    def longread_list = longreads instanceof List ? longreads : [longreads]
++    def concat_input = longread_list.size() > 1
++    def longread_input = concat_input ? "${prefix}.concat_input.fq.gz" : "${longreads}"
++    def concat_cmd = concat_input ? "cat ${longread_list.join(' ')} > ${longread_input}" : "true"
+     """
++    $concat_cmd
+     filtlong \\
+         $short_reads \\
+         $args \\
+-        $longreads \\
++        $longread_input \\
+         2>| >(tee ${prefix}.log >&2) \\
+         | gzip -n > ${prefix}.fastq.gz
++    rm -f ${prefix}.concat_input.fq.gz
+ 
+     cat <<-END_VERSIONS > versions.yml
+     "${task.process}":
 
 Changes in 'filtlong/tests/main.nf.test.snap':
 --- modules/nf-core/filtlong/tests/main.nf.test.snap
