@@ -29,6 +29,24 @@ nextflow_workflow {
         }
     }
 
+    test("Custom-named subdirectories are one sample each, named after the folder") {
+
+        when {
+            workflow {
+                """
+                input[0] = "$projectDir/tests/fixtures/custom_sample_dirs"
+                input[1] = null
+                """
+            }
+        }
+
+        then {
+            assert workflow.success
+            def sample_ids = workflow.out.samples.collect { it[0].id }.sort()
+            assert sample_ids == ["Turex", "Zymo"]
+        }
+    }
+
     test("Should group flat files by sample_regex") {
 
         when {

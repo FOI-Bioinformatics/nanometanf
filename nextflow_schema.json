@@ -439,6 +439,13 @@
                     "fa_icon": "fas fa-hourglass-end",
                     "help_text": "Grace period after realtime_timeout_minutes expires to allow downstream processes to complete."
                 },
+                "max_file_age_minutes": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "description": "Real-time mode: skip input files already present at start whose modification time is older than this many minutes (null = process every file).",
+                    "fa_icon": "fas fa-history",
+                    "help_text": "Applied to the start-up listing only (lib/RealtimeIntake.groovy, partitionExisting): a fresh run pointed at a folder that still holds an earlier run's reads leaves them alone, while files that arrive during the run are new by definition and always processed. The nanometa_live Configuration tab's 'Skip pre-existing files older than' field sets this."
+                },
                 "max_avg_file_age_minutes": {
                     "type": "integer",
                     "default": 1000000,

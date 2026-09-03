@@ -40,6 +40,97 @@ nextflow_function {
         }
     }
 
+    test("detectStructure treats custom-named folders holding reads as per-sample subdirs") {
+
+        function "detectStructure"
+
+        when {
+            function {
+                """
+                input[0] = "$projectDir/tests/fixtures/custom_sample_dirs"
+                """
+            }
+        }
+
+        then {
+            assert function.result == "barcode_subdirs"
+        }
+    }
+
+    test("sampleSubdirs lists barcode and custom-named folders, sorted") {
+
+        function "sampleSubdirs"
+
+        when {
+            function {
+                """
+                input[0] = "$projectDir/tests/fixtures/custom_sample_dirs"
+                """
+            }
+        }
+
+        then {
+            assert function.result == ["Turex", "Zymo"]
+        }
+    }
+
+    test("extractSampleId names a file after its custom folder when given the input root") {
+
+        function "extractSampleId"
+
+        when {
+            function {
+                """
+                input[0] = "$projectDir/tests/fixtures/custom_sample_dirs/Turex/turex_001.fastq.gz"
+                input[1] = null
+                input[2] = null
+                input[3] = "$projectDir/tests/fixtures/custom_sample_dirs"
+                """
+            }
+        }
+
+        then {
+            assert function.result == "Turex"
+        }
+    }
+
+    test("extractSampleId without the input root keeps the filename stem for a custom folder") {
+
+        function "extractSampleId"
+
+        when {
+            function {
+                """
+                input[0] = "$projectDir/tests/fixtures/custom_sample_dirs/Turex/turex_001.fastq.gz"
+                """
+            }
+        }
+
+        then {
+            assert function.result == "turex_001"
+        }
+    }
+
+    test("extractSampleId does not name a sample after a MinKNOW bin under the root") {
+
+        function "extractSampleId"
+
+        when {
+            function {
+                """
+                input[0] = "$projectDir/tests/fixtures/watch_dirs/fastq_pass/sample1.fastq.gz"
+                input[1] = null
+                input[2] = null
+                input[3] = "$projectDir/tests/fixtures/watch_dirs"
+                """
+            }
+        }
+
+        then {
+            assert function.result != "fastq_pass"
+        }
+    }
+
     test("extractSampleId should use parent dir for barcode subdirs") {
 
         function "extractSampleId"

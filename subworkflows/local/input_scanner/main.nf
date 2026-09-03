@@ -17,53 +17,35 @@ workflow INPUT_SCANNER {
 
     if (structure == 'barcode_subdirs') {
         //
-        // Barcode subdirectory mode: one sample per barcode dir
+        // Per-sample subdirectory mode: one sample per direct subdirectory
+        // that holds reads -- barcodeNN, unclassified, or a custom name such
+        // as Turex/ (InputDetector.sampleSubdirs; the former barcode* glob
+        // split custom-named folders into one sample per file).
         //
-        ch_samples = Channel.fromPath("${input_dir}/barcode*", type: 'dir')
-            .filter { it.isDirectory() }
-            .map { barcode_dir ->
-                def barcode = barcode_dir.getName()
+        ch_all_samples = Channel.fromList(
+                InputDetector.sampleSubdirs(input_dir).collect { it.toPath() }
+            )
+            .map { sample_dir ->
+                def sample_id = sample_dir.getName()
                 def fastq_files = []
-                barcode_dir.eachFileMatch(~/[^.].*\.(fastq|fastq\.gz|fq|fq\.gz)$/) { f ->
+                sample_dir.eachFileMatch(~/[^.].*\.(fastq|fastq\.gz|fq|fq\.gz)$/) { f ->
                     fastq_files.add(f)
                 }
                 if (fastq_files.size() > 0) {
                     def meta = [
-                        id: barcode,
-                        barcode: barcode,
+                        id: sample_id,
                         single_end: true,
                         demultiplexed: true,
                         demux_source: "input_scanner"
                     ]
+                    if (sample_id =~ /^barcode\d+$/ || sample_id == 'unclassified') {
+                        meta.barcode = sample_id
+                    }
                     return [ meta, fastq_files ]
                 }
                 return null
             }
             .filter { it != null }
-
-        // Also pick up unclassified directory
-        ch_unclassified = Channel.fromPath("${input_dir}/unclassified", type: 'dir')
-            .filter { it.isDirectory() }
-            .map { unclass_dir ->
-                def fastq_files = []
-                unclass_dir.eachFileMatch(~/[^.].*\.(fastq|fastq\.gz|fq|fq\.gz)$/) { f ->
-                    fastq_files.add(f)
-                }
-                if (fastq_files.size() > 0) {
-                    def meta = [
-                        id: "unclassified",
-                        barcode: "unclassified",
-                        single_end: true,
-                        demultiplexed: true,
-                        demux_source: "input_scanner"
-                    ]
-                    return [ meta, fastq_files ]
-                }
-                return null
-            }
-            .filter { it != null }
-
-        ch_all_samples = ch_samples.mix(ch_unclassified)
 
     } else {
         //
@@ -79,7 +61,8 @@ workflow INPUT_SCANNER {
                 def sample_id = InputDetector.extractSampleId(
                     f,
                     sample_regex,
-                    params.sample_name
+                    params.sample_name,
+                    input_dir
                 )
                 def meta = [
                     id: sample_id,

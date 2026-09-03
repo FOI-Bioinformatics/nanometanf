@@ -166,7 +166,13 @@ workflow REALTIME_MONITORING {
             // Hidden files are AppleDouble "._*" sidecars on exFAT/USB media
             // (gzip then fails the QC process, 2026-08-17); fastq_fail/ and
             // fastq_skip/ are MinKNOW's rejected reads.
-            def parts = RealtimeIntake.partitionExisting(existing_list)
+            // A pre-existing file older than max_file_age_minutes is not
+            // input (a fresh run pointed at a folder with yesterday's
+            // reads); files arriving during the run are new by definition.
+            def max_age = params.max_file_age_minutes != null
+                ? (params.max_file_age_minutes as Integer)
+                : null
+            def parts = RealtimeIntake.partitionExisting(existing_list, max_age)
             existing_list = parts.inputs
             parts.excluded.each { reason, n ->
                 log.info "Ignoring ${n} matched file(s): ${reason}"
@@ -513,10 +519,13 @@ workflow REALTIME_MONITORING {
                 def meta = [:]
 
                 // Use InputDetector priority chain for sample ID
+                // The watched root is passed so a custom-named folder
+                // directly under it names the sample (Turex/, Zymo/).
                 def sample_id = InputDetector.extractSampleId(
                     file,
                     params.sample_regex,
-                    params.sample_name
+                    params.sample_name,
+                    params.nanopore_output_dir
                 )
                 meta.id = sample_id
 

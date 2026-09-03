@@ -5,6 +5,49 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.9.0] - 2026-09-03
+
+Findings of the nanometa_live round-5 audit (Configuration tab advanced
+settings, 2026-09-03), each confirmed on a live run through the GUI.
+
+### Fixed
+
+- **`--kraken2_confidence` and `--kraken2_minimum_hit_groups` reach the
+  classifier.** Both were wired only into the optional `KRAKEN2_OPTIMIZED`
+  module; the default batch classifier (`KRAKEN2_KRAKEN2`) and the real-time
+  incremental classifier (`KRAKEN2_INCREMENTAL_CLASSIFIER`) never received
+  them, so the GUI's Kraken2 confidence and hit-group fields changed nothing.
+  `conf/modules.config` now passes both through `ext.args` on the two
+  processes (audit A18).
+- **`qc_tool: filtlong` aborted every multi-file sample.** The nf-core module
+  takes one positional read file; a barcode folder's files were all passed
+  as positionals and filtlong exited 1 ("no positional arguments were ready
+  to receive it"). The patched module concatenates a multi-file sample
+  first, as the chopper module does (audit P1).
+- **`assembler: miniasm` aborted the run** with "input file name collision":
+  the all-vs-all overlap step passed the reads as both query and reference of
+  the nf-core minimap2/align module, which stages both under one name. A
+  local `MINIMAP2_AVA` module runs the single-input all-vs-all call with
+  `-x ava-ont`, which the previous call also lacked (audit P2).
+- **Custom-named sample folders are one sample each.** `InputDetector`
+  recognised only `barcode\d+` and `unclassified` as sample folders, so a
+  `Turex/`, `Zymo/` layout under `--input_dir` or a watched real-time root
+  was split into one sample per file, while the Nanometa Live form had
+  accepted it as by-barcode input. `InputDetector.sampleSubdirs` lists every
+  direct subfolder holding reads (MinKNOW's `fastq_pass`/`fastq_fail`/
+  `fastq_skip` bins excepted), `INPUT_SCANNER` iterates it, and
+  `extractSampleId` takes the input root so a file directly under such a
+  folder is named after it in real time too (audit B4/C12).
+
+### Added
+
+- **`--max_file_age_minutes`**: in real-time mode, input files already present
+  at start whose modification time is older than this are not processed
+  (`RealtimeIntake.partitionExisting`); files arriving during the run are
+  always processed. The Nanometa Live "Maximum file age" field used to map to
+  `max_avg_file_age_minutes`, which is only the threshold of a "high file
+  age" alert in `UPDATE_CUMULATIVE_STATS`, so it excluded nothing (audit C2).
+
 ## [1.8.0] - 2026-09-02
 
 Real-time runs end truthfully and continue for real. Pairs with

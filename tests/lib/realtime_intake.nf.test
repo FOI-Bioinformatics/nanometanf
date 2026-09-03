@@ -63,6 +63,40 @@ nextflow_function {
         }
     }
 
+    test("pre-existing files older than max_file_age_minutes are not input; null keeps every file") {
+        function "partitionByAge"
+        when {
+            function {
+                """
+                input[0] = ['fresh.fastq.gz': 1, 'yesterday.fastq.gz': 1500, 'lastweek.fastq.gz': 10000]
+                input[1] = 60
+                """
+            }
+        }
+        then {
+            assert function.success
+            assert function.result[0] == ['fresh.fastq.gz']
+            assert function.result[1] == ['older than 60 min': 2]
+        }
+    }
+
+    test("no maximum age keeps every pre-existing file") {
+        function "partitionByAge"
+        when {
+            function {
+                """
+                input[0] = ['fresh.fastq.gz': 1, 'lastweek.fastq.gz': 10000]
+                input[1] = null
+                """
+            }
+        }
+        then {
+            assert function.success
+            assert function.result[0] == ['fresh.fastq.gz', 'lastweek.fastq.gz']
+            assert function.result[1] == [:]
+        }
+    }
+
     test("a path is a first sighting once, however often the scan and the watcher offer it") {
         function "sightings"
         when {
