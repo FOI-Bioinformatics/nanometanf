@@ -5,6 +5,94 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.10.0] - 2026-09-04
+
+Assembly stops being a step that can run, succeed and publish a number that is
+not a result. Pairs with nanometa_live 0.18.0. Everything below came from the
+2026-09-03 assembly audit, which drove real runs of both assemblers and
+measured what depth the data could actually reach.
+
+### Added
+
+- **Assembly re-runs as depth grows in a real-time session.** Real-time
+  flattens each batch back into one emission per FASTQ, and QC is per
+  emission, so assembly ran per file and published every result over the last:
+  a 28-file run left four artifacts, each a single batch's assembly at a ninth
+  to a thirty-fourth of what the sample could give (nanometa_live assembly
+  audit, A3). `AssemblyReadAccumulator` now holds each sample's read files and
+  answers when an attempt is due -- every `assembly_batch_interval` files,
+  provided the pool has grown by `assembly_min_growth`, plus a final attempt
+  at the end of the session. `ASSEMBLY_READ_POOL` concatenates the accumulated
+  set so the assembler sees the sample rather than one file. Batch mode emits
+  each sample once, so its first emission is also its final attempt: one code
+  path serves both modes.
+
+  Each attempt is built from a superset of the last, so the newest result
+  supersedes the previous one rather than competing with it. That is the
+  difference from the defect this replaces, where each _batch_ overwrote the
+  last and what survived was one batch's assembly rather than the sample's.
+
+  The accumulated files are staged one per directory: every batch of a sample
+  carries the same QC output name, so staging them flat fails the task with
+  "input file name collision" -- found by a live real-time run, and the same
+  shape as the collision that broke miniasm in v1.9.0.
+
+### Fixed
+
+- **An organism is confirmed from its whole clade, not one node.** Kraken2
+  assigns each read to the most specific node it can, so an organism's reads
+  scatter across its species row and the subspecies below it.
+  `EXTRACT_READS_BY_TAXID` matched the taxid exactly, so confirmatory BLAST and
+  minimap2 aligned only part of the evidence: measured on a real report, 279 of
+  the 1,051 reads of _F. tularensis_ in barcode06 sat on the species node and
+  the other 772 below it, so confirmation ran on 27% of the organism.
+  Extraction now selects the clade, resolved from the sample's own report by
+  the new `KreportTree.cladeOf`. On that sample it yields 3.8x the reads and
+  takes the depth an assembly could reach from 0.23x to 1.95x. A taxid absent
+  from the report, or a report that cannot be read, falls back to the exact
+  taxid rather than to nothing. This matches the species-includes-subspecies
+  rule Nanometa Live already applies in `core/taxonomy/ranks.py`.
+
+### Fixed
+
+- **An assembly failure no longer discards a screening run.** Only FLYE was
+  isolated in `conf/error_isolation.config`, so a MINIASM or MINIMAP2_AVA
+  exit fell back to `finish` and ended the whole pipeline. Measured on a real
+  run: all five samples had been classified, 2,696 to 3,699 reads each, and
+  the run was still recorded `final_status: error` because the optional,
+  experimental assembly step could not create its conda environment
+  (`bioconda::miniasm` has no osx-arm64 build). All three assembly processes
+  now carry the same policy, and all three write the lost-input marker that
+  makes an isolated failure visible -- assembly was the one isolated process
+  without one.
+- **The manifest reports the assembly files that exist.** `write_manifest.py`
+  derived `<sample>.assembly_stats.json` for every sample whenever an
+  assembler was set, so a run whose assemblies all failed published a manifest
+  asserting files no consumer could open. The names now come from the
+  canonical writer's own output channel; an empty set with an assembler
+  recorded is a real answer, meaning assembly ran and produced nothing.
+- **The miniasm join no longer manufactures a null path.** `remainder: true`
+  turned a key with no overlap output into `[meta, reads, null]` and a staging
+  crash; a plain join drops the pair instead, as the canonical writer's join
+  beside it already does.
+- **The all-vs-all overlap PAF stays in the work directory.** With no
+  `withName` block it fell through to the default publish rule and wrote 4.1 MB
+  per run into `<outdir>/minimap2/`, sharing a directory name with the
+  validation minimap2 outputs.
+
+### Changed
+
+- Assembly processes are capped at `maxForks 1`. `process_high` asks for 12
+  CPUs and 72 GB, which `resourceLimits` silently clamps to the profile
+  ceiling (13 GB under `conf/field.config`), so the request communicates
+  nothing the machine can honour; bounding concurrency is what the local
+  executor actually respects.
+
+### Added
+
+- `modules/local/minimap2_ava/tests/main.nf.test`, and the module is now in
+  the CI test list. It shipped in v1.9.0 with no test of its own.
+
 ## [1.9.0] - 2026-09-03
 
 Findings of the nanometa_live round-5 audit (Configuration tab advanced

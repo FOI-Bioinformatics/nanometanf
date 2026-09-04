@@ -572,9 +572,55 @@ results/canonical/
 ├── validation/
 │   └── {sample}.validation.tsv
 ├── assembly/
-│   └── {sample}.assembly.tsv
+│   ├── {sample}.assembly_stats.json
+│   └── {sample}[.taxid{N}].assembly_decision.json
 └── _manifest.json
 ```
+
+### The assembly decision record
+
+`ASSEMBLY_DEPTH_GATE` writes one `assembly_decision.json` per assembly
+candidate, on **every** path — whether it assembled or declined. This is the
+contract Nanometa Live reads to explain an absent assembly, and adding a
+`reason` value is a cross-repo change.
+
+Assembling a genome needs roughly 30x coverage of it. Shallow metagenomic
+input rarely reaches that for any single organism, so declining is the normal
+answer; publishing contigs regardless produces fragments that carry an N50 and
+read as a draft assembly.
+
+```json
+{
+  "schema_version": "1.0.0",
+  "sample_id": "barcode06",
+  "taxid": 4007169,
+  "scope": "targeted",
+  "decision": "declined",
+  "reason": "insufficient_depth",
+  "reason_text": "0.43 Mb assigned to taxid 4007169 in barcode06; 0.23x of a 1.87 Mb reference. 30x is needed for a usable draft, about 56 Mb more.",
+  "reads": 279,
+  "bases": 426383,
+  "expected_genome_size": 1870206,
+  "genome_size_source": "reference_fasta",
+  "estimated_depth": 0.228,
+  "required_depth": 30.0,
+  "low_depth_override": false,
+  "shortfall_bases": 55679797
+}
+```
+
+`decision` is `attempt` or `declined`. `reason` is a closed vocabulary:
+
+| `reason`             | Meaning                                                                                         |
+| -------------------- | ----------------------------------------------------------------------------------------------- |
+| `attempt`            | Enough sequence; the assembler ran                                                              |
+| `insufficient_depth` | Targeted scope below `assembly_min_depth`                                                       |
+| `insufficient_bases` | Whole-sample scope below `assembly_min_bases`                                                   |
+| `no_reads`           | No reads were available for the target                                                          |
+| `no_reference`       | Targeted scope with no reference, so depth cannot be judged                                     |
+| `low_depth_override` | Assembled below the floor because `assembly_allow_low_depth` was set; the contigs are fragments |
+
+Consumers should branch on `reason` and display `reason_text`.
 
 ### Manifest File
 
@@ -598,13 +644,14 @@ results/canonical/
 
 Each analysis stage has a dedicated writer module that converts tool-specific output into the canonical format:
 
-| Module                            | Input                  | Output                                       |
-| --------------------------------- | ---------------------- | -------------------------------------------- |
-| `canonical_classification_writer` | Kraken2 reports        | `classification/{sample}.classification.tsv` |
-| `canonical_qc_writer`             | FASTP/SeqKit metrics   | `qc/{sample}.qc.tsv`                         |
-| `canonical_validation_writer`     | BLAST/minimap2 results | `validation/{sample}.validation.tsv`         |
-| `canonical_assembly_writer`       | Assembly statistics    | `assembly/{sample}.assembly.tsv`             |
-| `manifest_writer`                 | All canonical outputs  | `_manifest.json`                             |
+| Module                            | Input                          | Output                                                |
+| --------------------------------- | ------------------------------ | ----------------------------------------------------- |
+| `canonical_classification_writer` | Kraken2 reports                | `classification/{sample}.classification.tsv`          |
+| `canonical_qc_writer`             | FASTP/SeqKit metrics           | `qc/{sample}.qc.tsv`                                  |
+| `canonical_validation_writer`     | BLAST/minimap2 results         | `validation/{sample}.validation.tsv`                  |
+| `canonical_assembly_writer`       | Assembly statistics            | `assembly/{sample}.assembly_stats.json`               |
+| `assembly_depth_gate`             | Why an assembly ran or did not | `assembly/{sample}[.taxid{N}].assembly_decision.json` |
+| `manifest_writer`                 | All canonical outputs          | `_manifest.json`                                      |
 
 The canonical output format is independent of which upstream tools are used, providing a stable interface for consumers such as Nanometa Live.
 

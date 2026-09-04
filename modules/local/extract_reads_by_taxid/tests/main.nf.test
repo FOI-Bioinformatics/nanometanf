@@ -27,7 +27,8 @@ nextflow_process {
                     [ id: 'sample1' ],
                     file("${outputDir}/sample1.fastq.gz"),
                     file("${outputDir}/sample1.kraken2.classifiedreads.txt"),
-                    562
+                    562,
+                    '562'
                 ]
                 """
             }
@@ -65,7 +66,8 @@ nextflow_process {
                     [ id: 's' ],
                     file("${outputDir}/s.fastq"),
                     file("${outputDir}/s.kraken.txt"),
-                    999
+                    999,
+                    '999'
                 ]
                 """
             }
@@ -81,4 +83,93 @@ nextflow_process {
             )
         }
     }
+
+    test("Selects the whole clade, not just the exact node") {
+
+        options ""
+
+        // Kraken2 assigns each read to the most specific node it can, so an
+        // organism's reads scatter across its species row and the subspecies
+        // below it. Matching the exact taxid took 279 of the 1,051 reads of
+        // F. tularensis in one real sample, confirming the organism from a
+        // quarter of its evidence (nanometa_live assembly audit, A5b).
+        setup {
+            def dir = new File("${outputDir}")
+            dir.mkdirs()
+            // Three reads: one on the species node, two on subspecies below it.
+            new File("${outputDir}/clade.kraken.txt").text = [
+                "C\tread_species\t4007169\t800\t0:1",
+                "C\tread_holarctica\t4007187\t800\t0:1",
+                "C\tread_tularensis\t4007186\t800\t0:1",
+                "C\tread_other\t4000800\t800\t0:1",
+                "U\tread_unclassified\t0\t800\t0:1",
+            ].join("\n") + "\n"
+            // seqtk needs a real FASTQ carrying those ids.
+            new File("${outputDir}/clade.fastq").text = [
+                "read_species", "read_holarctica", "read_tularensis",
+                "read_other", "read_unclassified",
+            ].collect { id -> "@${id}\nACGTACGTAC\n+\n!!!!!!!!!!" }.join("\n") + "\n"
+        }
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id: 'clade' ],
+                    file("${outputDir}/clade.fastq"),
+                    file("${outputDir}/clade.kraken.txt"),
+                    4007169,
+                    '4007169,4007186,4007187'
+                ]
+                """
+            }
+        }
+
+        then {
+            assert process.success
+            def stats = new groovy.json.JsonSlurper().parseText(
+                path(process.out.stats[0][1]).text)
+            // Three of the organism's reads, not the one on the species node.
+            assert stats.extracted_reads == 3
+        }
+    }
+
+    test("A clade of one behaves exactly as the exact taxid did") {
+
+        options ""
+
+        setup {
+            def dir = new File("${outputDir}")
+            dir.mkdirs()
+            new File("${outputDir}/single.kraken.txt").text = [
+                "C\tread_a\t4000800\t800\t0:1",
+                "C\tread_b\t4007169\t800\t0:1",
+            ].join("\n") + "\n"
+            new File("${outputDir}/single.fastq").text =
+                ["read_a", "read_b"].collect { id ->
+                    "@${id}\nACGTACGTAC\n+\n!!!!!!!!!!" }.join("\n") + "\n"
+        }
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id: 'single' ],
+                    file("${outputDir}/single.fastq"),
+                    file("${outputDir}/single.kraken.txt"),
+                    4000800,
+                    '4000800'
+                ]
+                """
+            }
+        }
+
+        then {
+            assert process.success
+            def stats = new groovy.json.JsonSlurper().parseText(
+                path(process.out.stats[0][1]).text)
+            assert stats.extracted_reads == 1
+        }
+    }
+
 }

@@ -1,0 +1,136 @@
+nextflow_function {
+
+    name "Test AssemblyReadAccumulator (realtime pooling and attempt cadence)"
+    script "tests/lib/assembly_accumulator_functions.nf"
+
+    tag "unit"
+    tag "fast"
+    tag "assembly"
+    tag "realtime"
+
+    // Realtime flattens each batch into one emission per FASTQ file, so
+    // assembly saw one file at a time: 28 files across five samples left four
+    // artifacts, each a single batch's assembly, every earlier one overwritten
+    // (nanometa_live assembly audit, A3). The pool makes an attempt a function
+    // of everything accumulated; the cadence stops it running on every file.
+
+    test("The pool grows with every file and an attempt is due each interval") {
+        function "feed"
+        when {
+            function {
+                """
+                input[0] = ['f1','f2','f3','f4','f5','f6']
+                input[1] = 3
+                input[2] = 0.0
+                """
+            }
+        }
+        then {
+            assert function.success
+            assert function.result.collect { it[0] } == [1, 2, 3, 4, 5, 6]
+            // Due at 3 and again at 6: a whole interval of new files each time.
+            assert function.result.collect { it[1] } ==
+                [false, false, true, false, false, true]
+        }
+    }
+
+    test("A re-emitted file does not grow the pool") {
+        // A retried task re-emits the same path; counting it twice would let
+        // the cadence fire on work that added nothing.
+        function "feed"
+        when {
+            function {
+                """
+                input[0] = ['f1','f2','f1','f2']
+                input[1] = 2
+                input[2] = 0.0
+                """
+            }
+        }
+        then {
+            assert function.success
+            assert function.result.collect { it[0] } == [1, 2, 2, 2]
+            assert function.result.collect { it[1] } == [false, true, false, false]
+        }
+    }
+
+    test("Growth below the threshold vetoes an interval tick") {
+        // 4 files, then 2 more: the interval is met but the pool grew 50%
+        // where 100% was required, so the attempt is not worth an hour of Flye.
+        function "feed"
+        when {
+            function {
+                """
+                input[0] = ['a','b','c','d','e','f']
+                input[1] = 2
+                input[2] = 1.0
+                """
+            }
+        }
+        then {
+            assert function.success
+            def due = function.result.collect { it[1] }
+            assert due[1] == true      // first attempt, no prior to grow from
+            assert due[3] == true      // 2 -> 4 is 100%
+            assert due[5] == false     // 4 -> 6 is only 50%
+        }
+    }
+
+    test("An interval of zero disables periodic attempts but not the final one") {
+        function "feedThenFinal"
+        when {
+            function {
+                """
+                input[0] = ['f1','f2','f3']
+                input[1] = 0
+                input[2] = 0.0
+                """
+            }
+        }
+        then {
+            assert function.success
+            assert function.result[0] == [false, false, false]
+            assert function.result[1] == true    // the final attempt still runs
+            assert function.result[2] == 1
+        }
+    }
+
+    test("A final attempt that would repeat the last one exactly is skipped") {
+        // The interval fires on the third file and the run then ends with no
+        // further input: re-assembling identical inputs yields an identical
+        // result.
+        function "feedThenFinal"
+        when {
+            function {
+                """
+                input[0] = ['f1','f2','f3']
+                input[1] = 3
+                input[2] = 0.0
+                """
+            }
+        }
+        then {
+            assert function.success
+            assert function.result[0] == [false, false, true]
+            assert function.result[1] == false
+            assert function.result[2] == 1
+        }
+    }
+
+    test("Samples do not share a pool") {
+        function "twoKeys"
+        when {
+            function {
+                """
+                input[0] = ['a1','a2','a3']
+                input[1] = ['b1']
+                input[2] = 2
+                """
+            }
+        }
+        then {
+            assert function.success
+            assert function.result == [3, 1]
+        }
+    }
+}

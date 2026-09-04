@@ -18,6 +18,7 @@ process MANIFEST_WRITER {
     val(validation_method)
     val(sample_ids)
     val(produced_sample_ids)
+    val(assembly_files)
     val(mode)
     val(canonical_ready)
 
@@ -32,6 +33,15 @@ process MANIFEST_WRITER {
     def classifier_arg = classifier ? "--classifier ${classifier}" : ""
     def qc_arg = qc_tool ? "--qc-tool ${qc_tool}" : ""
     def assembler_arg = assembler ? "--assembler ${assembler}" : ""
+    // Names of the canonical assembly stats files that actually exist, taken
+    // from the writer's own output channel. Empty is a determined answer.
+    def assembly_names = (assembly_files instanceof List ? assembly_files : [])
+        .collect { it instanceof List ? it[-1] : it }
+        .collect { "${it}".split('/')[-1] }
+        .findAll { it && it.endsWith('.assembly_stats.json') }
+        .unique()
+        .sort()
+    def assembly_files_arg = assembly_names ? "--assembly-files '${assembly_names.join(",")}'" : ""
     def validation_arg = validation_method ? "--validation-method ${validation_method}" : ""
     def samples_str = sample_ids instanceof List ? sample_ids.join(",") : sample_ids
     // Quoted: a sample id containing a space or a shell metacharacter would
@@ -70,6 +80,7 @@ process MANIFEST_WRITER {
         ${validation_arg} \\
         ${samples_arg} \\
         ${produced_arg} \\
+        ${assembly_files_arg} \\
         --mode "${mode}"
 
     cat << END_VERSIONS > versions.yml

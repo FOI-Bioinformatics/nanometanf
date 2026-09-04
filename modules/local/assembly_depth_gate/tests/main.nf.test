@@ -1,0 +1,169 @@
+nextflow_process {
+
+    name "Test Process ASSEMBLY_DEPTH_GATE"
+    script "../main.nf"
+    process "ASSEMBLY_DEPTH_GATE"
+
+    tag "module"
+    tag "assembly"
+    tag "fast"
+
+    // The gate decides whether a read set is deep enough to assemble and
+    // records the answer either way. A declined assembly is a measurement
+    // with a stated reason; an absent one is silence, and silence is what
+    // made a failed assembly indistinguishable from a disabled one
+    // (nanometa_live assembly audit, 2026-09-03).
+
+    test("Declines a shallow targeted read set and records the shortfall") {
+        when {
+            params {
+                assembly_min_depth = 30
+                assembly_min_bases = 100000000
+                assembly_allow_low_depth = false
+            }
+            process {
+                """
+                input[0] = [
+                    [ id:'barcode05', taxid:263, assembly_scope:'targeted' ],
+                    file(params.modules_testdata_base_path +
+                         'genomics/sarscov2/nanopore/fastq/test.fastq.gz', checkIfExists: true),
+                    file(params.modules_testdata_base_path +
+                         'genomics/sarscov2/genome/genome.fasta', checkIfExists: true)
+                ]
+                """
+            }
+        }
+        then {
+            assert process.success
+            def d = new groovy.json.JsonSlurper().parseText(
+                path(process.out.decision[0][1]).text)
+            assert d.decision == 'declined'
+            assert d.reason == 'insufficient_depth'
+            // The record must carry the arithmetic, not just the verdict:
+            // "keep sequencing" is only actionable with the shortfall.
+            assert d.estimated_depth != null
+            assert d.expected_genome_size > 0
+            assert d.shortfall_bases > 0
+            assert d.reason_text.contains('30x')
+            assert d.scope == 'targeted'
+            assert d.taxid == 263
+        }
+    }
+
+    test("A shallow set is assembled when low depth is explicitly allowed") {
+        when {
+            params {
+                assembly_min_depth = 30
+                assembly_min_bases = 100000000
+                assembly_allow_low_depth = true
+            }
+            process {
+                """
+                input[0] = [
+                    [ id:'barcode05', taxid:263, assembly_scope:'targeted' ],
+                    file(params.modules_testdata_base_path +
+                         'genomics/sarscov2/nanopore/fastq/test.fastq.gz', checkIfExists: true),
+                    file(params.modules_testdata_base_path +
+                         'genomics/sarscov2/genome/genome.fasta', checkIfExists: true)
+                ]
+                """
+            }
+        }
+        then {
+            assert process.success
+            def d = new groovy.json.JsonSlurper().parseText(
+                path(process.out.decision[0][1]).text)
+            assert d.decision == 'attempt'
+            assert d.reason == 'low_depth_override'
+            // The escape hatch must never produce an artifact that reads as a
+            // genome: every consumer branches on this flag.
+            assert d.low_depth_override == true
+            assert d.reason_text.toLowerCase().contains('fragments')
+        }
+    }
+
+    test("A whole-sample set below the yield floor is declined") {
+        when {
+            params {
+                assembly_min_depth = 30
+                assembly_min_bases = 100000000
+                assembly_allow_low_depth = false
+            }
+            process {
+                """
+                input[0] = [
+                    [ id:'barcode05', assembly_scope:'metagenome' ],
+                    file(params.modules_testdata_base_path +
+                         'genomics/sarscov2/nanopore/fastq/test.fastq.gz', checkIfExists: true),
+                    file("\${projectDir}/assets/NO_REFERENCE")
+                ]
+                """
+            }
+        }
+        then {
+            assert process.success
+            def d = new groovy.json.JsonSlurper().parseText(
+                path(process.out.decision[0][1]).text)
+            assert d.decision == 'declined'
+            assert d.reason == 'insufficient_bases'
+            assert d.scope == 'metagenome'
+            // No single genome to divide by, so no depth is claimed.
+            assert d.required_bases > 0
+        }
+    }
+
+    test("A whole-sample set above the yield floor is assembled") {
+        when {
+            params {
+                assembly_min_depth = 30
+                assembly_min_bases = 1
+                assembly_allow_low_depth = false
+            }
+            process {
+                """
+                input[0] = [
+                    [ id:'barcode05', assembly_scope:'metagenome' ],
+                    file(params.modules_testdata_base_path +
+                         'genomics/sarscov2/nanopore/fastq/test.fastq.gz', checkIfExists: true),
+                    file("\${projectDir}/assets/NO_REFERENCE")
+                ]
+                """
+            }
+        }
+        then {
+            assert process.success
+            def d = new groovy.json.JsonSlurper().parseText(
+                path(process.out.decision[0][1]).text)
+            assert d.decision == 'attempt'
+            assert d.reason == 'attempt'
+        }
+    }
+
+    test("Targeted scope with no reference declines rather than guessing") {
+        when {
+            params {
+                assembly_min_depth = 30
+                assembly_min_bases = 100000000
+                assembly_allow_low_depth = false
+                genome_size = ''
+            }
+            process {
+                """
+                input[0] = [
+                    [ id:'barcode05', taxid:263, assembly_scope:'targeted' ],
+                    file(params.modules_testdata_base_path +
+                         'genomics/sarscov2/nanopore/fastq/test.fastq.gz', checkIfExists: true),
+                    file("\${projectDir}/assets/NO_REFERENCE")
+                ]
+                """
+            }
+        }
+        then {
+            assert process.success
+            def d = new groovy.json.JsonSlurper().parseText(
+                path(process.out.decision[0][1]).text)
+            assert d.decision == 'declined'
+            assert d.reason == 'no_reference'
+        }
+    }
+}

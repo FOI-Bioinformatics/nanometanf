@@ -130,6 +130,11 @@ jobs:
             modules/local/aggregate_validation_results/tests/main.nf.test \
             modules/local/blastn_validation/tests/main.nf.test \
             modules/local/canonical_assembly_writer/tests/main.nf.test \
+            modules/local/minimap2_ava/tests/main.nf.test \
+            modules/local/assembly_depth_gate/tests/main.nf.test \
+            tests/lib/kreport_clade.nf.test \
+            tests/lib/assembly_accumulator.nf.test \
+            modules/local/assembly_read_pool/tests/main.nf.test \
             modules/local/canonical_classification_writer/tests/main.nf.test \
             modules/local/canonical_qc_writer/tests/main.nf.test \
             modules/local/canonical_validation_writer/tests/main.nf.test \

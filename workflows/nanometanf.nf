@@ -364,16 +364,6 @@ workflow NANOMETANF {
     }
 
     //
-    // SUBWORKFLOW: Multi-tool genome assembly for long-read data
-    //
-    if (params.enable_assembly) {
-        ASSEMBLY (
-            ch_qc_reads
-        )
-        ch_versions = ch_versions.mix(ASSEMBLY.out.versions)
-    }
-
-    //
     // SUBWORKFLOW: Multi-tool taxonomic classification with taxpasta standardization
     //
     if (params.skip_kraken2) {
@@ -478,6 +468,33 @@ workflow NANOMETANF {
                 log.info "Validation results written to: ${params.outdir}/validation/validation_results.json"
             }
         }
+    }
+
+    //
+    // SUBWORKFLOW: Multi-tool genome assembly for long-read data
+    //
+    // Invoked AFTER validation, not before, because targeted assembly reuses
+    // the per-organism reads validation already extracts -- one extraction
+    // path, not two. Nextflow orders by data dependency, not by position, so
+    // this changes nothing about when the whole-sample assembly runs.
+    if (params.enable_assembly) {
+        // The reads of an organism the run detected, paired with the
+        // reference its depth is judged against. Extraction is keyed on the
+        // taxid, so the reference comes from the same pathogen_genomes map
+        // validation resolved.
+        ch_assembly_targeted = Channel.empty()
+        if (params.assembly_scope in ['targeted', 'both']) {
+            if (run_validation_effective && params.pathogen_genomes) {
+                ch_assembly_targeted = VALIDATION.out.extracted_reads
+            } else {
+                log.warn "assembly_scope '${params.assembly_scope}' asks for targeted assembly, " +
+                    "but confirmation testing is not running, so there are no per-organism " +
+                    "read sets to assemble. Only the whole-sample assembly will run."
+            }
+        }
+
+        ASSEMBLY ( ch_qc_reads, ch_assembly_targeted )
+        ch_versions = ch_versions.mix(ASSEMBLY.out.versions)
     }
 
     //
@@ -618,6 +635,18 @@ workflow NANOMETANF {
             .ifEmpty([])
             .map { 'ready' }
 
+        // The assembly stats files that exist, from the canonical writer's own
+        // output. The manifest used to derive these names from the sample list,
+        // so it asserted a file per sample even when every assembly failed
+        // (assembly audit, 2026-09-03).
+        ch_assembly_files = (params.enable_assembly
+                ? ASSEMBLY.out.canonical_assembly
+                    .filter { it instanceof List && it.size() >= 2 && it[0] instanceof Map }
+                    .map { meta, f -> f }
+                : Channel.empty())
+            .collect()
+            .ifEmpty([])
+
         MANIFEST_WRITER (
             Channel.value(effective_classifier),
             Channel.value(effective_qc_tool),
@@ -625,6 +654,7 @@ workflow NANOMETANF {
             Channel.value(effective_validation),
             ch_sample_ids,
             ch_produced_sample_ids,
+            ch_assembly_files,
             Channel.value(effective_mode),
             ch_canonical_ready
         )

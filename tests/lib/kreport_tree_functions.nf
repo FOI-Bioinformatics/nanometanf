@@ -45,3 +45,15 @@ def reportRoundTrip(List reports) {
     def emittedRows = order.collect { taxid -> [taxid, merged[taxid].name] }
     return [ order, KreportTree.parentsFromRows(emittedRows), sourceParents ]
 }
+
+
+/*
+ * The taxid clade for a report, as EXTRACT_READS_BY_TAXID now selects.
+ *
+ * @param rows   [taxid, name] pairs in report order, indentation kept
+ * @param taxid  the clade root
+ * @return       sorted list of taxid Strings at or below it
+ */
+def cladeOfRows(List rows, String taxid) {
+    return KreportTree.cladeOf(rows, taxid).sort()
+}
