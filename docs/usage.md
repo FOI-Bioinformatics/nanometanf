@@ -458,6 +458,10 @@ nextflow run foi-bioinformatics/nanometanf \
 ```bash
 --enable_assembly           # Enable genome assembly
 --assembler <tool>          # flye or miniasm
+--assembly_scope <scope>    # targeted, metagenome (default) or both
+--assembly_min_depth <n>    # targeted: coverage below which the run declines (default 30)
+--assembly_min_bases <n>    # whole-sample: total bases below which it declines (default 100000000)
+--assembly_allow_low_depth  # assemble below the floor, labelling results as fragments
 --flye_meta <bool>          # Flye metagenome mode (--meta); default true, disable for single isolates
 --genome_size <size>        # Expected genome size (e.g., 5m, 3.2g)
 ```
