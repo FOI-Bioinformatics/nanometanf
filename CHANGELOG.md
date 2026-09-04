@@ -5,7 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.10.0] - 2026-09-04
+
+Assembly stops being a step that can run, succeed and publish a number that is
+not a result. Pairs with nanometa_live 0.18.0. Everything below came from the
+2026-09-03 assembly audit, which drove real runs of both assemblers and
+measured what depth the data could actually reach.
 
 ### Added
 
@@ -24,7 +29,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
   Each attempt is built from a superset of the last, so the newest result
   supersedes the previous one rather than competing with it. That is the
-  difference from the defect this replaces, where each *batch* overwrote the
+  difference from the defect this replaces, where each _batch_ overwrote the
   last and what survived was one batch's assembly rather than the sample's.
 
   The accumulated files are staged one per directory: every batch of a sample
