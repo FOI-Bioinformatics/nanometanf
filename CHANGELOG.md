@@ -9,6 +9,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **An organism is confirmed from its whole clade, not one node.** Kraken2
+  assigns each read to the most specific node it can, so an organism's reads
+  scatter across its species row and the subspecies below it.
+  `EXTRACT_READS_BY_TAXID` matched the taxid exactly, so confirmatory BLAST and
+  minimap2 aligned only part of the evidence: measured on a real report, 279 of
+  the 1,051 reads of _F. tularensis_ in barcode06 sat on the species node and
+  the other 772 below it, so confirmation ran on 27% of the organism.
+  Extraction now selects the clade, resolved from the sample's own report by
+  the new `KreportTree.cladeOf`. On that sample it yields 3.8x the reads and
+  takes the depth an assembly could reach from 0.23x to 1.95x. A taxid absent
+  from the report, or a report that cannot be read, falls back to the exact
+  taxid rather than to nothing. This matches the species-includes-subspecies
+  rule Nanometa Live already applies in `core/taxonomy/ranks.py`.
+
+### Fixed
+
 - **An assembly failure no longer discards a screening run.** Only FLYE was
   isolated in `conf/error_isolation.config`, so a MINIASM or MINIMAP2_AVA
   exit fell back to `finish` and ended the whole pipeline. Measured on a real

@@ -8,7 +8,7 @@ process EXTRACT_READS_BY_TAXID {
         'quay.io/biocontainers/seqtk:1.4--he4a0461_2' }"
 
     input:
-    tuple val(meta), path(reads), path(kraken_output), val(taxid)
+    tuple val(meta), path(reads), path(kraken_output), val(taxid), val(clade_taxids)
 
     output:
     // ``reads`` is optional: a taxid with zero classified reads in this batch
@@ -30,9 +30,23 @@ process EXTRACT_READS_BY_TAXID {
     #!/bin/bash
     set -euo pipefail
 
-    # Extract read IDs classified under this taxid
-    # Kraken2 output format: C/U <tab> read_id <tab> taxid <tab> length <tab> kmers
-    awk -F'\\t' -v taxid="${taxid}" '\$1 == "C" && \$3 == taxid {print \$2}' "${kraken_output}" > read_ids.txt
+    # Extract read IDs classified anywhere in this taxid's CLADE.
+    #
+    # Kraken2 assigns each read to the most specific node it can, so an
+    # organism's reads scatter across its species row and the subspecies
+    # below it. Matching the exact taxid took 279 of the 1,051 reads of
+    # F. tularensis in one real sample and confirmed the organism from a
+    # quarter of its evidence (assembly audit, 2026-09-03, A5b).
+    #
+    # The caller resolves the clade from the sample's own report and passes
+    # it as a comma-separated list; it always contains at least the taxid
+    # itself, so an unreadable report degrades to the previous behaviour
+    # rather than to selecting nothing.
+    CLADE="${clade_taxids ?: taxid}"
+    awk -F'\\t' -v clade="\$CLADE" '
+        BEGIN { n = split(clade, a, ","); for (i = 1; i <= n; i++) want[a[i]] = 1 }
+        \$1 == "C" && (\$3 in want) { print \$2 }
+    ' "${kraken_output}" > read_ids.txt
 
     # Count extracted read IDs
     EXTRACTED_COUNT=\$(wc -l < read_ids.txt | tr -d ' ')

@@ -165,6 +165,17 @@ workflow VALIDATION {
         }
 
     //
+    // One report per sample id, for clade expansion below. Realtime emits a
+    // per-batch report as well as the cumulative one, so the reports are
+    // reduced to the last seen per sample: any of them carries the same
+    // parentage, which is all the clade needs.
+    //
+    ch_report_by_sample = ch_kraken_reports
+        .map { meta, report -> [ meta.id, report ] }
+        .groupTuple()
+        .map { id, reports -> [ id, reports[-1] ] }
+
+    //
     // Pre-extraction taxid gate (issue #6 scalability fix)
     //
     // Without this gate every (sample, taxid) pair launches EXTRACT_READS_BY_TAXID
@@ -230,9 +241,40 @@ workflow VALIDATION {
     // MODULE: Extract reads classified as each target taxid
     // Input: combined tuple [ meta, reads, kraken_output, taxid ]
     //
-    ch_extraction_input = ch_validation_tasks.map { meta, reads, kraken_output, taxid, genome ->
-        [ meta, reads, kraken_output, taxid ]
-    }
+    // Extraction selects the taxid's CLADE, not the exact node. Kraken2
+    // assigns each read to the most specific node it can, so an organism's
+    // reads scatter across its species row and the subspecies below it:
+    // measured on a real report, 279 of the 1,051 reads of F. tularensis in
+    // barcode06 sat on the species node and the other 772 below it. Selecting
+    // the node alone therefore confirmed an organism from about a quarter of
+    // its reads (nanometa_live assembly audit, 2026-09-03, A5b). Matching
+    // Nanometa Live's own species-includes-subspecies rule in
+    // core/taxonomy/ranks.py.
+    //
+    // The clade is resolved from the sample's own report, so a taxid absent
+    // from it -- or a report that cannot be read -- falls back to the exact
+    // taxid rather than to nothing.
+    ch_extraction_input = ch_validation_tasks
+        .map { meta, reads, kraken_output, taxid, genome ->
+            [ meta.id, meta, reads, kraken_output, taxid ]
+        }
+        .join(ch_report_by_sample, by: [0], remainder: true)
+        .map { row ->
+            def meta = row[1]
+            if (meta == null) {
+                return null          // a report with no extraction task
+            }
+            def report = row.size() > 5 ? row[5] : null
+            def taxid = row[4]
+            def clade = KreportTree.cladeOf(
+                KreportTree.rowsFromReport(report), taxid).sort()
+            if (clade.size() > 1) {
+                log.debug "Validation: taxid ${taxid} in sample '${row[0]}' " +
+                          "covers ${clade.size()} nodes (${clade.join(',')})"
+            }
+            return [ meta, row[2], row[3], taxid, clade.join(',') ]
+        }
+        .filter { it != null }
 
     EXTRACT_READS_BY_TAXID(ch_extraction_input)
     // Use .first() to collapse the per-taxid scatter to a single versions

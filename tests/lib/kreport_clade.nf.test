@@ -1,0 +1,113 @@
+nextflow_function {
+
+    name "Test KreportTree.cladeOf (an organism is its clade, not its node)"
+    script "tests/lib/kreport_tree_functions.nf"
+    function "cladeOfRows"
+
+    tag "unit"
+    tag "fast"
+    tag "classification"
+    tag "validation"
+
+    // Kraken2 assigns each read to the most specific node it can, so an
+    // organism's reads scatter across its species row and the subspecies
+    // below it. Selecting on the exact taxid takes only part of the organism:
+    // measured on a real report, 279 of the 1,051 reads of F. tularensis sat
+    // on the species node and the other 772 below it (nanometa_live assembly
+    // audit, 2026-09-03, A5b). Confirmatory alignment and any depth estimate
+    // want the clade.
+
+    test("A species carries its subspecies") {
+        when {
+            function {
+                """
+                input[0] = [
+                    ['4007157', '              Francisella'],
+                    ['4007169', '                Francisella tularensis'],
+                    ['4007187', '                  Francisella tularensis holarctica'],
+                    ['4007186', '                  Francisella tularensis tularensis'],
+                    ['4000800', '                Salmonella enterica'],
+                ]
+                input[1] = '4007169'
+                """
+            }
+        }
+        then {
+            assert function.success
+            assert function.result == ['4007169', '4007186', '4007187']
+        }
+    }
+
+    test("A species with no subspecies is just itself") {
+        when {
+            function {
+                """
+                input[0] = [
+                    ['4007169', '                Francisella tularensis'],
+                    ['4007187', '                  Francisella tularensis holarctica'],
+                    ['4000800', '                Salmonella enterica'],
+                ]
+                input[1] = '4000800'
+                """
+            }
+        }
+        then {
+            assert function.success
+            assert function.result == ['4000800']
+        }
+    }
+
+    test("A genus carries every species and subspecies under it") {
+        when {
+            function {
+                """
+                input[0] = [
+                    ['4007157', '              Francisella'],
+                    ['4007169', '                Francisella tularensis'],
+                    ['4007187', '                  Francisella tularensis holarctica'],
+                    ['4000800', '              Salmonella enterica'],
+                ]
+                input[1] = '4007157'
+                """
+            }
+        }
+        then {
+            assert function.success
+            assert function.result == ['4007157', '4007169', '4007187']
+        }
+    }
+
+    test("A taxid absent from the report yields only itself") {
+        // The caller must still extract on the requested taxid rather than
+        // nothing: an organism missing from this batch's report is not an
+        // error, and a report that could not be read must not silently
+        // narrow the selection to zero.
+        when {
+            function {
+                """
+                input[0] = [ ['4007169', '                Francisella tularensis'] ]
+                input[1] = '999999'
+                """
+            }
+        }
+        then {
+            assert function.success
+            assert function.result == ['999999']
+        }
+    }
+
+    test("An empty report yields only the requested taxid") {
+        when {
+            function {
+                """
+                input[0] = []
+                input[1] = '4007169'
+                """
+            }
+        }
+        then {
+            assert function.success
+            assert function.result == ['4007169']
+        }
+    }
+}

@@ -73,6 +73,86 @@ class KreportTree {
     }
 
     /**
+     * Rows of [taxid, name] from a Kraken2 report file, indentation kept.
+     *
+     * @param reportPath  path to a Kraken2 report, or null
+     * @return            list of [taxid, name] pairs in report order; empty
+     *                    when the file cannot be read
+     */
+    static List rowsFromReport(Object reportPath) {
+        def rows = []
+        if (reportPath == null) {
+            return rows
+        }
+        def f = reportPath instanceof File ? reportPath : new File(reportPath.toString())
+        if (!f.exists()) {
+            return rows
+        }
+        try {
+            f.eachLine { line ->
+                def parts = line.split('\t')
+                if (parts.length >= 6) {
+                    rows.add([parts[4], parts[5]])
+                }
+            }
+        } catch (Exception ignored) {
+            return []
+        }
+        return rows
+    }
+
+    /**
+     * Every taxid at or below `taxid`, itself included.
+     *
+     * Kraken2 assigns each read to the most specific node it can, so an
+     * organism's reads scatter across its species node and its subspecies.
+     * Selecting on the exact taxid therefore takes only part of the organism:
+     * measured on a real report, 279 of the 1,051 reads of *F. tularensis*
+     * sat on the species node and the other 772 on `holarctica` and
+     * `tularensis` below it (nanometa_live assembly audit, 2026-09-03, A5b).
+     * Anything judging an organism -- confirmatory alignment, an assembly, a
+     * depth estimate -- wants the clade, not the node.
+     *
+     * This mirrors the species-includes-subspecies rule Nanometa Live applies
+     * on its own side in core/taxonomy/ranks.py.
+     *
+     * @param rows   [taxid, name] pairs in report order, indentation kept
+     * @param taxid  the clade root
+     * @return       set of taxid Strings; just the input when it is absent or
+     *               has no descendants
+     */
+    static Set cladeOf(List rows, Object taxid) {
+        def want = taxid == null ? '' : taxid.toString()
+        def members = [want] as Set
+        if (!want || rows == null) {
+            return members
+        }
+        int rootIndent = -1
+        rows.each { row ->
+            if (row == null || row.size() < 1 || row[0] == null) {
+                return
+            }
+            int ind = indentOf(row.size() > 1 ? row[1] : '')
+            if (rootIndent < 0) {
+                if (row[0].toString() == want) {
+                    rootIndent = ind
+                }
+                return
+            }
+            // Past the root: everything indented deeper belongs to it, and
+            // the first row at or above its depth ends the clade.
+            if (ind <= rootIndent) {
+                rootIndent = -2
+                return
+            }
+            if (rootIndent >= 0) {
+                members.add(row[0].toString())
+            }
+        }
+        return members
+    }
+
+    /**
      * Depth-first taxid order over a merged taxa map.
      *
      * @param taxa  map of taxid -> map carrying at least `cumul` (number) and
