@@ -58,4 +58,35 @@ nextflow_process {
             assert path(process.out.pooled[0][1]).linesGzip.size() == 4
         }
     }
+
+    test("Files that share a name across batches do not collide") {
+        // Every batch of a sample carries the same CHOPPER output name, so an
+        // accumulated set is same-named by construction. Staging them flat
+        // fails the task outright; found by a live realtime run.
+        setup {
+            file("${outputDir}/b1").mkdirs()
+            file("${outputDir}/b2").mkdirs()
+            new File("${outputDir}/b1/barcode05.chopped.fastq").text =
+                "@r1\nACGT\n+\n!!!!\n"
+            new File("${outputDir}/b2/barcode05.chopped.fastq").text =
+                "@r2\nACGT\n+\n!!!!\n"
+        }
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id:'barcode05' ],
+                    [ file("${outputDir}/b1/barcode05.chopped.fastq"),
+                      file("${outputDir}/b2/barcode05.chopped.fastq") ]
+                ]
+                """
+            }
+        }
+        then {
+            assert process.success
+            // Both records present: neither file was dropped or overwritten.
+            assert path(process.out.pooled[0][1]).linesGzip.size() == 8
+        }
+    }
+
 }

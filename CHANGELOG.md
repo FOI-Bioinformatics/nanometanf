@@ -18,10 +18,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   answers when an attempt is due -- every `assembly_batch_interval` files,
   provided the pool has grown by `assembly_min_growth`, plus a final attempt
   at the end of the session. `ASSEMBLY_READ_POOL` concatenates the accumulated
-  set so the assembler sees the sample rather than one file, and the attempt
-  number rides in `meta` so an attempt cannot overwrite an earlier one. Batch
-  mode emits each sample once, so its first emission is also its final
-  attempt: one code path serves both modes.
+  set so the assembler sees the sample rather than one file. Batch mode emits
+  each sample once, so its first emission is also its final attempt: one code
+  path serves both modes.
+
+  Each attempt is built from a superset of the last, so the newest result
+  supersedes the previous one rather than competing with it. That is the
+  difference from the defect this replaces, where each *batch* overwrote the
+  last and what survived was one batch's assembly rather than the sample's.
+
+  The accumulated files are staged one per directory: every batch of a sample
+  carries the same QC output name, so staging them flat fails the task with
+  "input file name collision" -- found by a live real-time run, and the same
+  shape as the collision that broke miniasm in v1.9.0.
 
 ### Fixed
 

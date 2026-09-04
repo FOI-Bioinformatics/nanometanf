@@ -19,7 +19,12 @@ process ASSEMBLY_READ_POOL {
     // stream, so no decompression is needed.
 
     input:
-    tuple val(meta), path(reads)
+    // stageAs with a wildcard directory per file: every batch of a sample
+    // carries the SAME filename (CHOPPER names its output for the sample, not
+    // the batch), so staging an accumulated set flat fails with "input file
+    // name collision" -- found by a live realtime run, and the same shape as
+    // the collision that broke miniasm in v1.9.0.
+    tuple val(meta), path(reads, stageAs: "pool_input*/*")
 
     output:
     tuple val(meta), path("*.pooled.fastq.gz"), emit: pooled
