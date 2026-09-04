@@ -1025,6 +1025,37 @@
                     "description": "Sequencing technology and data type for flye assembler.",
                     "fa_icon": "fas fa-dna",
                     "help_text": "nano-raw: regular ONT reads, nano-hq: ONT Q20+ reads, nano-corr: error-corrected reads."
+                },
+                "assembly_scope": {
+                    "type": "string",
+                    "default": "metagenome",
+                    "enum": ["targeted", "metagenome", "both"],
+                    "description": "What to assemble: a detected watchlist organism, the whole sample, or both.",
+                    "fa_icon": "fas fa-crosshairs",
+                    "help_text": "targeted assembles the reads assigned to an organism the run detected, as contig-level evidence beside the BLAST and minimap2 confirmation, and needs pathogen_genomes so the depth can be judged against a reference. metagenome assembles the whole sample for exploration. Both runs the two independently."
+                },
+                "assembly_min_depth": {
+                    "type": "number",
+                    "default": 30,
+                    "minimum": 0,
+                    "description": "Targeted scope: coverage of the reference below which the assembly is declined.",
+                    "fa_icon": "fas fa-layer-group",
+                    "help_text": "A usable draft of a bacterial genome needs roughly 30x. Below this the pipeline records why it declined -- the measured depth, the reference size and the shortfall -- instead of publishing contigs that read as a genome. Measured on a real field corpus, no organism reached 2x, so declining is the normal answer for shallow metagenomic input rather than an error."
+                },
+                "assembly_min_bases": {
+                    "type": "integer",
+                    "default": 100000000,
+                    "minimum": 0,
+                    "description": "Metagenome scope: total bases below which a whole-sample assembly is declined.",
+                    "fa_icon": "fas fa-weight-hanging",
+                    "help_text": "A whole-sample assembly has no single genome to divide by, so the floor is total yield. 100 Mb is about 20x of one bacterial genome spread across a community."
+                },
+                "assembly_allow_low_depth": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Assemble below the depth floor anyway, labelling the result as fragments.",
+                    "fa_icon": "fas fa-exclamation-triangle",
+                    "help_text": "Every artifact produced this way carries low_depth_override so no consumer can mistake the contigs for a genome. Use it to inspect what is there, not to report an assembly."
                 }
             }
         },

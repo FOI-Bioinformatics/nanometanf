@@ -601,6 +601,7 @@ workflow VALIDATION {
     validation_json        = ch_validation_json                         // path: validation_results.json
     validation_summary     = ch_validation_summary                      // path: validation_summary.tsv
     extraction_stats       = EXTRACT_READS_BY_TAXID.out.stats           // channel: [ val(meta), path(json) ]
+    extracted_reads        = ch_extracted_with_genome                   // channel: [ val(meta), path(reads), path(reference) ] - per-organism reads and the reference their depth is judged against
     blast_results          = ch_blast_results                           // channel: [ val(meta), path(tsv) ]
     minimap2_results       = ch_minimap2_results                        // channel: [ val(meta), path(paf) ]
     consensus              = ch_consensus                               // channel: [ val(meta), path(fasta) ]

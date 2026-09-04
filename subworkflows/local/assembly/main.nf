@@ -20,11 +20,13 @@ include { FLYE              } from '../../../modules/nf-core/flye/main'
 include { MINIMAP2_AVA      } from '../../../modules/local/minimap2_ava/main'
 include { MINIASM           } from '../../../modules/nf-core/miniasm/main'
 include { CANONICAL_ASSEMBLY_WRITER } from '../../../modules/local/canonical_assembly_writer/main'
+include { ASSEMBLY_DEPTH_GATE       } from '../../../modules/local/assembly_depth_gate/main'
 
 workflow ASSEMBLY {
 
     take:
-    ch_reads     // channel: [ val(meta), path(reads) ]
+    ch_reads      // channel: [ val(meta), path(reads) ] - whole-sample reads
+    ch_targeted   // channel: [ val(meta), path(reads), path(reference) ] - per-organism reads and their reference
 
     main:
     ch_versions = Channel.empty()
@@ -36,6 +38,62 @@ workflow ASSEMBLY {
     def assembler = params.assembler ?: 'flye'
     def genome_size = params.genome_size ?: '5m'  // Default to 5Mb for bacterial genomes
     def sequencing_mode = params.sequencing_mode ?: '--nano-raw'  // Default nanopore mode
+    def scope = params.assembly_scope ?: 'metagenome'
+
+    //
+    // GATE: measure before assembling, and record the answer either way.
+    //
+    // Assembly is the one step that can run, succeed and publish a number
+    // that is not a result: a real corpus produced 63 contigs at an N50 of
+    // 12,368 built at a median coverage of 4, with the run reporting healthy
+    // (nanometa_live assembly audit, 2026-09-03). Nothing in that corpus
+    // reached 2x of its reference where a draft needs 30x, so declining is
+    // the normal answer for shallow input rather than an error -- and a
+    // decline that is recorded is a measurement, where an absent assembly is
+    // silence.
+    //
+    // Every candidate passes through the gate; only those it marks 'attempt'
+    // reach an assembler. NO_REFERENCE is the staged placeholder for a
+    // whole-sample assembly, which has no single genome to divide by.
+    def want_metagenome = scope in ['metagenome', 'both']
+    def want_targeted   = scope in ['targeted', 'both']
+
+    ch_gate_in = Channel.empty()
+    if (want_metagenome) {
+        ch_gate_in = ch_gate_in.mix(
+            ch_reads
+                .filter { it instanceof List && it.size() >= 2 && it[0] instanceof Map }
+                .map { meta, reads ->
+                    [ meta + [ assembly_scope: 'metagenome' ], reads, file("${projectDir}/assets/NO_REFERENCE") ]
+                }
+        )
+    }
+    if (want_targeted) {
+        ch_gate_in = ch_gate_in.mix(
+            ch_targeted
+                .filter { it instanceof List && it.size() >= 3 && it[0] instanceof Map }
+                .map { meta, reads, reference ->
+                    [ meta + [ assembly_scope: 'targeted' ], reads, reference ]
+                }
+        )
+    }
+
+    ASSEMBLY_DEPTH_GATE ( ch_gate_in )
+    ch_versions = ch_versions.mix(ASSEMBLY_DEPTH_GATE.out.versions)
+    ch_decision = ASSEMBLY_DEPTH_GATE.out.decision
+
+    // Only the read sets the gate cleared. The decision file is small and is
+    // parsed here rather than emitted as a value, so the branch cannot drift
+    // from the record the operator is shown.
+    ch_cleared = ch_gate_in
+        .map { meta, reads, reference -> [ _assemblyKey(meta), meta, reads ] }
+        .join(
+            ch_decision.map { meta, json ->
+                [ _assemblyKey(meta), new groovy.json.JsonSlurper().parse(json.toFile()) ]
+            }
+        )
+        .filter { key, meta, reads, record -> record.decision == 'attempt' }
+        .map { key, meta, reads, record -> [ meta, reads ] }
 
     //
     // BRANCH: Route to appropriate assembler
@@ -45,7 +103,7 @@ workflow ASSEMBLY {
         // MODULE: Run Flye for long-read assembly
         //
         FLYE (
-            ch_reads,
+            ch_cleared,
             sequencing_mode
         )
         // FLYE emits its version via `topic: versions` (versions_flye); it is
@@ -63,7 +121,7 @@ workflow ASSEMBLY {
         // input staged once; the reads-as-reference call of the nf-core
         // align module collided on the staged file name.
         //
-        MINIMAP2_AVA ( ch_reads )
+        MINIMAP2_AVA ( ch_cleared )
         ch_versions = ch_versions.mix(MINIMAP2_AVA.out.versions)
 
         //
@@ -75,7 +133,7 @@ workflow ASSEMBLY {
         // fails staging a null path -- turning a dropped item into a crash.
         // Dropping the pair instead is what the canonical writer's join
         // below already does, for the reason written there.
-        ch_miniasm_input = ch_reads
+        ch_miniasm_input = ch_cleared
             .join(MINIMAP2_AVA.out.paf)
 
         MINIASM (
@@ -127,10 +185,19 @@ workflow ASSEMBLY {
     }
 
     emit:
+    decision         = ch_decision        // channel: [ val(meta), path(json) ] - Why each candidate was or was not assembled
     canonical_assembly = ch_canonical_assembly // channel: [ val(meta), path(json) ] - Canonical assembly JSON
     assembly         = ch_assembly        // channel: [ val(meta), path(fasta.gz) ] - Main assembly
     assembly_graph   = ch_assembly_graph  // channel: [ val(meta), path(gfa.gz) ] - Assembly graph
     assembly_info    = ch_assembly_info   // channel: [ val(meta), path(txt) ] - Assembly statistics
     assembler_used   = Channel.value(assembler) // channel: val(assembler_name)
     versions         = ch_versions        // channel: [ path(versions.yml) ]
+}
+
+
+// A (sample, scope, taxid) key. Assembly is no longer one output per sample:
+// with scope 'both' a sample yields a whole-sample assembly and one per
+// detected organism, so meta.id alone would collide.
+def _assemblyKey(Map meta) {
+    return "${meta.id}|${meta.assembly_scope ?: 'metagenome'}|${meta.taxid ?: ''}"
 }

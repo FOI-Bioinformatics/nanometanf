@@ -131,6 +131,7 @@ jobs:
             modules/local/blastn_validation/tests/main.nf.test \
             modules/local/canonical_assembly_writer/tests/main.nf.test \
             modules/local/minimap2_ava/tests/main.nf.test \
+            modules/local/assembly_depth_gate/tests/main.nf.test \
             modules/local/canonical_classification_writer/tests/main.nf.test \
             modules/local/canonical_qc_writer/tests/main.nf.test \
             modules/local/canonical_validation_writer/tests/main.nf.test \
