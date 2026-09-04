@@ -618,6 +618,18 @@ workflow NANOMETANF {
             .ifEmpty([])
             .map { 'ready' }
 
+        // The assembly stats files that exist, from the canonical writer's own
+        // output. The manifest used to derive these names from the sample list,
+        // so it asserted a file per sample even when every assembly failed
+        // (assembly audit, 2026-09-03).
+        ch_assembly_files = (params.enable_assembly
+                ? ASSEMBLY.out.canonical_assembly
+                    .filter { it instanceof List && it.size() >= 2 && it[0] instanceof Map }
+                    .map { meta, f -> f }
+                : Channel.empty())
+            .collect()
+            .ifEmpty([])
+
         MANIFEST_WRITER (
             Channel.value(effective_classifier),
             Channel.value(effective_qc_tool),
@@ -625,6 +637,7 @@ workflow NANOMETANF {
             Channel.value(effective_validation),
             ch_sample_ids,
             ch_produced_sample_ids,
+            ch_assembly_files,
             Channel.value(effective_mode),
             ch_canonical_ready
         )

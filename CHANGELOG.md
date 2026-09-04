@@ -7,6 +7,46 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **An assembly failure no longer discards a screening run.** Only FLYE was
+  isolated in `conf/error_isolation.config`, so a MINIASM or MINIMAP2_AVA
+  exit fell back to `finish` and ended the whole pipeline. Measured on a real
+  run: all five samples had been classified, 2,696 to 3,699 reads each, and
+  the run was still recorded `final_status: error` because the optional,
+  experimental assembly step could not create its conda environment
+  (`bioconda::miniasm` has no osx-arm64 build). All three assembly processes
+  now carry the same policy, and all three write the lost-input marker that
+  makes an isolated failure visible -- assembly was the one isolated process
+  without one.
+- **The manifest reports the assembly files that exist.** `write_manifest.py`
+  derived `<sample>.assembly_stats.json` for every sample whenever an
+  assembler was set, so a run whose assemblies all failed published a manifest
+  asserting files no consumer could open. The names now come from the
+  canonical writer's own output channel; an empty set with an assembler
+  recorded is a real answer, meaning assembly ran and produced nothing.
+- **The miniasm join no longer manufactures a null path.** `remainder: true`
+  turned a key with no overlap output into `[meta, reads, null]` and a staging
+  crash; a plain join drops the pair instead, as the canonical writer's join
+  beside it already does.
+- **The all-vs-all overlap PAF stays in the work directory.** With no
+  `withName` block it fell through to the default publish rule and wrote 4.1 MB
+  per run into `<outdir>/minimap2/`, sharing a directory name with the
+  validation minimap2 outputs.
+
+### Changed
+
+- Assembly processes are capped at `maxForks 1`. `process_high` asks for 12
+  CPUs and 72 GB, which `resourceLimits` silently clamps to the profile
+  ceiling (13 GB under `conf/field.config`), so the request communicates
+  nothing the machine can honour; bounding concurrency is what the local
+  executor actually respects.
+
+### Added
+
+- `modules/local/minimap2_ava/tests/main.nf.test`, and the module is now in
+  the CI test list. It shipped in v1.9.0 with no test of its own.
+
 ## [1.9.0] - 2026-09-03
 
 Findings of the nanometa_live round-5 audit (Configuration tab advanced

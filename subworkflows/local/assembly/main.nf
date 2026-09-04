@@ -69,8 +69,14 @@ workflow ASSEMBLY {
         //
         // MODULE: Run Miniasm for ultra-fast assembly
         //
+        // A plain join, not remainder: true. With the remainder a key whose
+        // overlap step produced no PAF emits [meta, reads, null] into
+        // MINIASM's tuple val(meta), path(reads), path(paf), and Nextflow
+        // fails staging a null path -- turning a dropped item into a crash.
+        // Dropping the pair instead is what the canonical writer's join
+        // below already does, for the reason written there.
         ch_miniasm_input = ch_reads
-            .join(MINIMAP2_AVA.out.paf, remainder: true)
+            .join(MINIMAP2_AVA.out.paf)
 
         MINIASM (
             ch_miniasm_input

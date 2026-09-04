@@ -1,0 +1,41 @@
+nextflow_process {
+
+    name "Test Process MINIMAP2_AVA"
+    script "../main.nf"
+    process "MINIMAP2_AVA"
+
+    options "-stub"
+
+    tag "module"
+    tag "assembly"
+    tag "fast"
+    tag "stub"
+
+    // This module exists because the nf-core minimap2/align module staged the
+    // reads as both query and reference under one name, so every miniasm run
+    // aborted with "input file name collision". It shipped in v1.9.0 with no
+    // test of its own; a real run on 2026-09-03 confirmed it produces one
+    // all-vs-all PAF per sample, and this pins the interface.
+
+    test("Should emit one all-vs-all PAF for a single read set") {
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id:'sample1' ],
+                    file(params.modules_testdata_base_path +
+                         'genomics/sarscov2/nanopore/fastq/test.fastq.gz', checkIfExists: true)
+                ]
+                """
+            }
+        }
+        then {
+            assert process.success
+            assert process.out.paf
+            // One input, one PAF: the collision was two files staged as one.
+            assert process.out.paf.size() == 1
+            assert process.out.paf[0][1].endsWith('.ava.paf.gz')
+            assert process.out.versions
+        }
+    }
+}

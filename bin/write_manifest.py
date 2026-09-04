@@ -64,6 +64,11 @@ def main() -> None:
         help="QC tool name (e.g., fastp, chopper)."
     )
     parser.add_argument(
+        "--assembly-files", default="",
+        help="comma-separated canonical assembly stats filenames actually "
+             "produced; empty means none were",
+    )
+    parser.add_argument(
         "--assembler", default="",
         help="Assembler name (e.g., flye)."
     )
@@ -137,9 +142,14 @@ def main() -> None:
     # alone. Mark as available when validation is active; files can be
     # discovered by the frontend from the validation/ directory.
     validation_available = bool(args.validation_method)
-    assembly_files = (
-        sorted(f"{s}.assembly_stats.json" for s in samples)
-        if args.assembler else []
+    # Discovered, never derived. This used to build the filenames from the
+    # sample list and the assembler flag, so a run whose every assembly task
+    # failed still published a manifest asserting one stats file per sample --
+    # files no consumer could open (nanometa_live assembly audit, 2026-09-03).
+    # An empty --assembly-files with an assembler set is a real answer:
+    # assembly ran and produced nothing.
+    assembly_files = sorted(
+        f for f in (args.assembly_files or "").split(",") if f.strip()
     )
 
     manifest = {

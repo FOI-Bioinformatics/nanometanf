@@ -30,8 +30,9 @@ nextflow_process {
                 input[3] = ''
                 input[4] = [ 'healthy', 'failed_qc' ]
                 input[5] = [ 'healthy' ]
-                input[6] = 'batch'
-                input[7] = true
+                input[6] = []
+                input[7] = 'batch'
+                input[8] = true
                 """
             }
         }
@@ -69,8 +70,9 @@ nextflow_process {
                 input[3] = ''
                 input[4] = [ 'healthy', 'other' ]
                 input[5] = ''
-                input[6] = 'batch'
-                input[7] = true
+                input[6] = []
+                input[7] = 'batch'
+                input[8] = true
                 """
             }
         }
@@ -106,8 +108,9 @@ nextflow_process {
                 input[3] = ''
                 input[4] = [ 'corrupt_one', 'corrupt_two' ]
                 input[5] = []
-                input[6] = 'batch'
-                input[7] = true
+                input[6] = []
+                input[7] = 'batch'
+                input[8] = true
                 """
             }
         }
@@ -134,8 +137,9 @@ nextflow_process {
                 input[3] = ''
                 input[4] = [ 'a', 'b' ]
                 input[5] = [ 'a', 'b' ]
-                input[6] = 'batch'
-                input[7] = true
+                input[6] = []
+                input[7] = 'batch'
+                input[8] = true
                 """
             }
         }
@@ -146,4 +150,63 @@ nextflow_process {
                 "a healthy run should record an empty failed list, not null: ${manifest.failed_samples}"
         }
     }
+
+    test("assembly files are reported as produced, not derived from the sample list") {
+        // The manifest used to build "<sample>.assembly_stats.json" for every
+        // sample whenever an assembler was set, so a run whose assemblies all
+        // failed still asserted a file per sample -- files no consumer could
+        // open (nanometa_live assembly audit, 2026-09-03).
+        when {
+            process {
+                """
+                input[0] = 'kraken2'
+                input[1] = 'chopper'
+                input[2] = 'flye'
+                input[3] = ''
+                input[4] = [ 'assembled', 'not_assembled' ]
+                input[5] = [ 'assembled', 'not_assembled' ]
+                input[6] = [ 'assembled.assembly_stats.json' ]
+                input[7] = 'batch'
+                input[8] = true
+                """
+            }
+        }
+        then {
+            assert process.success
+            def manifest = new groovy.json.JsonSlurper().parseText(
+                path(process.out.manifest[0]).text)
+            assert manifest.outputs.assembly.available == true
+            assert manifest.outputs.assembly.files == [ 'assembled.assembly_stats.json' ]
+            assert !manifest.outputs.assembly.files.contains('not_assembled.assembly_stats.json')
+        }
+    }
+
+    test("an assembler with no surviving output reports none available") {
+        when {
+            process {
+                """
+                input[0] = 'kraken2'
+                input[1] = 'chopper'
+                input[2] = 'flye'
+                input[3] = ''
+                input[4] = [ 'sample1', 'sample2' ]
+                input[5] = [ 'sample1', 'sample2' ]
+                input[6] = []
+                input[7] = 'batch'
+                input[8] = true
+                """
+            }
+        }
+        then {
+            assert process.success
+            def manifest = new groovy.json.JsonSlurper().parseText(
+                path(process.out.manifest[0]).text)
+            assert manifest.outputs.assembly.available == false
+            assert manifest.outputs.assembly.files == []
+            // The assembler is still recorded: it ran and produced nothing,
+            // which is different from never having been asked to.
+            assert manifest.tools.assembler == 'flye'
+        }
+    }
+
 }
