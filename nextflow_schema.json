@@ -1056,6 +1056,22 @@
                     "description": "Assemble below the depth floor anyway, labelling the result as fragments.",
                     "fa_icon": "fas fa-exclamation-triangle",
                     "help_text": "Every artifact produced this way carries low_depth_override so no consumer can mistake the contigs for a genome. Use it to inspect what is there, not to report an assembly."
+                },
+                "assembly_batch_interval": {
+                    "type": "integer",
+                    "default": 10,
+                    "minimum": 0,
+                    "description": "Real-time: input files between periodic re-assemblies (0 disables them).",
+                    "fa_icon": "fas fa-redo",
+                    "help_text": "In real-time mode the reads of a sample accumulate and the assembly is re-attempted every this many files, so a run assembles when the data justifies it rather than at a moment the operator has to pick. An attempt is skipped unless the pool has also grown by assembly_min_growth. A final attempt always runs at the end of the session."
+                },
+                "assembly_min_growth": {
+                    "type": "number",
+                    "default": 0.5,
+                    "minimum": 0,
+                    "description": "Real-time: fractional growth of the read pool required before re-assembling.",
+                    "fa_icon": "fas fa-chart-line",
+                    "help_text": "0.5 means the pool must be half as large again as it was at the last attempt. Assembly is the most expensive step in the pipeline and its result only improves with depth, so an interval tick that added a handful of reads to a large pool is not worth re-running it."
                 }
             }
         },

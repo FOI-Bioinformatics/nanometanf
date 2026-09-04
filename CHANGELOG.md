@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Assembly re-runs as depth grows in a real-time session.** Real-time
+  flattens each batch back into one emission per FASTQ, and QC is per
+  emission, so assembly ran per file and published every result over the last:
+  a 28-file run left four artifacts, each a single batch's assembly at a ninth
+  to a thirty-fourth of what the sample could give (nanometa_live assembly
+  audit, A3). `AssemblyReadAccumulator` now holds each sample's read files and
+  answers when an attempt is due -- every `assembly_batch_interval` files,
+  provided the pool has grown by `assembly_min_growth`, plus a final attempt
+  at the end of the session. `ASSEMBLY_READ_POOL` concatenates the accumulated
+  set so the assembler sees the sample rather than one file, and the attempt
+  number rides in `meta` so an attempt cannot overwrite an earlier one. Batch
+  mode emits each sample once, so its first emission is also its final
+  attempt: one code path serves both modes.
+
 ### Fixed
 
 - **An organism is confirmed from its whole clade, not one node.** Kraken2

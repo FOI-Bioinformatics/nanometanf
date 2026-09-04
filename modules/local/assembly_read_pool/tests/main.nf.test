@@ -1,0 +1,61 @@
+nextflow_process {
+
+    name "Test Process ASSEMBLY_READ_POOL"
+    script "../main.nf"
+    process "ASSEMBLY_READ_POOL"
+
+    tag "module"
+    tag "assembly"
+    tag "fast"
+
+    test("Concatenates a sample's files into one pooled FASTQ") {
+        // The point of the module: an assembly must see the sample, not one
+        // arriving file (assembly audit, A3).
+        setup {
+            file("${outputDir}").mkdirs()
+            new File("${outputDir}/a.fastq").text =
+                "@r1\nACGT\n+\n!!!!\n@r2\nACGT\n+\n!!!!\n"
+            new File("${outputDir}/b.fastq").text =
+                "@r3\nACGT\n+\n!!!!\n"
+        }
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id:'barcode05', assembly_attempt: 2 ],
+                    [ file("${outputDir}/a.fastq"), file("${outputDir}/b.fastq") ]
+                ]
+                """
+            }
+        }
+        then {
+            assert process.success
+            def pooled = path(process.out.pooled[0][1])
+            // Three records from two files, and the attempt in the name so a
+            // later attempt cannot overwrite an earlier one.
+            assert pooled.toString().contains('attempt2')
+            assert pooled.linesGzip.size() == 12
+        }
+    }
+
+    test("A single file still yields a valid pool") {
+        setup {
+            file("${outputDir}").mkdirs()
+            new File("${outputDir}/only.fastq").text = "@r1\nACGT\n+\n!!!!\n"
+        }
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id:'barcode05' ],
+                    [ file("${outputDir}/only.fastq") ]
+                ]
+                """
+            }
+        }
+        then {
+            assert process.success
+            assert path(process.out.pooled[0][1]).linesGzip.size() == 4
+        }
+    }
+}
