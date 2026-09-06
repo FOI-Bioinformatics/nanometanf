@@ -241,11 +241,22 @@ workflow QC_ANALYSIS {
     // only the last batch's read count. This mirrors the cumulative kraken2
     // report contract that the dashboard already relies on.
     //
+    // Chunked batch mode emits one item per chunk, so a sample's per-chunk
+    // SEQKIT_STATS overwrite each other on publish exactly as the per-batch
+    // ones do in real-time mode. Auto-promote there too, so the published
+    // seqkit/{sample}.tsv holds the merged cumulative stats rather than the
+    // last chunk's. conf/modules.config gates the matching publish paths on
+    // the same expression.
     def is_realtime_mode = params.realtime_mode ?: false
-    def auto_qc_incremental = is_realtime_mode && (params.kraken2_enable_incremental ?: false)
+    def is_chunked_batch = (params.batch_chunking ?: false) && !is_realtime_mode
+    def auto_qc_incremental = (is_realtime_mode && (params.kraken2_enable_incremental ?: false)) || is_chunked_batch
     def enable_incremental = (params.qc_enable_incremental ?: false) || auto_qc_incremental
     if (auto_qc_incremental && !(params.qc_enable_incremental ?: false)) {
-        log.info "Realtime mode with kraken2_enable_incremental: auto-enabling QC stats aggregation"
+        if (is_chunked_batch) {
+            log.info "Batch chunking: auto-enabling QC stats aggregation so seqkit stats cover the whole sample"
+        } else {
+            log.info "Realtime mode with kraken2_enable_incremental: auto-enabling QC stats aggregation"
+        }
     }
     def ch_final_seqkit_stats = ch_seqkit_stats
 

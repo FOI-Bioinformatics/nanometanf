@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Batch mode classifies each sample in growing chunks, the first chunk of
+  every sample first, so every barcode has a preliminary report after one
+  round.** A samplesheet or directory-scan run used to classify each sample's
+  whole file list in one task, in input order, so a barcode showed nothing
+  until every read of it was classified and barcodes finished one after
+  another. `lib/BatchChunkPlanner.groovy` now splits each sample's files into
+  chunks whose sizes grow geometrically (1, 2, 4, 8 ... files by default) and
+  orders the chunks across samples by index. Each chunk is a batch downstream,
+  so the per-chunk reports and the cumulative report per sample are produced by
+  the same incremental machinery real-time mode uses, and a 200-file sample
+  costs about eight classifier tasks rather than 200 or one. New parameters:
+  `--batch_chunking` (default true), `--batch_first_chunk_files` (default 1)
+  and `--batch_chunk_growth` (default 2.0); `--batch_chunking false` restores
+  one classification per sample. The plan is written to
+  `pipeline_info/batch_chunk_plan.json` before any task runs, as
+  `{"<sample>": {"files": N, "chunks": M}}`, so a monitoring dashboard can show
+  how far a run has got. Chunking changes when results appear, not what they
+  are: the chunks are a partition of the sample's name-sorted file list and the
+  end-of-session aggregation is unchanged.
+
 ## [1.10.0] - 2026-09-04
 
 Assembly stops being a step that can run, succeed and publish a number that is

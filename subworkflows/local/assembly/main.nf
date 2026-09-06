@@ -104,7 +104,8 @@ workflow ASSEMBLY {
         .map { meta, reads, reference ->
             def key = _assemblyKey(meta)
             def files = pool.accumulate(key, reads)
-            def due = pool.attemptDue(key, files.size(), interval, min_growth, is_batch)
+            def due = pool.attemptDue(key, files.size(), interval, min_growth,
+                                      _isFinalEmission(meta, is_batch))
             due ? [ meta + [ assembly_attempt: pool.attemptsFor(key) ], files, reference ] : null
         }
         .filter { it != null }
@@ -246,4 +247,25 @@ def _attemptKey(Map meta) {
 
 def _assemblyKey(Map meta) {
     return "${meta.id}|${meta.assembly_scope ?: 'metagenome'}|${meta.taxid ?: ''}"
+}
+
+
+// Whether this emission is the last one the run will make for its key.
+//
+// Chunked batch mode emits a sample once per chunk, so "batch mode means this
+// emission is the final one" no longer holds: taken literally it made every
+// chunk a final attempt, and a sample split into eight chunks would run the
+// most expensive step in the pipeline eight times. The last chunk is the final
+// emission and meta.chunk_count is what recognises it. A batch emission with
+// no chunk metadata is final as before; earlier chunks fall through to the
+// interval and growth rules, which with the default interval leave one
+// assembly per sample over its whole file list.
+def _isFinalEmission(Map meta, boolean isBatch) {
+    if (!isBatch) {
+        return false
+    }
+    if (meta.batch_id == null || meta.chunk_count == null) {
+        return true
+    }
+    return (meta.batch_id as int) >= ((meta.chunk_count as int) - 1)
 }

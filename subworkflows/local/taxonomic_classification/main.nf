@@ -178,7 +178,15 @@ workflow TAXONOMIC_CLASSIFICATION {
             // MODULE: Run Kraken2 for taxonomic classification
             // Three modes: incremental (batch caching), optimized (memory-mapping), or standard
             //
-            if (params.kraken2_enable_incremental == true || params.realtime_mode == true) {
+            // Chunked batch mode delivers one item per chunk carrying
+            // meta.batch_id, so it needs the same per-batch classifier,
+            // per-batch reports and end-of-session aggregation that real-time
+            // mode uses. The GUI does not send kraken2_enable_incremental in
+            // batch mode, so batch_chunking has to select the path itself.
+            if (params.batch_chunking && !params.realtime_mode && !params.kraken2_enable_incremental) {
+                log.info "Batch chunking is on, so the incremental classifier path is used (per-chunk reports and a cumulative report per sample)"
+            }
+            if (params.kraken2_enable_incremental == true || params.realtime_mode == true || (params.batch_chunking == true && !params.realtime_mode)) {
                 log.info "=== Phase 1.1: Incremental Kraken2 Classification ==="
                 log.info "Using incremental Kraken2 processing with batch caching:"
                 log.info "  - Classify only NEW reads per batch (O(n) vs O(n^2))"

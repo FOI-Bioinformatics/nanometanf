@@ -1,0 +1,83 @@
+nextflow_function {
+    name "Test BatchChunkPlanner (chunk sizes and cross-sample order)"
+    script "tests/lib/batch_chunk_planner_functions.nf"
+    tag "unit"
+    tag "fast"
+    tag "batch"
+
+    test("Chunks grow geometrically from the first size and cover every file once") {
+        function "chunk"
+        when {
+            function {
+                """
+                input[0] = ['f01','f02','f03','f04','f05','f06','f07','f08','f09','f10','f11']
+                input[1] = 1
+                input[2] = 2.0
+                """
+            }
+        }
+        then {
+            assert function.success
+            assert function.result.collect { it.size() } == [1, 2, 4, 4]
+            assert function.result.flatten() == ['f01','f02','f03','f04','f05','f06','f07','f08','f09','f10','f11']
+        }
+    }
+
+    test("Growth of 1 keeps every chunk at the first size") {
+        function "chunk"
+        when {
+            function {
+                """
+                input[0] = ['a','b','c','d','e']
+                input[1] = 2
+                input[2] = 1.0
+                """
+            }
+        }
+        then {
+            assert function.success
+            assert function.result.collect { it.size() } == [2, 2, 1]
+        }
+    }
+
+    test("Files are name-sorted before chunking") {
+        function "chunk"
+        when {
+            function {
+                """
+                input[0] = ['c','a','b']
+                input[1] = 1
+                input[2] = 2.0
+                """
+            }
+        }
+        then {
+            assert function.success
+            assert function.result == [['a'], ['b','c']]
+        }
+    }
+
+    test("Interleave emits chunk 0 of every sample before chunk 1 of any") {
+        function "interleave"
+        when {
+            function {
+                """
+                input[0] = [
+                    barcode01: [['a1'], ['a2','a3'], ['a4']],
+                    barcode02: [['b1'], ['b2','b3']],
+                    barcode03: [['c1']],
+                ]
+                """
+            }
+        }
+        then {
+            assert function.success
+            assert function.result.collect { [it[0], it[1]] } == [
+                ['barcode01', 0], ['barcode02', 0], ['barcode03', 0],
+                ['barcode01', 1], ['barcode02', 1],
+                ['barcode01', 2],
+            ]
+            assert function.result.collect { it[2] }.flatten().size() == 8
+        }
+    }
+}

@@ -1,0 +1,115 @@
+// Chunked batch mode against the functional mini Kraken2 database
+// (tests/fixtures/kraken2_real/db), over a barcode layout whose first sample
+// holds three files and second holds one.
+//
+// Chunking changes when results appear, never what they are; the read-for-read
+// equivalence with a single-task run is checked on a real database by the
+// nanometa_live harness (scripts/ttfr_analyse.py compare). This test pins the
+// contract the dashboard reads: the plan file names every sample with the
+// number of chunks it will be classified in, and each sample then has exactly
+// that many per-batch reports plus a cumulative report.
+//
+// It is a real (non-stub) run for a reason: under -stub the CHOPPER module
+// emits an empty FASTQ, QC_ANALYSIS drops the sample as empty and
+// EMIT_EMPTY_KRAKEN2_REPORT stands in for the whole classification chain, so
+// no per-batch report is ever produced and the assertion below could not fire.
+// QC is skipped (skip_fastp + skip_nanoplot) so the run needs only kraken2 and
+// taxpasta, exactly as tests/classification_real.nf.test does.
+nextflow_pipeline {
+
+    name "Chunked batch mode writes the plan and one batch report per chunk"
+    script "../main.nf"
+
+    tag "pipeline"
+    tag "integration"
+    tag "batch"
+    tag "chunking"
+    tag "fast"
+
+    test("Plan file and per-batch reports agree") {
+        when {
+            params {
+                input = false
+                barcode_input_dir = "$projectDir/tests/fixtures/batch_chunking"
+                outdir = "$outputDir"
+                realtime_mode = false
+                classifier = 'kraken2'
+                kraken2_db = "$projectDir/tests/fixtures/kraken2_real/db"
+                batch_chunking = true
+                batch_first_chunk_files = 1
+                batch_chunk_growth = 2.0
+                skip_fastp = true
+                skip_nanoplot = true
+                skip_multiqc = true
+                blast_validation = false
+                max_cpus = 2
+                max_memory = '4.GB'
+                max_time = '15.min'
+            }
+        }
+        then {
+            assert workflow.success
+
+            def plan_file = new File("${outputDir}/pipeline_info/batch_chunk_plan.json")
+            assert plan_file.exists() : "no batch_chunk_plan.json written"
+            def plan = new groovy.json.JsonSlurper().parse(plan_file)
+            assert plan.size() == 2 : "plan names ${plan.size()} sample(s), expected 2"
+
+            // barcode01 holds three files, so first chunk 1 and growth 2 give
+            // chunks of 1 and 2 files; barcode02 holds one file, one chunk.
+            assert plan.barcode01.files == 3
+            assert plan.barcode01.chunks == 2
+            assert plan.barcode02.files == 1
+            assert plan.barcode02.chunks == 1
+
+            plan.each { sample, entry ->
+                def dir = new File("${outputDir}/kraken2/${sample}/batch_reports")
+                assert dir.exists() : "${sample}: no batch_reports directory"
+                def reports = dir.listFiles().findAll {
+                    it.name ==~ /^batch_\d+\.kraken2\.report\.txt$/
+                }
+                assert reports.size() == entry.chunks : "${sample}: ${reports.size()} batch reports for ${entry.chunks} planned chunks"
+            }
+
+            // The end-of-session aggregation runs for a chunked batch run too,
+            // so each sample carries the cumulative report the loaders prefer.
+            def cumulative = []
+            new File("${outputDir}/kraken2").eachFileRecurse { f ->
+                if (f.name.endsWith('.cumulative.kraken2.report.txt')) cumulative << f
+            }
+            assert cumulative.size() == 2 : "${cumulative.size()} cumulative report(s), expected one per sample"
+            assert cumulative.every { it.text.contains('562') } : "a cumulative report classified nothing to taxid 562"
+        }
+    }
+
+    test("Chunking off restores one classification per sample") {
+        when {
+            params {
+                input = false
+                barcode_input_dir = "$projectDir/tests/fixtures/batch_chunking"
+                outdir = "$outputDir"
+                realtime_mode = false
+                classifier = 'kraken2'
+                kraken2_db = "$projectDir/tests/fixtures/kraken2_real/db"
+                batch_chunking = false
+                skip_fastp = true
+                skip_nanoplot = true
+                skip_multiqc = true
+                blast_validation = false
+                max_cpus = 2
+                max_memory = '4.GB'
+                max_time = '15.min'
+            }
+        }
+        then {
+            assert workflow.success
+            assert !new File("${outputDir}/pipeline_info/batch_chunk_plan.json").exists()
+
+            // One classification per sample on the standard path: a flat
+            // report per sample and no per-batch tree.
+            assert new File("${outputDir}/kraken2/barcode01.kraken2.report.txt").exists()
+            assert new File("${outputDir}/kraken2/barcode02.kraken2.report.txt").exists()
+            assert !new File("${outputDir}/kraken2/barcode01/batch_reports").exists()
+        }
+    }
+}
