@@ -112,4 +112,124 @@ nextflow_pipeline {
             assert !new File("${outputDir}/kraken2/barcode01/batch_reports").exists()
         }
     }
+
+    // A Continue into a populated outdir is a supported operator action: the
+    // dashboard's collision modal offers it. Batch numbering used to resume
+    // from the highest batch_N on disk, so a second run published batch_2 and
+    // batch_3 beside the first run's batch_0 and batch_1, and the dashboard
+    // sums a sample's batch_reports as incremental deltas -- every read of the
+    // first run counted twice. The plan's chunk index is deterministic, so the
+    // re-run must republish the same names over the same content.
+    //
+    // The setup block stands in for the first run: it seeds exactly what the
+    // first run would have left behind, which is what the resume scan reads.
+    test("A run into a populated outdir reuses the plan's chunk ids") {
+        setup {
+            def batches = new File("${outputDir}/kraken2/barcode01/batches")
+            def reports = new File("${outputDir}/kraken2/barcode01/batch_reports")
+            batches.mkdirs()
+            reports.mkdirs()
+            (0..1).each { id ->
+                new File(batches, "batch_${id}.kraken2.output.txt").text = "stale output ${id}\n"
+                new File(reports, "batch_${id}.kraken2.report.txt").text = "stale report ${id}\n"
+            }
+        }
+        when {
+            params {
+                input = false
+                barcode_input_dir = "$projectDir/tests/fixtures/batch_chunking"
+                outdir = "$outputDir"
+                realtime_mode = false
+                classifier = 'kraken2'
+                kraken2_db = "$projectDir/tests/fixtures/kraken2_real/db"
+                batch_chunking = true
+                batch_first_chunk_files = 1
+                batch_chunk_growth = 2.0
+                skip_fastp = true
+                skip_nanoplot = true
+                skip_multiqc = true
+                blast_validation = false
+                max_cpus = 2
+                max_memory = '4.GB'
+                max_time = '15.min'
+            }
+        }
+        then {
+            assert workflow.success
+
+            def plan = new groovy.json.JsonSlurper().parse(
+                new File("${outputDir}/pipeline_info/batch_chunk_plan.json"))
+            assert plan.barcode01.chunks == 2
+
+            // Still two, not four: the run reused batch_0 and batch_1 rather
+            // than appending batch_2 and batch_3.
+            def reports = new File("${outputDir}/kraken2/barcode01/batch_reports")
+                .listFiles().findAll { it.name ==~ /^batch_\d+\.kraken2\.report\.txt$/ }
+            assert reports.size() == 2 : "${reports.size()} batch reports after a run into a populated outdir, expected 2"
+            assert reports.collect { it.name }.sort() ==
+                ['batch_0.kraken2.report.txt', 'batch_1.kraken2.report.txt']
+
+            // And they hold this run's classification, not the seeded text.
+            assert reports.every { !it.text.contains('stale') }
+        }
+    }
+
+    // Assembly used to take batch mode to mean "this emission is the sample's
+    // last", which chunking makes false: chunks arrive in QC completion order,
+    // so a chunk that finished early would be assembled and published as the
+    // sample's result. Batch mode now groups by assembly key and emits once, so
+    // there is exactly one decision record per sample however the chunks land.
+    // The gate declines on this shallow fixture, which is the point: a decline
+    // is a recorded measurement, and no assembler runs, so the case is cheap.
+    test("Chunked batch mode makes one assembly decision per sample, not one per chunk") {
+        when {
+            params {
+                input = false
+                barcode_input_dir = "$projectDir/tests/fixtures/batch_chunking"
+                outdir = "$outputDir"
+                realtime_mode = false
+                classifier = 'kraken2'
+                kraken2_db = "$projectDir/tests/fixtures/kraken2_real/db"
+                batch_chunking = true
+                batch_first_chunk_files = 1
+                batch_chunk_growth = 2.0
+                enable_assembly = true
+                assembly_scope = 'metagenome'
+                skip_fastp = true
+                skip_nanoplot = true
+                skip_multiqc = true
+                blast_validation = false
+                max_cpus = 2
+                max_memory = '4.GB'
+                max_time = '15.min'
+            }
+        }
+        then {
+            assert workflow.success
+
+            def decisions = new File("${outputDir}/canonical/assembly")
+                .listFiles().findAll { it.name.endsWith('.assembly_decision.json') }
+            assert decisions.size() == 2 : "${decisions.size()} assembly decisions for 2 samples"
+            assert decisions.collect { it.name }.sort() ==
+                ['barcode01.assembly_decision.json', 'barcode02.assembly_decision.json']
+
+            // barcode01 was split into two chunks, so its single decision must
+            // have been measured on both of them. The fixture holds 25 reads
+            // per file, 75 for barcode01 and 25 for barcode02, so the read
+            // count is what separates a complete pool from a partial one: a
+            // chunk-index-based finality would have recorded 25 or 50 here.
+            def slurper = new groovy.json.JsonSlurper()
+            def plan = slurper.parse(
+                new File("${outputDir}/pipeline_info/batch_chunk_plan.json"))
+            assert plan.barcode01.chunks == 2
+
+            def by_sample = decisions.collectEntries { f ->
+                def record = slurper.parse(f)
+                [(record.sample_id): record]
+            }
+            assert by_sample.barcode01.reads == 75 : "barcode01 assembled on ${by_sample.barcode01.reads} reads, expected all 75"
+            assert by_sample.barcode02.reads == 25
+            assert by_sample.every { id, record -> record.attempt == 1 }
+        }
+    }
 }

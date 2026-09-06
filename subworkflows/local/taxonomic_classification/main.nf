@@ -257,6 +257,47 @@ workflow TAXONOMIC_CLASSIFICATION {
                         def meta_with_batch = meta.clone()
                         def sample_id = meta.id
 
+                        // Chunked batch mode (BatchChunkPlanner) has already
+                        // assigned this item its per-sample chunk index, and that
+                        // index is deterministic: the same input directory yields
+                        // the same name-sorted partition on every run. Keep it.
+                        //
+                        // Renumbering it from what is on disk would break a
+                        // Continue into a populated outdir, which is a supported
+                        // operator action -- Nanometa Live's collision modal offers
+                        // "Continue (with -resume)". The counter would resume at
+                        // batch_2, batch_3 beside the previous run's batch_0,
+                        // batch_1, and the dashboard sums a sample's batch_reports
+                        // as incremental deltas, so every read of the first run
+                        // would be counted a second time. With the plan's ids the
+                        // re-run republishes the same names with the same content
+                        // and the batch tier stays correct.
+                        //
+                        // The disk-resume scan below stays for real time, where
+                        // watchPath arrival order is not reproducible, so batch N of
+                        // a second run holds different reads than batch N of the
+                        // first and fresh numbers are the only safe choice.
+                        if (!params.realtime_mode && meta.batch_id != null) {
+                            BatchUtils.withLock(sample_batch_counters) {
+                                // KRAKEN2_FINAL_AGGREGATOR reads this counter as the
+                                // number of batches to expect for the sample, so it
+                                // must still be recorded -- as the plan's count,
+                                // not the disk-derived default. containsKey does not
+                                // fire the withDefault closure, so the scan below
+                                // never runs for a planned sample.
+                                def planned = meta.chunk_count != null
+                                    ? (meta.chunk_count as int)
+                                    : ((meta.batch_id as int) + 1)
+                                def current = sample_batch_counters.containsKey(sample_id)
+                                    ? (sample_batch_counters[sample_id] as int)
+                                    : 0
+                                if (planned > current) {
+                                    sample_batch_counters[sample_id] = planned
+                                }
+                            }
+                            return tuple(meta_with_batch, reads)
+                        }
+
                         // Thread-safe counter increment per sample
                         // Ensures sequential batch numbering: 0, 1, 2... for each sample
                         // BatchUtils.withLock keeps `synchronized` out of the strict

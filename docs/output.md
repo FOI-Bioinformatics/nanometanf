@@ -123,6 +123,12 @@ chunks is the sample's whole file list, in name-sorted order, and the
 end-of-session aggregation produces the same cumulative report a single task
 would have produced.
 
+The partition is deterministic, so a chunk's index is also its published batch
+id. Re-running the same input into a populated output directory therefore
+republishes `batch_0`, `batch_1` and so on over the previous run's files,
+rather than appending a renumbered second set beside them, which a reader that
+sums `batch_reports/` as incremental deltas would count twice.
+
 ## Core Analysis Outputs
 
 ### Multi-Tool QC Support (v1.1.0+)

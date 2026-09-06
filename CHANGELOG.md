@@ -27,7 +27,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `{"<sample>": {"files": N, "chunks": M}}`, so a monitoring dashboard can show
   how far a run has got. Chunking changes when results appear, not what they
   are: the chunks are a partition of the sample's name-sorted file list and the
-  end-of-session aggregation is unchanged.
+  end-of-session aggregation is unchanged. Because the partition is
+  deterministic, the chunk index is also the published batch id, so re-running
+  into a populated output directory republishes the same `batch_N` files rather
+  than appending a renumbered second set beside them. Assembly still sees the
+  whole sample: in batch mode the candidates are grouped per sample (and per
+  organism for a targeted assembly) and assembled once, so the order in which
+  chunks finish cannot affect the result.
 
 ## [1.10.0] - 2026-09-04
 
