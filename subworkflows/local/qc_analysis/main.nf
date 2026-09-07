@@ -73,6 +73,14 @@ workflow QC_ANALYSIS {
     def enable_adapter_trimming = params.enable_adapter_trimming ?: false
     def run_fastqc = !(params.realtime_mode && params.skip_fastqc_realtime)
 
+    // Chunked batch mode delivers one QC'd file per chunk of a sample; the
+    // mode is settled here because the QC tool branches below and the NanoPlot
+    // block further down both need it. The per-sample QC reports are grouped
+    // back to one item per sample -- see _groupPerSample at the end of this
+    // file.
+    def is_realtime_mode = params.realtime_mode ?: false
+    def is_chunked_batch = (params.batch_chunking ?: false) && !is_realtime_mode
+
     //
     // OPTIONAL: Adapter trimming with PORECHOP (nanopore-specific)
     //
@@ -165,7 +173,7 @@ workflow QC_ANALYSIS {
             // MODULE: Run FastQC on filtered reads for comprehensive HTML reporting
             if (run_fastqc) {
                 FASTQC (
-                    FILTLONG.out.reads
+                    is_chunked_batch ? _groupPerSample(FILTLONG.out.reads) : FILTLONG.out.reads
                 )
                 // FASTQC uses topic: versions pattern - no .out.versions channel
                 ch_fastqc_html = FASTQC.out.html.ifEmpty([])
@@ -202,7 +210,7 @@ workflow QC_ANALYSIS {
             // MODULE: Run FastQC on filtered reads for comprehensive HTML reporting
             if (run_fastqc) {
                 FASTQC (
-                    CHOPPER.out.fastq
+                    is_chunked_batch ? _groupPerSample(CHOPPER.out.fastq) : CHOPPER.out.fastq
                 )
                 // FASTQC uses topic: versions pattern - no .out.versions channel
                 ch_fastqc_html = FASTQC.out.html.ifEmpty([])
@@ -247,8 +255,6 @@ workflow QC_ANALYSIS {
     // seqkit/{sample}.tsv holds the merged cumulative stats rather than the
     // last chunk's. conf/modules.config gates the matching publish paths on
     // the same expression.
-    def is_realtime_mode = params.realtime_mode ?: false
-    def is_chunked_batch = (params.batch_chunking ?: false) && !is_realtime_mode
     def auto_qc_incremental = (is_realtime_mode && (params.kraken2_enable_incremental ?: false)) || is_chunked_batch
     def enable_incremental = (params.qc_enable_incremental ?: false) || auto_qc_incremental
     if (auto_qc_incremental && !(params.qc_enable_incremental ?: false)) {
@@ -313,7 +319,6 @@ workflow QC_ANALYSIS {
     //   per sample (a per-batch "final batch" is not knowable while streaming)
     //
     def skip_nanoplot = params.skip_nanoplot ?: false
-    def is_realtime = params.realtime_mode ?: false
     def skip_intermediate = params.nanoplot_realtime_skip_intermediate ?: true
     def batch_interval = params.nanoplot_batch_interval ?: 10
 
@@ -335,7 +340,7 @@ workflow QC_ANALYSIS {
 
     if (!skip_nanoplot) {
         // Apply real-time optimizations
-        if (is_realtime && skip_intermediate) {
+        if (is_realtime_mode && skip_intermediate) {
             log.info "Real-time mode: NanoPlot will run on the first batch and every ${batch_interval} batches per sample"
 
             // The real-time QC samples (REALTIME_MONITORING.out.samples) carry no
@@ -367,6 +372,12 @@ workflow QC_ANALYSIS {
                     m.remove('_nanoplot_idx')
                     [m, reads]
                 }
+        } else if (is_chunked_batch) {
+            // One NanoPlot task per sample, over every chunk of that sample,
+            // rather than one per chunk competing with the classification of
+            // the samples that have not reported yet.
+            log.info "Batch chunking: NanoPlot will run once per sample over that sample's chunks"
+            ch_nanoplot_input = _groupPerSample(ch_qc_reads_tuples)
         }
 
         // Skip NanoPlot for samples whose post-QC FASTQ has no reads.
@@ -451,4 +462,58 @@ workflow QC_ANALYSIS {
     fastp_json   = qc_tool == 'fastp' ? ch_qc_json : Channel.empty()     // channel: [ val(meta), path(json) ]
     fastp_html   = qc_tool == 'fastp' ? ch_qc_reports : Channel.empty()  // channel: [ val(meta), path(html) ]
     fastp_log    = qc_tool == 'fastp' ? ch_qc_logs : Channel.empty()     // channel: [ val(meta), path(log) ]
+}
+
+
+// One item per sample, carrying every chunk's QC'd reads, for the reports
+// that describe the sample rather than the chunk.
+//
+// Chunked batch mode delivers one QC'd file per chunk. Running the per-sample
+// reports per chunk cost more than the duplication: on the heavy corpus
+// NanoPlot ran 60 times at about 15 s and 4 reserved CPUs each, and those
+// tasks were submitted as each chunk's QC completed, ahead of the first
+// classification of the samples that had not reported yet, so every sample's
+// first result arrived later with chunking than without it
+// (time-to-first-result audit, 2026-09-07). The channel is finite in batch
+// mode, so the grouping completes; real-time keeps its own NanoPlot cadence
+// and is never routed here.
+//
+// The chunk fields describe one chunk and are dropped, as they are for a
+// whole-sample assembly artifact. The chunk files of a sample all carry the
+// same name, since the QC tools name their output after meta.id, so FASTQC
+// and NANOPLOT stage them under indexed directories (the stageAs patch on
+// both modules).
+def _groupPerSample(ch) {
+    return ch
+        .map { meta, reads -> [meta.id, meta, reads] }
+        .groupTuple(by: 0)
+        .map { _id, metas, reads ->
+            def sample_meta = metas[0].clone()
+            ['batch_id', 'batch_time', 'chunk_count'].each { field -> sample_meta.remove(field) }
+            // Chunk order, not completion order. FastQC names its reports by
+            // the position of each file in this list, and Nextflow hashes the
+            // list to decide what -resume may reuse, so neither may depend on
+            // which chunk's QC happened to finish first.
+            def files = [metas, reads].transpose()
+                .sort { a, b -> _chunkOrder(a[0]) <=> _chunkOrder(b[0]) }
+                .collect { pair -> pair[1] }
+                .flatten()
+            return [sample_meta, files]
+        }
+}
+
+
+// The chunk index a QC'd file came from, for ordering. Batch chunking sets an
+// integer batch_id from the plan; the string form is what real-time batches
+// carry, and zero stands in for an emission that carries neither.
+def _chunkOrder(Map meta) {
+    def chunk_id = meta.batch_id
+    if (chunk_id == null) {
+        return 0
+    }
+    if (chunk_id instanceof Number) {
+        return chunk_id as int
+    }
+    def digits = chunk_id.toString().replaceAll(/\D/, '')
+    return digits ? digits as int : 0
 }

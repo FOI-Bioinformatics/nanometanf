@@ -368,6 +368,13 @@ The length and mean-quality floors apply to whichever QC tool is selected;
 each tool reads its own parameter set, and the pipeline applies the same
 defaults to all three so a run filters the same reads whichever tool it uses.
 
+Under batch chunking (`--batch_chunking`, the default) the read filter runs
+per chunk, but the per-sample QC reports run once per sample over that
+sample's chunks: NanoPlot summarises the whole sample, and FastQC reports each
+chunk under its own name. Running them per chunk delayed the first
+classification of the samples still waiting, which is what chunking exists to
+bring forward.
+
 #### Taxonomic Classification
 
 ```bash

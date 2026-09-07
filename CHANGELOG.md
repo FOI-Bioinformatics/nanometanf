@@ -38,6 +38,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   organism for a targeted assembly) and assembled once, so the order in which
   chunks finish cannot affect the result.
 
+### Fixed
+
+- **In chunked batch mode the per-sample QC reports (NanoPlot, FastQC) run
+  once per sample on every chunk's reads, and NanoPlot reserves two CPUs.**
+  Chunking ran them once per chunk: on a 12-barcode backlog NanoPlot ran 60
+  times at about 15 s and 4 reserved CPUs each, submitted as each chunk's QC
+  finished and so scheduled ahead of the first classification of the barcodes
+  that had not reported yet. Every barcode's first result therefore arrived
+  later with chunking than without it. The chunks are grouped back to one item
+  per sample before the reports run, so a sample's NanoPlot summary covers the
+  whole sample and agrees with its merged SeqKit statistics. NanoPlot is
+  effectively single-threaded for this workload (about 15 s at four CPUs and
+  at two), so the reservation is now two. FastQC reports per file, so one task
+  per sample emits one report per chunk under distinct names rather than one
+  task per chunk overwriting a single name. Real-time mode is unchanged: it
+  keeps its own NanoPlot cadence and its FastQC skip.
+
 ## [1.10.0] - 2026-09-04
 
 Assembly stops being a step that can run, succeed and publish a number that is

@@ -174,6 +174,87 @@ nextflow_pipeline {
         }
     }
 
+    // The per-sample QC reports describe the sample, not the chunk. Running
+    // them per chunk cost more than the duplication: NanoPlot reserved four
+    // CPUs for about 15 s per chunk and those tasks were submitted ahead of
+    // later samples' first classification, so on a 12-barcode backlog every
+    // barcode's first result arrived later with chunking than without it
+    // (time-to-first-result audit, 2026-09-07). This case is the only one in
+    // the file that runs QC, so it is also the only one that can see it.
+    test("Chunked batch mode runs the per-sample QC reports once per sample") {
+        tag "chunking_qc"
+        when {
+            params {
+                input = false
+                barcode_input_dir = "$projectDir/tests/fixtures/batch_chunking"
+                outdir = "$outputDir"
+                realtime_mode = false
+                classifier = 'kraken2'
+                kraken2_db = "$projectDir/tests/fixtures/kraken2_real/db"
+                batch_chunking = true
+                batch_first_chunk_files = 1
+                batch_chunk_growth = 2.0
+                skip_fastp = false
+                skip_nanoplot = false
+                skip_multiqc = true
+                blast_validation = false
+                max_cpus = 2
+                max_memory = '4.GB'
+                max_time = '15.min'
+            }
+        }
+        then {
+            assert workflow.success
+
+            // barcode01 is classified in two chunks and barcode02 in one, so
+            // a per-chunk QC report would give three tasks of each.
+            def nanoplot = workflow.trace.tasks().findAll { it.name.contains('NANOPLOT') }
+            assert nanoplot.size() == 2 : "${nanoplot.size()} NanoPlot tasks for 2 samples: ${nanoplot*.name}"
+
+            def fastqc = workflow.trace.tasks().findAll { it.name.contains('FASTQC') }
+            assert fastqc.size() == 2 : "${fastqc.size()} FastQC tasks for 2 samples: ${fastqc*.name}"
+
+            // And the published NanoPlot report is the sample's, one directory
+            // each, holding the summary the dashboard and MultiQC read.
+            def nanoplot_dirs = new File("${outputDir}/nanoplot").listFiles().findAll { it.isDirectory() }
+            assert nanoplot_dirs.collect { it.name }.sort() == ['barcode01', 'barcode02']
+            assert nanoplot_dirs.every { new File(it, 'NanoStats.txt').exists() } :
+                "a NanoPlot directory carries no NanoStats.txt"
+
+            // Each report covers the whole sample: NanoPlot's read count is
+            // the sample's, so it agrees with the merged SeqKit stats, which
+            // cover every chunk. Comparing the two rather than asserting a
+            // literal keeps the check independent of how many reads Chopper
+            // retains. barcode01's first chunk alone would carry a third of it.
+            def nanoplot_reads = { sample ->
+                def line = new File("${outputDir}/nanoplot/${sample}/NanoStats.txt")
+                    .readLines().find { it.startsWith('Number of reads') }
+                assert line != null : "${sample}: NanoStats.txt names no read count"
+                return Math.round(line.split(/\s+/)[-1].replace(',', '') as double)
+            }
+            def seqkit_reads = { sample ->
+                def rows = new File("${outputDir}/seqkit/${sample}.tsv").readLines()
+                def header = rows[0].split(/\t/) as List
+                return rows[1].split(/\t/)[header.indexOf('num_seqs')] as long
+            }
+            ['barcode01', 'barcode02'].each { sample ->
+                assert seqkit_reads(sample) > 0 : "${sample}: SeqKit counted no reads"
+                assert nanoplot_reads(sample) == seqkit_reads(sample) :
+                    "${sample}: NanoPlot saw ${nanoplot_reads(sample)} reads, the sample has ${seqkit_reads(sample)}"
+            }
+            assert nanoplot_reads('barcode01') > nanoplot_reads('barcode02') :
+                "the three-file sample carries no more reads than the one-file sample"
+
+            // FastQC reports per file, so the one task for barcode01 emits one
+            // report per chunk rather than one for the sample. They no longer
+            // overwrite each other on publish, as the per-chunk tasks did.
+            def fastqc_html = new File("${outputDir}/fastqc")
+                .listFiles().findAll { it.name.endsWith('_fastqc.html') }*.name.sort()
+            assert fastqc_html == ['barcode01_1_fastqc.html', 'barcode01_2_fastqc.html',
+                                   'barcode02_fastqc.html'] : "FastQC reports: ${fastqc_html}"
+        }
+    }
+
     // Assembly used to take batch mode to mean "this emission is the sample's
     // last", which chunking makes false: chunks arrive in QC completion order,
     // so a chunk that finished early would be assembled and published as the

@@ -8,7 +8,10 @@ process FASTQC {
         'biocontainers/fastqc:0.12.1--hdfd78af_0' }"
 
     input:
-    tuple val(meta), path(reads)
+    // LOCAL MODIFICATION: indexed staging directories. In chunked batch
+    // mode one task receives every chunk of a sample, and the chunks all
+    // carry the same file name, which collides when staged flat.
+    tuple val(meta), path(reads, stageAs: '?/*')
 
     output:
     tuple val(meta)             , path("*.html")                                                       , emit: html
