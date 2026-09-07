@@ -449,7 +449,21 @@ nextflow run foi-bioinformatics/nanometanf \
 --max_cpus <int>            # Maximum CPU cores
 --max_memory <memory>       # Maximum memory (e.g., 16.GB)
 --max_time <duration>       # Maximum runtime (e.g., 48.h)
+--kraken2_task_memory_gb <int>   # Per-classifier-task memory reservation under memory mapping
 ```
+
+With `--kraken2_memory_mapping` (the default), the Kraken2 hash lives once in
+the shared OS page cache, so a classifier task's own memory is far smaller
+than the database. `kraken2_task_memory_gb` lets an operator reserve that
+smaller, realistic amount for a task's first attempt instead of the full
+`kraken2_memory_gb`; unset, nothing changes. The database preload and a retry
+without memory mapping still request the full size, since both genuinely need
+it. Sizing this correctly matters because it is not the only limiter: with
+memory mapping and `kraken2_task_memory_gb` set, the classifier's CPU request
+(four threads per task, `max(4, max_cpus / max_classification_forks)`) decides
+how many tasks run at once, which is two on an 11-CPU laptop and four on a
+16-CPU machine. The Nanometa Live GUI sizes this parameter automatically from
+the loaded database.
 
 ### Advanced Parameters
 

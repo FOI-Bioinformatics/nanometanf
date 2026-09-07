@@ -778,6 +778,11 @@
                     "fa_icon": "fas fa-memory",
                     "help_text": "Sets the memory request for the Kraken2 classifier process. The default of 12 GB matches the k2_pluspfp_08_GB database; larger databases (k2_pluspf_16gb, k2_standard_64gb) need a correspondingly larger value. Used by conf/modules.config to scale the KRAKEN2 memory directive per task attempt."
                 },
+                "kraken2_task_memory_gb": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "description": "Memory reserved per classifier task when memory mapping is on. The database lives in the shared page cache, so a small value lets max_classification_forks tasks run at once; the database preload and the retry without memory mapping keep kraken2_memory_gb. Unset: kraken2_memory_gb."
+                },
                 "max_concurrent_batches": {
                     "type": "integer",
                     "default": 4,

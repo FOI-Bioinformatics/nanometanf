@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- A classifier task reserves `kraken2_task_memory_gb` on its first attempt
+  when memory mapping is on, so `max_classification_forks` tasks run in
+  parallel on a machine whose RAM would admit only one at the database size.
 - **Batch mode classifies each sample in growing chunks, the first chunk of
   every sample first, so every barcode has a preliminary report after one
   round.** A samplesheet or directory-scan run used to classify each sample's

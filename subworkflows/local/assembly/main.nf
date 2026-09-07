@@ -131,8 +131,15 @@ workflow ASSEMBLY {
                     !_chunkMetaFields().contains(field)
                 }
                 // reads_list is one entry per chunk, each itself one path or a
-                // list of them; the accumulator below flattens and de-duplicates.
-                return [ sample_meta, reads_list, references[0] ]
+                // list of them, in the order groupTuple happened to complete
+                // them -- QC completion order, not chunk index. Flatten and
+                // sort by path (toString()) here so the pool sees the same
+                // file order on every identical run; otherwise the pooled
+                // list order, and ASSEMBLY_READ_POOL's task hash, vary run to
+                // run even though the output content does not. The accumulator
+                // below still de-duplicates by path.
+                def sorted_reads = _readFiles(reads_list).sort { it.toString() }
+                return [ sample_meta, sorted_reads, references[0] ]
             }
     }
 
