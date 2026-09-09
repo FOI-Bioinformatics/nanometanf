@@ -129,6 +129,15 @@ republishes `batch_0`, `batch_1` and so on over the previous run's files,
 rather than appending a renumbered second set beside them, which a reader that
 sums `batch_reports/` as incremental deltas would count twice.
 
+That holds only while the partition is unchanged. A re-run over a different
+number of input files, or with different `--batch_first_chunk_files` or
+`--batch_chunk_growth`, repartitions the sample and may produce fewer chunks
+than the previous run did. The higher-numbered `batch_N` reports of the
+earlier run are not removed, and a reader that sums `batch_reports/` as
+incremental deltas will add them to the new run's, over-reporting that
+sample. Archive or empty the results directory before such a re-run; the
+nanometa_live GUI offers Archive in its output-collision dialog.
+
 ## Core Analysis Outputs
 
 ### Multi-Tool QC Support (v1.1.0+)
