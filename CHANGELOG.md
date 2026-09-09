@@ -5,7 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.11.0] - 2026-09-09
+
+Every barcode gets a preliminary result before any barcode gets its final
+one. Pairs with nanometa_live 0.19.0, which sends the new batch-chunking and
+classifier-memory parameters; the two ship together. Measured on a
+12-barcode backlog of MinKNOW-sized files: every barcode's first report at
+86.9 s against 208.6 s before, with the final reports unchanged read for
+read (nanometa_live `docs/audit/time-to-first-result-2026-09-06.md`).
 
 ### Added
 
