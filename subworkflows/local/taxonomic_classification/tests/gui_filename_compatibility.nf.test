@@ -23,6 +23,13 @@
  * test only checks that an unfiltered final report exists where one
  * is expected.
  *
+ * Since 1.11.0 batch mode is chunked by default (params.batch_chunking):
+ * each sample is classified as growing chunks on the incremental path
+ * and its final report is the cumulative one, the same name a real-time
+ * run publishes. The three standard-report cases below therefore set
+ * batch_chunking = false to state the layout they pin, and the last
+ * case pins the chunked default.
+ *
  * Tests run with -stub so they finish in seconds without requiring a
  * full Kraken2 database. The placeholder path uses the real
  * EMIT_EMPTY_KRAKEN2_REPORT module, which is lightweight and runs
@@ -86,6 +93,11 @@ nextflow_workflow {
                 taxpasta_format = 'tsv'
                 kraken2_enable_incremental = false
                 realtime_mode = false
+                // The standard-report contract holds for the unchunked
+                // layout only. Chunked batch mode (the default since
+                // 1.11.0) takes the incremental path and publishes the
+                // cumulative report instead; the last test covers it.
+                batch_chunking = false
                 max_cpus = 2
                 max_memory = '4.GB'
                 max_time = '2.min'
@@ -138,6 +150,11 @@ nextflow_workflow {
                 taxpasta_format = 'tsv'
                 kraken2_enable_incremental = false
                 realtime_mode = false
+                // The standard-report contract holds for the unchunked
+                // layout only. Chunked batch mode (the default since
+                // 1.11.0) takes the incremental path and publishes the
+                // cumulative report instead; the last test covers it.
+                batch_chunking = false
                 max_cpus = 2
                 max_memory = '4.GB'
                 max_time = '2.min'
@@ -192,6 +209,11 @@ nextflow_workflow {
                 taxpasta_format = 'tsv'
                 kraken2_enable_incremental = false
                 realtime_mode = false
+                // The standard-report contract holds for the unchunked
+                // layout only. Chunked batch mode (the default since
+                // 1.11.0) takes the incremental path and publishes the
+                // cumulative report instead; the last test covers it.
+                batch_chunking = false
                 max_cpus = 2
                 max_memory = '4.GB'
                 max_time = '3.min'
@@ -281,6 +303,63 @@ nextflow_workflow {
             names.each { n ->
                 assert n.endsWith('.cumulative.kraken2.report.txt'), \
                     "Cumulative report '${n}' does not match the GUI's primary pattern"
+            }
+        }
+    }
+
+    test("by_barcode chunked batch mode emits cumulative reports for GUI consumption") {
+        // The default batch layout since 1.11.0: batch_chunking routes each
+        // sample through the incremental classifier, so its final report is
+        // the cumulative one, which the GUI loader reads first. This is the
+        // case CI caught when the default changed and the three standard-
+        // report tests above had not stated their precondition.
+        when {
+            workflow {
+                """
+                input[0] = [
+                    [
+                        [id: 'barcode01', single_end: true],
+                        file('$projectDir/tests/fixtures/fastq/test_sample.fastq.gz')
+                    ],
+                    [
+                        [id: 'barcode02', single_end: true],
+                        file('$projectDir/tests/fixtures/fastq/test_sample.fastq.gz')
+                    ],
+                    [
+                        [id: 'barcode03', single_end: true],
+                        file('$projectDir/tests/fixtures/fastq/test_sample.fastq.gz')
+                    ]
+                ]
+                input[1] = file('$projectDir/tests/fixtures/kraken2_db')
+                """
+            }
+
+            params {
+                classifier = 'kraken2'
+                taxpasta_format = 'tsv'
+                kraken2_enable_incremental = false
+                realtime_mode = false
+                batch_chunking = true
+                max_cpus = 2
+                max_memory = '4.GB'
+                max_time = '3.min'
+            }
+        }
+
+        options "-stub"
+
+        then {
+            assert workflow.success
+            assert workflow.out.final_report
+
+            def finals = workflow.out.final_report.findAll { it instanceof List && it.size() >= 2 }
+            def names = finals.collect { (it[1] instanceof List ? it[1][0] : it[1]).toString().tokenize('/').last() }
+
+            // One cumulative report per barcode, under the name the GUI's
+            // primary glob selects.
+            ['barcode01', 'barcode02', 'barcode03'].each { bc ->
+                assert names.contains("${bc}.cumulative.kraken2.report.txt".toString()), \
+                    "No cumulative report for ${bc}; got ${names}"
             }
         }
     }
