@@ -178,7 +178,15 @@ workflow TAXONOMIC_CLASSIFICATION {
             // MODULE: Run Kraken2 for taxonomic classification
             // Three modes: incremental (batch caching), optimized (memory-mapping), or standard
             //
-            if (params.kraken2_enable_incremental == true || params.realtime_mode == true) {
+            // Chunked batch mode delivers one item per chunk carrying
+            // meta.batch_id, so it needs the same per-batch classifier,
+            // per-batch reports and end-of-session aggregation that real-time
+            // mode uses. The GUI does not send kraken2_enable_incremental in
+            // batch mode, so batch_chunking has to select the path itself.
+            if (params.batch_chunking && !params.realtime_mode && !params.kraken2_enable_incremental) {
+                log.info "Batch chunking is on, so the incremental classifier path is used (per-chunk reports and a cumulative report per sample)"
+            }
+            if (params.kraken2_enable_incremental == true || params.realtime_mode == true || (params.batch_chunking == true && !params.realtime_mode)) {
                 log.info "=== Phase 1.1: Incremental Kraken2 Classification ==="
                 log.info "Using incremental Kraken2 processing with batch caching:"
                 log.info "  - Classify only NEW reads per batch (O(n) vs O(n^2))"
@@ -248,6 +256,47 @@ workflow TAXONOMIC_CLASSIFICATION {
                     .map { meta, reads ->
                         def meta_with_batch = meta.clone()
                         def sample_id = meta.id
+
+                        // Chunked batch mode (BatchChunkPlanner) has already
+                        // assigned this item its per-sample chunk index, and that
+                        // index is deterministic: the same input directory yields
+                        // the same name-sorted partition on every run. Keep it.
+                        //
+                        // Renumbering it from what is on disk would break a
+                        // Continue into a populated outdir, which is a supported
+                        // operator action -- Nanometa Live's collision modal offers
+                        // "Continue (with -resume)". The counter would resume at
+                        // batch_2, batch_3 beside the previous run's batch_0,
+                        // batch_1, and the dashboard sums a sample's batch_reports
+                        // as incremental deltas, so every read of the first run
+                        // would be counted a second time. With the plan's ids the
+                        // re-run republishes the same names with the same content
+                        // and the batch tier stays correct.
+                        //
+                        // The disk-resume scan below stays for real time, where
+                        // watchPath arrival order is not reproducible, so batch N of
+                        // a second run holds different reads than batch N of the
+                        // first and fresh numbers are the only safe choice.
+                        if (!params.realtime_mode && meta.batch_id != null) {
+                            BatchUtils.withLock(sample_batch_counters) {
+                                // KRAKEN2_FINAL_AGGREGATOR reads this counter as the
+                                // number of batches to expect for the sample, so it
+                                // must still be recorded -- as the plan's count,
+                                // not the disk-derived default. containsKey does not
+                                // fire the withDefault closure, so the scan below
+                                // never runs for a planned sample.
+                                def planned = meta.chunk_count != null
+                                    ? (meta.chunk_count as int)
+                                    : ((meta.batch_id as int) + 1)
+                                def current = sample_batch_counters.containsKey(sample_id)
+                                    ? (sample_batch_counters[sample_id] as int)
+                                    : 0
+                                if (planned > current) {
+                                    sample_batch_counters[sample_id] = planned
+                                }
+                            }
+                            return tuple(meta_with_batch, reads)
+                        }
 
                         // Thread-safe counter increment per sample
                         // Ensures sequential batch numbering: 0, 1, 2... for each sample

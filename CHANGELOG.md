@@ -5,6 +5,63 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.11.0] - 2026-09-09
+
+Every barcode gets a preliminary result before any barcode gets its final
+one. Pairs with nanometa_live 0.19.0, which sends the new batch-chunking and
+classifier-memory parameters; the two ship together. Measured on a
+12-barcode backlog of MinKNOW-sized files: every barcode's first report at
+86.9 s against 208.6 s before, with the final reports unchanged read for
+read (nanometa_live `docs/audit/time-to-first-result-2026-09-06.md`).
+
+### Added
+
+- A classifier task reserves `kraken2_task_memory_gb` on its first attempt
+  when memory mapping is on, so `max_classification_forks` tasks run in
+  parallel on a machine whose RAM would admit only one at the database size.
+- **Batch mode classifies each sample in growing chunks, the first chunk of
+  every sample first, so every barcode has a preliminary report after one
+  round.** A samplesheet or directory-scan run used to classify each sample's
+  whole file list in one task, in input order, so a barcode showed nothing
+  until every read of it was classified and barcodes finished one after
+  another. `lib/BatchChunkPlanner.groovy` now splits each sample's files into
+  chunks whose sizes grow geometrically (1, 2, 4, 8 ... files by default) and
+  orders the chunks across samples by index. Each chunk is a batch downstream,
+  so the per-chunk reports and the cumulative report per sample are produced by
+  the same incremental machinery real-time mode uses, and a 200-file sample
+  costs about eight classifier tasks rather than 200 or one. New parameters:
+  `--batch_chunking` (default true), `--batch_first_chunk_files` (default 1)
+  and `--batch_chunk_growth` (default 2.0); `--batch_chunking false` restores
+  one classification per sample. The plan is written to
+  `pipeline_info/batch_chunk_plan.json` before any task runs, as
+  `{"<sample>": {"files": N, "chunks": M}}`, so a monitoring dashboard can show
+  how far a run has got. Chunking changes when results appear, not what they
+  are: the chunks are a partition of the sample's name-sorted file list and the
+  end-of-session aggregation is unchanged. Because the partition is
+  deterministic, the chunk index is also the published batch id, so re-running
+  into a populated output directory republishes the same `batch_N` files rather
+  than appending a renumbered second set beside them. Assembly still sees the
+  whole sample: in batch mode the candidates are grouped per sample (and per
+  organism for a targeted assembly) and assembled once, so the order in which
+  chunks finish cannot affect the result.
+
+### Fixed
+
+- **In chunked batch mode the per-sample QC reports (NanoPlot, FastQC) run
+  once per sample on every chunk's reads, and NanoPlot reserves two CPUs.**
+  Chunking ran them once per chunk: on a 12-barcode backlog NanoPlot ran 60
+  times at about 15 s and 4 reserved CPUs each, submitted as each chunk's QC
+  finished and so scheduled ahead of the first classification of the barcodes
+  that had not reported yet. Every barcode's first result therefore arrived
+  later with chunking than without it. The chunks are grouped back to one item
+  per sample before the reports run, so a sample's NanoPlot summary covers the
+  whole sample and agrees with its merged SeqKit statistics. NanoPlot is
+  effectively single-threaded for this workload (about 15 s at four CPUs and
+  at two), so the reservation is now two. FastQC reports per file, so one task
+  per sample emits one report per chunk under distinct names rather than one
+  task per chunk overwriting a single name. Real-time mode is unchanged: it
+  keeps its own NanoPlot cadence and its FastQC skip.
+
 ## [1.10.0] - 2026-09-04
 
 Assembly stops being a step that can run, succeed and publish a number that is

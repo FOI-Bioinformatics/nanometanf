@@ -113,6 +113,7 @@ jobs:
             --shard ${{ matrix.shard }}/4 --shard-strategy round-robin \
             --tag fast --tag core --tag stub --tag integration \
             tests/barcode_discovery.nf.test \
+            tests/batch_chunking_structure.nf.test \
             tests/batch_input_modes.nf.test \
             tests/chopper_specific.nf.test \
             tests/classification_real.nf.test \
@@ -134,6 +135,7 @@ jobs:
             modules/local/assembly_depth_gate/tests/main.nf.test \
             tests/lib/kreport_clade.nf.test \
             tests/lib/assembly_accumulator.nf.test \
+            tests/lib/batch_chunk_planner.nf.test \
             modules/local/assembly_read_pool/tests/main.nf.test \
             modules/local/canonical_classification_writer/tests/main.nf.test \
             modules/local/canonical_qc_writer/tests/main.nf.test \

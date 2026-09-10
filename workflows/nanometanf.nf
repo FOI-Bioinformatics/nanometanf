@@ -270,6 +270,57 @@ workflow NANOMETANF {
     }
 
     //
+    // BATCH CHUNKING: split each sample into growing chunks, ordered across
+    // samples by chunk index.
+    //
+    if (!params.realtime_mode && params.batch_chunking) {
+        // Batch mode with chunking. Both batch routes above deliver one item
+        // per sample carrying every file (INPUT_SCANNER's groupTuple, or
+        // PIPELINE_INITIALISATION's for a samplesheet). Split each sample into
+        // growing chunks and order the chunks so the first chunk of every
+        // sample is classified before the second of any; each chunk is a batch
+        // downstream, exactly as in real-time mode. The channel is finite, so
+        // toList() completes at once and the plan is written before any task
+        // runs.
+        def first_files = (params.batch_first_chunk_files ?: 1) as int
+        def growth = (params.batch_chunk_growth ?: 2.0) as double
+        ch_processed_samples = ch_processed_samples
+            .toList()
+            .flatMap { rows ->
+                // Both routes deliver one row per sample, but a samplesheet may
+                // legitimately list a sample on several rows. Merge those
+                // rather than letting the last row win, so no file is dropped.
+                def by_sample = [:]
+                rows.each { meta, fastqs ->
+                    def files = fastqs instanceof List ? fastqs : [fastqs]
+                    if (by_sample.containsKey(meta.id)) {
+                        by_sample[meta.id].files.addAll(files)
+                    } else {
+                        by_sample[meta.id] = [meta: meta, files: new ArrayList(files)]
+                    }
+                }
+                by_sample.each { id, v ->
+                    v.chunks = BatchChunkPlanner.chunk(v.files, first_files, growth)
+                }
+                def chunks_by_sample = by_sample.collectEntries { id, v -> [(id): v.chunks] }
+                BatchChunkPlanner.writePlan(
+                    "${params.outdir}/pipeline_info/batch_chunk_plan.json",
+                    chunks_by_sample)
+                def stamp = new Date().format('yyyy-MM-dd_HH-mm-ss')
+                def ordered = BatchChunkPlanner.interleave(chunks_by_sample)
+                log.info "Batch chunking: ${by_sample.size()} sample(s), ${ordered.size()} chunk(s); first chunk ${first_files} file(s), growth x${growth}"
+                return ordered.collect { id, k, files ->
+                    def meta = by_sample[id].meta + [
+                        batch_id: k,
+                        batch_time: stamp,
+                        chunk_count: by_sample[id].chunks.size()
+                    ]
+                    return [meta, files]
+                }
+            }
+    }
+
+    //
     // SUBWORKFLOW: Demultiplexing (handle multiplexed samples)
     //
     DEMULTIPLEXING (

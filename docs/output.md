@@ -88,6 +88,56 @@ results/
 └── [continues with fastp/, kraken2/, etc.]
 ```
 
+### Chunked Batch Mode (Additional Outputs)
+
+Batch mode splits each sample's file list into chunks whose sizes grow
+geometrically and orders the chunks across samples by index, so the first
+chunk of every sample is classified before the second chunk of any. This is on
+by default (`--batch_chunking`, disable with `--batch_chunking false`), and
+each chunk is a batch downstream. A chunked batch run therefore publishes the
+same per-batch layout as a real-time run, plus the plan file:
+
+```
+results/
+├── pipeline_info/
+│   └── batch_chunk_plan.json       # {"<sample>": {"files": N, "chunks": M}}
+├── kraken2/
+│   └── <sample>/
+│       ├── batch_reports/          # batch_0.kraken2.report.txt, batch_1..., one per chunk
+│       ├── batches/                # Per-chunk raw Kraken2 output
+│       ├── stats/                  # Per-chunk taxid counts and merge statistics
+│       └── <sample>.cumulative.kraken2.report.txt   # Run-so-far, advanced per chunk
+└── seqkit/
+    ├── <sample>.tsv                # Merged cumulative read statistics
+    └── <sample>/batch_stats/       # Per-chunk seqkit statistics
+```
+
+The plan file is written before any task runs, so a monitoring dashboard can
+show how many chunks each sample will be classified in and how far the run has
+got. With `--batch_chunking false` each sample is classified in one task, no
+plan file is written and the flat `kraken2/<sample>.kraken2.report.txt` is the
+only report per sample.
+
+Chunking changes when results appear, not what they are: the union of the
+chunks is the sample's whole file list, in name-sorted order, and the
+end-of-session aggregation produces the same cumulative report a single task
+would have produced.
+
+The partition is deterministic, so a chunk's index is also its published batch
+id. Re-running the same input into a populated output directory therefore
+republishes `batch_0`, `batch_1` and so on over the previous run's files,
+rather than appending a renumbered second set beside them, which a reader that
+sums `batch_reports/` as incremental deltas would count twice.
+
+That holds only while the partition is unchanged. A re-run over a different
+number of input files, or with different `--batch_first_chunk_files` or
+`--batch_chunk_growth`, repartitions the sample and may produce fewer chunks
+than the previous run did. The higher-numbered `batch_N` reports of the
+earlier run are not removed, and a reader that sums `batch_reports/` as
+incremental deltas will add them to the new run's, over-reporting that
+sample. Archive or empty the results directory before such a re-run; the
+nanometa_live GUI offers Archive in its output-collision dialog.
+
 ## Core Analysis Outputs
 
 ### Multi-Tool QC Support (v1.1.0+)

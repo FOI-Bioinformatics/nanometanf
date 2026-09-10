@@ -507,7 +507,20 @@ workflow VALIDATION {
     ch_validation_json = Channel.empty()
     ch_validation_summary = Channel.empty()
 
-    if (params.realtime_mode) {
+    // Chunked batch mode carries meta.batch_id, so BLASTN_VALIDATION and
+    // MINIMAP2_VALIDATION emit one stats file per chunk under the same
+    // `<sample>_taxid<taxid>` prefix. Collecting those into the batch
+    // aggregation below would stage several identically named files into one
+    // task, and the run-so-far numbers would in any case be spread across
+    // them. The cumulative path is the one that already answers this: it keeps
+    // the latest cumulative stats per (sample, taxid) and re-aggregates from
+    // those. With a finite channel `.last()` fires once, so a chunked batch run
+    // gets exactly one end-of-session aggregation built from complete
+    // per-pair stats.
+    def use_cumulative_aggregation = (params.realtime_mode ?: false) ||
+        ((params.batch_chunking ?: false) && !(params.realtime_mode ?: false))
+
+    if (use_cumulative_aggregation) {
         // Explicit null check, not `?: 1`. The elvis form treated the DEFAULT
         // value of 0 as unset and substituted 1, so the documented
         // "0 = end-of-session only" (nextflow.config and nextflow_schema.json

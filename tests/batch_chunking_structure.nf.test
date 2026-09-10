@@ -1,0 +1,331 @@
+// Chunked batch mode against the functional mini Kraken2 database
+// (tests/fixtures/kraken2_real/db), over a barcode layout whose first sample
+// holds three files and second holds one.
+//
+// Chunking changes when results appear, never what they are; the read-for-read
+// equivalence with a single-task run is checked on a real database by the
+// nanometa_live harness (scripts/ttfr_analyse.py compare). This test pins the
+// contract the dashboard reads: the plan file names every sample with the
+// number of chunks it will be classified in, and each sample then has exactly
+// that many per-batch reports plus a cumulative report.
+//
+// It is a real (non-stub) run for a reason: under -stub the CHOPPER module
+// emits an empty FASTQ, QC_ANALYSIS drops the sample as empty and
+// EMIT_EMPTY_KRAKEN2_REPORT stands in for the whole classification chain, so
+// no per-batch report is ever produced and the assertion below could not fire.
+// QC is skipped (skip_fastp + skip_nanoplot) so the run needs only kraken2 and
+// taxpasta, exactly as tests/classification_real.nf.test does.
+nextflow_pipeline {
+
+    name "Chunked batch mode writes the plan and one batch report per chunk"
+    script "../main.nf"
+
+    tag "pipeline"
+    tag "integration"
+    tag "batch"
+    tag "chunking"
+    tag "fast"
+
+    test("Plan file and per-batch reports agree") {
+        when {
+            params {
+                input = false
+                barcode_input_dir = "$projectDir/tests/fixtures/batch_chunking"
+                outdir = "$outputDir"
+                realtime_mode = false
+                classifier = 'kraken2'
+                kraken2_db = "$projectDir/tests/fixtures/kraken2_real/db"
+                batch_chunking = true
+                batch_first_chunk_files = 1
+                batch_chunk_growth = 2.0
+                skip_fastp = true
+                skip_nanoplot = true
+                skip_multiqc = true
+                blast_validation = false
+                max_cpus = 2
+                max_memory = '4.GB'
+                max_time = '15.min'
+            }
+        }
+        then {
+            assert workflow.success
+            // The software-versions artifact is written on every path
+            // (nf-core lint nf_test_content).
+            assert path("$outputDir/pipeline_info/versions.yml").exists()
+
+            def plan_file = new File("${outputDir}/pipeline_info/batch_chunk_plan.json")
+            assert plan_file.exists() : "no batch_chunk_plan.json written"
+            def plan = new groovy.json.JsonSlurper().parse(plan_file)
+            assert plan.size() == 2 : "plan names ${plan.size()} sample(s), expected 2"
+
+            // barcode01 holds three files, so first chunk 1 and growth 2 give
+            // chunks of 1 and 2 files; barcode02 holds one file, one chunk.
+            assert plan.barcode01.files == 3
+            assert plan.barcode01.chunks == 2
+            assert plan.barcode02.files == 1
+            assert plan.barcode02.chunks == 1
+
+            plan.each { sample, entry ->
+                def dir = new File("${outputDir}/kraken2/${sample}/batch_reports")
+                assert dir.exists() : "${sample}: no batch_reports directory"
+                def reports = dir.listFiles().findAll {
+                    it.name ==~ /^batch_\d+\.kraken2\.report\.txt$/
+                }
+                assert reports.size() == entry.chunks : "${sample}: ${reports.size()} batch reports for ${entry.chunks} planned chunks"
+            }
+
+            // The end-of-session aggregation runs for a chunked batch run too,
+            // so each sample carries the cumulative report the loaders prefer.
+            def cumulative = []
+            new File("${outputDir}/kraken2").eachFileRecurse { f ->
+                if (f.name.endsWith('.cumulative.kraken2.report.txt')) cumulative << f
+            }
+            assert cumulative.size() == 2 : "${cumulative.size()} cumulative report(s), expected one per sample"
+            assert cumulative.every { it.text.contains('562') } : "a cumulative report classified nothing to taxid 562"
+        }
+    }
+
+    test("Chunking off restores one classification per sample") {
+        when {
+            params {
+                input = false
+                barcode_input_dir = "$projectDir/tests/fixtures/batch_chunking"
+                outdir = "$outputDir"
+                realtime_mode = false
+                classifier = 'kraken2'
+                kraken2_db = "$projectDir/tests/fixtures/kraken2_real/db"
+                batch_chunking = false
+                skip_fastp = true
+                skip_nanoplot = true
+                skip_multiqc = true
+                blast_validation = false
+                max_cpus = 2
+                max_memory = '4.GB'
+                max_time = '15.min'
+            }
+        }
+        then {
+            assert workflow.success
+            // The software-versions artifact is written on every path
+            // (nf-core lint nf_test_content).
+            assert path("$outputDir/pipeline_info/versions.yml").exists()
+            assert !new File("${outputDir}/pipeline_info/batch_chunk_plan.json").exists()
+
+            // One classification per sample on the standard path: a flat
+            // report per sample and no per-batch tree.
+            assert new File("${outputDir}/kraken2/barcode01.kraken2.report.txt").exists()
+            assert new File("${outputDir}/kraken2/barcode02.kraken2.report.txt").exists()
+            assert !new File("${outputDir}/kraken2/barcode01/batch_reports").exists()
+        }
+    }
+
+    // A Continue into a populated outdir is a supported operator action: the
+    // dashboard's collision modal offers it. Batch numbering used to resume
+    // from the highest batch_N on disk, so a second run published batch_2 and
+    // batch_3 beside the first run's batch_0 and batch_1, and the dashboard
+    // sums a sample's batch_reports as incremental deltas -- every read of the
+    // first run counted twice. The plan's chunk index is deterministic, so the
+    // re-run must republish the same names over the same content.
+    //
+    // The setup block stands in for the first run: it seeds exactly what the
+    // first run would have left behind, which is what the resume scan reads.
+    test("A run into a populated outdir reuses the plan's chunk ids") {
+        setup {
+            def batches = new File("${outputDir}/kraken2/barcode01/batches")
+            def reports = new File("${outputDir}/kraken2/barcode01/batch_reports")
+            batches.mkdirs()
+            reports.mkdirs()
+            (0..1).each { id ->
+                new File(batches, "batch_${id}.kraken2.output.txt").text = "stale output ${id}\n"
+                new File(reports, "batch_${id}.kraken2.report.txt").text = "stale report ${id}\n"
+            }
+        }
+        when {
+            params {
+                input = false
+                barcode_input_dir = "$projectDir/tests/fixtures/batch_chunking"
+                outdir = "$outputDir"
+                realtime_mode = false
+                classifier = 'kraken2'
+                kraken2_db = "$projectDir/tests/fixtures/kraken2_real/db"
+                batch_chunking = true
+                batch_first_chunk_files = 1
+                batch_chunk_growth = 2.0
+                skip_fastp = true
+                skip_nanoplot = true
+                skip_multiqc = true
+                blast_validation = false
+                max_cpus = 2
+                max_memory = '4.GB'
+                max_time = '15.min'
+            }
+        }
+        then {
+            assert workflow.success
+            // The software-versions artifact is written on every path
+            // (nf-core lint nf_test_content).
+            assert path("$outputDir/pipeline_info/versions.yml").exists()
+
+            def plan = new groovy.json.JsonSlurper().parse(
+                new File("${outputDir}/pipeline_info/batch_chunk_plan.json"))
+            assert plan.barcode01.chunks == 2
+
+            // Still two, not four: the run reused batch_0 and batch_1 rather
+            // than appending batch_2 and batch_3.
+            def reports = new File("${outputDir}/kraken2/barcode01/batch_reports")
+                .listFiles().findAll { it.name ==~ /^batch_\d+\.kraken2\.report\.txt$/ }
+            assert reports.size() == 2 : "${reports.size()} batch reports after a run into a populated outdir, expected 2"
+            assert reports.collect { it.name }.sort() ==
+                ['batch_0.kraken2.report.txt', 'batch_1.kraken2.report.txt']
+
+            // And they hold this run's classification, not the seeded text.
+            assert reports.every { !it.text.contains('stale') }
+        }
+    }
+
+    // The per-sample QC reports describe the sample, not the chunk. Running
+    // them per chunk cost more than the duplication: NanoPlot reserved four
+    // CPUs for about 15 s per chunk and those tasks were submitted ahead of
+    // later samples' first classification, so on a 12-barcode backlog every
+    // barcode's first result arrived later with chunking than without it
+    // (time-to-first-result audit, 2026-09-07). This case is the only one in
+    // the file that runs QC, so it is also the only one that can see it.
+    test("Chunked batch mode runs the per-sample QC reports once per sample") {
+        tag "chunking_qc"
+        when {
+            params {
+                input = false
+                barcode_input_dir = "$projectDir/tests/fixtures/batch_chunking"
+                outdir = "$outputDir"
+                realtime_mode = false
+                classifier = 'kraken2'
+                kraken2_db = "$projectDir/tests/fixtures/kraken2_real/db"
+                batch_chunking = true
+                batch_first_chunk_files = 1
+                batch_chunk_growth = 2.0
+                skip_fastp = false
+                skip_nanoplot = false
+                skip_multiqc = true
+                blast_validation = false
+                max_cpus = 2
+                max_memory = '4.GB'
+                max_time = '15.min'
+            }
+        }
+        then {
+            assert workflow.success
+            // The software-versions artifact is written on every path
+            // (nf-core lint nf_test_content).
+            assert path("$outputDir/pipeline_info/versions.yml").exists()
+
+            // barcode01 is classified in two chunks and barcode02 in one, so
+            // a per-chunk QC report would give three tasks of each.
+            def nanoplot = workflow.trace.tasks().findAll { it.name.contains('NANOPLOT') }
+            assert nanoplot.size() == 2 : "${nanoplot.size()} NanoPlot tasks for 2 samples: ${nanoplot*.name}"
+
+            def fastqc = workflow.trace.tasks().findAll { it.name.contains('FASTQC') }
+            assert fastqc.size() == 2 : "${fastqc.size()} FastQC tasks for 2 samples: ${fastqc*.name}"
+
+            // And the published NanoPlot report is the sample's, one directory
+            // each, holding the summary the dashboard and MultiQC read.
+            def nanoplot_dirs = new File("${outputDir}/nanoplot").listFiles().findAll { it.isDirectory() }
+            assert nanoplot_dirs.collect { it.name }.sort() == ['barcode01', 'barcode02']
+            assert nanoplot_dirs.every { new File(it, 'NanoStats.txt').exists() } :
+                "a NanoPlot directory carries no NanoStats.txt"
+
+            // Each report covers the whole sample: NanoPlot's read count is
+            // the sample's, so it agrees with the merged SeqKit stats, which
+            // cover every chunk. Comparing the two rather than asserting a
+            // literal keeps the check independent of how many reads Chopper
+            // retains. barcode01's first chunk alone would carry a third of it.
+            def nanoplot_reads = { sample ->
+                def line = new File("${outputDir}/nanoplot/${sample}/NanoStats.txt")
+                    .readLines().find { it.startsWith('Number of reads') }
+                assert line != null : "${sample}: NanoStats.txt names no read count"
+                return Math.round(line.split(/\s+/)[-1].replace(',', '') as double)
+            }
+            def seqkit_reads = { sample ->
+                def rows = new File("${outputDir}/seqkit/${sample}.tsv").readLines()
+                def header = rows[0].split(/\t/) as List
+                return rows[1].split(/\t/)[header.indexOf('num_seqs')] as long
+            }
+            ['barcode01', 'barcode02'].each { sample ->
+                assert seqkit_reads(sample) > 0 : "${sample}: SeqKit counted no reads"
+                assert nanoplot_reads(sample) == seqkit_reads(sample) :
+                    "${sample}: NanoPlot saw ${nanoplot_reads(sample)} reads, the sample has ${seqkit_reads(sample)}"
+            }
+            assert nanoplot_reads('barcode01') > nanoplot_reads('barcode02') :
+                "the three-file sample carries no more reads than the one-file sample"
+
+            // FastQC reports per file, so the one task for barcode01 emits one
+            // report per chunk rather than one for the sample. They no longer
+            // overwrite each other on publish, as the per-chunk tasks did.
+            def fastqc_html = new File("${outputDir}/fastqc")
+                .listFiles().findAll { it.name.endsWith('_fastqc.html') }*.name.sort()
+            assert fastqc_html == ['barcode01_1_fastqc.html', 'barcode01_2_fastqc.html',
+                                   'barcode02_fastqc.html'] : "FastQC reports: ${fastqc_html}"
+        }
+    }
+
+    // Assembly used to take batch mode to mean "this emission is the sample's
+    // last", which chunking makes false: chunks arrive in QC completion order,
+    // so a chunk that finished early would be assembled and published as the
+    // sample's result. Batch mode now groups by assembly key and emits once, so
+    // there is exactly one decision record per sample however the chunks land.
+    // The gate declines on this shallow fixture, which is the point: a decline
+    // is a recorded measurement, and no assembler runs, so the case is cheap.
+    test("Chunked batch mode makes one assembly decision per sample, not one per chunk") {
+        when {
+            params {
+                input = false
+                barcode_input_dir = "$projectDir/tests/fixtures/batch_chunking"
+                outdir = "$outputDir"
+                realtime_mode = false
+                classifier = 'kraken2'
+                kraken2_db = "$projectDir/tests/fixtures/kraken2_real/db"
+                batch_chunking = true
+                batch_first_chunk_files = 1
+                batch_chunk_growth = 2.0
+                enable_assembly = true
+                assembly_scope = 'metagenome'
+                skip_fastp = true
+                skip_nanoplot = true
+                skip_multiqc = true
+                blast_validation = false
+                max_cpus = 2
+                max_memory = '4.GB'
+                max_time = '15.min'
+            }
+        }
+        then {
+            assert workflow.success
+            // The software-versions artifact is written on every path
+            // (nf-core lint nf_test_content).
+            assert path("$outputDir/pipeline_info/versions.yml").exists()
+
+            def decisions = new File("${outputDir}/canonical/assembly")
+                .listFiles().findAll { it.name.endsWith('.assembly_decision.json') }
+            assert decisions.size() == 2 : "${decisions.size()} assembly decisions for 2 samples"
+            assert decisions.collect { it.name }.sort() ==
+                ['barcode01.assembly_decision.json', 'barcode02.assembly_decision.json']
+
+            // barcode01 was split into two chunks, so its single decision must
+            // have been measured on both of them. The fixture holds 25 reads
+            // per file, 75 for barcode01 and 25 for barcode02, so the read
+            // count is what separates a complete pool from a partial one: a
+            // chunk-index-based finality would have recorded 25 or 50 here.
+            def slurper = new groovy.json.JsonSlurper()
+            def plan = slurper.parse(
+                new File("${outputDir}/pipeline_info/batch_chunk_plan.json"))
+            assert plan.barcode01.chunks == 2
+
+            def by_sample = decisions.collectEntries { f ->
+                def record = slurper.parse(f)
+                [(record.sample_id): record]
+            }
+            assert by_sample.barcode01.reads == 75 : "barcode01 assembled on ${by_sample.barcode01.reads} reads, expected all 75"
+            assert by_sample.barcode02.reads == 25
+            assert by_sample.every { id, record -> record.attempt == 1 }
+        }
+    }
+}

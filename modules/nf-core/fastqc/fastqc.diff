@@ -4,7 +4,7 @@ Changes in component 'nf-core/fastqc'
 Changes in 'fastqc/main.nf':
 --- modules/nf-core/fastqc/main.nf
 +++ modules/nf-core/fastqc/main.nf
-@@ -3,7 +3,7 @@
+@@ -3,12 +3,15 @@
      label 'process_low'
  
      conda "${moduleDir}/environment.yml"
@@ -13,6 +13,15 @@ Changes in 'fastqc/main.nf':
          'https://depot.galaxyproject.org/singularity/fastqc:0.12.1--hdfd78af_0' :
          'biocontainers/fastqc:0.12.1--hdfd78af_0' }"
  
+     input:
+-    tuple val(meta), path(reads)
++    // LOCAL MODIFICATION: indexed staging directories. In chunked batch
++    // mode one task receives every chunk of a sample, and the chunks all
++    // carry the same file name, which collides when staged flat.
++    tuple val(meta), path(reads, stageAs: '?/*')
+ 
+     output:
+     tuple val(meta)             , path("*.html")                                                       , emit: html
 
 'modules/nf-core/fastqc/tests/main.nf.test.snap' is unchanged
 Changes in 'fastqc/tests/main.nf.test':

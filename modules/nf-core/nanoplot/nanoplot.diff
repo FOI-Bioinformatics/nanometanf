@@ -11,7 +11,19 @@ Changes in 'nanoplot/main.nf':
  process NANOPLOT {
      tag "$meta.id"
      label 'process_low'
-@@ -47,10 +50,9 @@
+@@ -8,7 +11,10 @@
+         'quay.io/biocontainers/nanoplot:1.46.1--pyhdfd78af_0' }"
+ 
+     input:
+-    tuple val(meta), path(ontfile)
++    // LOCAL MODIFICATION: indexed staging directories. In chunked batch
++    // mode one task receives every chunk of a sample, and the chunks all
++    // carry the same file name, which collides when staged flat.
++    tuple val(meta), path(ontfile, stageAs: '?/*')
+ 
+     output:
+     tuple val(meta), path("*.html")                , emit: html
+@@ -47,10 +53,9 @@
      touch WeightedLogTransformed_HistogramReadlength.html
      touch Yield_By_Length.html
  

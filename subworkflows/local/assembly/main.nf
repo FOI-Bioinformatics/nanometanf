@@ -70,8 +70,10 @@ workflow ASSEMBLY {
     //
     // One accumulator per run holds each key's read files and answers when an
     // attempt is due -- every `assembly_batch_interval` files, provided the
-    // pool grew by `assembly_min_growth`. Batch mode emits each sample once,
-    // so its first emission is also its final attempt and the same code path
+    // pool grew by `assembly_min_growth`. Batch mode reaches this point with
+    // one emission per key (see the grouping below, which restores that
+    // property now that chunking splits a batch sample across emissions), so
+    // its first emission is also its final attempt and the same code path
     // serves both modes. The attempt number rides in meta so an attempt can
     // never overwrite an earlier one.
     def pool = new AssemblyReadAccumulator()
@@ -100,10 +102,60 @@ workflow ASSEMBLY {
         )
     }
 
+    // Chunked batch mode emits a sample once per chunk, so the premise the
+    // accumulator documents -- batch mode emits each sample once -- no longer
+    // holds by itself. Deciding finality from the chunk index would be wrong,
+    // because chunks reach assembly in QC completion order: the highest index
+    // can arrive first, and its attempt, built on one chunk, would be
+    // published as the sample's assembly. It would also emit an assembly key
+    // more than once, which the ch_cleared join below and ASSEMBLY_DEPTH_GATE's
+    // publish path (the decision record carries no batch id in its name) both
+    // assume cannot happen.
+    //
+    // A batch channel completes, so the exact answer is available rather than
+    // inferred: group by assembly key and emit once, carrying every chunk's
+    // reads. Arrival order then cannot affect the result, and the premise
+    // above holds again for both scopes -- including targeted, whose number of
+    // contributing chunks is not knowable in advance because a chunk may yield
+    // no reads for an organism. Real time cannot group this way (watchPath
+    // never closes) and keeps the accumulator's interval and growth cadence.
+    if (is_batch) {
+        ch_candidates = ch_candidates
+            .map { meta, reads, reference -> [ _assemblyKey(meta), meta, reads, reference ] }
+            .groupTuple(by: 0)
+            .map { key, metas, reads_list, references ->
+                // Every chunk of one key shares the sample-level meta; the
+                // chunk fields describe an emission rather than the sample and
+                // would put a chunk index into a whole-sample artifact.
+                def sample_meta = metas[0].findAll { field, value ->
+                    !_chunkMetaFields().contains(field)
+                }
+                // reads_list is one entry per chunk, each itself one path or a
+                // list of them, in the order groupTuple happened to complete
+                // them -- QC completion order, not chunk index. Flatten and
+                // sort by path (toString()) here so the pool sees the same
+                // file order on every identical run; otherwise the pooled
+                // list order, and ASSEMBLY_READ_POOL's task hash, vary run to
+                // run even though the output content does not. The accumulator
+                // below still de-duplicates by path.
+                def sorted_reads = _readFiles(reads_list).sort { it.toString() }
+                return [ sample_meta, sorted_reads, references[0] ]
+            }
+    }
+
     ch_pool_due = ch_candidates
         .map { meta, reads, reference ->
             def key = _assemblyKey(meta)
-            def files = pool.accumulate(key, reads)
+            // One emission may carry one path or several. The accumulator keys
+            // a file by its own path, so a list handed to it whole is stored as
+            // a single entry whose key is the list's toString, and the pooling
+            // process is then given a value Nextflow refuses to stage ("Not a
+            // valid path value type: java.util.ArrayList"). Feed it one file at
+            // a time; duplicates collapse on the path key.
+            def files = pool.accumulate(key, null)
+            _readFiles(reads).each { entry ->
+                files = pool.accumulate(key, entry)
+            }
             def due = pool.attemptDue(key, files.size(), interval, min_growth, is_batch)
             due ? [ meta + [ assembly_attempt: pool.attemptsFor(key) ], files, reference ] : null
         }
@@ -246,4 +298,35 @@ def _attemptKey(Map meta) {
 
 def _assemblyKey(Map meta) {
     return "${meta.id}|${meta.assembly_scope ?: 'metagenome'}|${meta.taxid ?: ''}"
+}
+
+
+// Meta fields that describe one chunk rather than the sample, and so must not
+// ride along into a whole-sample assembly artifact. A function rather than a
+// constant because the strict v2 grammar rejects a statement at script scope.
+def _chunkMetaFields() {
+    return ['batch_id', 'batch_time', 'chunk_count']
+}
+
+
+// The read paths carried by one emission, in order, however deeply nested.
+// A real-time batch is flattened to one file per emission, a batch-mode chunk
+// carries every file of the chunk, and the batch grouping above carries a list
+// of those per chunk.
+def _readFiles(Object reads) {
+    def out = []
+    _collectReadFiles(reads, out)
+    return out
+}
+
+
+def _collectReadFiles(Object item, List out) {
+    if (item == null) {
+        return
+    }
+    if (item instanceof Collection) {
+        item.each { element -> _collectReadFiles(element, out) }
+        return
+    }
+    out << item
 }
