@@ -49,6 +49,9 @@ nextflow_pipeline {
         }
         then {
             assert workflow.success
+            // The software-versions artifact is written on every path
+            // (nf-core lint nf_test_content).
+            assert path("$outputDir/pipeline_info/versions.yml").exists()
 
             def plan_file = new File("${outputDir}/pipeline_info/batch_chunk_plan.json")
             assert plan_file.exists() : "no batch_chunk_plan.json written"
@@ -103,6 +106,9 @@ nextflow_pipeline {
         }
         then {
             assert workflow.success
+            // The software-versions artifact is written on every path
+            // (nf-core lint nf_test_content).
+            assert path("$outputDir/pipeline_info/versions.yml").exists()
             assert !new File("${outputDir}/pipeline_info/batch_chunk_plan.json").exists()
 
             // One classification per sample on the standard path: a flat
@@ -156,6 +162,9 @@ nextflow_pipeline {
         }
         then {
             assert workflow.success
+            // The software-versions artifact is written on every path
+            // (nf-core lint nf_test_content).
+            assert path("$outputDir/pipeline_info/versions.yml").exists()
 
             def plan = new groovy.json.JsonSlurper().parse(
                 new File("${outputDir}/pipeline_info/batch_chunk_plan.json"))
@@ -205,6 +214,9 @@ nextflow_pipeline {
         }
         then {
             assert workflow.success
+            // The software-versions artifact is written on every path
+            // (nf-core lint nf_test_content).
+            assert path("$outputDir/pipeline_info/versions.yml").exists()
 
             // barcode01 is classified in two chunks and barcode02 in one, so
             // a per-chunk QC report would give three tasks of each.
@@ -287,6 +299,9 @@ nextflow_pipeline {
         }
         then {
             assert workflow.success
+            // The software-versions artifact is written on every path
+            // (nf-core lint nf_test_content).
+            assert path("$outputDir/pipeline_info/versions.yml").exists()
 
             def decisions = new File("${outputDir}/canonical/assembly")
                 .listFiles().findAll { it.name.endsWith('.assembly_decision.json') }
