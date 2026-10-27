@@ -15,8 +15,17 @@ lint:
     # Community-template CI files not used by this internal pipeline (is_nfcore: false)
     - .github/workflows/branch.yml
     - .github/workflows/linting_comment.yml
+    # pr-comment.yml is the 4.x successor to linting_comment.yml above: it
+    # posts the lint report back onto the pull request, which needs the
+    # nf-core bot. Same reason, same answer.
+    - .github/workflows/pr-comment.yml
     - .github/actions/get-shards/action.yml
     - .github/actions/nf-test/action.yml
+    # The 4.x template moved CONTRIBUTING.md under docs/. This repository
+    # keeps it at .github/CONTRIBUTING.md -- GitHub's own location, which is
+    # what the "Contributing guidelines" link in the PR sidebar reads -- and
+    # that copy is pinned under files_unchanged below.
+    - docs/CONTRIBUTING.md
   files_unchanged:
     - CODE_OF_CONDUCT.md
     - LICENSE
@@ -87,6 +96,7 @@ lint:
     - tests/validation_assembly_stub_matrix.nf.test
     - tests/field_profile_paths.nf.test
     - tests/failure_paths.nf.test
+    - tests/realtime_backlog_chunking.nf.test
   # The .github/workflows/nf-test.yml in this repo is a customised CI matrix
   # (the wrapper at bin/run-nf-tests.sh sets NXF_OFFLINE only) and
   # does not match the nf-core community-template event triggers. The
