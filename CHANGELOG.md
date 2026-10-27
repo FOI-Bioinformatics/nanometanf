@@ -7,6 +7,82 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+Real-time capacity for many barcodes and fast-arriving data, with the audit
+behind it in
+[`docs/performance/realtime_many_barcodes_audit_2026-10-26.md`](docs/performance/realtime_many_barcodes_audit_2026-10-26.md)
+and its re-runnable probes in `docs/performance/scripts/`.
+
+### Fixed
+
+- **Cross-sample fairness is keyed on the resolved sample id, not the parent
+  directory.** The two agree only when the sample IS a directory;
+  `InputDetector` derives it from the FILENAME for a flat directory with
+  `--sample_regex`, for a MinKNOW `fastq_pass/` of barcode-named files and for
+  per-file naming. Measured over a 24-sample, 480-file backlog: 461 files had
+  to be classified before every sample had a first result, against 24 once
+  keyed on the sample id, and the first ten files went from one sample to ten.
+- **A compile break on the strict v2 parser.** Local closures are invoked
+  through `.call(...)`; `scan_existing(true)` fails the whole script with
+  "is not defined", which takes down every pipeline that includes the real-time
+  subworkflow.
+- **The canonical classification sidecar no longer labels a cumulative
+  aggregate as a per-batch increment.** `meta.is_cumulative` was read in one
+  place and set nowhere, so every sidecar said `false` -- including the
+  end-of-session aggregate, which is the only canonical classification output a
+  real-time run produces. A consumer that believed the field would have summed
+  cumulative snapshots.
+
+### Added
+
+- `realtime_backlog_chunking` (default true): a run started after sequencing
+  began plans its start-up backlog as geometric chunks ordered across samples,
+  using the same planner batch mode uses. Measured 4 files to 3 QC tasks, with
+  a control case. The live watcher stream is unchanged and stays per file.
+  Ignored when `--max_files` is set, which counts files.
+- `max_nanoplot_forks` (default 2): NanoPlot's milestone rule fires on each
+  sample's first file, so a late-started backlog made one uncapped task
+  runnable per barcode against those barcodes' first classifications.
+- `tests/lib/tests_are_wired.py`, run before the suite: CI runs an explicit
+  allowlist, so a committed-but-unlisted test file never ran and nothing said
+  so. 41 of 101 files were in that state, two of them pure-function suites
+  excluded only for beginning with "realtime". Six suites now run, taking CI
+  from 60 to 66 test files, and an unlisted file is a build failure.
+
+### Changed
+
+- `SEQKIT_STATS` and `FASTP_STREAMING` are sized for what they do: they
+  inherited 12 GB and 36 GB resource labels, and `withName:'FASTP'` never
+  matched the streaming wrapper. Set in `conf/base.config` so the platform
+  profiles still override, and the profiles now cover `FASTP_STREAMING` too.
+- `kraken2_task_memory_gb = 2` in the `minion`, `promethion_8`, `promethion`
+  and `server` profiles. With memory mapping the index is shared, so an extra
+  fork costs about 50 MB plus 25 MB per thread -- measured flat from a 619 MB
+  index to an 8 GB one. `promethion_8` asked for four classifier forks and the
+  executor admitted three; `minion` reserved its whole 64 GB budget for one
+  classifier, leaving nothing for QC. The global default stays unset, because
+  a cgroup-limited executor is charged for mapped page cache.
+- The start-up re-sweep runs on a daemon Timer instead of a `Thread.sleep`
+  inside a `flatMap`, which held a shared operator-pool thread for ten seconds
+  while the whole backlog flowed through the operator chain.
+- The nf-core lint pin moves from `==3.5.2` to `>=4.2.1`. Whether 4.2.1 clears
+  the `rocrate.py` crash that motivated the pin is **untested**.
+
+### Documentation
+
+- Corrected parameter tables that gave wrong defaults for
+  `max_classification_forks` and `kraken2_enable_incremental` and listed a
+  `--kraken2_sync_interval` that has never existed; `max_concurrent_batches` is
+  marked advisory where two tables still called it enforced.
+- The real-time output tree no longer shows a per-sample `index.json` or
+  cumulative `taxid_counts.json`: neither is written by any module.
+- `report_write_interval` is described by measurement: the rebuild it thins is
+  76-79% of a section serialised across all barcodes, about 14 s for 24
+  barcodes at 3,000 taxa.
+- Two findings were withdrawn or revised on measurement rather than
+  implemented: resetting the batch-timeout timer measured worse on both mean
+  and maximum wait, and the serialised dashboard write is tens of seconds
+  across a run rather than the ceiling the audit first claimed.
+
 ## [1.11.0] - 2026-09-09
 
 Every barcode gets a preliminary result before any barcode gets its final
