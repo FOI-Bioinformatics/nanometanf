@@ -642,6 +642,15 @@
                     "fa_icon": "fas fa-hashtag",
                     "help_text": "When nanoplot_realtime_skip_intermediate is enabled, NanoPlot runs every N batches plus the final batch. Lower values = more frequent plots. Platform defaults: MinION=5, PromethION-8=7, PromethION=10."
                 },
+                "max_nanoplot_forks": {
+                    "type": "integer",
+                    "default": 2,
+                    "minimum": 1,
+                    "maximum": 64,
+                    "description": "Maximum parallel NanoPlot jobs (global cap).",
+                    "fa_icon": "fas fa-code-branch",
+                    "help_text": "NanoPlot is a live QC snapshot rather than a step towards a classification result, so it is capped so it cannot crowd out the classifier. Its milestone rule fires on each sample's first file, so a run started after sequencing began -- where the backlog delivers every barcode at once -- would otherwise make one NanoPlot task per barcode runnable at the same moment as those barcodes' first classifications. Raise it on a host with CPUs to spare."
+                },
                 "multiqc_realtime_final_only": {
                     "type": "boolean",
                     "default": true,

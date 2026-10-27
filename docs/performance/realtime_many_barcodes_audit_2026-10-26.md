@@ -116,7 +116,7 @@ the listing-order independence and the `sampleKeyOf` fallback contract, in
 unchanged and still pass.
 
 ## F2. The opening burst submits one NanoPlot per barcode
-`read` - severity: high
+`read` - severity: high - **BOUNDED 2026-10-27**
 
 `qc_analysis/main.nf:354-371`: in real time, NanoPlot gets a per-sample index
 from `nanoplot_counters[meta.id]` starting at 0, and `:369` keeps indices where
@@ -137,9 +137,34 @@ to 2 CPUs and grouped it to one task per sample - but the grouping is gated on
 (`qc_analysis/main.nf:82`). Real time kept the per-file cadence, and on 96
 barcodes the burst is larger than the case that motivated the fix.
 
-**Fix shape:** a `maxForks` on NANOPLOT, or defer each barcode's milestone from
-index 0 to index 1 so the first file of every barcode goes straight to
-classification.
+### Fix, 2026-10-27
+
+NANOPLOT now carries `maxForks = params.max_nanoplot_forks ?: 2`
+(`conf/modules.config`), with the parameter declared in `nextflow.config` and
+`nextflow_schema.json`. Param-driven rather than a literal, because
+`modules.config` is included after the platform profiles and a constant there
+could not be overridden by one; a parameter can be set by a profile or on the
+command line.
+
+**The index-0 deferral was considered and rejected.** It would bound the burst,
+but a real-time run never knows which batch is a sample's last, so any barcode
+that receives a single file for the whole run would then get no NanoPlot at
+all -- and a one-file barcode is the low-yield one an operator most wants to
+look at. The reasoning is recorded at the filter in
+`subworkflows/local/qc_analysis/main.nf` so it is not re-introduced as a fix.
+The cap costs no coverage, so it is the whole of what was done.
+
+Note what this does and does not do. It bounds the number of NanoPlot tasks
+*running* at once; it does not reduce how many become *runnable*, and it does
+not make the classifier win a contended slot, because Nextflow has no task
+priority. On the audit's 11-CPU reference host the opening burst goes from 96
+simultaneous 2-CPU tasks to 2, which leaves the classifier's four forks the
+CPU budget they were sized for. Unmeasured: this is scheduling arithmetic, and
+the audit has no NanoPlot timing of its own -- the roughly 15 s per task figure
+quoted above is from `conf/modules.config:471-476`, not from this work.
+
+The underlying asymmetry in F3 is untouched: every other QC process is still
+uncapped.
 
 ## F3. QC is uncapped; the classifier is capped
 `read` - severity: high
@@ -519,7 +544,7 @@ Ordered by expected effect on a 96-barcode late start:
 | 1 | ~~Key both interleavers on the resolved sample id instead of `parent.name`~~ **done 2026-10-27** | F1 | Low; measured a no-op for per-barcode-directory layouts |
 | 2 | Add a realtime fixture with >= 12 barcodes and a test asserting first-result order across them | F13 | None; it is new coverage. Partly done 2026-10-27: the 12-sample first-round assertion is a pure-function test, and `tests_are_wired.py` now stops a test file going unrun, but the pipeline-level fixture is still missing and a watchPath test still cannot run in CI |
 | 3 | ~~Give SEQKIT_STATS and FASTP_STREAMING `withName` resource overrides matching their real cost~~ **done 2026-10-27** | F4 | Low; set in `base.config` so profiles still override, and the profiles now cover `FASTP_STREAMING` too |
-| 4 | Defer each barcode's NanoPlot milestone from index 0 to index 1, and give NANOPLOT a `maxForks` | F2 | Low |
+| 4 | ~~Give NANOPLOT a `maxForks`~~ **done 2026-10-27** as `max_nanoplot_forks`. The index-0 deferral in the original wording was rejected: it would silently drop NanoPlot for any barcode that receives one file all run | F2 | Low |
 | 5 | Default `kraken2_task_memory_gb` in the platform profiles to match the arithmetic their comments already describe | F5 | Medium; it changes admitted concurrency on every run, so measure first |
 | 6 | Replace the `Thread.sleep(10000)` with the daemon-Timer idiom used elsewhere in the same file | F11 | Low |
 | 7 | Reset the `batch_timeout` timer on each flush | F10 | Low |
@@ -528,4 +553,4 @@ Ordered by expected effect on a 96-barcode late start:
 
 Item 9 is the structural answer to the question this audit was asked. Items
 1-4 are the ones that change a late-started 96-barcode run most for the least
-risk; item 1 is done.
+risk; items 1, 3 and 4 are done.
