@@ -63,3 +63,34 @@ of it.
 java -cp groovy-4.0.24.jar:gpars-1.2.1.jar:groovy-json-4.0.24.jar \
      groovy.ui.GroovyMain docs/performance/scripts/cumulative_lock_probe.groovy
 ```
+
+## kraken2_fork_memory_probe.py
+
+Answers the question `kraken2_task_memory_gb` exists for: what does ONE MORE
+concurrent kraken2 fork cost in RAM? On a local executor Nextflow's per-task
+`memory` is admission control, so if N forks share a memory-mapped index the
+reservation should be the per-fork marginal cost, not the whole database.
+
+Two traps it exists to avoid: with one process, file-backed mapped pages count
+as PRIVATE (nothing else maps them), so sharing is invisible below two forks;
+and RSS counts a shared page once per process, so summing RSS across forks
+multiply-counts the index. PSS is the metric, and its slope against N is the
+marginal.
+
+Measured 2026-10-27 against two real databases, page cache warmed as
+`KRAKEN2_DB_PRELOAD` warms it:
+
+| database | hash | taxa | marginal/fork, 1 thread | 4 threads |
+|---|---|---|---|---|
+| viral | 619 MB | 27,069 | 54 MB | 139 MB |
+| standard_08gb | 8.0 GB | 50,333 | 54 MB | 149 MB |
+
+Flat across a 13x larger index: roughly 50 MB plus 25 MB per thread,
+independent of index size, because the index is shared and the private part is
+read buffers and per-thread state. Without memory mapping one fork took 7.7 GB
+private, the whole index.
+
+```bash
+python3 docs/performance/scripts/kraken2_fork_memory_probe.py \
+    /path/to/kraken2_db reads.fastq.gz "label"
+```

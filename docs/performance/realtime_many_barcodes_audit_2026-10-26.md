@@ -232,7 +232,7 @@ not (8 + 12 GB against 18 GB physical). The 1-in-10 NanoPlot burst (F2) and
 the classifier's own reservation (F5) are untouched by it.
 
 ## F5. With memory mapping on, every fork still reserves the whole database
-`read` - severity: high
+`measured` - severity: high - **FIXED 2026-10-27**
 
 `conf/modules.config:329-335` reserves `kraken2_task_memory_gb` only when it is
 non-null:
@@ -254,9 +254,65 @@ default, 32 GB under `promethion`, 40 GB under `promethion_8`, 64 GB under
 actually requested is 6 x 32 GB. On a memory-capped executor this silently
 holds effective concurrency below `max_classification_forks`.
 
-**This is the single highest-leverage operator knob today, and nothing sets
-it.** Passing `--kraken2_task_memory_gb` (a few GB above the per-task private
-footprint) restores the parallelism the profiles were sized for.
+### Measured and fixed, 2026-10-27
+
+The audit said to set this "to match the arithmetic their comments already
+describe" but could not name a value. Measured with
+`docs/performance/scripts/kraken2_fork_memory_probe.py` against two real
+databases, page cache warmed as `KRAKEN2_DB_PRELOAD` warms it, sampling
+`/proc/<pid>/smaps_rollup` across concurrent forks:
+
+| database | hash | taxa | marginal per extra fork, 1 thread | at 4 threads |
+|---|---|---|---|---|
+| viral | 619 MB | 27,069 | 54 MB | 139 MB |
+| standard_08gb | 8.0 GB | 50,333 | 54 MB | 149 MB |
+
+**Flat across a 13x larger index**: about 50 MB plus 25 MB per thread,
+independent of index size, because the index is shared and the private part is
+read buffers and per-thread state. Without memory mapping one fork took 7.7 GB
+private, the whole index -- which is the cost the unscaled reservation is sized
+for, and is correct only then.
+
+Two measurement traps worth recording, because the first result was wrong until
+both were handled: with ONE process, file-backed mapped pages count as private
+(nothing else maps them), so sharing is invisible below two concurrent forks;
+and RSS counts a shared page once per process, so summing RSS multiply-counts
+the index. PSS is the metric.
+
+`kraken2_task_memory_gb = 2` is therefore set in the four profiles that run a
+classifier against a shared page cache. That is 4-13x the measured marginal at
+each profile's thread count. Verified by evaluating the directive from
+`conf/modules.config` with each profile's parameters:
+
+| profile | forks x threads | per fork | demand | forks admitted | free for other tasks |
+|---|---|---|---|---|---|
+| `minion` | 1 x 16 | 64 GB -> **2 GB** | 64 -> 2 of 64 | 1 (unchanged) | **0 -> 62 GB** |
+| `promethion_8` | 4 x 6 | 40 GB -> **2 GB** | 160 -> 8 of 128 | **3 -> 4** | 8 -> 120 GB |
+| `promethion` | 6 x 10 | 32 GB -> **2 GB** | 192 -> 12 of 256 | 6 (unchanged) | 64 -> 244 GB |
+| `server` | 8 x 4 | 12 GB -> **2 GB** | 96 -> 16 of 128 | 8 (unchanged) | 32 -> 112 GB |
+
+Two effects, and the second is the one the audit under-rated. `promethion_8`
+asked for four forks and the executor admitted **three**. And `minion` reserved
+its entire 64 GB budget for one classifier, leaving **nothing** for QC, so QC
+and classification could not overlap at all -- a single-sample profile where
+the two stages were serialised by a reservation rather than by any real
+constraint.
+
+**Scoping, deliberately.** The global default stays `null` and `field` is left
+alone. On an executor with cgroup limits, memory-mapped page cache is charged
+to the cgroup, so reserving the whole index is correct there; these are
+platform profiles for local sequencer-attached machines, which is where the
+sharing is real. `field` runs one fork against a 10 GB reservation of a 128 GB
+budget, so nothing is starved and its conservative sizing is left as designed.
+
+**Caveats.** `max_memory` must still leave room for the index in page cache,
+since the reservation no longer covers it; the preload already skips when the
+hash exceeds 70% of available memory, which is the guard for an index that does
+not fit. Measured only for indexes that fit in page cache -- the host had 15 GB
+of RAM and the largest index tested was 8 GB -- which is the condition memory
+mapping is for, but it means the thrashing regime beyond that is unmeasured.
+The attempt-2 retry path, which drops memory mapping and asks for the full
+size, is unchanged.
 
 ## F6. Raising `max_classification_forks` past `max_cpus / 4` buys nothing
 `read` - severity: medium
@@ -811,7 +867,7 @@ Ordered by expected effect on a 96-barcode late start:
 | 2 | Add a realtime fixture with >= 12 barcodes and a test asserting first-result order across them | F13 | None; it is new coverage. Partly done 2026-10-27: the 12-sample first-round assertion is a pure-function test, and `tests_are_wired.py` now stops a test file going unrun, but the pipeline-level fixture is still missing and a watchPath test still cannot run in CI |
 | 3 | ~~Give SEQKIT_STATS and FASTP_STREAMING `withName` resource overrides matching their real cost~~ **done 2026-10-27** | F4 | Low; set in `base.config` so profiles still override, and the profiles now cover `FASTP_STREAMING` too |
 | 4 | ~~Give NANOPLOT a `maxForks`~~ **done 2026-10-27** as `max_nanoplot_forks`. The index-0 deferral in the original wording was rejected: it would silently drop NanoPlot for any barcode that receives one file all run | F2 | Low |
-| 5 | Default `kraken2_task_memory_gb` in the platform profiles to match the arithmetic their comments already describe | F5 | Medium; it changes admitted concurrency on every run, so measure first |
+| 5 | ~~Default `kraken2_task_memory_gb` in the platform profiles~~ **done 2026-10-27** at 2 GB, measured: the marginal per fork is ~50 MB + 25 MB/thread and flat across a 13x larger index. `promethion_8` goes 3 forks to 4; `minion` goes from 0 GB free for QC to 62 | F5 | Medium; measured first, and scoped to local-executor profiles only |
 | 6 | ~~Replace the `Thread.sleep(10000)` with the daemon-Timer idiom used elsewhere in the same file~~ **done 2026-10-27** | F11 | Low |
 | 7 | ~~Reset the `batch_timeout` timer on each flush~~ **withdrawn 2026-10-27**: measured worse on both mean and maximum wait. The docstring was corrected instead | F10 | - |
 | 8 | ~~Correct `max_concurrent_batches`, `index.json`/`taxid_counts.json` and the `fair` comment in the docs~~ **done 2026-10-27**, plus three wrong defaults and one parameter that never existed | F12, F14, F19 | None |
@@ -819,4 +875,4 @@ Ordered by expected effect on a 96-barcode late start:
 
 Item 9 is the structural answer to the question this audit was asked. Items
 1-4 are the ones that change a late-started 96-barcode run most for the least
-risk; items 1, 3, 4, 6, 8 and the chunking half of 9 are done, and item 7 was withdrawn on measurement. Item 5 was skipped pending measurement.
+risk; items 1, 3, 4, 5, 6, 8 and the chunking half of 9 are done, and item 7 was withdrawn on measurement.
