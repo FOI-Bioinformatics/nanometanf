@@ -1,0 +1,111 @@
+nextflow_pipeline {
+
+    name "Real-time start-up backlog is chunked across samples"
+    script "../main.nf"
+
+    tag "pipeline"
+    tag "integration"
+    tag "realtime"
+    tag "chunking"
+    tag "stub"
+
+    // A run started after sequencing began finds a backlog, and a backlog is a
+    // batch-shaped workload: every file is present at once, so one task per
+    // file is the worst granularity available (audit F7,
+    // docs/performance/realtime_many_barcodes_audit_2026-10-26.md). The
+    // fixture holds barcode01 x 3 files and barcode02 x 1. With
+    // batch_first_chunk_files = 1 and growth 2.0 that plans barcode01 as
+    // chunks of 1 and 2 and barcode02 as one chunk of 1: FOUR files become
+    // THREE QC tasks, and barcode02's only chunk is ordered in round 0 beside
+    // barcode01's first, so neither sample waits for the other's backlog.
+    //
+    // The task count is the assertion that matters. Counting published reports
+    // would not distinguish chunked from per-file, since both classify every
+    // read.
+
+    test("four backlog files become three chunks") {
+        options "-stub"
+        when {
+            params {
+                input = false
+                realtime_mode = true
+                nanopore_output_dir = "$projectDir/tests/fixtures/batch_chunking"
+                outdir = "$outputDir"
+                classifier = 'kraken2'
+                kraken2_db = "$projectDir/tests/fixtures/kraken2_db"
+                realtime_backlog_chunking = true
+                batch_first_chunk_files = 1
+                batch_chunk_growth = 2.0
+                realtime_timeout_minutes = 1
+                realtime_processing_grace_period = 1
+                blast_validation = false
+                skip_nanoplot = true
+                enable_realtime_stats = false
+                max_cpus = 2
+                max_memory = '4.GB'
+                max_time = '15.min'
+            }
+        }
+        then {
+            def err = (workflow.errorReport ?: '') + '\n' + (workflow.stdout?.join('\n') ?: '')
+            assertAll(
+                { assert !err.contains('is not defined') :
+                    "the strict v2 parser rejected a local closure invocation: ${err.take(400)}" },
+                { assert !err.contains('MissingMethodException') },
+                { assert !err.contains('Invalid method invocation `call`') },
+                { assert workflow.success },
+
+                // Note: the planner's log.info line does not reach
+                // workflow.stdout -- nf-test captures the [PIPELINE]/[PROCESS]
+                // lines only -- so the task count below is the evidence that
+                // the plan ran, not a log assertion.
+
+                // One QC task per chunk, not one per file: 4 files -> 3 chunks.
+                { def qc = workflow.trace.tasks().findAll {
+                      it.name.contains('CHOPPER') || it.name.contains('FASTP_STREAMING') }
+                  assert qc.size() == 3 :
+                      "expected 3 chunked QC tasks, got ${qc.size()}: ${qc.collect { it.name }}" },
+
+                // Both samples are present, so chunk-0-first did not starve one.
+                { def names = workflow.trace.tasks().collect { it.name }.join(' ')
+                  assert names.contains('barcode01') && names.contains('barcode02') :
+                      "both samples must appear in the trace: ${names.take(400)}" }
+            )
+        }
+    }
+
+    test("chunking off keeps one task per file") {
+        // The control. Same fixture, same bound, chunking disabled: four files
+        // become four QC tasks. Without this the assertion above could pass on
+        // a fixture that happened to yield three tasks for another reason.
+        options "-stub"
+        when {
+            params {
+                input = false
+                realtime_mode = true
+                nanopore_output_dir = "$projectDir/tests/fixtures/batch_chunking"
+                outdir = "$outputDir"
+                classifier = 'kraken2'
+                kraken2_db = "$projectDir/tests/fixtures/kraken2_db"
+                realtime_backlog_chunking = false
+                realtime_timeout_minutes = 1
+                realtime_processing_grace_period = 1
+                blast_validation = false
+                skip_nanoplot = true
+                enable_realtime_stats = false
+                max_cpus = 2
+                max_memory = '4.GB'
+                max_time = '15.min'
+            }
+        }
+        then {
+            assertAll(
+                { assert workflow.success },
+                { def qc = workflow.trace.tasks().findAll {
+                      it.name.contains('CHOPPER') || it.name.contains('FASTP_STREAMING') }
+                  assert qc.size() == 4 :
+                      "expected 4 per-file QC tasks, got ${qc.size()}: ${qc.collect { it.name }}" }
+            )
+        }
+    }
+}
