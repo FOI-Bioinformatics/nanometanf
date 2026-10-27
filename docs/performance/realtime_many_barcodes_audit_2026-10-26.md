@@ -390,7 +390,7 @@ files holds it for all 96.
 simultaneously at session end.
 
 ## F9. Per-batch dashboard writes are serialised through one lock
-`reasoned` - severity: medium
+`measured` - severity: medium, revised down - **MEASURED 2026-10-27**
 
 `taxonomic_classification/main.nf:471` takes `BatchUtils.withLock(cumulative_taxa_state)`
 - a single monitor - and holds it across the batch JSON parse (`:472`), the
@@ -404,10 +404,62 @@ The batch-id assignment at `:305` takes a second global lock, and the first
 file of each barcode performs a directory listing of the sample's published
 batches while holding it (`:233-253`).
 
-This is O(cumulative taxa) per batch per barcode on one thread. It is the most
-likely **unmeasured** ceiling on a high-diversity 96-barcode run, and it cannot
-be sized from source alone. `--runtime_metrics_interval_seconds` plus timing
-around `:471-533` would settle it.
+This is O(cumulative taxa) per batch per barcode on one thread, and the cost is
+additive across barcodes because the lock is global.
+
+### Measured, 2026-10-27
+
+This audit called F9 "the most likely unmeasured ceiling on a high-diversity
+96-barcode run". **That was too strong**, and the measurement revises it down.
+
+Two measurements, both re-runnable:
+
+**1. A real 12-barcode run** (60 files, real Kraken2 against the mini database
+fixture, `--runtime_metrics_interval_seconds 15`), comparing
+`report_write_interval = 1` against a value high enough that only each sample's
+first batch flushes:
+
+| `report_write_interval` | wall clock |
+|---|---|
+| 1 (default) | 158 s |
+| effectively first-batch-only | 155 s |
+
+A 2% difference, inside noise. At the mini database's handful of taxa the
+serialised section costs almost nothing. The metrics line also showed
+`batches_per_barcode_min=5 batches_per_barcode_max=5` across all 12 barcodes,
+so the intake fairness holds exactly.
+
+**2. The locked section itself**
+(`docs/performance/scripts/cumulative_lock_probe.groovy`), driving the real
+`KreportTree` and `RealtimeResume` at realistic diversity. Per-batch and
+cumulative diversity are swept separately, because they scale different steps:
+
+| cumulative taxa | taxa per batch | parse + merge | ledger | report rebuild | per batch |
+|---|---|---|---|---|---|
+| 1,000 | 100 | 3.9 ms | 2.1 ms | 22.1 ms | 28.1 ms |
+| 3,000 | 300 | 6.1 ms | 0.6 ms | 23.4 ms | 30.1 ms |
+| 3,000 | 3,000 | 54.8 ms | 0.7 ms | 19.4 ms | 74.8 ms |
+| 10,000 | 1,000 | 12.2 ms | 0.6 ms | 40.5 ms | 53.3 ms |
+
+Serialised across barcodes over a 20-batch run: about **14 s at 24 barcodes and
+3,000 taxa**, about **26 s at 10,000 taxa**. Real but tens of seconds across a
+whole run, not the minutes-scale ceiling the original wording implied.
+
+**The useful part: 76-79% of it is the report rebuild, which
+`report_write_interval` already thins.** So the knob that exists does address
+the dominant term. The `nextflow.config` comment claimed raising it "saves only
+a small file write"; that is now corrected with these figures, because it is in
+fact most of a serialised section.
+
+A caveat on method, and on a conclusion it changed: the first version of the
+probe gave every batch the full cumulative diversity, which made parse-and-merge
+look dominant and the knob look useless. Separating the two axes reversed that.
+Treat the `3,000 / 3,000` row as the worst case, not the normal one -- a batch
+carries the taxa in that batch, not the run's whole diversity.
+
+Not measured: 96 barcodes, and a real database at GTDB or PlusPF scale. The
+figures above are a model of the locked code at those taxon counts, driven by
+the real classes, not a run of the pipeline at that scale.
 
 ## F10. A trailing partial batch waits up to 60 s
 `measured` - severity: low - **WITHDRAWN 2026-10-27**

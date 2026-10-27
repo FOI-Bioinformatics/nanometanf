@@ -459,7 +459,8 @@
                     "default": 1,
                     "minimum": 0,
                     "description": "Write the progressive cumulative Kraken2 report every N batches (a sample's first batch always flushes; 0 also means every batch).",
-                    "fa_icon": "fas fa-pen"
+                    "fa_icon": "fas fa-pen",
+                    "help_text": "The rebuild this thins re-walks every cumulative taxon inside the one lock that serialises this work across all barcodes, and is 76-79% of that locked section at realistic diversity. Measured at 3,000 cumulative taxa with 300 per batch: 30 ms per batch, so 24 barcodes over 20 batches serialise about 14 s; at 10,000 taxa, 26 s. Raise it on a high-barcode, high-diversity run to thin that in proportion, at the price of dashboard lag."
                 },
                 "skip_fastqc_realtime": {
                     "type": "boolean",

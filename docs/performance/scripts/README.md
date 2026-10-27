@@ -45,3 +45,21 @@ mirrors `lib/BatchUtils.groovy` exactly.
 java -cp groovy-4.0.24.jar:gpars-1.2.1.jar \
      groovy.ui.GroovyMain docs/performance/scripts/batch_timeout_probe.groovy
 ```
+
+## cumulative_lock_probe.groovy
+
+Measures the one serialised section audit F9 names: the per-batch work the
+real-time classification subworkflow does inside a single global lock, for
+every batch of every barcode, so the costs add across barcodes. It replicates
+the four steps from the subworkflow and drives the real `KreportTree` and
+`RealtimeResume`, sweeping per-batch and cumulative diversity separately
+because they scale different steps and only one has an operator knob.
+
+This is what revised F9 down from "the most likely unmeasured ceiling" to tens
+of seconds across a run, and showed that `report_write_interval` thins 76-79%
+of it.
+
+```bash
+java -cp groovy-4.0.24.jar:gpars-1.2.1.jar:groovy-json-4.0.24.jar \
+     groovy.ui.GroovyMain docs/performance/scripts/cumulative_lock_probe.groovy
+```
