@@ -592,8 +592,14 @@ nextflow run foi-bioinformatics/nanometanf \
 **New parameters:**
 | Parameter | Default | Description |
 |-----------|---------|-------------|
-| `--max_concurrent_batches` | 4 | Backpressure limit per sample |
-| `--max_classification_forks` | 8 | Max parallel Kraken2 jobs |
+| `--max_concurrent_batches` | 4 | **Advisory only, not enforced.** Logged for visibility; no per-sample throttle exists (audit P2.9) |
+| `--max_classification_forks` | 4 | Max parallel Kraken2 jobs. A **global** cap, not per sample |
+| `--max_nanoplot_forks` | 2 | Max parallel NanoPlot jobs, so live QC cannot crowd out the classifier |
+
+Raising `--max_classification_forks` above `max_cpus / 4` has no effect: the
+per-task CPU request is `max(4, max_cpus / forks)`, so past that point the
+tasks ask for more CPU than exists and the executor admits fewer than the cap.
+Raise `--max_cpus` in the same proportion, or the forks setting is inert.
 
 **Output structure change:**
 
