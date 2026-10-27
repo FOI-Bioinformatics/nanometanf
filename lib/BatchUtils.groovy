@@ -140,35 +140,86 @@ class BatchUtils {
     }
 
     /**
-     * Round-robin interleave a list of files by their parent directory
-     * (typically the barcode folder), so downstream per-file consumption
-     * rotates fairly across barcodes instead of draining one barcode before
-     * the next. For [bc1/a, bc1/b, bc2/c] this yields [bc1/a, bc2/c, bc1/b].
+     * One sample id for one file, as the two interleavers below resolve it.
+     *
+     * Public so BatchUtils.interleaveFilesBySample and CrossBatchInterleaver
+     * cannot drift: they are applied in sequence over the same stream, and a
+     * file that is sample A to one and sample B to the other would be
+     * round-robined against itself.
+     *
+     * A resolver that throws, or that yields nothing, gives 'unknown', which
+     * groups those files together rather than dropping them or giving each
+     * its own group. The file is emitted exactly once either way: an
+     * unresolvable sample id is a fairness question, never a reason to lose a
+     * read.
+     *
+     * @param file       a file/Path object
+     * @param sampleKey  closure resolving one file to its sample id
+     * @return           the sample id, or 'unknown'
+     */
+    static String sampleKeyOf(Object file, Closure sampleKey) {
+        if (sampleKey == null) {
+            return 'unknown'
+        }
+        try {
+            def key = sampleKey.call(file)
+            return key ? key.toString() : 'unknown'
+        } catch (Exception ignored) {
+            return 'unknown'
+        }
+    }
+
+    /**
+     * Round-robin interleave a list of files across SAMPLES, so downstream
+     * per-file consumption rotates fairly across samples instead of draining
+     * one sample before the next. For [bc1/a, bc1/b, bc2/c] this yields
+     * [bc1/a, bc2/c, bc1/b].
+     *
+     * ``sampleKey`` must resolve a file to the SAME sample id the pipeline
+     * gives it downstream -- in practice InputDetector.extractSampleId with
+     * the run's sample_regex / sample_name / input root. It is required and
+     * has no default, because the key this function used to hardcode -- the
+     * immediate parent directory name -- agrees with the sample id only when
+     * the sample IS a directory. InputDetector derives the sample from the
+     * FILENAME for a flat directory with --sample_regex, for a MinKNOW
+     * fastq_pass/ holding barcode-named files, and for per-file naming. In
+     * all three the parent-dir key collapsed every file into one group, the
+     * single-group branch below fell through to a plain name sort, and a name
+     * sort is sample-major. Measured over a 24-sample, 480-file backlog: 461
+     * files had to be classified before every sample had a first result, and
+     * the first ten were all one sample
+     * (docs/performance/realtime_many_barcodes_audit_2026-10-26.md, F1).
      *
      * Pure and side-effect-free: it only reorders the input (every input file
      * appears exactly once in the output), so it cannot stall or lose data.
-     * Used both for the startup existing-files scan and to interleave each
+     * Used both for the start-up existing-files scan and to interleave each
      * realtime batch before it is flattened into the per-file classifier
-     * stream, giving per-barcode fairness against the GLOBAL classifier
+     * stream, giving per-sample fairness against the GLOBAL classifier
      * maxForks without a per-key semaphore / feedback loop (audit P2.9).
      *
-     * Files within a barcode keep a stable name-sorted order; a single
-     * barcode (or a list with no resolvable parent) is name-sorted as-is.
+     * Samples are drained in sample-id order rather than in the order groupBy
+     * happened to see them, so the result does not depend on the order the
+     * filesystem listed a backlog. Files within a sample keep a stable
+     * name-sorted order; a single sample is name-sorted as-is.
      *
-     * @param files  list of file/Path objects (each exposing .parent.name and .name)
-     * @return       a new list, round-robin interleaved by parent dir
+     * @param files      list of file/Path objects (each exposing .name)
+     * @param sampleKey  closure resolving one file to its sample id
+     * @return           a new list, round-robin interleaved by sample
      */
-    static List interleaveFilesByParentDir(List files) {
+    static List interleaveFilesBySample(List files, Closure sampleKey) {
         if (!files || files.size() <= 1) {
             return files ? new ArrayList(files) : []
         }
-        def grouped = files.groupBy { it?.parent?.name ?: 'unknown' }
+        def grouped = files.groupBy { sampleKeyOf(it, sampleKey) }
         if (grouped.size() <= 1) {
             return files.sort(false) { it?.name ?: '' }
         }
-        // Sort each barcode's files by name, then take one from each group per
-        // round until every group is exhausted.
-        def sorted_groups = grouped.values().collect { g -> g.sort(false) { it?.name ?: '' } }
+        // Sort each sample's files by name, then take one from each group per
+        // round until every group is exhausted. Groups are visited in
+        // sample-id order for a deterministic result.
+        def sorted_groups = grouped.keySet().sort(false).collect { key ->
+            grouped[key].sort(false) { it?.name ?: '' }
+        }
         def max_group_size = sorted_groups.collect { it.size() }.max()
         def out = []
         (0..<max_group_size).each { i ->

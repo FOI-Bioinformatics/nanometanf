@@ -146,6 +146,36 @@ workflow REALTIME_MONITORING {
 
         def seen_paths = RealtimeIntake.newSeenSet()
 
+        // ONE sample-id resolver for the whole real-time path: both
+        // interleavers order files by it and the meta map that reaches every
+        // process is built from it. They have to be the same function, or the
+        // fairness ordering is computed on a key the pipeline does not use --
+        // which is exactly what keying on the immediate parent directory name
+        // did. InputDetector resolves the sample from the FILENAME for a flat
+        // directory with --sample_regex, for a MinKNOW fastq_pass/ holding
+        // barcode-named files and for per-file naming, so in those layouts
+        // every file landed in one group, the interleave degenerated to a
+        // name sort, and a name sort is sample-major: measured over a
+        // 24-sample, 480-file backlog, 461 files were classified before every
+        // sample had a first result and the first ten were all one sample
+        // (docs/performance/realtime_many_barcodes_audit_2026-10-26.md, F1).
+        //
+        // Memoized on the path string: the resolver is called once per file by
+        // the start-up interleave, once per batch by the cross-batch
+        // interleave and once by the meta map, and for a custom-named sample
+        // folder (Turex/, Zymo/) it canonicalises paths on the filesystem.
+        def sample_id_cache = new java.util.concurrent.ConcurrentHashMap<String, String>()
+        def resolve_sample_id = { f ->
+            sample_id_cache.computeIfAbsent(f.toString(), { ignored ->
+                InputDetector.extractSampleId(
+                    f,
+                    params.sample_regex,
+                    params.sample_name,
+                    params.nanopore_output_dir
+                ) ?: 'unknown'
+            })
+        }
+
         // Existing files, listed when the igniter fires (see above), and
         // listed once more after a short delay: a directory walk taken while
         // a sequencer renames files into the folder can return a partial
@@ -186,11 +216,13 @@ workflow REALTIME_MONITORING {
                 }
             }
 
-            // Round-robin interleave existing files by parent (barcode)
-            // directory so take(max_files) selects fairly across all
-            // barcodes rather than in filesystem order. See
-            // BatchUtils.interleaveFilesByParentDir.
-            existing_list = BatchUtils.interleaveFilesByParentDir(existing_list)
+            // Round-robin interleave existing files across SAMPLES so
+            // take(max_files) selects fairly across all of them rather than in
+            // filesystem order, and so the head of a late-started backlog
+            // covers every sample instead of draining one. The key is the
+            // resolver above, not the parent directory name. See
+            // BatchUtils.interleaveFilesBySample.
+            existing_list = BatchUtils.interleaveFilesBySample(existing_list, resolve_sample_id)
 
             if (sweep > 0) {
                 def unseen = existing_list.findAll {
@@ -504,29 +536,27 @@ workflow REALTIME_MONITORING {
         // CHANNEL: Convert files to meta map format with barcode extraction
         //
         // One interleaver instance for the whole run: it keeps a cumulative
-        // served-count per barcode across batches, so a barcode that fell behind
+        // served-count per sample across batches, so a sample that fell behind
         // in earlier batches is drained first in later ones. This carries the
         // round-robin fairness ACROSS batch boundaries -- the stateless per-batch
         // interleave could not, because it ordered each batch independently and so
-        // a fast barcode that kept filling batches stayed ahead all run (audit
+        // a fast sample that kept filling batches stayed ahead all run (audit
         // P2.9). Still feedback-free: it only reorders files already in a batch, so
-        // nothing is held back and termination is unaffected.
-        def cross_batch_interleaver = new CrossBatchInterleaver()
+        // nothing is held back and termination is unaffected. It takes the same
+        // resolver the start-up interleave and the meta map below use.
+        def cross_batch_interleaver = new CrossBatchInterleaver(resolve_sample_id)
         ch_samples = ch_batched_files
             .map { batch -> cross_batch_interleaver.interleave(batch instanceof List ? batch : [batch]) }
             .flatten()
             .map { file ->
                 def meta = [:]
 
-                // Use InputDetector priority chain for sample ID
-                // The watched root is passed so a custom-named folder
-                // directly under it names the sample (Turex/, Zymo/).
-                def sample_id = InputDetector.extractSampleId(
-                    file,
-                    params.sample_regex,
-                    params.sample_name,
-                    params.nanopore_output_dir
-                )
+                // The InputDetector priority chain, through the one resolver
+                // the interleavers above are keyed on, so the order they
+                // produced is fair for exactly the ids that reach the
+                // processes. The watched root is passed so a custom-named
+                // folder directly under it names the sample (Turex/, Zymo/).
+                def sample_id = resolve_sample_id(file)
                 meta.id = sample_id
 
                 // Add barcode metadata if applicable; the unclassified bin

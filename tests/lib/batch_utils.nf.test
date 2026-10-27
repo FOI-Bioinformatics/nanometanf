@@ -1,16 +1,22 @@
 nextflow_function {
 
-    name "Test BatchUtils.interleaveFilesByParentDir (per-barcode fairness)"
+    name "Test BatchUtils.interleaveFilesBySample (per-sample fairness)"
     script "tests/lib/batch_utils_functions.nf"
-    function "interleaveFilesByParentDir"
+    function "interleaveFilesBySample"
 
     tag "unit"
     tag "fast"
 
-    // Round-robin interleaving by barcode is what gives per-barcode fairness
+    // Round-robin interleaving by SAMPLE is what gives per-sample fairness
     // against the global classifier maxForks (audit P2.9): the order this
     // produces is the order the classifier consumes, so verifying the order
     // verifies the fairness, no real multi-barcode Kraken2 load needed.
+    //
+    // The key is the resolved sample id, not the parent directory name. The
+    // two agree only when the sample IS a directory, so the flat-layout cases
+    // below -- where InputDetector resolves the sample from the FILENAME --
+    // are the ones that would have caught audit finding F1
+    // (docs/performance/realtime_many_barcodes_audit_2026-10-26.md).
 
     test("interleaves files round-robin across barcodes") {
         when {
@@ -82,6 +88,101 @@ nextflow_function {
         }
         then {
             assert function.result == []
+        }
+    }
+
+    test("flat directory, sample from filename: interleaves across samples") {
+        // A MinKNOW fastq_pass/ holding barcode-named files: ONE parent
+        // directory, four samples. Keying on the parent collapsed these into a
+        // single group and fell through to a name sort, which emits
+        // barcode01's whole backlog before barcode02's first file. Keyed on
+        // the sample id, round 0 covers every sample.
+        when {
+            function {
+                """
+                input[0] = [
+                    file("d/fastq_pass/barcode01_000.fastq.gz"),
+                    file("d/fastq_pass/barcode01_001.fastq.gz"),
+                    file("d/fastq_pass/barcode02_000.fastq.gz"),
+                    file("d/fastq_pass/barcode02_001.fastq.gz"),
+                ]
+                """
+            }
+        }
+        then {
+            assert function.result.collect { it.tokenize("/").last() } == [
+                "barcode01_000.fastq.gz", "barcode02_000.fastq.gz",
+                "barcode01_001.fastq.gz", "barcode02_001.fastq.gz",
+            ]
+        }
+    }
+
+    test("every sample has a file within the first round, flat layout") {
+        // The audit's measurement, in miniature: 12 samples x 3 files in one
+        // flat directory. The first 12 emissions must cover all 12 samples.
+        // Under the parent-directory key this took 34 of 36 files.
+        when {
+            function {
+                """
+                input[0] = (1..12).collectMany { b ->
+                    (0..2).collect { f ->
+                        file(String.format("d/fastq_pass/barcode%02d_%03d.fastq.gz", b, f))
+                    }
+                }
+                """
+            }
+        }
+        then {
+            def names = function.result.collect { it.tokenize("/").last() }
+            assert names.size() == 36
+            assert names.unique().size() == 36
+            def sampleOf = { n -> (n =~ /(barcode\d+)/)[0][1] }
+            assert names.take(12).collect(sampleOf).unique().size() == 12
+            // Round 1 then covers every sample again, in the same order.
+            assert names.take(12).collect(sampleOf) == names[12..23].collect(sampleOf)
+        }
+    }
+
+    test("order does not depend on the order the filesystem listed the backlog") {
+        // groupBy preserves insertion order, so the group order used to follow
+        // the directory walk and which sample went first varied run to run.
+        // Groups are now drained in sample-id order.
+        when {
+            function {
+                """
+                input[0] = [
+                    file("d/barcode03/c.fastq.gz"),
+                    file("d/barcode01/a.fastq.gz"),
+                    file("d/barcode02/b.fastq.gz"),
+                ]
+                """
+            }
+        }
+        then {
+            assert function.result.collect { it.tokenize("/").last() } == [
+                "a.fastq.gz", "b.fastq.gz", "c.fastq.gz"
+            ]
+        }
+    }
+
+    test("a flat per-file layout gives each file its own sample, none lost") {
+        // No barcode anywhere, so InputDetector falls back to the filename
+        // stem: three distinct samples, every file emitted exactly once.
+        when {
+            function {
+                """
+                input[0] = [
+                    file("d/plain/x.fastq.gz"),
+                    file("d/plain/y.fastq.gz"),
+                    file("d/barcode01/a.fastq.gz"),
+                ]
+                """
+            }
+        }
+        then {
+            assert function.result.size() == 3
+            assert function.result.collect { it.tokenize("/").last() }.toSet() ==
+                ["x.fastq.gz", "y.fastq.gz", "a.fastq.gz"].toSet()
         }
     }
 }
