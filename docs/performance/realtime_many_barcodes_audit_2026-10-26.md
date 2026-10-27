@@ -368,7 +368,7 @@ lesson is the one F13 already states -- the suite that does not run is not a
 safety net -- and it is why the audit now carries a measured toolchain recipe.
 
 ## F8. The canonical tier waits for the slowest barcode
-`read` - severity: medium
+`read` - severity: medium - **A WORSE BUG FOUND AND FIXED 2026-10-27**
 
 `subworkflows/local/taxonomic_classification/main.nf:605` and `:613` apply
 `groupTuple(by: 0)` with no `size:` to the output merger's two channels, so
@@ -388,6 +388,65 @@ files holds it for all 96.
 `KRAKEN2_FINAL_AGGREGATOR` also has no `maxForks` and reserves 8 GB
 (`conf/modules.config:437-441`), so all 96 aggregators become runnable
 simultaneously at session end.
+
+### Investigated 2026-10-27, and it was worse than the timing
+
+Chasing the timing turned up a correctness bug on the same surface, which
+matters more than the latency.
+
+The canonical specification pairs two sidecar fields: `is_cumulative` ("true
+for end-of-session aggregate reports, false for per-batch increments") and
+`batch_id`. A consumer uses them to decide whether to **sum** these files as
+increments or take the latest as a **snapshot**.
+
+`meta.is_cumulative` was read in exactly one place,
+`modules/local/canonical_classification_writer/main.nf:31`, and **set
+nowhere**. So `--is-cumulative` was never passed, and every canonical
+classification sidecar this pipeline has ever written said
+`"is_cumulative": false` -- including the end-of-session aggregate from
+`KRAKEN2_FINAL_AGGREGATOR`, which is the only canonical classification output a
+real-time run produces. Verified both ways: by grep, and by reading a sidecar
+from a real run.
+
+A consumer that believed the field would have summed cumulative snapshots.
+That is the same increment-against-snapshot confusion nanometa_live records as
+its H27, where a barcode served 324 reads of 938.
+
+**Fix.** The two fields imply each other, so one rule covers all four sources
+of `ch_raw_reports`: a report with a `batch_id` is that batch's increment, one
+without covers the whole sample. Derived at the single point where the
+canonical writer is fed; an explicit `meta.is_cumulative` still wins. Confirmed
+end to end on a real-time run: the sidecars now read `is_cumulative: true` with
+no `batch_id`, where before they read `false`.
+
+Covered by two real-run cases in
+`modules/local/canonical_classification_writer/tests/main.nf.test` -- not
+stubbed, because the stub writes no sidecar body and the body is what is under
+test. That file already runs in CI.
+
+The specification also said `batch_id` is "present only in realtime per-batch
+sidecars", which is backwards and is corrected: a real-time run's canonical
+classification comes from the end-of-session aggregator and carries no
+`batch_id`, while chunked **batch** mode is the mode that emits per-batch
+increments.
+
+### The timing itself: not changed, deliberately
+
+The end-of-session gating stands. Making the canonical tier live would mean
+feeding the writer from the per-batch reports, which is one writer task per
+batch per barcode -- 720 for a 24-barcode, 30-batch run -- added to exactly the
+stage this audit found starved (F3). nanometa_live does not need it: it reads
+the per-batch cumulative report, which the head process rewrites every batch,
+and takes canonical JSON only when it is no older than that report. So the cost
+would buy a consumer surface that the one known consumer does not use live.
+
+If a future consumer does need live canonical output, the per-batch reports are
+already on disk under `batch_reports/` and are the cheaper place to read.
+
+`KRAKEN2_FINAL_AGGREGATOR`'s missing `maxForks` is unchanged: at a 128 GB
+budget its 8 GB reservation already limits it to about 16 concurrent, so a cap
+would mostly re-state that, and setting one without measuring the staging I/O
+would repeat the F5 mistake.
 
 ## F9. Per-batch dashboard writes are serialised through one lock
 `measured` - severity: medium, revised down - **MEASURED 2026-10-27**

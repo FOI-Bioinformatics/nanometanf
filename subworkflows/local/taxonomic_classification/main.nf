@@ -759,7 +759,34 @@ workflow TAXONOMIC_CLASSIFICATION {
     ch_canonical_classification = Channel.empty()
     if (params.write_canonical != false) {
         // Guard against empty input from failed upstream classification
-        def ch_reports_filtered = ch_raw_reports.filter { it instanceof List && it.size() >= 2 && it[1] != null }
+        def ch_reports_filtered = ch_raw_reports
+            .filter { it instanceof List && it.size() >= 2 && it[1] != null }
+            .map { meta, report ->
+                // The sidecar's `is_cumulative` tells a consumer whether to SUM
+                // this file as an increment or take it as a snapshot of the run
+                // so far, and the canonical specification pairs it with
+                // `batch_id`: present only on a per-batch increment. Nothing
+                // ever SET meta.is_cumulative, so the module's
+                // `meta.is_cumulative ? "--is-cumulative" : ""` was always the
+                // empty string and every sidecar this pipeline has written said
+                // `is_cumulative: false` -- including the end-of-session
+                // aggregate from KRAKEN2_FINAL_AGGREGATOR, which the
+                // specification says must be true. A consumer that believed the
+                // field would sum cumulative snapshots; that is the same
+                // increment-against-snapshot confusion nanometa_live records as
+                // its H27 (a barcode served 324 reads of 938).
+                //
+                // The two fields imply each other, so one rule covers all four
+                // sources of ch_raw_reports: a report with a batch id is that
+                // batch's increment, one without covers the whole sample. An
+                // explicit meta.is_cumulative still wins, so a caller can say
+                // otherwise (audit F8).
+                def m = meta.clone()
+                if (m.is_cumulative == null) {
+                    m.is_cumulative = (m.batch_id == null)
+                }
+                return [m, report]
+            }
 
         CANONICAL_CLASSIFICATION_WRITER (
             ch_reports_filtered,
