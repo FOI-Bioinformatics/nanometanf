@@ -122,7 +122,13 @@ nextflow_workflow {
         then {
             assert workflow.failed : "a genome JSON with object values was accepted"
 
-            def message = (workflow.errorReport ?: '') + (workflow.stdout ?: []).join('\n')
+            // Every channel, because which one carries the refusal is a
+            // race -- see the note in tests/failure_paths.nf.test. On
+            // 2026-10-27 the text reached only stderr.
+            def message = (workflow.errorReport ?: '') + '\n' +
+                          (workflow.errorMessage ?: '') + '\n' +
+                          (workflow.stderr ?: []).join('\n') + '\n' +
+                          (workflow.stdout ?: []).join('\n')
 
             // Names the file it was given, and the file to use instead.
             assert message.contains('--pathogen_genomes') :

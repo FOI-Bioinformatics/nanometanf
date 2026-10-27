@@ -61,7 +61,13 @@ nextflow_pipeline {
 
         then {
             assert workflow.failed
-            def err = (workflow.errorReport ?: '') + '\n' + (workflow.stdout?.join('\n') ?: '')
+            // Every channel, because which one carries the refusal is a
+            // race -- see the note in tests/failure_paths.nf.test. On
+            // 2026-10-27 the text reached only stderr.
+            def err = (workflow.errorReport ?: '') + '\n' +
+                      (workflow.errorMessage ?: '') + '\n' +
+                      (workflow.stderr?.join('\n') ?: '') + '\n' +
+                      (workflow.stdout?.join('\n') ?: '')
             assert err.contains('does not exist')
             // A clean validation failure, not a Groovy crash or a hang.
             assert !err.contains('MethodSelectionException')
@@ -90,7 +96,13 @@ nextflow_pipeline {
             // the missing input before the custom guard, or the custom guard
             // fires) -- either way it must not hang or raise a Groovy crash.
             assert workflow.failed
-            def err = (workflow.errorReport ?: '') + '\n' + (workflow.stdout?.join('\n') ?: '')
+            // Every channel, because which one carries the refusal is a
+            // race -- see the note in tests/failure_paths.nf.test. On
+            // 2026-10-27 the text reached only stderr.
+            def err = (workflow.errorReport ?: '') + '\n' +
+                      (workflow.errorMessage ?: '') + '\n' +
+                      (workflow.stderr?.join('\n') ?: '') + '\n' +
+                      (workflow.stdout?.join('\n') ?: '')
             assert err.contains('nanopore_output_dir') ||
                    err.contains('Validation of pipeline parameters failed') ||
                    err.contains('No input')
