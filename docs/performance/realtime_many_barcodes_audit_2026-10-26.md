@@ -401,7 +401,7 @@ Also corrected while there: the `max_files` truncation warning counted
 counts per sample, the key the interleave is actually fair on (F1).
 
 ## F12. `max_concurrent_batches` is dead config
-`read` - severity: low (documentation)
+`read` - severity: low (documentation) - **DOCS FIXED 2026-10-27**
 
 Every read site: `nextflow.config:78` (default 4), `:440` (a comment
 justifying `queueSize`), `conf/server.config:55` (override to 8),
@@ -425,6 +425,42 @@ verified:
 
 An operator tuning a 96-barcode run from either table is reading wrong
 defaults for the two parameters that matter most to it.
+
+### Fix, 2026-10-27 (F12, F14 and F19)
+
+Checked against git history first: `max_classification_forks` has held `4` and
+`kraken2_enable_incremental` `false` since each was introduced, and
+`kraken2_sync_interval` has never existed in `nextflow.config` or the schema.
+So none of the three was a stale-but-once-true default; all three were simply
+wrong, which is why the release note was corrected rather than left as a
+record of its own time.
+
+- `docs/user/realtime_processing.md` and `docs/releases/CURRENT_VERSION.md`
+  now give the real defaults, mark `max_concurrent_batches` advisory, name
+  `report_write_interval` as the knob `kraken2_sync_interval` was invented for,
+  and state that raising `max_classification_forks` past `max_cpus / 4` is
+  inert (F6).
+- `docs/releases/v1.5.0.md` is corrected in place with a dated note saying what
+  was wrong and that none of it was a later change, since an operator tuning a
+  high-barcode run from that table would have set two parameters to values they
+  never had and one that does not exist.
+- F14: `CLAUDE.md` and `docs/integration/output_api.md` no longer show a
+  per-sample `index.json` or cumulative `taxid_counts.json`. The trees now
+  match what the modules publish, including the two byte-identical copies of
+  each batch report -- `batch_<N>.kraken2.report.txt` from the merger and
+  `{sample}_batch<N>.kraken2.report.txt` from the report generator -- which is
+  the shape nanometa_live's `_deduplicate_batch_files` exists to handle, and
+  `stats/batch_<N>_taxid_counts.json` as a per-batch file rather than
+  cumulative state. The two "Key Development Patterns" snippets that showed an
+  atomic index update and a cumulative taxid state file now say where that
+  accumulation actually lives: the classification subworkflow's head process,
+  in memory, not a module.
+- F19: the `fair` comment in `conf/modules.config` no longer claims the
+  directive gave FIFO scheduling and a better page-cache hit rate. `fair`
+  controls output emission order, not scheduling, so removing it changed
+  nothing about which batch runs when.
+
+Documentation only; no pipeline behaviour changes in this pass.
 
 ## F13. The configuration a field run uses is not tested
 `read` - severity: high (process)
@@ -573,9 +609,9 @@ Ordered by expected effect on a 96-barcode late start:
 | 5 | Default `kraken2_task_memory_gb` in the platform profiles to match the arithmetic their comments already describe | F5 | Medium; it changes admitted concurrency on every run, so measure first |
 | 6 | ~~Replace the `Thread.sleep(10000)` with the daemon-Timer idiom used elsewhere in the same file~~ **done 2026-10-27** | F11 | Low |
 | 7 | Reset the `batch_timeout` timer on each flush | F10 | Low |
-| 8 | Correct `max_concurrent_batches`, `index.json`/`taxid_counts.json` and the `fair` comment in the docs | F12, F14, F19 | None |
+| 8 | ~~Correct `max_concurrent_batches`, `index.json`/`taxid_counts.json` and the `fair` comment in the docs~~ **done 2026-10-27**, plus three wrong defaults and one parameter that never existed | F12, F14, F19 | None |
 | 9 | Extend real-time with the chunking and per-sample QC grouping that batch mode already has, for the start-up backlog only | F7, and the root of F2/F3 | High; this is a design change and wants its own plan |
 
 Item 9 is the structural answer to the question this audit was asked. Items
 1-4 are the ones that change a late-started 96-barcode run most for the least
-risk; items 1, 3 and 4 are done.
+risk; items 1, 3, 4, 6 and 8 are done. Item 5 was skipped pending measurement.

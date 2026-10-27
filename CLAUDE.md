@@ -60,14 +60,20 @@ at roughly 10--15 files per second with more than ten barcodes.
 **`modules/local/kraken2_output_merger/main.nf`** - Append-only batch storage
 
 - Writes each batch to separate file: `batches/batch_N.kraken2.output.txt`
-- Maintains atomic index file with batch manifest
-- Per-sample parallelism (no maxForks 1)
+- Every output name carries its batch id, so concurrent batches of one sample
+  cannot clobber each other and no shared state file is needed
+- Per-sample parallelism (no maxForks 1); `maxForks` is `max_classification_forks`,
+  a GLOBAL cap
 
 **`modules/local/kraken2_report_generator/main.nf`** - Incremental taxid counting
 
-- Maintains `taxid_counts.json` state file per sample
-- Accumulates counts without re-reading full output
-- Atomic state updates prevent race conditions
+- Writes a per-batch `stats/batch_<N>_taxid_counts.json`; it holds that batch's
+  counts only
+- Cumulative accumulation is NOT in this module: the classification
+  subworkflow's head process merges each batch's counts in memory and rewrites
+  `{sample_id}.cumulative.kraken2.report.txt`
+- There is no per-sample `index.json` or cumulative `taxid_counts.json`; both
+  were documented here and written by nothing (corrected 2026-10-27, audit F14)
 
 **`modules/local/kraken2_final_aggregator/main.nf`** - End-of-session aggregation
 
@@ -85,13 +91,14 @@ outdir/kraken2/
 │   │   ├── batch_1.kraken2.output.txt
 │   │   └── ...
 │   ├── batch_reports/
-│   │   ├── batch_0.kraken2.report.txt
-│   │   └── ...
-│   ├── index.json                    # Batch manifest
-│   ├── taxid_counts.json             # Incremental taxid state
+│   │   ├── batch_0.kraken2.report.txt             # from OUTPUT_MERGER
+│   │   ├── {sample_id}_batch0.kraken2.report.txt  # from REPORT_GENERATOR,
+│   │   └── ...                                    #   byte-identical to the above
 │   └── stats/
-│       ├── merge_stats.json
-│       └── report_stats.json
+│       ├── merge_stats.json          # latest batch only, not renamed per batch
+│       ├── batch_0_report_stats.json
+│       ├── batch_0_taxid_counts.json # per batch, NOT a cumulative state file
+│       └── aggregation_stats.json    # end of session
 ├── {sample_id}.cumulative.kraken2.output.txt  # End-of-session
 └── {sample_id}.cumulative.kraken2.report.txt  # Updated per-batch for dashboard
 ```
@@ -221,8 +228,8 @@ proves isolation happened and nothing else.
 | Module                             | Purpose                                      |
 | ---------------------------------- | -------------------------------------------- |
 | `kraken2_incremental_classifier/`  | Classify only NEW reads per batch            |
-| `kraken2_output_merger/`           | Append-only batch storage with atomic index  |
-| `kraken2_report_generator/`        | Incremental taxid counting                   |
+| `kraken2_output_merger/`           | Append-only batch storage, batch-id filenames |
+| `kraken2_report_generator/`        | Per-batch taxid counts                       |
 | `kraken2_final_aggregator/`        | End-of-session concatenation                 |
 | `emit_empty_kraken2_report/`       | Placeholder report for samples with 0 reads  |
 | `fastp_streaming/`                 | FASTP wrapper for multi-file streaming input |
@@ -300,7 +307,9 @@ with open(batch_output_file, 'w') as f_out:
     for line in current_batch:
         f_out.write(line)
 
-# Atomic index update
+# Atomic rename is the idiom used for every state file the pipeline does
+# write (the cumulative report, the processed-input ledger). Note the modules
+# themselves keep no index: each output name carries its batch id instead.
 temp_index = outdir / f'index.{batch_id}.tmp'
 with open(temp_index, 'w') as f:
     json.dump(index, f)
@@ -312,7 +321,9 @@ os.rename(temp_index, existing_index_path)  # Atomic on POSIX
 **Pattern:** Accumulate counts in state file, avoid re-reading outputs.
 
 ```python
-# Load existing state
+# Load existing state. This accumulation lives in the classification
+# SUBWORKFLOW's head process (Groovy), not in a module: no module reads or
+# writes a cumulative taxid_counts.json.
 if taxid_state_file.exists():
     taxid_counts = json.load(open(taxid_state_file))
 
