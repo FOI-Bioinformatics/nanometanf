@@ -642,6 +642,13 @@
                     "fa_icon": "fas fa-hashtag",
                     "help_text": "When nanoplot_realtime_skip_intermediate is enabled, NanoPlot runs every N batches plus the final batch. Lower values = more frequent plots. Platform defaults: MinION=5, PromethION-8=7, PromethION=10."
                 },
+                "realtime_backlog_chunking": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Plan a real-time run's start-up backlog as chunks ordered across samples.",
+                    "fa_icon": "fas fa-layer-group",
+                    "help_text": "A run started after sequencing began finds a backlog, and a backlog is a batch-shaped workload: every file is present at once, so one task per file is the worst granularity available -- each classifier task pays a database load for a single file and nothing bounds the task count. When enabled the start-up listing is planned as geometric chunks per sample, ordered so every sample's chunk 0 is classified before any sample's chunk 1, using the same planner batch mode uses. The live watcher stream is unaffected and stays per file. Ignored when --max_files is set, because that cap counts files while a chunk is a single emission. Chunk shape comes from batch_first_chunk_files and batch_chunk_growth."
+                },
                 "max_nanoplot_forks": {
                     "type": "integer",
                     "default": 2,

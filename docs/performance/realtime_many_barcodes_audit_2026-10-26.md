@@ -278,7 +278,7 @@ raising `--max_cpus` in the same proportion it has no effect. The log line and
 the docs should say so.
 
 ## F7. A late start gets none of batch mode's mitigations
-`read` - severity: high
+`read` - severity: high - **PARTLY FIXED 2026-10-27**
 
 `workflows/nanometanf.nf:276` gates chunking on `!params.realtime_mode`, and
 `qc_analysis/main.nf:82` gates the per-sample QC grouping on the same
@@ -300,6 +300,72 @@ nanometa_live's `CLAUDE.md` already names real-time chunking as *"a candidate
 for a later plan"*. This audit is the argument for it: the late-start case is
 not an edge case, it is how a field run begins whenever the operator opens the
 dashboard after sequencing has started.
+
+### Fix, 2026-10-27: the backlog is chunked
+
+`params.realtime_backlog_chunking` (default true) plans the start-up listing
+with `BatchChunkPlanner.planBySample`, the same planner batch mode uses, so
+there is one definition of a chunk. The backlog is emitted on its own channel
+as `[meta, files]` -- the shape batch chunking already emits -- so
+DEMULTIPLEXING, QC_ANALYSIS and the classifier needed no change; CHOPPER
+gunzips a file list into one stream.
+
+**The live watcher stream is untouched and stays per file.** That was the
+design constraint: the termination machinery (the timeout sentinel, the
+`max_files` tap, three PoisonPill bindings) is delicate, and Issue #22 was a
+hang caused by exactly that area.
+
+Measured on `tests/fixtures/batch_chunking` (barcode01 x 3 files,
+barcode02 x 1) in a real stub run, with a control case:
+
+| | QC tasks for 4 backlog files |
+|---|---|
+| `realtime_backlog_chunking = false` | 4 |
+| `realtime_backlog_chunking = true` | **3** |
+
+Both samples appear in the trace, so chunk-0-first did not starve either.
+`tests/realtime_backlog_chunking.nf.test` pins both numbers, and
+`tests/lib/backlog_chunk_plan.nf.test` pins the plan itself, including that
+11 files across 3 samples cost 6 chunks and that no file is dropped.
+
+Two interactions are deliberate, and both are the reason this is only a
+PARTIAL fix:
+
+- **`max_files` disables it.** That cap is a per-file bound applied by
+  `.take()` on the live stream, where a chunk is a single emission, so every
+  bounded test would silently change meaning. Real runs bound by timeout get
+  chunking; bounded tests do not.
+- **No `batch_id` is pre-assigned.** The classifier honours a planned id only
+  when `!realtime_mode`, deliberately: a Continue re-lists a SMALLER backlog
+  because the ledger skips finished files, so chunk 0 of a second run holds
+  different reads, and reusing the number would make the dashboard count the
+  first run's reads twice. Fresh sequential ids from the head-process counter
+  are the safe choice.
+
+Still not done from F7: per-sample QC grouping in real time. NanoPlot and
+FastQC remain per emission, so a chunk is one invocation rather than a sample
+being one invocation. The NanoPlot burst is bounded by `max_nanoplot_forks`
+(F2) instead. REALTIME_STATISTICS also does not see a chunked backlog: its
+channel is built from the live batching operator, so the `[runtime-metrics]`
+counters are fed explicitly instead.
+
+### A compilation regression found by running it
+
+Running this for the first time exposed that two earlier commits on this
+branch broke the pipeline outright. The strict v2 parser, the default from
+Nextflow 26, does not treat a local closure variable as callable:
+`scan_existing(true)` and `resolve_sample_id(file)` fail the whole script with
+"`scan_existing` is not defined", which takes down **every** pipeline that
+includes this subworkflow, not only a real-time run. The rule was already
+written down in this repo, at the `write_cumulative_report` closure in
+`subworkflows/local/taxonomic_classification/main.nf`, and the F1 and F11
+fixes violated it.
+
+Nothing would have caught it: no realtime test runs on the ubuntu runner, and
+the pure-function suites compile only their own harness. It is fixed by
+invoking through `.call(...)`, with the rule recorded at the closures. The
+lesson is the one F13 already states -- the suite that does not run is not a
+safety net -- and it is why the audit now carries a measured toolchain recipe.
 
 ## F8. The canonical tier waits for the slowest barcode
 `read` - severity: medium
@@ -638,8 +704,8 @@ Ordered by expected effect on a 96-barcode late start:
 | 6 | ~~Replace the `Thread.sleep(10000)` with the daemon-Timer idiom used elsewhere in the same file~~ **done 2026-10-27** | F11 | Low |
 | 7 | ~~Reset the `batch_timeout` timer on each flush~~ **withdrawn 2026-10-27**: measured worse on both mean and maximum wait. The docstring was corrected instead | F10 | - |
 | 8 | ~~Correct `max_concurrent_batches`, `index.json`/`taxid_counts.json` and the `fair` comment in the docs~~ **done 2026-10-27**, plus three wrong defaults and one parameter that never existed | F12, F14, F19 | None |
-| 9 | Extend real-time with the chunking and per-sample QC grouping that batch mode already has, for the start-up backlog only | F7, and the root of F2/F3 | High; this is a design change and wants its own plan |
+| 9 | ~~Extend real-time with the chunking...for the start-up backlog only~~ **chunking done 2026-10-27** as `realtime_backlog_chunking`, measured 4 files -> 3 tasks with a control case. Per-sample QC grouping in real time is still open | F7, and the root of F2/F3 | High; the live stream was deliberately left untouched |
 
 Item 9 is the structural answer to the question this audit was asked. Items
 1-4 are the ones that change a late-started 96-barcode run most for the least
-risk; items 1, 3, 4, 6 and 8 are done, and item 7 was withdrawn on measurement. Item 5 was skipped pending measurement.
+risk; items 1, 3, 4, 6, 8 and the chunking half of 9 are done, and item 7 was withdrawn on measurement. Item 5 was skipped pending measurement.

@@ -54,6 +54,51 @@ class BatchChunkPlanner {
         return out
     }
 
+    /**
+     * Plan one flat list of files as chunks ordered across samples: group by
+     * sample, chunk each sample geometrically, then emit every sample's chunk
+     * 0 before any sample's chunk 1. Returns [sampleId, chunkIndex, files].
+     *
+     * This is what lets a REAL-TIME run started after sequencing began treat
+     * its start-up backlog the way batch mode treats a samplesheet. A backlog
+     * is a batch-shaped workload: the files are all present at once, so one
+     * task per file is the worst possible granularity -- every classifier task
+     * pays a database load for a single file, and nothing bounds the task
+     * count (audit F7,
+     * docs/performance/realtime_many_barcodes_audit_2026-10-26.md). Chunking it
+     * here costs about eight classifier tasks for a 200-file sample rather
+     * than 200, while chunk-0-first keeps every sample's first result early.
+     *
+     * ``sampleKey`` must be the resolver the pipeline uses for meta.id, passed
+     * through BatchUtils.sampleKeyOf for the same reason the interleavers take
+     * it: the parent directory is not the sample for a flat layout (F1).
+     *
+     * Pure: it only groups and reorders. Every input file appears in exactly
+     * one chunk, and within a sample the chunks follow name-sorted order, so
+     * the partition is deterministic for a given listing.
+     *
+     * @param files      flat list of file/Path objects
+     * @param sampleKey  closure resolving one file to its sample id
+     * @param firstFiles files in each sample's first chunk
+     * @param growth     chunk size multiplier after the first chunk
+     * @return           [[sampleId, chunkIndex, files], ...] in emission order
+     */
+    static List planBySample(List files, Closure sampleKey, int firstFiles = 1, double growth = 2.0) {
+        if (!files) {
+            return []
+        }
+        def by_sample = new TreeMap<String, List>()
+        files.each { f ->
+            def key = BatchUtils.sampleKeyOf(f, sampleKey)
+            by_sample.get(key, []) << f
+        }
+        def chunks_by_sample = new LinkedHashMap<String, List<List>>()
+        by_sample.each { key, group ->
+            chunks_by_sample[key] = chunk(group, firstFiles, growth)
+        }
+        return interleave(chunks_by_sample)
+    }
+
     /** Write {sample: {files, chunks}} so the dashboard can show progress. */
     static void writePlan(String path, Map<String, List<List>> chunksBySample) {
         def summary = chunksBySample.collectEntries { sample, chunks ->
