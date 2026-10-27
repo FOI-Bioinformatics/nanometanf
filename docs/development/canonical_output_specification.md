@@ -66,9 +66,18 @@ Classification and QC sidecars also carry:
 
 - `mode`: `"batch"` or `"realtime"`
 - (classification only) `is_cumulative`: `true` for end-of-session
-  aggregate reports, `false` for per-batch increments
-- (classification only) `batch_id`: integer, present only in realtime
-  per-batch sidecars
+  aggregate reports, `false` for per-batch increments. The two fields imply
+  each other: the writer derives `is_cumulative` as "this report carries no
+  `batch_id`", so a sidecar never claims to be both an increment and a
+  snapshot. A consumer uses it to decide whether to SUM these files or take
+  the latest as a snapshot, so the pairing is the whole point of the field.
+- (classification only) `batch_id`: integer, present only on a per-batch
+  increment. Corrected 2026-10-27: this said "present only in realtime
+  per-batch sidecars", which is backwards. A **real-time** run's canonical
+  classification comes from the end-of-session aggregator, so it carries no
+  `batch_id` and is cumulative; **chunked batch mode** classifies each chunk
+  separately and so is the mode that emits per-batch increments with a
+  `batch_id`.
 
 Sidecar `contract_version` and body `format_version` are independent.
 `contract_version` is the schema of the sidecar itself; `format_version`
