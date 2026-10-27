@@ -27,3 +27,21 @@ It builds `java.io.File` objects rather than Nextflow paths, so `.name`
 resolves without Nextflow's `Path` extensions. That exercises the grouping and
 ordering logic under test; the `.name` sort inside the interleavers relies on
 those extensions at runtime and is unchanged by this fix.
+
+## batch_timeout_probe.groovy
+
+Measures how long a partial batch waits under `BatchUtils.batchWithTimeout`'s
+fixed-rate flush timer, against the "reset the timer on each flush"
+alternative. This is the measurement that **withdrew** audit finding F10:
+resetting the clock is worse on both mean and maximum wait, because a
+per-batch deadline makes every batch pay the whole period while a sampler only
+costs whatever remains of the current tick.
+
+It reimplements the two timer policies rather than calling the method, which
+takes a Nextflow channel and cannot run outside Nextflow; the shipped policy
+mirrors `lib/BatchUtils.groovy` exactly.
+
+```bash
+java -cp groovy-4.0.24.jar:gpars-1.2.1.jar \
+     groovy.ui.GroovyMain docs/performance/scripts/batch_timeout_probe.groovy
+```

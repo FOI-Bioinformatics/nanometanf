@@ -7,14 +7,33 @@ import groovyx.gpars.dataflow.operator.PoisonPill
  *
  * Emits a batch (as a list) when either:
  *   - batchSize items have accumulated, or
- *   - timeoutSeconds have elapsed since the last flush, with at least
- *     one pending item in the buffer.
+ *   - a fixed-rate timer ticks every timeoutSeconds and the buffer is
+ *     not empty.
  *
  * The timeout branch is the difference between this operator and a
  * plain buffer(size: N, remainder: true): on a low-throughput run
  * (single barcode, slow MinKNOW release cadence) buffer alone would
  * sit at e.g. 0/10 forever and never produce a Kraken2 report until
  * the upstream watchPath channel finally closed via the idle timeout.
+ *
+ * Note the timer is a SAMPLER, not a per-batch deadline: it ticks on a
+ * fixed rate and is deliberately not reset when a batch is flushed, so
+ * a pending item waits somewhere between zero and timeoutSeconds, half
+ * of it on average. The docstring used to claim "timeoutSeconds have
+ * elapsed since the last flush", which described neither the code nor
+ * the better behaviour.
+ *
+ * Resetting the clock on each flush -- so a pending batch waits the
+ * full period measured from when it started filling -- was measured and
+ * is WORSE: with a 2 s period and one item every 300 ms it took the
+ * mean wait from 1025 ms to 1262 ms and the maximum from 1990 ms to
+ * 2200 ms, because every batch then pays the whole period instead of
+ * whatever remains of the current tick. Audit finding F10 recommended
+ * that change; the measurement withdrew it
+ * (docs/performance/scripts/batch_timeout_probe.groovy).
+ *
+ * The lever for lower partial-batch latency is therefore a smaller
+ * batch_timeout, not a different timer policy.
  *
  * Implementation notes:
  *   - subscribe() is used as the upstream consumer; it routes each
