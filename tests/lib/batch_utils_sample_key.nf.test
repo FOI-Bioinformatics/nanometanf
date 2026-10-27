@@ -18,7 +18,7 @@ nextflow_function {
         when {
             function {
                 """
-                input[0] = null
+                input[0] = "d/barcode01/a.fastq.gz"
                 """
             }
         }

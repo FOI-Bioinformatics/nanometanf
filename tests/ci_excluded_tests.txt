@@ -1,0 +1,58 @@
+# nf-test files deliberately NOT run by .github/workflows/nf-test.yml.
+#
+# CI runs an explicit allowlist of test files, so a new test file is silent by
+# default: it is committed, it is never executed, and nothing says so. The
+# 2026-10-26 real-time audit found 41 of 101 test files in that state
+# (docs/performance/realtime_many_barcodes_audit_2026-10-26.md, F13), including
+# two pure-function suites excluded only because their filenames begin with
+# "realtime". tests/lib/tests_are_wired.py now fails when a test file is
+# neither referenced in the workflow nor listed here with a reason.
+#
+# Format: <path> <reason-code> optional free text.
+# Reason codes:
+#   watchpath   exercises Channel.watchPath; leaks the commons-io
+#               FileAlterationMonitor thread on the GitHub ubuntu runner and
+#               hangs the job (docs/upstream-issues/26-watchpath-cleanup-hang.md).
+#               The realtime + validation e2e runs in the macOS realtime-e2e job.
+#   nf-core     an upstream nf-core module/subworkflow test, maintained upstream
+#               and needing the real tool or container.
+#   unverified  no reason to exclude it has been established; it has simply
+#               never been enabled. Enable after one local green run.
+
+tests/realtime_classification.nf.test                                       watchpath
+tests/realtime_empty_samplesheet.nf.test                                    watchpath
+tests/realtime_input_modes.nf.test                                          watchpath
+tests/realtime_statistics_modules.nf.test                                   watchpath
+tests/realtime_timeout_exit_regression.nf.test                              watchpath
+tests/field_profile_paths.nf.test                                           watchpath sets realtime_mode = true
+subworkflows/local/realtime_monitoring/tests/main.nf.test                   watchpath
+subworkflows/local/taxonomic_classification/tests/realtime_cumulative_emit.nf.test  watchpath run manually against a real Kraken2 DB
+
+modules/nf-core/blast/blastn/tests/main.nf.test                             nf-core
+modules/nf-core/blast/makeblastdb/tests/main.nf.test                        nf-core
+modules/nf-core/chopper/tests/main.nf.test                                  nf-core
+modules/nf-core/fastp/tests/main.nf.test                                    nf-core
+modules/nf-core/fastqc/tests/main.nf.test                                   nf-core
+modules/nf-core/filtlong/tests/main.nf.test                                 nf-core
+modules/nf-core/flye/tests/main.nf.test                                     nf-core
+modules/nf-core/kraken2/kraken2/tests/main.nf.test                          nf-core
+modules/nf-core/miniasm/tests/main.nf.test                                  nf-core
+modules/nf-core/minimap2/align/tests/main.nf.test                           nf-core
+modules/nf-core/multiqc/tests/main.nf.test                                  nf-core
+modules/nf-core/nanoplot/tests/main.nf.test                                 nf-core
+modules/nf-core/porechop/porechop/tests/main.nf.test                        nf-core
+modules/nf-core/seqkit/stats/tests/main.nf.test                             nf-core
+modules/nf-core/taxpasta/merge/tests/main.nf.test                           nf-core
+modules/nf-core/taxpasta/standardise/tests/main.nf.test                     nf-core
+modules/nf-core/untar/tests/main.nf.test                                    nf-core
+subworkflows/nf-core/utils_nextflow_pipeline/tests/main.function.nf.test    nf-core
+subworkflows/nf-core/utils_nextflow_pipeline/tests/main.workflow.nf.test    nf-core
+subworkflows/nf-core/utils_nfcore_pipeline/tests/main.function.nf.test      nf-core
+subworkflows/nf-core/utils_nfcore_pipeline/tests/main.workflow.nf.test      nf-core
+subworkflows/nf-core/utils_nfschema_plugin/tests/main.nf.test               nf-core
+
+modules/local/consensus_validation/tests/main.nf.test                       unverified
+modules/local/validation_cumulative_aggregator/tests/main.nf.test           unverified
+subworkflows/local/assembly/tests/main.nf.test                              unverified
+subworkflows/local/qc_benchmark/tests/main.nf.test                          unverified
+tests/validation_only_discovery.nf.test                                     unverified

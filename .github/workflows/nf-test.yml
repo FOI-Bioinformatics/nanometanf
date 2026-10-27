@@ -83,6 +83,15 @@ jobs:
         # rather than surfacing as 20 "No such file or directory" errors.
         run: python3 tests/lib/fixtures_are_tracked.py
 
+      - name: Every nf-test file must run here or be excluded on the record
+        # The `run:` block below is an explicit allowlist, so a new test file
+        # is silent by default -- committed, never executed, nothing saying
+        # so. The 2026-10-26 real-time audit found 41 of 101 test files in
+        # that state, two of them pure-function suites excluded only because
+        # their names begin with "realtime". This fails when a test file is
+        # in neither the allowlist nor tests/ci_excluded_tests.txt.
+        run: python3 tests/lib/tests_are_wired.py
+
       - name: Install nf-test
         uses: nf-core/setup-nf-test@v1
         with:
@@ -107,7 +116,12 @@ jobs:
         # the batch/interleave/detect helpers. They were excluded along with
         # the realtime suite but touch no watchPath and need no container --
         # verified locally at 20 tests in 72s -- so they were free coverage
-        # sitting unused.
+        # sitting unused. Six more joined them on 2026-10-27, among them
+        # realtime_intake and realtime_resume: those two are pure-function
+        # suites that were swept up by the `tests/realtime_*` name pattern
+        # despite touching no watchPath, so the exclusion was about their
+        # filenames rather than their behaviour. tests_are_wired.py above now
+        # makes an unlisted test file a CI failure instead of a silent gap.
         run: |
           nf-test test --profile test,docker \
             --shard ${{ matrix.shard }}/4 --shard-strategy round-robin \
@@ -167,10 +181,16 @@ jobs:
             subworkflows/local/utils_nfcore_nanometanf_pipeline/tests/main.nf.test \
             subworkflows/local/validation/tests/main.nf.test \
             tests/lib/batch_utils.nf.test \
+            tests/lib/batch_utils_sample_key.nf.test \
             tests/lib/batch_utils_taxid_counts.nf.test \
             tests/lib/cross_batch_interleaver.nf.test \
+            tests/lib/cumulative_batch_accumulator.nf.test \
             tests/lib/input_detector.nf.test \
-            tests/lib/snapshot_accumulator.nf.test
+            tests/lib/kreport_tree.nf.test \
+            tests/lib/realtime_intake.nf.test \
+            tests/lib/realtime_resume.nf.test \
+            tests/lib/snapshot_accumulator.nf.test \
+            tests/lib/snapshot_accumulator_kraken_key.nf.test
 
   realtime-e2e:
     # The realtime + validation end-to-end test (tag: real_execution,

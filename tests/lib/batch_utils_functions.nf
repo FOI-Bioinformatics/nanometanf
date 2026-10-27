@@ -17,8 +17,8 @@ def interleaveFilesBySample(List files) {
 // BatchUtils.sampleKeyOf is the one door both interleavers resolve keys
 // through. Its contract is that a resolver which throws or yields nothing
 // gives 'unknown' -- grouping those files together rather than dropping them.
-def sampleKeyFallbacks() {
-    def f = file("d/barcode01/a.fastq.gz")
+def sampleKeyFallbacks(String relPath) {
+    def f = java.nio.file.Paths.get(relPath)
     return [
         resolved:  BatchUtils.sampleKeyOf(f, { x -> InputDetector.extractSampleId(x, null, null, null) }),
         throwing:  BatchUtils.sampleKeyOf(f, { x -> throw new IllegalStateException("boom") }),

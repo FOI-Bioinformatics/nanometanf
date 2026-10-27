@@ -370,6 +370,47 @@ defaults for the two parameters that matter most to it.
 
 No test would have caught F1, F2 or F13 itself.
 
+### The mechanism, and a guard, 2026-10-27
+
+Chasing F13 to its cause: `.github/workflows/nf-test.yml` runs an **explicit
+allowlist** of test files. A newly added test file is therefore silent by
+default -- committed, never executed, and nothing saying so. Counted on this
+branch, **41 of the 101 `*.nf.test` files were referenced nowhere in CI.**
+
+Two of them were pure-function suites excluded only because their filenames
+begin with `realtime`: `tests/lib/realtime_intake.nf.test` and
+`tests/lib/realtime_resume.nf.test` touch no `watchPath`, need no container,
+and cover the start-up intake and the Continue ledger -- the two mechanisms
+most load-bearing for a late start. The exclusion was about their names, not
+their behaviour.
+
+Six pure-function suites were verified by replaying their assertions against
+the real `lib/` classes and added to the allowlist, taking CI from 60 to 66
+test files: `batch_utils_sample_key`, `cumulative_batch_accumulator`,
+`kreport_tree`, `realtime_intake`, `realtime_resume` and
+`snapshot_accumulator_kraken_key`.
+
+`tests/lib/tests_are_wired.py` now runs in CI before the suite and fails when a
+test file is neither in the allowlist nor in `tests/ci_excluded_tests.txt` with
+a reason code (`watchpath`, `nf-core` or `unverified`). It also fails on a
+stale exclusion, on a path both excluded and referenced, and -- like its
+sibling `fixtures_are_tracked.py` -- when it finds nothing to check, since an
+empty scan is a broken scan rather than a clean bill of health. The 35 that
+remain excluded are now 8 `watchpath`, 22 `nf-core` and **5 `unverified`**,
+that last code meaning no reason to skip them has ever been established.
+
+Two defects surfaced during that verification:
+
+- `tests/lib/batch_utils_sample_key.nf.test`, added in the F1 fix the day
+  before, declared `input[0]` for a harness function that takes no parameter,
+  so nf-test would have called it with a stray argument. It was in no CI job,
+  so nothing would have reported it. Fixed by having the harness take the path.
+- `tests/lib/snapshot_accumulator_functions.nf` returned GStrings, which
+  Groovy's `==` treats as equal to a String while `List.contains` does not, so
+  two assertion styles disagreed about one value. The harness now returns plain
+  Strings. Whether real nf-test hid this by serializing `function.result` was
+  not determined, so treat that one as defensive rather than a fixed failure.
+
 ## Lower-severity items
 
 - **F14 (documentation).** `CLAUDE.md`'s real-time output tree lists
@@ -442,7 +483,7 @@ Ordered by expected effect on a 96-barcode late start:
 | # | Fix | Addresses | Risk |
 |---|---|---|---|
 | 1 | ~~Key both interleavers on the resolved sample id instead of `parent.name`~~ **done 2026-10-27** | F1 | Low; measured a no-op for per-barcode-directory layouts |
-| 2 | Add a realtime fixture with >= 12 barcodes and a test asserting first-result order across them | F13 | None; it is new coverage. Partly done 2026-10-27: the 12-sample first-round assertion is a pure-function test, so the pipeline-level fixture is still missing |
+| 2 | Add a realtime fixture with >= 12 barcodes and a test asserting first-result order across them | F13 | None; it is new coverage. Partly done 2026-10-27: the 12-sample first-round assertion is a pure-function test, and `tests_are_wired.py` now stops a test file going unrun, but the pipeline-level fixture is still missing and a watchPath test still cannot run in CI |
 | 3 | Give SEQKIT_STATS and FASTP_STREAMING `withName` resource overrides matching their real cost | F4 | Low |
 | 4 | Defer each barcode's NanoPlot milestone from index 0 to index 1, and give NANOPLOT a `maxForks` | F2 | Low |
 | 5 | Default `kraken2_task_memory_gb` in the platform profiles to match the arithmetic their comments already describe | F5 | Medium; it changes admitted concurrency on every run, so measure first |
