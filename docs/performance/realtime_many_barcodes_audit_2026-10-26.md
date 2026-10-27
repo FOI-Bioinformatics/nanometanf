@@ -344,14 +344,42 @@ be sized from source alone. `--runtime_metrics_interval_seconds` plus timing
 around `:471-533` would settle it.
 
 ## F10. A trailing partial batch waits up to 60 s
-`read` - severity: low
+`measured` - severity: low - **WITHDRAWN 2026-10-27**
 
-`lib/BatchUtils.groovy:99-109` schedules the flush timer with
-`scheduleAtFixedRate` at a fixed period and **does not reset it on flush**, so
-a buffer that never reaches `batch_size` waits for the next tick -
-`batch_timeout = 60` s by default (`nextflow.config:43`). With 24 barcodes and
-`batch_size = 10` the backlog cuts into 10 + 10 + 4, and the 4 remainder
-barcodes pay a minute before their first file is even batched.
+`lib/BatchUtils.groovy` schedules the flush timer with `scheduleAtFixedRate` at
+a fixed period and does not reset it on flush, so a buffer that never reaches
+`batch_size` waits for the next tick - `batch_timeout = 60` s by default
+(`nextflow.config:43`). With 24 barcodes and `batch_size = 10` the backlog cuts
+into 10 + 10 + 4, and the 4 remainder barcodes wait for a tick before their
+first file is batched.
+
+### Withdrawn on measurement, 2026-10-27
+
+The finding above is accurate about the mechanism and **wrong about the
+remedy**, which this audit recommended as "reset the `batch_timeout` timer on
+each flush". Measured with
+`docs/performance/scripts/batch_timeout_probe.groovy`, a 2 s period and one
+item every 300 ms, count threshold never reached:
+
+| Timer policy | mean wait | max wait |
+|---|---|---|
+| shipped: fixed-rate sampler, never reset | 1025 ms | 1990 ms |
+| recommended: reset on flush | 1262 ms | 2200 ms |
+
+Resetting the clock is worse on both. A fixed-rate sampler already bounds the
+wait at one period and averages half of it, because a pending item only pays
+whatever remains of the current tick; a per-batch deadline makes every batch
+pay the whole period. The original wording ("holds every trailing partial batch
+up to 60 s") also reads as though 60 s were the typical wait, when it is the
+maximum and 30 s is the mean.
+
+What was genuinely wrong there was the docstring, which claimed
+"timeoutSeconds have elapsed since the last flush" - describing neither the
+code nor the better behaviour. It now states the sampler semantics, the
+measured comparison, and that the lever for lower partial-batch latency is a
+smaller `batch_timeout` rather than a different timer policy.
+
+No timing behaviour was changed.
 
 ## F11. A 10-second sleep occupied a shared operator thread during the backlog
 `reasoned` - severity: low - **FIXED 2026-10-27**
@@ -608,10 +636,10 @@ Ordered by expected effect on a 96-barcode late start:
 | 4 | ~~Give NANOPLOT a `maxForks`~~ **done 2026-10-27** as `max_nanoplot_forks`. The index-0 deferral in the original wording was rejected: it would silently drop NanoPlot for any barcode that receives one file all run | F2 | Low |
 | 5 | Default `kraken2_task_memory_gb` in the platform profiles to match the arithmetic their comments already describe | F5 | Medium; it changes admitted concurrency on every run, so measure first |
 | 6 | ~~Replace the `Thread.sleep(10000)` with the daemon-Timer idiom used elsewhere in the same file~~ **done 2026-10-27** | F11 | Low |
-| 7 | Reset the `batch_timeout` timer on each flush | F10 | Low |
+| 7 | ~~Reset the `batch_timeout` timer on each flush~~ **withdrawn 2026-10-27**: measured worse on both mean and maximum wait. The docstring was corrected instead | F10 | - |
 | 8 | ~~Correct `max_concurrent_batches`, `index.json`/`taxid_counts.json` and the `fair` comment in the docs~~ **done 2026-10-27**, plus three wrong defaults and one parameter that never existed | F12, F14, F19 | None |
 | 9 | Extend real-time with the chunking and per-sample QC grouping that batch mode already has, for the start-up backlog only | F7, and the root of F2/F3 | High; this is a design change and wants its own plan |
 
 Item 9 is the structural answer to the question this audit was asked. Items
 1-4 are the ones that change a late-started 96-barcode run most for the least
-risk; items 1, 3, 4, 6 and 8 are done. Item 5 was skipped pending measurement.
+risk; items 1, 3, 4, 6 and 8 are done, and item 7 was withdrawn on measurement. Item 5 was skipped pending measurement.
