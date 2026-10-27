@@ -1,0 +1,33 @@
+nextflow_function {
+
+    name "Test BatchUtils.sampleKeyOf (shared key resolution)"
+    script "tests/lib/batch_utils_functions.nf"
+    function "sampleKeyFallbacks"
+
+    tag "unit"
+    tag "fast"
+
+    // interleaveFilesBySample and CrossBatchInterleaver both resolve keys
+    // through sampleKeyOf, in sequence over one stream, so they cannot
+    // disagree about which sample a file belongs to. A resolver that fails
+    // must not cost a read: the file still has to be emitted, so an
+    // unresolvable id groups as 'unknown' rather than being dropped or given
+    // a group of its own.
+
+    test("a failing or empty resolver yields 'unknown', never null") {
+        when {
+            function {
+                """
+                input[0] = null
+                """
+            }
+        }
+        then {
+            assert function.result.resolved  == "barcode01"
+            assert function.result.throwing  == "unknown"
+            assert function.result.nullKey   == "unknown"
+            assert function.result.emptyKey  == "unknown"
+            assert function.result.noClosure == "unknown"
+        }
+    }
+}

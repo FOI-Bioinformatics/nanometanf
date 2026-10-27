@@ -46,8 +46,8 @@ this case (F7).
 
 ---
 
-## F1. Fairness collapses when the sample id is not the parent directory name
-`measured` - severity: high
+## F1. Fairness collapsed when the sample id was not the parent directory name
+`measured` - severity: high - **FIXED 2026-10-27**
 
 `lib/BatchUtils.groovy:165` and `lib/CrossBatchInterleaver.groovy:41` both
 group by `it?.parent?.name`. `BatchUtils.groovy:166-168` short-circuits to a
@@ -75,11 +75,45 @@ classified are all one barcode, and the last barcode's first result arrives
 after 96% of the backlog. This is a `--sample_regex` layout, or a MinKNOW
 `fastq_pass/` with barcodes in filenames rather than subdirectories.
 
-**Fix shape:** key both interleavers on the resolved sample id rather than
-`parent.name`, by threading the same `InputDetector.extractSampleId` call the
-meta map already uses (`realtime_monitoring/main.nf:525-531`). For the
-per-barcode-directory layout this is a no-op, because rule 1 returns the
-parent name.
+### Fix, 2026-10-27
+
+Both interleavers now take the sample-id resolver as a required parameter and
+resolve through one door, `BatchUtils.sampleKeyOf`:
+
+- `BatchUtils.interleaveFilesByParentDir(files)` became
+  `interleaveFilesBySample(files, sampleKey)`.
+- `CrossBatchInterleaver` takes the same closure in its constructor.
+- `realtime_monitoring/main.nf` defines **one** memoized resolver over
+  `InputDetector.extractSampleId` and uses it for the start-up interleave, the
+  cross-batch interleave and `meta.id`, so the key the ordering is computed on
+  and the key the processes see cannot drift.
+
+There is no parent-directory default. The two keys agree only when the sample
+is a directory, so a default would have reintroduced the defect silently for
+every future caller.
+
+Groups are now also drained in sample-id order rather than in the order
+`groupBy` happened to see the files, so the result no longer depends on how the
+filesystem listed the backlog.
+
+Re-measured on the same 480-file backlog with
+`docs/performance/scripts/realtime_fairness_probe.groovy`, which reports both
+keys in one run:
+
+| Layout | Files before every sample has one result | Samples in first 10 files |
+|---|---|---|
+| `barcodeNN/` subdirectories | 24, was 24 | 10, was 10 |
+| flat, barcode in filename | **24, was 461** | **10, was 1** |
+
+Every file is still emitted exactly once in both layouts. The
+per-barcode-directory layout is unchanged, as predicted: `InputDetector` rule 1
+returns the parent name there, so the new key equals the old one.
+
+Coverage added: the flat-layout collapse, a 12-sample first-round assertion,
+the listing-order independence and the `sampleKeyOf` fallback contract, in
+`tests/lib/batch_utils.nf.test`, `tests/lib/batch_utils_sample_key.nf.test` and
+`tests/lib/cross_batch_interleaver.nf.test`. The existing nine cases are
+unchanged and still pass.
 
 ## F2. The opening burst submits one NanoPlot per barcode
 `read` - severity: high
@@ -407,8 +441,8 @@ Ordered by expected effect on a 96-barcode late start:
 
 | # | Fix | Addresses | Risk |
 |---|---|---|---|
-| 1 | Key both interleavers on the resolved sample id instead of `parent.name` | F1 | Low; a no-op for per-barcode-directory layouts |
-| 2 | Add a realtime fixture with >= 12 barcodes and a test asserting first-result order across them | F13 | None; it is new coverage |
+| 1 | ~~Key both interleavers on the resolved sample id instead of `parent.name`~~ **done 2026-10-27** | F1 | Low; measured a no-op for per-barcode-directory layouts |
+| 2 | Add a realtime fixture with >= 12 barcodes and a test asserting first-result order across them | F13 | None; it is new coverage. Partly done 2026-10-27: the 12-sample first-round assertion is a pure-function test, so the pipeline-level fixture is still missing |
 | 3 | Give SEQKIT_STATS and FASTP_STREAMING `withName` resource overrides matching their real cost | F4 | Low |
 | 4 | Defer each barcode's NanoPlot milestone from index 0 to index 1, and give NANOPLOT a `maxForks` | F2 | Low |
 | 5 | Default `kraken2_task_memory_gb` in the platform profiles to match the arithmetic their comments already describe | F5 | Medium; it changes admitted concurrency on every run, so measure first |
@@ -419,4 +453,4 @@ Ordered by expected effect on a 96-barcode late start:
 
 Item 9 is the structural answer to the question this audit was asked. Items
 1-4 are the ones that change a late-started 96-barcode run most for the least
-risk.
+risk; item 1 is done.
