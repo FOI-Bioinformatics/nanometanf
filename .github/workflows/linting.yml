@@ -35,8 +35,17 @@ jobs:
         # linter aborts with FileNotFoundError before producing a report.
         # Direct install bypasses nf-core/setup-nextflow@v2 Cloudflare
         # 520 failures observed 2026-05-28.
-        env:
-          NXF_VER: "26.04.0"
+        #
+        # Unpinned, matching every other job here. It was pinned to 26.04.0
+        # (the manifest floor), and nf-core 4.2.1 runs `nextflow config -o
+        # json`, which that version does not accept: lint reported "Could not
+        # parse Nextflow config ... Possibly because of a Nextflow version
+        # mismatch?" and the underlying run died with "Cannot invoke method
+        # endsWith() on null object". Reproduced directly on 2026-10-27 --
+        # `nextflow config -o json .` exits 1 on 26.04.0 and 0 on 26.10.4 --
+        # so what is pinned here is the linter's own toolchain, not the floor
+        # the pipeline must parse under, and that floor is asserted by the
+        # manifest rather than by this job.
         run: |
           curl -fsSL get.nextflow.io | bash
           sudo install -m 0755 nextflow /usr/local/bin/nextflow
