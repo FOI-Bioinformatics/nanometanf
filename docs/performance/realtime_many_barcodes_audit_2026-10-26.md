@@ -155,8 +155,8 @@ file submits a QC task before that file can be classified at all. A hard cap on
 the consumer and no cap on the producer is the structural cause: the classifier
 cannot use its 4 slots because QC has already committed the CPU and memory.
 
-## F4. Two QC processes inherit resource labels far above their real cost
-`read` - severity: high
+## F4. Two QC processes inherited resource labels far above their real cost
+`read` - severity: high - **FIXED 2026-10-27**
 
 | Process | Label | Reserves | Source |
 |---|---|---|---|
@@ -171,6 +171,40 @@ time. `withName:'FASTP'` in `conf/base.config:95-99` does not match
 `FASTP_STREAMING` (`withName` is a full-string match), so with
 `--qc_tool fastp` one task at a time saturates a 16 GB ceiling and the whole
 real-time QC stage serialises per file.
+
+### Fix, 2026-10-27
+
+Both got a `withName` block in **`conf/base.config`**, not
+`conf/modules.config`. That is the load-bearing detail: `base.config` is
+included before the profiles and `modules.config` after them, so a default set
+in `base.config` is overridable by a platform profile while one set in
+`modules.config` silently is not. Putting these in `modules.config` would have
+made every profile's `SEQKIT_STATS` block dead code, which is the F4c defect
+this repo already carries for CHOPPER and NANOPLOT.
+
+Each platform profile also gained a `FASTP_STREAMING` block mirroring its
+`FASTP` one. No profile governed the streaming wrapper before, so a
+`-profile field` run on a field laptop was sized by `process_medium` rather
+than by the profile it was given.
+
+Resolved reservations, checked against the include order:
+
+| | SEQKIT_STATS | FASTP_STREAMING |
+|---|---|---|
+| no profile, before | 2 CPU / 12 GB | 6 CPU / 36 GB, clamped to 16 GB |
+| no profile, after | 1 CPU / 2 GB | 4 CPU / 8 GB |
+| `-profile field`, before | 1 CPU / 1 GB | 6 CPU / 36 GB, clamped |
+| `-profile field`, after | 1 CPU / 1 GB | 2 CPU / 2 GB |
+
+`conf/modules.config` sets no resources for either process, so nothing above
+is shadowed.
+
+This is reservation arithmetic, not a measured speedup, and it is what
+schedules rather than what runs. On the audit's reference 11-CPU / 18 GB
+laptop with no profile it is the difference between one concurrent QC task and
+two, and between CHOPPER plus SEQKIT_STATS being co-schedulable (8 + 2 GB) and
+not (8 + 12 GB against 18 GB physical). The 1-in-10 NanoPlot burst (F2) and
+the classifier's own reservation (F5) are untouched by it.
 
 ## F5. With memory mapping on, every fork still reserves the whole database
 `read` - severity: high
@@ -484,7 +518,7 @@ Ordered by expected effect on a 96-barcode late start:
 |---|---|---|---|
 | 1 | ~~Key both interleavers on the resolved sample id instead of `parent.name`~~ **done 2026-10-27** | F1 | Low; measured a no-op for per-barcode-directory layouts |
 | 2 | Add a realtime fixture with >= 12 barcodes and a test asserting first-result order across them | F13 | None; it is new coverage. Partly done 2026-10-27: the 12-sample first-round assertion is a pure-function test, and `tests_are_wired.py` now stops a test file going unrun, but the pipeline-level fixture is still missing and a watchPath test still cannot run in CI |
-| 3 | Give SEQKIT_STATS and FASTP_STREAMING `withName` resource overrides matching their real cost | F4 | Low |
+| 3 | ~~Give SEQKIT_STATS and FASTP_STREAMING `withName` resource overrides matching their real cost~~ **done 2026-10-27** | F4 | Low; set in `base.config` so profiles still override, and the profiles now cover `FASTP_STREAMING` too |
 | 4 | Defer each barcode's NanoPlot milestone from index 0 to index 1, and give NANOPLOT a `maxForks` | F2 | Low |
 | 5 | Default `kraken2_task_memory_gb` in the platform profiles to match the arithmetic their comments already describe | F5 | Medium; it changes admitted concurrency on every run, so measure first |
 | 6 | Replace the `Thread.sleep(10000)` with the daemon-Timer idiom used elsewhere in the same file | F11 | Low |
