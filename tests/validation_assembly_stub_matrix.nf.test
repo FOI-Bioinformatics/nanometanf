@@ -74,7 +74,12 @@ nextflow_pipeline {
                 "the run succeeded without per-read Kraken2 output, so it " +
                 "validated nothing while reporting success"
 
+            // Every channel, because which one carries the refusal is a
+            // race -- see the note in tests/failure_paths.nf.test. On
+            // 2026-10-27 the text reached only stderr.
             def message = (workflow.errorReport ?: '') + '\n' +
+                          (workflow.errorMessage ?: '') + '\n' +
+                          (workflow.stderr?.join('\n') ?: '') + '\n' +
                           (workflow.stdout?.join('\n') ?: '')
             assert message.contains('save_reads_assignment') :
                 "the failure does not name the per-read assignment flag: ${message.take(400)}"
