@@ -80,10 +80,10 @@ marginal.
 Measured 2026-10-27 against two real databases, page cache warmed as
 `KRAKEN2_DB_PRELOAD` warms it:
 
-| database | hash | taxa | marginal/fork, 1 thread | 4 threads |
-|---|---|---|---|---|
-| viral | 619 MB | 27,069 | 54 MB | 139 MB |
-| standard_08gb | 8.0 GB | 50,333 | 54 MB | 149 MB |
+| database      | hash   | taxa   | marginal/fork, 1 thread | 4 threads |
+| ------------- | ------ | ------ | ----------------------- | --------- |
+| viral         | 619 MB | 27,069 | 54 MB                   | 139 MB    |
+| standard_08gb | 8.0 GB | 50,333 | 54 MB                   | 149 MB    |
 
 Flat across a 13x larger index: roughly 50 MB plus 25 MB per thread,
 independent of index size, because the index is shared and the private part is
