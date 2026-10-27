@@ -109,7 +109,21 @@ outdir/kraken2/
 // Scalable streaming architecture (v1.5+)
 max_concurrent_batches   = 4    // ADVISORY (not enforced; see audit P2.9)
 max_classification_forks = 4    // Max parallel Kraken2 jobs (global cap, enforced via process maxForks)
+max_nanoplot_forks       = 2    // Max parallel NanoPlot jobs (global cap)
 ```
+
+> Raising `max_classification_forks` above `max_cpus / 4` does nothing. The
+> per-task CPU request is `max(4, max_cpus / forks)` (`conf/modules.config`),
+> so past that point the tasks ask for more CPU than exists and the executor
+> admits fewer than the cap. Raise `--max_cpus` in the same proportion.
+>
+> `max_nanoplot_forks` exists because NanoPlot's real-time milestone rule fires
+> on each sample's FIRST file, so a run started after sequencing began -- where
+> the backlog delivers every barcode at once -- made one uncapped NanoPlot task
+> runnable per barcode against those barcodes' first classifications (audit
+> F2). Deferring that first milestone instead was rejected: a real-time run
+> never knows which batch is a sample's last, so any barcode receiving a single
+> file all run would get no NanoPlot at all.
 
 > `max_concurrent_batches` is logged for visibility but has no
 > enforcement effect today. Per-barcode backpressure is tracked under
@@ -244,13 +258,38 @@ proves isolation happened and nothing else.
 
 ### Library Utilities (lib/)
 
-| File                   | Purpose                                           |
-| ---------------------- | ------------------------------------------------- |
-| `InputDetector.groovy` | Type-agnostic input detection (FASTQ / directory) |
-| `BatchUtils.groovy`    | Batching utilities using `buffer()` operator      |
-| `WorkflowMain.groovy`  | Main workflow initialization                      |
-| `Utils.groovy`         | General utility functions                         |
-| `NfcoreSchema.groovy`  | Schema validation helpers                         |
+`WorkflowMain.groovy`, `Utils.groovy` and `NfcoreSchema.groovy` were listed
+here and do not exist; nine files that do were missing. Corrected 2026-10-27.
+
+| File                                | Purpose                                           |
+| ----------------------------------- | ------------------------------------------------- |
+| `InputDetector.groovy`              | Type-agnostic input detection; `extractSampleId` is the sample-id authority |
+| `BarcodeUtils.groovy`               | Barcode extracted from a filename, zero-padded    |
+| `BatchUtils.groovy`                 | Count-or-timeout batching, `interleaveFilesBySample`, `sampleKeyOf` |
+| `CrossBatchInterleaver.groovy`      | Deficit round-robin across samples, stateful across batches |
+| `BatchChunkPlanner.groovy`          | Batch mode only: geometric chunking + cross-sample chunk order |
+| `RealtimeIntake.groovy`             | Start-up listing, exclusions, file-age rule, seen-set |
+| `RealtimeResume.groovy`             | Continue into a populated outdir: the processed-input ledger |
+| `CumulativeBatchAccumulator.groovy` | Realtime validation: the whole batch set per key   |
+| `ValidationSnapshotAccumulator.groovy` | Bounded live-aggregation snapshot state         |
+| `AssemblyReadAccumulator.groovy`    | When a sample's read pool is due another assembly  |
+| `KreportTree.groovy`                | Depth-first order and clade resolution for kreports |
+| `WorkflowNanometanf.groovy`         | Workflow initialisation helpers                    |
+
+**Cross-sample fairness is keyed on the resolved sample id, not the parent
+directory.** `interleaveFilesBySample` and `CrossBatchInterleaver` both take
+the key as a required parameter and resolve it through `BatchUtils.sampleKeyOf`;
+`subworkflows/local/realtime_monitoring` builds ONE memoized resolver over
+`InputDetector.extractSampleId` and uses it for both interleavers and for
+`meta.id`, so the order fairness is computed on cannot drift from the id the
+processes see. The two keys agree only when the sample IS a directory:
+`extractSampleId` derives it from the FILENAME for a flat directory with
+`--sample_regex`, for a MinKNOW `fastq_pass/` of barcode-named files, and for
+per-file naming. Keying on the parent there collapsed every file into one group
+and degenerated to a name sort, which is sample-major -- measured at 461 of 480
+files before every sample had a first result, against 24 once keyed on the
+sample id. Do not reintroduce a parent-directory default
+([audit F1](docs/performance/realtime_many_barcodes_audit_2026-10-26.md)).
 
 ---
 
@@ -381,6 +420,25 @@ The test suite is designed to run in stub mode without Docker or external tools.
 - **23 module-internal test files** under `modules/local/*/tests/` -- stub-mode
   unit tests, three of which (output_merger, report_generator, final_aggregator)
   also exercise the real Python algorithm without containers
+- **14 pure-Groovy function suites** under `tests/lib/` -- no Nextflow runtime
+  beyond config loading, no containers, 76 cases. Run them with
+  `nf-test test tests/lib/`
+
+**CI runs an explicit allowlist, so a new test file is silent by default.**
+`.github/workflows/nf-test.yml` names each test file it runs. A file that is
+committed but unnamed is never executed and nothing says so: 41 of 101 files
+were in that state, two of them pure-function suites excluded only because
+their filenames begin with `realtime` (audit F13).
+`tests/lib/tests_are_wired.py` now runs before the suite and FAILS when a test
+file is neither in the allowlist nor in `tests/ci_excluded_tests.txt` with a
+reason code (`watchpath`, `nf-core`, `unverified`). It also fails on a stale
+exclusion, on a path both excluded and referenced, and when it finds nothing to
+check. **When you add a test file, add it to the workflow or record why not.**
+
+A `watchPath` test still cannot run on the ubuntu runner (the commons-io
+monitor thread leaks and the job hangs), so the realtime suite is a local
+development run and `tests/realtime_validation_e2e.nf.test` runs in the macOS
+job instead.
 
 **Required skip flags for pipeline tests:** All pipeline-level tests must include
 `skip_kraken2 = true` and `blast_validation = false` in their params blocks
@@ -522,8 +580,11 @@ Enforced at the schema level via a `oneOf` constraint
 ### Scalable Streaming (v1.5+)
 
 - `--max_concurrent_batches` - Advisory only; not currently enforced (default: 4, see audit P2.9)
-- `--max_classification_forks` - Max parallel Kraken2 jobs (default: 4)
-- `--kraken2_enable_incremental` - Enable scalable streaming architecture
+- `--max_classification_forks` - Max parallel Kraken2 jobs (default: 4). A GLOBAL
+  cap, and inert above `max_cpus / 4` -- see the note under Concurrency Parameters
+- `--max_nanoplot_forks` - Max parallel NanoPlot jobs (default: 2)
+- `--kraken2_enable_incremental` - Enable scalable streaming architecture. A
+  real-time run takes the incremental branch regardless of this flag
 
 ### Runtime metrics (audit V5)
 
@@ -618,12 +679,13 @@ gh pr create --title "Title" --body "Description"
 - **[nf-core Module Maintenance](docs/development/nfcore_module_maintenance.md)** - Local modification tracking
 - **[Real-time Processing](docs/user/realtime_processing.md)** - Advanced real-time guide
 - **[2026-05-29 options-sweep eval](docs/development/eval_2026-05-29_options_sweep.md)** - Benchmark across classifier modes, profiles, fork counts, realtime vs batch
+- **[2026-10-26 real-time capacity audit](docs/performance/realtime_many_barcodes_audit_2026-10-26.md)** - Many barcodes, fast data, and a late start: 19 findings, what was fixed, and one recommendation withdrawn on measurement. Re-runnable probes in [`docs/performance/scripts/`](docs/performance/scripts/)
 - [nf-core guidelines](https://nf-co.re/docs/contributing/guidelines)
 - [Nextflow documentation](https://www.nextflow.io/docs/latest/)
 
 ---
 
-**Last updated:** 2026-05-30
+**Last updated:** 2026-10-27
 **Version:** 1.6.0 (released 2026-08-15)
 **Maintainer:** foi-bioinformatics team (@andreassjodin)
 
