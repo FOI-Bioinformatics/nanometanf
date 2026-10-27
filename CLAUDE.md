@@ -239,42 +239,42 @@ proves isolation happened and nothing else.
 
 ### Key Modules (modules/local/)
 
-| Module                             | Purpose                                      |
-| ---------------------------------- | -------------------------------------------- |
-| `kraken2_incremental_classifier/`  | Classify only NEW reads per batch            |
+| Module                             | Purpose                                       |
+| ---------------------------------- | --------------------------------------------- |
+| `kraken2_incremental_classifier/`  | Classify only NEW reads per batch             |
 | `kraken2_output_merger/`           | Append-only batch storage, batch-id filenames |
-| `kraken2_report_generator/`        | Per-batch taxid counts                       |
-| `kraken2_final_aggregator/`        | End-of-session concatenation                 |
-| `emit_empty_kraken2_report/`       | Placeholder report for samples with 0 reads  |
-| `fastp_streaming/`                 | FASTP wrapper for multi-file streaming input |
-| `extract_reads_by_taxid/`          | Extract reads for validation                 |
-| `blastn_validation/`               | BLAST validation                             |
-| `minimap2_validation/`             | Fast minimap2 validation                     |
-| `canonical_classification_writer/` | Kraken2 report to canonical TSV              |
-| `canonical_qc_writer/`             | FASTP/SeqKit metrics to canonical TSV        |
-| `canonical_validation_writer/`     | BLAST/minimap2 results to canonical TSV      |
-| `canonical_assembly_writer/`       | Assembly stats to canonical TSV              |
-| `manifest_writer/`                 | Generates \_manifest.json for canonical dir  |
+| `kraken2_report_generator/`        | Per-batch taxid counts                        |
+| `kraken2_final_aggregator/`        | End-of-session concatenation                  |
+| `emit_empty_kraken2_report/`       | Placeholder report for samples with 0 reads   |
+| `fastp_streaming/`                 | FASTP wrapper for multi-file streaming input  |
+| `extract_reads_by_taxid/`          | Extract reads for validation                  |
+| `blastn_validation/`               | BLAST validation                              |
+| `minimap2_validation/`             | Fast minimap2 validation                      |
+| `canonical_classification_writer/` | Kraken2 report to canonical TSV               |
+| `canonical_qc_writer/`             | FASTP/SeqKit metrics to canonical TSV         |
+| `canonical_validation_writer/`     | BLAST/minimap2 results to canonical TSV       |
+| `canonical_assembly_writer/`       | Assembly stats to canonical TSV               |
+| `manifest_writer/`                 | Generates \_manifest.json for canonical dir   |
 
 ### Library Utilities (lib/)
 
 `WorkflowMain.groovy`, `Utils.groovy` and `NfcoreSchema.groovy` were listed
 here and do not exist; nine files that do were missing. Corrected 2026-10-27.
 
-| File                                | Purpose                                           |
-| ----------------------------------- | ------------------------------------------------- |
-| `InputDetector.groovy`              | Type-agnostic input detection; `extractSampleId` is the sample-id authority |
-| `BarcodeUtils.groovy`               | Barcode extracted from a filename, zero-padded    |
-| `BatchUtils.groovy`                 | Count-or-timeout batching, `interleaveFilesBySample`, `sampleKeyOf` |
-| `CrossBatchInterleaver.groovy`      | Deficit round-robin across samples, stateful across batches |
-| `BatchChunkPlanner.groovy`          | Batch mode only: geometric chunking + cross-sample chunk order |
-| `RealtimeIntake.groovy`             | Start-up listing, exclusions, file-age rule, seen-set |
-| `RealtimeResume.groovy`             | Continue into a populated outdir: the processed-input ledger |
-| `CumulativeBatchAccumulator.groovy` | Realtime validation: the whole batch set per key   |
-| `ValidationSnapshotAccumulator.groovy` | Bounded live-aggregation snapshot state         |
-| `AssemblyReadAccumulator.groovy`    | When a sample's read pool is due another assembly  |
-| `KreportTree.groovy`                | Depth-first order and clade resolution for kreports |
-| `WorkflowNanometanf.groovy`         | Workflow initialisation helpers                    |
+| File                                   | Purpose                                                                     |
+| -------------------------------------- | --------------------------------------------------------------------------- |
+| `InputDetector.groovy`                 | Type-agnostic input detection; `extractSampleId` is the sample-id authority |
+| `BarcodeUtils.groovy`                  | Barcode extracted from a filename, zero-padded                              |
+| `BatchUtils.groovy`                    | Count-or-timeout batching, `interleaveFilesBySample`, `sampleKeyOf`         |
+| `CrossBatchInterleaver.groovy`         | Deficit round-robin across samples, stateful across batches                 |
+| `BatchChunkPlanner.groovy`             | Batch mode only: geometric chunking + cross-sample chunk order              |
+| `RealtimeIntake.groovy`                | Start-up listing, exclusions, file-age rule, seen-set                       |
+| `RealtimeResume.groovy`                | Continue into a populated outdir: the processed-input ledger                |
+| `CumulativeBatchAccumulator.groovy`    | Realtime validation: the whole batch set per key                            |
+| `ValidationSnapshotAccumulator.groovy` | Bounded live-aggregation snapshot state                                     |
+| `AssemblyReadAccumulator.groovy`       | When a sample's read pool is due another assembly                           |
+| `KreportTree.groovy`                   | Depth-first order and clade resolution for kreports                         |
+| `WorkflowNanometanf.groovy`            | Workflow initialisation helpers                                             |
 
 **Cross-sample fairness is keyed on the resolved sample id, not the parent
 directory.** `interleaveFilesBySample` and `CrossBatchInterleaver` both take
