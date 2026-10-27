@@ -1,0 +1,146 @@
+// Twelve barcodes through chunked batch mode, against the 12-barcode backlog
+// fixture.
+//
+// Audit F13 (docs/performance/realtime_many_barcodes_audit_2026-10-26.md)
+// found that no fixture in the suite exceeded three barcodes, and that the
+// only 12- and 24-plex tests were stub runs asserting a task count. A field
+// run is 12 to 96 barcodes, so the shape most likely to break was the one
+// shape never driven end to end.
+//
+// This is the half of F13 that can run on the GitHub ubuntu runner: batch
+// mode reaches the same BatchChunkPlanner the real-time backlog now uses
+// (F7), so the plan, the cross-sample chunk order and the per-sample fan-out
+// are all exercised at 12 barcodes without Channel.watchPath. The real-time
+// half is tests/realtime_backlog_12_barcodes.nf.test, which cannot run here.
+//
+// Stub mode, deliberately: under -stub CHOPPER emits an empty FASTQ and
+// EMIT_EMPTY_KRAKEN2_REPORT stands in for the classification chain, so the
+// per-batch reports a real run writes are not available to assert (see the
+// note at the head of tests/batch_chunking_structure.nf.test, which pins that
+// contract on a real database at two barcodes). What stub mode does carry is
+// the plan file and the task fan-out, and those are what change with the
+// barcode count.
+nextflow_pipeline {
+
+    name "Twelve barcodes: the chunk plan and the QC fan-out"
+    script "../main.nf"
+
+    tag "pipeline"
+    tag "scaling"
+    tag "chunking"
+    tag "stub"
+    tag "core"
+
+    test("the plan names all twelve barcodes, and QC runs once per chunk") {
+        options "-stub"
+        when {
+            params {
+                input = false
+                barcode_input_dir = "$projectDir/tests/fixtures/barcode_backlog_12"
+                outdir = "$outputDir"
+                realtime_mode = false
+                skip_kraken2 = true
+                blast_validation = false
+                skip_nanoplot = true
+                skip_multiqc = true
+                batch_chunking = true
+                batch_first_chunk_files = 1
+                batch_chunk_growth = 2.0
+                max_cpus = 2
+                max_memory = '4.GB'
+                max_time = '15.min'
+            }
+        }
+        then {
+            // The software-versions artifact is written on every path
+            // (nf-core lint nf_test_content). It is the mqc file here: the
+            // bare pipeline_info/versions.yml that other tests assert appears
+            // alongside it only on a run that classifies, and these two cases
+            // set skip_kraken2 so the fan-out under test is QC's alone.
+            assert path("$outputDir/pipeline_info/nanometanf_software_mqc_versions.yml").exists()
+
+            def plan_file = new File("${outputDir}/pipeline_info/batch_chunk_plan.json")
+            assert plan_file.exists() : "no batch_chunk_plan.json written"
+            def plan = new groovy.json.JsonSlurper().parse(plan_file)
+
+            def names = workflow.trace.tasks().collect { it.name }.join(' ')
+            def qc = workflow.trace.tasks().findAll {
+                it.name.contains('CHOPPER') || it.name.contains('FASTP_STREAMING')
+            }
+
+            assertAll(
+                { assert workflow.success },
+
+                // Twelve samples, each with three files planned as chunks of
+                // 1 and 2. The dashboard reads this file to say which
+                // barcodes are still preliminary, so a sample missing from it
+                // is a barcode the operator is never told about.
+                { assert plan.size() == 12 :
+                      "plan names ${plan.size()} sample(s), expected 12: ${plan.keySet()}" },
+                { (1..12).each { n ->
+                      def bc = String.format('barcode%02d', n)
+                      assert plan[bc] != null : "plan is missing ${bc}"
+                      assert plan[bc].files == 3 : "${bc}: plan says ${plan[bc].files} files, fixture has 3"
+                      assert plan[bc].chunks == 2 : "${bc}: plan says ${plan[bc].chunks} chunks, expected 2"
+                  } },
+
+                // 36 files become 24 QC tasks. A per-file run is 36, so this
+                // number distinguishes chunked from unchunked rather than
+                // merely being non-zero.
+                { assert qc.size() == 24 :
+                      "expected 24 chunked QC tasks for 36 files, got ${qc.size()}" },
+
+                // Every barcode reaches QC. The fairness key (F1) and the
+                // cross-sample chunk order are both capable of dropping a
+                // sample into the tail of the run; at two barcodes that is
+                // invisible, which is why this fixture exists.
+                { (1..12).each { n ->
+                      def bc = String.format('barcode%02d', n)
+                      assert names.contains(bc) : "${bc} never reached a task: ${names.take(600)}"
+                  } }
+            )
+        }
+    }
+
+    test("chunking off keeps one QC task per sample") {
+        // The control, and the direction is worth stating: unchunked batch
+        // mode hands a sample's whole file list to one QC task, so 36 files
+        // across 12 barcodes are 12 tasks. Chunking raises that to 24 on
+        // purpose -- it buys a first result per barcode after one round at
+        // the cost of a second task per sample. (One task per FILE, 36, is
+        // what the real-time path does with chunking off; that number is
+        // pinned in tests/realtime_backlog_12_barcodes.nf.test.)
+        //
+        // Without this case the 24 above could be a count this fixture
+        // happens to produce for another reason.
+        options "-stub"
+        when {
+            params {
+                input = false
+                barcode_input_dir = "$projectDir/tests/fixtures/barcode_backlog_12"
+                outdir = "$outputDir"
+                realtime_mode = false
+                skip_kraken2 = true
+                blast_validation = false
+                skip_nanoplot = true
+                skip_multiqc = true
+                batch_chunking = false
+                max_cpus = 2
+                max_memory = '4.GB'
+                max_time = '15.min'
+            }
+        }
+        then {
+            assert path("$outputDir/pipeline_info/nanometanf_software_mqc_versions.yml").exists()
+            def qc = workflow.trace.tasks().findAll {
+                it.name.contains('CHOPPER') || it.name.contains('FASTP_STREAMING')
+            }
+            assertAll(
+                { assert workflow.success },
+                { assert !new File("${outputDir}/pipeline_info/batch_chunk_plan.json").exists() },
+                { assert qc.size() == 12 :
+                      "expected 12 per-sample QC tasks, got ${qc.size()}" }
+            )
+        }
+    }
+}
