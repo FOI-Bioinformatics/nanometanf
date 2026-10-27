@@ -286,7 +286,14 @@ jobs:
     #      Here the expected name is derived independently and compared to
     #      what Nextflow actually produces.
     name: Singularity profile and image cache naming
-    runs-on: ubuntu-latest
+    # Pinned, where every other job here rides ubuntu-latest: that label
+    # became ubuntu-26.04 in October 2026, and apptainer's published .deb
+    # depends on libfuse3-3, which 26.04 does not carry -- the install step
+    # ends in "apptainer : Depends: libfuse3-3 (>= 3.2.3) but it is not
+    # installable" before any assertion in this job runs. 24.04 is where
+    # apptainer 1.3.6 installs, and the job's subject is the cache FILENAME
+    # Nextflow derives, which the host distribution does not affect.
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
 
