@@ -650,6 +650,14 @@
                     "fa_icon": "fas fa-layer-group",
                     "help_text": "A run started after sequencing began finds a backlog, and a backlog is a batch-shaped workload: every file is present at once, so one task per file is the worst granularity available -- each classifier task pays a database load for a single file and nothing bounds the task count. When enabled the start-up listing is planned as geometric chunks per sample, ordered so every sample's chunk 0 is classified before any sample's chunk 1, using the same planner batch mode uses. The live watcher stream is unaffected and stays per file. Ignored when --max_files is set, because that cap counts files while a chunk is a single emission. Chunk shape comes from batch_first_chunk_files and batch_chunk_growth."
                 },
+                "max_qc_forks": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 64,
+                    "description": "Maximum parallel read-filter and FastQC jobs (global cap). Unset matches max_classification_forks.",
+                    "fa_icon": "fas fa-code-branch",
+                    "help_text": "QC sits upstream of classification, so on a start-up backlog every file becomes a runnable QC task before any file can be classified. The classifier has had a cap since v1.5 and QC had none, so the classifier could not use its slots: QC had already committed the CPU and was ahead of it in the pending queue (audit F3). Unset, the cap is max_classification_forks, because QC is a one-to-one producer for the classifier and more QC in flight than it can consume only displaces it. QC is left uncapped when --skip_kraken2 is set, where there is no consumer to protect. Inert on the local executor once the cap exceeds max_cpus divided by the task's own CPU request (4 by default, 6 under the server profile), since past that point the executor admits fewer than the cap anyway."
+                },
                 "max_nanoplot_forks": {
                     "type": "integer",
                     "default": 2,
