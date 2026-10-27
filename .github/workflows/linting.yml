@@ -43,7 +43,25 @@ jobs:
           nextflow -v
 
       - name: Install nf-core tools
-        run: pip install "nf-core==3.5.2"
+        # Was pinned to ==3.5.2 because `nf-core pipelines lint` crashed on
+        # 4.0.2 inside nf_core/pipelines/rocrate.py. Moved to >=4.2.1 on
+        # 2026-10-27. Note what was and was not verified: the crash could NOT
+        # be reproduced or cleared from the cloud audit environment, because
+        # lint there fails earlier on network policy -- it fetches
+        # https://nf-co.re/pipelines.json and resolves the nf-schema plugin
+        # through https://registry.nextflow.io, and both hosts are denied, so
+        # the traceback is a proxy 403 rather than the upstream bug. On a
+        # GitHub runner both hosts are reachable, so this job is the first
+        # real test of 4.2.1 against this pipeline.
+        #
+        # If it fails in rocrate.py again, that is the upstream bug still
+        # present and the remedy is to pin the last known-good version rather
+        # than to disable the job. `.nf-core.yml`'s nf_core_version stays at
+        # 3.5.2 deliberately: that field records the template version this
+        # pipeline was last synced to, not which tool to run, and bumping it
+        # without `nf-core pipelines sync` would make lint compare against a
+        # template this repo has never been aligned with.
+        run: pip install "nf-core>=4.2.1"
 
       - name: Run nf-core pipelines lint
         run: nf-core pipelines lint --dir . --markdown lint_results.md
