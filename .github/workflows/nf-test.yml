@@ -138,6 +138,7 @@ jobs:
             tests/input_scanner.nf.test \
             tests/main_workflow.nf.test \
             tests/multiplex_scaling.nf.test \
+            tests/multiplex_12_batch_chunking.nf.test \
             tests/nanoseq_test.nf.test \
             tests/parameter_validation.nf.test \
             tests/qc_tool_integration.nf.test \
@@ -392,7 +393,24 @@ jobs:
           nextflow -v
 
       - name: Render config for profile
-        run: nextflow config -profile ${{ matrix.profile }} > /dev/null
+        run: nextflow config -profile ${{ matrix.profile }} > rendered.config
+
+      - name: The QC cap renders as the classifier's cap
+        # max_qc_forks is derived: unset, the read filter and FastQC take
+        # max_classification_forks, which each profile sets to a different
+        # number (audit F3). A derivation that silently stops matching is the
+        # inert-option class this repository keeps finding, and the config is
+        # already rendered here, so assert it rather than trust it. Every one
+        # of these five selectors must print the same maxForks for the profile.
+        run: |
+          caps=$(awk '/^ *withName/ { sel = $0 } /maxForks/ { print sel " " $0 }' rendered.config \
+            | grep -E 'CHOPPER|FASTQC|FILTLONG|FASTP_STREAMING|KRAKEN2_INCREMENTAL_CLASSIFIER' \
+            | awk '{ print $NF }' | sort -u)
+          echo "rendered caps: $(echo $caps)"
+          if [ "$(printf '%s\n' "$caps" | grep -c .)" -ne 1 ]; then
+            echo "::error::QC and classifier maxForks disagree under -profile ${{ matrix.profile }}: $(echo $caps)"
+            exit 1
+          fi
 
       - name: Stub-run pipeline under profile
         # Booleans go via -params-file rather than CLI flags so nf-schema

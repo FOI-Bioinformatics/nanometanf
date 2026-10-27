@@ -1,0 +1,144 @@
+// Twelve barcodes, every file already on disk when the run starts: the shape
+// a field run has whenever the operator opens the dashboard after sequencing
+// began.
+//
+// Audit F13 (docs/performance/realtime_many_barcodes_audit_2026-10-26.md)
+// listed four gaps, and this file closes the two that need a real-time run:
+//
+//   - no real-time fixture exceeded three barcodes, so the fairness key (F1)
+//     and the opening NanoPlot burst (F2) were both invisible to the suite --
+//     at two barcodes a sample-major order and a fair one look alike;
+//   - `enable_realtime_stats` defaults to true and conf/production.config
+//     sets it true, yet every real-time test that classified anything set it
+//     false, and the one test that enabled it skipped Kraken2. The default
+//     production combination was never run. It is run here.
+//
+// It cannot run on the GitHub ubuntu runner: Channel.watchPath leaks the
+// commons-io FileAlterationMonitor thread and hangs the job
+// (docs/upstream-issues/26-watchpath-cleanup-hang.md), so the file is listed
+// in tests/ci_excluded_tests.txt with reason `watchpath`. The batch-mode half
+// of the same fixture runs in CI as tests/multiplex_12_batch_chunking.nf.test.
+//
+// Bounded by realtime_timeout_minutes rather than max_files: that cap is
+// applied by .take() on the live stream, where a chunk is a single emission,
+// so setting it would silently disable backlog chunking (audit F7) and change
+// what the counts below mean.
+nextflow_pipeline {
+
+    name "A twelve-barcode start-up backlog is chunked and no barcode is starved"
+    script "../main.nf"
+
+    tag "pipeline"
+    tag "integration"
+    tag "realtime"
+    tag "chunking"
+    tag "scaling"
+    tag "stub"
+
+    test("every barcode is QC'd, with realtime stats on and Kraken2 enabled") {
+        options "-stub"
+        when {
+            params {
+                input = false
+                realtime_mode = true
+                nanopore_output_dir = "$projectDir/tests/fixtures/barcode_backlog_12"
+                outdir = "$outputDir"
+                classifier = 'kraken2'
+                kraken2_db = "$projectDir/tests/fixtures/kraken2_db"
+                realtime_backlog_chunking = true
+                batch_first_chunk_files = 1
+                batch_chunk_growth = 2.0
+                realtime_timeout_minutes = 1
+                realtime_processing_grace_period = 1
+                blast_validation = false
+                skip_nanoplot = true
+                // The production default, and the point of this case. Every
+                // other real-time test that classifies sets this false.
+                enable_realtime_stats = true
+                max_cpus = 2
+                max_memory = '4.GB'
+                max_time = '15.min'
+            }
+        }
+        then {
+            def names = workflow.trace.tasks().collect { it.name }.join(' ')
+            def qc = workflow.trace.tasks().findAll {
+                it.name.contains('CHOPPER') || it.name.contains('FASTP_STREAMING')
+            }
+            def err = (workflow.errorReport ?: '') + '\n' +
+                      (workflow.errorMessage ?: '') + '\n' +
+                      (workflow.stderr?.join('\n') ?: '') + '\n' +
+                      (workflow.stdout?.join('\n') ?: '')
+
+            // The software-versions artifact is written on every path
+            // (nf-core lint nf_test_content).
+            assert path("$outputDir/pipeline_info/versions.yml").exists()
+
+            assertAll(
+                // A local closure invoked as `name(...)` rather than
+                // `name.call(...)` fails the whole script under the strict v2
+                // parser, and that is how this branch broke the pipeline twice
+                // (audit F7, "A compilation regression found by running it").
+                { assert !err.contains('is not defined') :
+                      "the strict v2 parser rejected a closure invocation: ${err.take(400)}" },
+                { assert !err.contains('MissingMethodException') },
+                { assert !err.contains('Invalid method invocation `call`') },
+                { assert workflow.success },
+
+                // 36 backlog files across 12 barcodes become 24 chunks: with
+                // batch_first_chunk_files = 1 and growth 2.0 each sample is
+                // planned as chunks of 1 and 2.
+                { assert qc.size() == 24 :
+                      "expected 24 chunked QC tasks for 36 backlog files, got ${qc.size()}" },
+
+                // No barcode is starved. This is the assertion the suite had
+                // nowhere at any level: the chunk order is round 0 of every
+                // sample before round 1 of any, so twelve barcodes all reach
+                // QC rather than the first few taking the whole run.
+                { (1..12).each { n ->
+                      def bc = String.format('barcode%02d', n)
+                      assert names.contains(bc) :
+                          "${bc} never reached a task: ${names.take(800)}"
+                  } }
+            )
+        }
+    }
+
+    test("chunking off is one task per file") {
+        // The control, and the number that makes the case above mean
+        // something: without chunking a real-time backlog is one QC task per
+        // FILE, 36 of them, each followed by its own classifier task paying
+        // its own database load (audit F5).
+        options "-stub"
+        when {
+            params {
+                input = false
+                realtime_mode = true
+                nanopore_output_dir = "$projectDir/tests/fixtures/barcode_backlog_12"
+                outdir = "$outputDir"
+                classifier = 'kraken2'
+                kraken2_db = "$projectDir/tests/fixtures/kraken2_db"
+                realtime_backlog_chunking = false
+                realtime_timeout_minutes = 1
+                realtime_processing_grace_period = 1
+                blast_validation = false
+                skip_nanoplot = true
+                enable_realtime_stats = true
+                max_cpus = 2
+                max_memory = '4.GB'
+                max_time = '15.min'
+            }
+        }
+        then {
+            assert path("$outputDir/pipeline_info/versions.yml").exists()
+            def qc = workflow.trace.tasks().findAll {
+                it.name.contains('CHOPPER') || it.name.contains('FASTP_STREAMING')
+            }
+            assertAll(
+                { assert workflow.success },
+                { assert qc.size() == 36 :
+                      "expected 36 per-file QC tasks, got ${qc.size()}" }
+            )
+        }
+    }
+}

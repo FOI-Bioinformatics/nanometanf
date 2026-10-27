@@ -26,6 +26,7 @@ tests/realtime_statistics_modules.nf.test                                   watc
 tests/realtime_timeout_exit_regression.nf.test                              watchpath
 tests/field_profile_paths.nf.test                                           watchpath sets realtime_mode = true
 tests/realtime_backlog_chunking.nf.test                                     watchpath verified locally 2026-10-27; see the audit's F7 section
+tests/realtime_backlog_12_barcodes.nf.test                                  watchpath verified locally 2026-10-27, 2 cases in 285 s; audit F13
 subworkflows/local/realtime_monitoring/tests/main.nf.test                   watchpath
 subworkflows/local/taxonomic_classification/tests/realtime_cumulative_emit.nf.test  watchpath run manually against a real Kraken2 DB
 
