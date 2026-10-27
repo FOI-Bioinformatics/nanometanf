@@ -110,6 +110,7 @@ outdir/kraken2/
 max_concurrent_batches   = 4    // ADVISORY (not enforced; see audit P2.9)
 max_classification_forks = 4    // Max parallel Kraken2 jobs (global cap, enforced via process maxForks)
 max_nanoplot_forks       = 2    // Max parallel NanoPlot jobs (global cap)
+max_qc_forks             = null // Max parallel read-filter/FastQC jobs; null = match max_classification_forks
 ```
 
 > Raising `max_classification_forks` above `max_cpus / 4` does nothing. The
@@ -124,6 +125,21 @@ max_nanoplot_forks       = 2    // Max parallel NanoPlot jobs (global cap)
 > F2). Deferring that first milestone instead was rejected: a real-time run
 > never knows which batch is a sample's last, so any barcode receiving a single
 > file all run would get no NanoPlot at all.
+
+> `max_qc_forks` caps the read filter (CHOPPER, FASTP_STREAMING, FILTLONG) and
+> FASTQC. QC is UPSTREAM of classification, so on a start-up backlog every file
+> becomes a runnable QC task before any file can be classified: the classifier
+> was capped and its producer was not, so a classifier task became runnable
+> into a queue already holding every remaining QC task (audit F3). Unset, the
+> cap is `max_classification_forks` -- a QC task produces exactly one input for
+> one classifier task, so more QC in flight cannot raise classification
+> throughput and can only displace it. QC is left UNCAPPED under
+> `--skip_kraken2`, where there is no consumer to protect, and `SEQKIT_STATS`
+> is never capped: it asks 1 CPU and its per-batch output is the QC figure the
+> dashboard watches during a run. Like `max_classification_forks` the cap is
+> inert once it exceeds `max_cpus` divided by the task's own CPU request (4
+> by default, 6 under the `server` profile), and inert altogether on a 2-CPU
+> host.
 
 > `max_concurrent_batches` is logged for visibility but has no
 > enforcement effect today. Per-barcode backpressure is tracked under
@@ -415,14 +431,29 @@ The test suite is designed to run in stub mode without Docker or external tools.
 
 **Test structure:**
 
-- **59 pipeline-level test functions** under `tests/*.nf.test` -- smoke tests,
-  scaling stubs, parameter validation, and the V4 ifEmpty regression cover
-- **23 module-internal test files** under `modules/local/*/tests/` -- stub-mode
+- **76 pipeline-level test functions** across 27 `tests/*.nf.test` files --
+  smoke tests, scaling stubs, parameter validation, the V4 ifEmpty regression
+  cover, and the 12-barcode backlog pair below
+- **29 module-internal test files** under `modules/local/*/tests/` -- stub-mode
   unit tests, three of which (output_merger, report_generator, final_aggregator)
   also exercise the real Python algorithm without containers
-- **14 pure-Groovy function suites** under `tests/lib/` -- no Nextflow runtime
-  beyond config loading, no containers, 76 cases. Run them with
+- **15 pure-Groovy function suites** under `tests/lib/` -- no Nextflow runtime
+  beyond config loading, no containers, 80 cases. Run them with
   `nf-test test tests/lib/`
+
+**Twelve barcodes is the smallest fixture that can show a fairness defect.**
+`tests/fixtures/barcode_backlog_12` is 12 barcodes x 3 files, all present
+before the run starts, generated reproducibly by
+`tests/fixtures/generate_fixtures.py --fixtures barcode_backlog_12` (seeded,
+`mtime=0`, 12 kB). It is driven from both sides, because a watchPath test
+cannot run on the ubuntu runner: `tests/multiplex_12_batch_chunking.nf.test`
+in CI and `tests/realtime_backlog_12_barcodes.nf.test` locally. The three task
+counts they pin are the three granularities a 36-file backlog can get -- 12
+(one per sample, unchunked batch), 24 (chunked, either mode), 36 (one per
+file, the real-time stream with chunking off) -- so a change that collapses
+one into another is visible. Before them nothing above three barcodes ran at
+any level, and the production default `enable_realtime_stats = true` had never
+run beside classification (audit F13).
 
 **CI runs an explicit allowlist, so a new test file is silent by default.**
 `.github/workflows/nf-test.yml` names each test file it runs. A file that is
@@ -583,6 +614,9 @@ Enforced at the schema level via a `oneOf` constraint
 - `--max_classification_forks` - Max parallel Kraken2 jobs (default: 4). A GLOBAL
   cap, and inert above `max_cpus / 4` -- see the note under Concurrency Parameters
 - `--max_nanoplot_forks` - Max parallel NanoPlot jobs (default: 2)
+- `--max_qc_forks` - Max parallel read-filter/FastQC jobs. Unset matches
+  `max_classification_forks`; uncapped under `--skip_kraken2` -- see the note
+  under Concurrency Parameters
 - `--kraken2_enable_incremental` - Enable scalable streaming architecture. A
   real-time run takes the incremental branch regardless of this flag
 

@@ -42,6 +42,24 @@ and its re-runnable probes in `docs/performance/scripts/`.
 - `max_nanoplot_forks` (default 2): NanoPlot's milestone rule fires on each
   sample's first file, so a late-started backlog made one uncapped task
   runnable per barcode against those barcodes' first classifications.
+- `max_qc_forks`: the read filter (CHOPPER, FASTP_STREAMING, FILTLONG) and
+  FastQC now carry a `maxForks`. QC sits upstream of classification, so on a
+  backlog every file became a runnable QC task before any file could be
+  classified -- the classifier was capped since v1.5 and its producer was not,
+  so a classifier task became runnable into a queue already holding every
+  remaining QC task. Unset it matches `max_classification_forks` (a QC task
+  produces exactly one input for one classifier task), and QC stays uncapped
+  under `--skip_kraken2`, where there is no consumer to protect. Inert on a
+  small host: one 4-CPU task is already all a 2-CPU executor admits.
+- `tests/fixtures/barcode_backlog_12` and the two tests that drive it: 12
+  barcodes x 3 files, all present before the run starts, which is the shape no
+  fixture in the suite had (the previous maximum was three barcodes, so a
+  sample-major order and a fair one looked alike). The batch-mode case runs in
+  CI; the real-time case, which also covers the production default
+  `enable_realtime_stats = true` beside classification for the first time, is
+  verified locally because a watchPath test hangs the ubuntu runner. Between
+  them they pin the three granularities a 36-file backlog can get: 12 tasks
+  (one per sample), 24 (chunked) and 36 (one per file).
 - `tests/lib/tests_are_wired.py`, run before the suite: CI runs an explicit
   allowlist, so a committed-but-unlisted test file never ran and nothing said
   so. 41 of 101 files were in that state, two of them pure-function suites
@@ -64,8 +82,19 @@ and its re-runnable probes in `docs/performance/scripts/`.
 - The start-up re-sweep runs on a daemon Timer instead of a `Thread.sleep`
   inside a `flatMap`, which held a shared operator-pool thread for ten seconds
   while the whole backlog flowed through the operator chain.
-- The nf-core lint pin moves from `==3.5.2` to `>=4.2.1`. Whether 4.2.1 clears
-  the `rocrate.py` crash that motivated the pin is **untested**.
+- The nf-core lint pin moves from `==3.5.2` to `>=4.2.1`, and 4.2.1 does clear
+  the `rocrate.py` crash that motivated the pin: lint runs to completion and
+  passes. Two consequences came with it. The lint job's own `NXF_VER` pin is
+  gone, because 4.2.1 runs `nextflow config -o json` and 26.04.0 rejects it
+  (exit 1 against 0 on 26.10.4) -- that pin was the linter's toolchain, not the
+  floor the pipeline parses under, which the manifest asserts. And
+  `conf/containers_conda_lock_files_{amd64,arm64}.config` are regenerated:
+  3.5.2's generator wrote the conda-lock file to `container =` where 4.2.1
+  writes `conda =`. Nothing includes either file, so no run was affected.
+- The `Singularity profile and image cache naming` job is pinned to
+  `ubuntu-24.04`. `ubuntu-latest` became 26.04 in October 2026 and apptainer's
+  published .deb depends on `libfuse3-3`, which 26.04 does not carry, so the
+  job failed at `apt` before any assertion ran.
 
 ### Documentation
 
@@ -78,10 +107,14 @@ and its re-runnable probes in `docs/performance/scripts/`.
 - `report_write_interval` is described by measurement: the rebuild it thins is
   76-79% of a section serialised across all barcodes, about 14 s for 24
   barcodes at 3,000 taxa.
-- Two findings were withdrawn or revised on measurement rather than
+- Three findings were withdrawn, revised or closed on measurement rather than
   implemented: resetting the batch-timeout timer measured worse on both mean
-  and maximum wait, and the serialised dashboard write is tens of seconds
-  across a run rather than the ceiling the audit first claimed.
+  and maximum wait; the serialised dashboard write is tens of seconds across a
+  run rather than the ceiling the audit first claimed; and per-sample QC
+  grouping in real time turned out to have almost nothing left to group --
+  FastQC does not run in real time by default, NanoPlot's milestone rule
+  already yields one task per sample at the default interval, and SEQKIT_STATS
+  must stay per batch because its output is a contract nanometa_live reads.
 
 ## [1.11.0] - 2026-09-09
 

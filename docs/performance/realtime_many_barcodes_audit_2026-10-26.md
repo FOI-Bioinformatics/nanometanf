@@ -44,6 +44,13 @@ Finally, a **late start is a batch-shaped workload handed to the real-time
 path**, which deliberately has none of batch mode's mitigations for exactly
 this case (F7).
 
+Every finding above is now fixed, withdrawn or closed on measurement; the
+tables under each one say which, and "Recommended fixes" at the foot of this
+document is the index. What the fixes did not settle is listed there too, and
+it is mostly coverage rather than behaviour: no 24- or 96-barcode case, and no
+real-database real-time run, because a watchPath test cannot run on the GitHub
+ubuntu runner.
+
 ---
 
 ## F1. Fairness collapsed when the sample id was not the parent directory name
@@ -170,7 +177,7 @@ uncapped.
 
 ## F3. QC is uncapped; the classifier is capped
 
-`read` - severity: high
+`read` - severity: high - **FIXED 2026-10-27**
 
 `maxForks` appears in `conf/modules.config` only at `:337` (incremental
 classifier), `:378` (output merger), `:411` (report generator), `:621/:637/:663`
@@ -182,6 +189,59 @@ QC sits upstream of classification in the DAG, so on a backlog every arriving
 file submits a QC task before that file can be classified at all. A hard cap on
 the consumer and no cap on the producer is the structural cause: the classifier
 cannot use its 4 slots because QC has already committed the CPU and memory.
+
+### Fix, 2026-10-27: `max_qc_forks`
+
+The read filter (CHOPPER, FASTP_STREAMING, FILTLONG) and FASTQC now carry a
+`maxForks`, from `params.max_qc_forks`. Unset it is the classifier's own fork
+count, `max_classification_forks`, which is the same idiom
+`conf/modules.config` already uses for the output merger and the report
+generator ("Match classifier forks"). QC is left **uncapped when
+`--skip_kraken2` is set**: a cap exists to stop QC crowding out the classifier,
+and with no classifier there is nothing to crowd out -- that exemption keeps a
+QC-only run on a large host from being throttled to a number chosen for a
+consumer it does not have.
+
+Why the producer's fork count should match the consumer's, rather than be
+larger: a QC task produces exactly one input for one classifier task. More QC
+tasks in flight than the classifier can consume cannot raise classification
+throughput; it can only take CPU the classifier would have used, and -- the
+part that makes this a correctness-shaped problem rather than a tuning one --
+it puts those QC tasks **ahead of the classifier in the pending queue**. A
+classifier task becomes runnable only when its QC task finishes, so on a
+backlog of N files every classifier task enters a queue already holding the
+other N-1 QC tasks.
+
+Two things this fix is not:
+
+- **It is not measured end to end.** No throughput figure is claimed. The
+  argument above is arithmetic plus queue order, in the same style as F6, and
+  the sizes it relies on are the measured ones from F4 and F5 (a read-filter
+  task asks 4 CPUs, 6 under `conf/server.config`; a classifier task asks
+  `max(4, max_cpus / forks)`). A
+  wall-clock comparison needs a host with the containers and a real backlog,
+  which the audit environment does not have.
+- **It is inert on a small host.** On the local executor with `max_cpus = 2`
+  one 4-CPU task is already all the executor will admit, so the cap changes
+  nothing there -- including in every test in this suite. It bites where the
+  problem is: a many-barcode host with CPUs to spare.
+
+One consequence to name rather than discover: on `-profile minion` the
+classifier's fork count is 1, so the QC cap is 1 too, and a 4-CPU QC task on
+that profile's CPU budget leaves the host underused while the backlog is still
+being filtered. That profile already serialises the classifier at one fork for
+the reason its own comment gives -- a single Kraken2 task takes the whole box
+-- so a cap of 1 is consistent rather than accidental, and `--max_qc_forks` is
+the lever for an operator who wants the backlog phase to use more of a
+single-sample host. The derivation deliberately reuses the classifier's number
+rather than computing a CPU-based one, because a CPU-based cap would equal what
+the executor already admits and would therefore be inert everywhere: dead
+config of the kind F12 found.
+
+`SEQKIT_STATS` is deliberately left uncapped. It asks for 1 CPU (F4), so it
+cannot displace a 6-CPU classifier task in any meaningful way, and its
+per-batch output is what the dashboard reads for QC numbers -- capping it would
+delay the one QC figure an operator watches during a run.
 
 ## F4. Two QC processes inherited resource labels far above their real cost
 
@@ -341,7 +401,7 @@ the docs should say so.
 
 ## F7. A late start gets none of batch mode's mitigations
 
-`read` - severity: high - **PARTLY FIXED 2026-10-27**
+`read` - severity: high - **FIXED 2026-10-27**; the second half closed on measurement rather than built
 
 `workflows/nanometanf.nf:276` gates chunking on `!params.realtime_mode`, and
 `qc_analysis/main.nf:82` gates the per-sample QC grouping on the same
@@ -405,12 +465,53 @@ PARTIAL fix:
   first run's reads twice. Fresh sequential ids from the head-process counter
   are the safe choice.
 
-Still not done from F7: per-sample QC grouping in real time. NanoPlot and
-FastQC remain per emission, so a chunk is one invocation rather than a sample
-being one invocation. The NanoPlot burst is bounded by `max_nanoplot_forks`
-(F2) instead. REALTIME_STATISTICS also does not see a chunked backlog: its
-channel is built from the live batching operator, so the `[runtime-metrics]`
-counters are fed explicitly instead.
+REALTIME_STATISTICS does not see a chunked backlog: its channel is built from
+the live batching operator, so the `[runtime-metrics]` counters are fed
+explicitly instead.
+
+### The second half, 2026-10-27: measured, then closed without building it
+
+The remaining recommendation was "per-sample QC grouping in real time" -- apply
+`_groupPerSample` to NanoPlot and FastQC on the real-time path as chunked batch
+mode does. Reading what a default real-time run actually submits per emission,
+process by process, shows there is almost nothing left for it to group:
+
+| Process                   | Per emission in a default real-time run? | Why                                                                                                                                                                                                                  |
+| ------------------------- | ---------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| CHOPPER / FASTP_STREAMING | yes, and that is the design              | The chunk IS the grouping. Backlog chunking took this from one task per file to one per chunk; grouping further would mean one QC task per sample, i.e. no chunking at all                                           |
+| FASTQC                    | **it does not run**                      | `skip_fastqc_realtime` defaults to true (`nextflow.config:175`), so `run_fastqc` is false for every real-time run that does not explicitly ask for it                                                                |
+| NANOPLOT                  | no, already thinned per sample           | `nanoplot_realtime_skip_intermediate` defaults true and `nanoplot_batch_interval` to 10, so NanoPlot fires on a sample's emission 0 and every 10th after (`qc_analysis/main.nf:343-390`)                             |
+| SEQKIT_STATS              | yes, and it must stay that way           | Its per-batch `seqkit/<sample>/batch_stats/*.tsv` is a cross-repo contract: nanometa_live reads those files per batch and caches them on immutability. It asks 1 CPU (F4), so it is not what crowds out a classifier |
+
+The NanoPlot arithmetic is what settles it. The thinning rule admits emission
+indices where `idx % interval == 0`, so a sample with `E` emissions gets
+`ceil(E / interval)` NanoPlot tasks. Measured on the new 12-barcode fixture
+(`tests/multiplex_12_batch_chunking.nf.test`), a sample's emission count is
+**2 chunked** against **3 per file**, so at the default interval of 10 both are
+**one NanoPlot per sample** -- the number per-sample grouping would produce.
+Chunking got there first. (The count itself cannot be asserted under `-stub`:
+CHOPPER's stub emits `echo | gzip`, about 30 bytes, which the 50-byte empty
+guard above NanoPlot correctly skips, so NanoPlot runs in no stub test.)
+
+So grouping would change the count for exactly one configuration (FastQC, in a
+real-time run where an operator has turned `skip_fastqc_realtime` off), and for
+NanoPlot it would be actively worse: `_groupPerSample` uses `groupTuple` with
+no size, which flushes when the channel closes, and the real-time channel
+closes at the end of the run. A sample's live QC snapshot would move from "as
+soon as its first chunk is QC'd" to "when the run ends" -- the same objection
+that rejected the index-0 deferral in F2, arrived at from the other direction.
+
+A size-bounded `groupKey(meta.id, meta.chunk_count)` would avoid that for the
+backlog specifically, since a backlog is a closed set whose chunk count per
+sample is known at plan time. It is not built, for three reasons stated
+plainly: the only count it changes is behind a non-default flag; it adds a
+grouping path to the live channel, which is where Issue #22's hang came from
+and which this fix deliberately left untouched; and the per-chunk cost it would
+save -- one 4-CPU FastQC task -- is now bounded by `max_qc_forks` (F3).
+
+What remains genuinely open is therefore narrow and now named: a real-time run
+with `skip_fastqc_realtime = false` submits one FastQC per chunk rather than
+one per sample.
 
 ### A compilation regression found by running it
 
@@ -738,7 +839,7 @@ Documentation only; no pipeline behaviour changes in this pass.
 
 ## F13. The configuration a field run uses is not tested
 
-`read` - severity: high (process)
+`read` - severity: high (process) - **FIXED 2026-10-27**
 
 - **No realtime fixture exceeds 3 barcodes.** `tests/fixtures/barcode_structure`
   has barcode01, barcode02 and unclassified; `minknow_output` and
@@ -805,6 +906,49 @@ Two defects surfaced during that verification:
   two assertion styles disagreed about one value. The harness now returns plain
   Strings. Whether real nf-test hid this by serializing `function.result` was
   not determined, so treat that one as defensive rather than a fixed failure.
+
+### The fixture, 2026-10-27
+
+`tests/fixtures/barcode_backlog_12` is 12 barcodes x 3 FASTQ files, every file
+present before the run starts. Three files per barcode is the smallest count
+that makes chunking observable: with `batch_first_chunk_files = 1` and
+`batch_chunk_growth = 2.0` a sample plans as chunks of 1 and 2, so the chunked
+and unchunked task counts are different numbers rather than the same one. The
+reads are generated from a seed derived from the barcode and file index and
+gzipped with `mtime=0`, so `generate_fixtures.py --fixtures barcode_backlog_12`
+reproduces the same bytes and shows no diff; the whole fixture is 12 kB. That
+script's `--fixtures` flag was a `# TODO: Implement selective generation` until
+now, which mattered because `generate_all()` also rewrites `README.md` and
+every other category.
+
+Two pipeline-level tests drive it, which is the split the watchPath hang forces:
+
+| Test                                         | Runs in CI       | Asserts                                                                                                                                                                                |
+| -------------------------------------------- | ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `tests/multiplex_12_batch_chunking.nf.test`  | yes              | the plan file names all 12 barcodes at 3 files and 2 chunks each; 36 files become **24** QC tasks; every barcode reaches a task. Control: chunking off is **12** tasks, one per sample |
+| `tests/realtime_backlog_12_barcodes.nf.test` | no (`watchpath`) | the same 24 against a real-time backlog, with `enable_realtime_stats = true` **and** Kraken2 enabled; every barcode reaches QC. Control: chunking off is **36**, one per file          |
+
+The real-time pair is the shape F13 was written about, and the numbers are the
+three granularities this pipeline can give a 36-file backlog: 12 tasks (one per
+sample, unchunked batch), 24 (chunked, either mode), 36 (one per file, the
+real-time stream without chunking). Both cases passed locally on the first run,
+in 285 s for the pair -- so the default production combination that no test had
+ever run is not broken; it had simply never been asserted.
+
+The batch-mode half closes the "only 12/24-plex tests are batch mode, stubbed,
+asserting task counts only" line in a narrow sense only: it is still a stub
+run, because under `-stub` CHOPPER emits an empty FASTQ and
+`EMIT_EMPTY_KRAKEN2_REPORT` stands in for the classification chain, so no
+per-batch report exists to assert. What it adds over the previous 12-plex test
+is the plan contract the dashboard reads and a task count that distinguishes
+chunked from unchunked. The read-for-read equivalence of a chunked run is
+pinned elsewhere, on a real database at two barcodes
+(`tests/batch_chunking_structure.nf.test`).
+
+Still open after this: a 24- or 96-barcode case (12 is the number a
+`promethion_8` run sees, not the number `promethion` sees), and a real-database
+real-time run at any barcode count, which needs a runner where watchPath does
+not hang.
 
 ## Lower-severity items
 
@@ -875,18 +1019,19 @@ Ordered by expected effect on a 96-barcode late start:
 
 ## Recommended fixes, ordered by value per unit of risk
 
-| #   | Fix                                                                                                                                                                                                                                                                 | Addresses                 | Risk                                                                                                                                                                                                                                                                   |
-| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1   | ~~Key both interleavers on the resolved sample id instead of `parent.name`~~ **done 2026-10-27**                                                                                                                                                                    | F1                        | Low; measured a no-op for per-barcode-directory layouts                                                                                                                                                                                                                |
-| 2   | Add a realtime fixture with >= 12 barcodes and a test asserting first-result order across them                                                                                                                                                                      | F13                       | None; it is new coverage. Partly done 2026-10-27: the 12-sample first-round assertion is a pure-function test, and `tests_are_wired.py` now stops a test file going unrun, but the pipeline-level fixture is still missing and a watchPath test still cannot run in CI |
-| 3   | ~~Give SEQKIT_STATS and FASTP_STREAMING `withName` resource overrides matching their real cost~~ **done 2026-10-27**                                                                                                                                                | F4                        | Low; set in `base.config` so profiles still override, and the profiles now cover `FASTP_STREAMING` too                                                                                                                                                                 |
-| 4   | ~~Give NANOPLOT a `maxForks`~~ **done 2026-10-27** as `max_nanoplot_forks`. The index-0 deferral in the original wording was rejected: it would silently drop NanoPlot for any barcode that receives one file all run                                               | F2                        | Low                                                                                                                                                                                                                                                                    |
-| 5   | ~~Default `kraken2_task_memory_gb` in the platform profiles~~ **done 2026-10-27** at 2 GB, measured: the marginal per fork is ~50 MB + 25 MB/thread and flat across a 13x larger index. `promethion_8` goes 3 forks to 4; `minion` goes from 0 GB free for QC to 62 | F5                        | Medium; measured first, and scoped to local-executor profiles only                                                                                                                                                                                                     |
-| 6   | ~~Replace the `Thread.sleep(10000)` with the daemon-Timer idiom used elsewhere in the same file~~ **done 2026-10-27**                                                                                                                                               | F11                       | Low                                                                                                                                                                                                                                                                    |
-| 7   | ~~Reset the `batch_timeout` timer on each flush~~ **withdrawn 2026-10-27**: measured worse on both mean and maximum wait. The docstring was corrected instead                                                                                                       | F10                       | -                                                                                                                                                                                                                                                                      |
-| 8   | ~~Correct `max_concurrent_batches`, `index.json`/`taxid_counts.json` and the `fair` comment in the docs~~ **done 2026-10-27**, plus three wrong defaults and one parameter that never existed                                                                       | F12, F14, F19             | None                                                                                                                                                                                                                                                                   |
-| 9   | ~~Extend real-time with the chunking...for the start-up backlog only~~ **chunking done 2026-10-27** as `realtime_backlog_chunking`, measured 4 files -> 3 tasks with a control case. Per-sample QC grouping in real time is still open                              | F7, and the root of F2/F3 | High; the live stream was deliberately left untouched                                                                                                                                                                                                                  |
+| #   | Fix                                                                                                                                                                                                                                                                                                                                                                                   | Addresses                 | Risk                                                                                                                            |
+| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | ~~Key both interleavers on the resolved sample id instead of `parent.name`~~ **done 2026-10-27**                                                                                                                                                                                                                                                                                      | F1                        | Low; measured a no-op for per-barcode-directory layouts                                                                         |
+| 2   | ~~Add a realtime fixture with >= 12 barcodes and a test asserting first-result order across them~~ **done 2026-10-27** as `tests/fixtures/barcode_backlog_12` plus a CI batch-mode case and a locally-verified real-time case                                                                                                                                                         | F13                       | None; it was new coverage. The real-time case still cannot run in CI, and 24/96 barcodes remain untested                        |
+| 3   | ~~Give SEQKIT_STATS and FASTP_STREAMING `withName` resource overrides matching their real cost~~ **done 2026-10-27**                                                                                                                                                                                                                                                                  | F4                        | Low; set in `base.config` so profiles still override, and the profiles now cover `FASTP_STREAMING` too                          |
+| 4   | ~~Give NANOPLOT a `maxForks`~~ **done 2026-10-27** as `max_nanoplot_forks`. The index-0 deferral in the original wording was rejected: it would silently drop NanoPlot for any barcode that receives one file all run                                                                                                                                                                 | F2                        | Low                                                                                                                             |
+| 4b  | ~~Give the read filter and FastQC a `maxForks`~~ **done 2026-10-27** as `max_qc_forks`, defaulting to `max_classification_forks` and uncapped under `--skip_kraken2`                                                                                                                                                                                                                  | F3                        | Low on a small host, where it is inert; unmeasured end to end, so the reasoning is stated in F3 rather than a throughput figure |
+| 5   | ~~Default `kraken2_task_memory_gb` in the platform profiles~~ **done 2026-10-27** at 2 GB, measured: the marginal per fork is ~50 MB + 25 MB/thread and flat across a 13x larger index. `promethion_8` goes 3 forks to 4; `minion` goes from 0 GB free for QC to 62                                                                                                                   | F5                        | Medium; measured first, and scoped to local-executor profiles only                                                              |
+| 6   | ~~Replace the `Thread.sleep(10000)` with the daemon-Timer idiom used elsewhere in the same file~~ **done 2026-10-27**                                                                                                                                                                                                                                                                 | F11                       | Low                                                                                                                             |
+| 7   | ~~Reset the `batch_timeout` timer on each flush~~ **withdrawn 2026-10-27**: measured worse on both mean and maximum wait. The docstring was corrected instead                                                                                                                                                                                                                         | F10                       | -                                                                                                                               |
+| 8   | ~~Correct `max_concurrent_batches`, `index.json`/`taxid_counts.json` and the `fair` comment in the docs~~ **done 2026-10-27**, plus three wrong defaults and one parameter that never existed                                                                                                                                                                                         | F12, F14, F19             | None                                                                                                                            |
+| 9   | ~~Extend real-time with the chunking...for the start-up backlog only~~ **chunking done 2026-10-27** as `realtime_backlog_chunking`, measured 4 files -> 3 tasks with a control case. The per-sample QC grouping half was then **closed on measurement**: at the default NanoPlot interval chunking already gives one task per sample, and FastQC does not run in real time by default | F7, and the root of F2/F3 | High; the live stream was deliberately left untouched                                                                           |
 
 Item 9 is the structural answer to the question this audit was asked. Items
 1-4 are the ones that change a late-started 96-barcode run most for the least
-risk; items 1, 3, 4, 5, 6, 8 and the chunking half of 9 are done, and item 7 was withdrawn on measurement.
+risk; items 1 to 6, 8 and 9 are done, item 7 was withdrawn on measurement, and the second half of 9 was closed the same way.
