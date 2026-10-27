@@ -353,8 +353,8 @@ a buffer that never reaches `batch_size` waits for the next tick -
 `batch_size = 10` the backlog cuts into 10 + 10 + 4, and the 4 remainder
 barcodes pay a minute before their first file is even batched.
 
-## F11. A 10-second sleep occupies a shared operator thread during the backlog
-`reasoned` - severity: low
+## F11. A 10-second sleep occupied a shared operator thread during the backlog
+`reasoned` - severity: low - **FIXED 2026-10-27**
 
 `realtime_monitoring/main.nf:161-164` runs the start-up listing twice via
 `Channel.fromList([0, 1]).flatMap { ... Thread.sleep(10000) ... }`. The second
@@ -372,8 +372,33 @@ flowing through the chain. Task submission and execution are not blocked.
 Unverified: the pool-size default is Nextflow's documented value, not read from
 an installed Nextflow in this container.
 
-**Fix shape:** replace the sleep with the daemon-`Timer`-binding-into-a-queue
-idiom already used twice in the same file (`:337-367`, `:107-112`).
+### Fix, 2026-10-27
+
+The second listing now runs on a daemon `Timer` that binds its files into a
+`DataflowQueue` mixed into the stream, the idiom the realtime timeout sentinel
+and `BatchUtils`' flush already use in the same file. No operator-pool thread
+blocks.
+
+Two things were preserved deliberately:
+
+- **The first listing still runs from an igniter.** `Channel.fromList([0])`
+  keeps it there. Moving it to script-evaluation time would have reopened the
+  start-up blind window (nanometa_live round-4 audit, H4): the watcher takes
+  the directory contents at igniter time as its never-reported baseline, so a
+  scan taken earlier leaves everything in between in neither set.
+- **The re-sweep is armed from inside that igniter**, so it is still measured
+  from the first listing exactly as the sleep was, and the watcher's baseline
+  is already taken when it runs.
+
+The queue is closed with a `PoisonPill` on both the success and the failure
+path, because the session waits on every upstream queue and an unclosed one
+hangs the run. The two listings share one `scan_existing` closure, so they
+cannot drift on which files they select; before, the selection logic was one
+body with `sweep > 0` branches.
+
+Also corrected while there: the `max_files` truncation warning counted
+"included/excluded per directory" using the parent directory name. It now
+counts per sample, the key the interleave is actually fair on (F1).
 
 ## F12. `max_concurrent_batches` is dead config
 `read` - severity: low (documentation)
@@ -546,7 +571,7 @@ Ordered by expected effect on a 96-barcode late start:
 | 3 | ~~Give SEQKIT_STATS and FASTP_STREAMING `withName` resource overrides matching their real cost~~ **done 2026-10-27** | F4 | Low; set in `base.config` so profiles still override, and the profiles now cover `FASTP_STREAMING` too |
 | 4 | ~~Give NANOPLOT a `maxForks`~~ **done 2026-10-27** as `max_nanoplot_forks`. The index-0 deferral in the original wording was rejected: it would silently drop NanoPlot for any barcode that receives one file all run | F2 | Low |
 | 5 | Default `kraken2_task_memory_gb` in the platform profiles to match the arithmetic their comments already describe | F5 | Medium; it changes admitted concurrency on every run, so measure first |
-| 6 | Replace the `Thread.sleep(10000)` with the daemon-Timer idiom used elsewhere in the same file | F11 | Low |
+| 6 | ~~Replace the `Thread.sleep(10000)` with the daemon-Timer idiom used elsewhere in the same file~~ **done 2026-10-27** | F11 | Low |
 | 7 | Reset the `batch_timeout` timer on each flush | F10 | Low |
 | 8 | Correct `max_concurrent_batches`, `index.json`/`taxid_counts.json` and the `fair` comment in the docs | F12, F14, F19 | None |
 | 9 | Extend real-time with the chunking and per-sample QC grouping that batch mode already has, for the start-up backlog only | F7, and the root of F2/F3 | High; this is a design change and wants its own plan |
