@@ -14,6 +14,35 @@ and its re-runnable probes in `docs/performance/scripts/`.
 
 ### Fixed
 
+- **A file still being written when the watcher reports it is held until
+  it stops changing.** watchPath hands a path on at `create`; a producer
+  that writes in place (MinKNOW appending reads, a copy in progress) was
+  staged into CHOPPER mid-write, the truncated gzip exited 1, error
+  isolation absorbed it and the file was never retried this run (Nanometa
+  Live field audit 2026-10-28, H7). `RealtimeIntake.settle` delays such a
+  file until its size and mtime have been quiet for
+  `--realtime_settle_seconds` (default 2), never drops it (the former age
+  filter dropped and stalled runs: audit F6), passes a file that never
+  settles after 30 s, and does not delay a file already quiet when first
+  seen, which is every file of a start-up backlog. Pinned in
+  `tests/lib/realtime_intake_settle.nf.test`.
+
+- **A real-time batch is validated when its report lands, not when the run
+  ends.** The clade lookup paired each extraction task with "the sample's
+  report" through a bare `groupTuple()`, which flushes only when its source
+  closes; a real-time report channel closes when the watcher ends, so every
+  `EXTRACT_READS_BY_TAXID` task of the whole run was held until the session
+  closed and BLAST/minimap2 fired in one burst at the end. Nanometa Live's
+  Validation tab stayed empty for the entire live run (field audit
+  2026-10-28, H2; introduced with the 2026-09-04 clade extraction). The
+  remainder join that followed also matched the one grouped report to the
+  first batch only and gave every later batch a null report. Reports are
+  now keyed per `(sample, batch_id)` with the streaming `unique` and paired
+  with `combine(by:)`, so a batch's extractions start when its own report
+  is published. `subworkflows/local/validation/tests/main.nf.test` pins
+  it: with batch 1's report delayed 25 s, batch 0's minimap2 step runs
+  before batch 1's extraction starts.
+
 - **Cross-sample fairness is keyed on the resolved sample id, not the parent
   directory.** The two agree only when the sample IS a directory;
   `InputDetector` derives it from the FILENAME for a flat directory with

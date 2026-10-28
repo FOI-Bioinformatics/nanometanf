@@ -1,0 +1,60 @@
+nextflow_function {
+
+    name "RealtimeIntake.settle: a file still being written is delayed, never dropped"
+    script "tests/lib/realtime_intake_settle_functions.nf"
+
+    tag "unit"
+    tag "fast"
+
+    // Nanometa Live field audit 2026-10-28, H7. watchPath reports a file at
+    // 'create'; a producer that writes in place may still be writing it.
+    // Staged into CHOPPER mid-write the truncated gzip exits 1, error
+    // isolation absorbs it, and the file is never retried this run. The
+    // settle helper waits for the file to stop changing. It must never
+    // DROP (the former age filter did, and stalled real-time runs: audit
+    // F6), and it must not delay the files that are already quiet, which is
+    // every file of a start-up backlog.
+
+    test("a file quiet when first seen returns at once") {
+        function "settleQuietFile"
+        when { function { """ input[0] = "${outputDir}" """ } }
+        then {
+            assert function.success
+            assert function.result.path.endsWith("quiet.fastq.gz")
+            assert function.result.waited_ms < 500 :
+                "a quiet file waited ${function.result.waited_ms} ms"
+        }
+    }
+
+    test("a file being appended to returns after the writes stop, complete") {
+        function "settleGrowingFile"
+        when { function { """ input[0] = "${outputDir}" """ } }
+        then {
+            assert function.success
+            // Six appends 250 ms apart, then one quiet second: at least 1.5 s.
+            assert function.result.waited_ms >= 1500 :
+                "returned after ${function.result.waited_ms} ms, while still being written"
+            assert function.result.size_at_return == function.result.final_size :
+                "handed on at ${function.result.size_at_return} B of ${function.result.final_size} B"
+        }
+    }
+
+    test("a file that never settles is handed on at the wait ceiling, not withheld") {
+        function "settleNeverQuietFile"
+        when { function { """ input[0] = "${outputDir}" """ } }
+        then {
+            assert function.success
+            assert function.result.waited_ms >= 1800 && function.result.waited_ms < 10000 :
+                "ceiling of 2 s not honoured: waited ${function.result.waited_ms} ms"
+        }
+    }
+
+    test("a vanished path is returned without waiting") {
+        function "settleVanishedFile"
+        when { function { """ input[0] = "${outputDir}" """ } }
+        then {
+            assert function.success
+            assert function.result.waited_ms < 500
+        }
+    }
+}

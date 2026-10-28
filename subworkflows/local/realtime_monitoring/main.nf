@@ -398,10 +398,17 @@ workflow REALTIME_MONITORING {
         // on it without invoking user code. A path is handed on once: the two
         // listings and the watcher overlap by design, and the watcher
         // re-emits a file whose mtime changes ('modify').
+        // A file still being written when the watcher reports it is held
+        // until its size and mtime have been quiet for realtime_settle_seconds
+        // (delayed, never dropped -- see RealtimeIntake.settle and the F6
+        // note below). A start-up backlog and an atomic rename cost nothing
+        // here: their mtimes are already quiet.
+        def settle_ms = ((params.realtime_settle_seconds == null ? 2 : params.realtime_settle_seconds) as long) * 1000L
         def ch_watched = ch_existing.mix(ch_resweep).mix(ch_new)
             .filter { RealtimeIntake.isInput(it) }
             .filter { !(it.toString() in already_processed) }
             .filter { RealtimeIntake.firstSighting(seen_paths, it) }
+            .map { RealtimeIntake.settle(it, settle_ms) }
 
         //
         // TIMEOUT LOGIC: Intelligent inactivity timeout with grace period (v1.2.1+)
@@ -412,9 +419,9 @@ workflow REALTIME_MONITORING {
         // rename, MinKNOW, rsync) always land in that window, and the macOS
         // Java NIO WatchService does not reliably re-emit a stable file, so
         // the filter stalled real-time runs indefinitely. Atomic writes are
-        // complete by the time watchPath sees them, so no settling is
-        // needed. Callers producing non-atomic appended writes should use
-        // a wrapper that renames into place instead of relying on settling.
+        // complete by the time watchPath sees them. A producer that writes
+        // in place is handled by RealtimeIntake.settle above, which waits
+        // for the file to stop changing instead of dropping it.
         //
         // last_file_at feeds the inactivity timer below: every emission,
         // existing or watched, resets it. Before this the timer was a

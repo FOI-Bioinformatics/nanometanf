@@ -607,6 +607,11 @@ Enforced at the schema level via a `oneOf` constraint
 - `--batch_size` - Files per batch (default: 10)
 - `--realtime_timeout_minutes` - Inactivity timeout
 - `--realtime_processing_grace_period` - Processing completion wait
+- `--realtime_settle_seconds` - A watched file still being written is handed on
+  once its size and mtime have been unchanged this long (default 2; 0 = at first
+  sighting). It delays, never drops: a file already quiet, including a start-up
+  backlog, is not delayed, and a file that never settles is passed after 30 s
+  (`RealtimeIntake.settle`; the former age FILTER dropped files and stalled runs)
 
 ### Scalable Streaming (v1.5+)
 
