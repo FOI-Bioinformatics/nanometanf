@@ -393,4 +393,77 @@ nextflow_workflow {
             assert workflow.success
         }
     }
+
+    // Field audit 2026-10-28, H2. The clade lookup paired each extraction
+    // task with "the sample's report" through a bare groupTuple(), which
+    // flushes only when its source closes. A real-time report channel closes
+    // when the watcher ends, so every extraction of the whole run was held
+    // until the session closed and BLAST/minimap2 fired in one burst at the
+    // end: the Validation tab stayed empty for the entire live run. The join
+    // that followed also matched the one grouped report to the first batch
+    // and gave every later batch a null report.
+    //
+    // Two batches of one sample. Batch 0's report lands at once; batch 1's
+    // arrives 25 s later and the channel closes only then, as a live
+    // watcher's does. With the old wiring both extractions are submitted
+    // together after the close (0 s apart); with per-batch pairing batch 0's
+    // extraction is submitted when its own report lands, ~25 s before batch
+    // 1's.
+    test("a real-time batch is validated when its report lands, not when the run ends") {
+
+        options "-stub"
+
+        when {
+            workflow {
+                """
+                def meta0  = [id: 'val_rt', single_end: true, batch_id: 0]
+                def meta1  = [id: 'val_rt', single_end: true, batch_id: 1]
+                def reads  = file('${projectDir}/tests/fixtures/fastq/test_sample.fastq.gz')
+                def kout   = file('${projectDir}/tests/fixtures/validation/test_kraken_output.txt')
+                def report = file('${projectDir}/tests/fixtures/reports/classification/kraken2_report.txt')
+                input[0] = Channel.of([ meta0, reads ], [ meta1, reads ])
+                input[1] = Channel.of([ meta0, kout ], [ meta1, kout ])
+                input[2] = Channel.of([ meta0, report ])
+                    .mix(Channel.of([ meta1, report ]).map { Thread.sleep(25000); it })
+                input[3] = file('${projectDir}/tests/fixtures/validation/test_genomes.json')
+                input[4] = '562'
+                input[5] = 'minimap2'
+                input[6] = 1
+                """
+            }
+
+            params {
+                realtime_mode = true
+                max_cpus = 2
+                max_memory = '4.GB'
+                max_time = '5.min'
+            }
+        }
+
+        then {
+            assert workflow.success
+
+            def extractions = workflow.trace.tasks().findAll {
+                it.name.contains('EXTRACT_READS_BY_TAXID')
+            }
+            assert extractions.size() == 2 :
+                "expected one extraction per batch, got ${extractions*.name}"
+
+            // nf-test prints one "[PROCESS <hash>] <name>" line per task as it
+            // starts, in start order. With the old wiring both extractions
+            // started together after the report channel closed, so the two
+            // EXTRACT lines were adjacent and every MINIMAP2 line came after
+            // them. With per-batch pairing batch 0's extraction starts when
+            // its report lands and its minimap2 step has run before batch
+            // 1's report (25 s later) releases batch 1's extraction.
+            def starts = (workflow.stdout ?: []).findAll { it.contains('[PROCESS') }
+            def extract_at = starts.findIndexValues { it.contains('EXTRACT_READS_BY_TAXID') }
+            def first_minimap = starts.findIndexOf { it.contains('MINIMAP2_VALIDATION') }
+            assert extract_at.size() == 2 : "task start lines: ${starts}"
+            assert first_minimap >= 0 : "no minimap2 task started: ${starts}"
+            assert extract_at[1] > first_minimap :
+                "batch 1's extraction started before batch 0's validation ran -- " +
+                "both extractions were held until the report channel closed: ${starts}"
+        }
+    }
 }

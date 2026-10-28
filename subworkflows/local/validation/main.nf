@@ -165,15 +165,25 @@ workflow VALIDATION {
         }
 
     //
-    // One report per sample id, for clade expansion below. Realtime emits a
-    // per-batch report as well as the cumulative one, so the reports are
-    // reduced to the last seen per sample: any of them carries the same
-    // parentage, which is all the clade needs.
+    // One report per (sample, batch), for clade expansion below. The key
+    // carries meta.batch_id so a real-time batch pairs with ITS OWN report,
+    // which the report generator publishes one process after the batch is
+    // classified; in batch mode batch_id is null on both sides and the
+    // sample's one report matches. `unique` is streaming: it emits a key the
+    // first time it is seen and holds nothing back.
     //
-    ch_report_by_sample = ch_kraken_reports
-        .map { meta, report -> [ meta.id, report ] }
-        .groupTuple()
-        .map { id, reports -> [ id, reports[-1] ] }
+    // This used to be a bare groupTuple() over the sample id. groupTuple
+    // with no size flushes when its source closes, and in real time
+    // ch_kraken_reports stays open until the watcher ends, so every
+    // extraction task of the whole run was held until the session closed
+    // and BLAST/minimap2 fired in one burst at the end: the Validation tab
+    // stayed empty for the entire live run (field audit 2026-10-28, H2).
+    // The remainder join that followed also matched the one grouped report
+    // to the first batch only and gave every later batch a null report.
+    //
+    ch_report_by_batch = ch_kraken_reports
+        .map { meta, report -> [ [ meta.id, meta.batch_id ], report ] }
+        .unique { it[0] }
 
     //
     // Pre-extraction taxid gate (issue #6 scalability fix)
@@ -254,27 +264,27 @@ workflow VALIDATION {
     // The clade is resolved from the sample's own report, so a taxid absent
     // from it -- or a report that cannot be read -- falls back to the exact
     // taxid rather than to nothing.
+    // `combine(by:)` rather than `join`: several taxids share one (sample,
+    // batch) key on the left, and join pairs a key once. combine emits every
+    // left item against the batch's report as soon as both are present, so
+    // a batch's extractions start when its report lands, not when the run
+    // ends. A batch whose report never arrives (its report generator failed
+    // under error isolation) has no cumulative counts either and is withheld
+    // here; its lost-input marker already names it.
     ch_extraction_input = ch_validation_tasks
         .map { meta, reads, kraken_output, taxid, genome ->
-            [ meta.id, meta, reads, kraken_output, taxid ]
+            [ [ meta.id, meta.batch_id ], meta, reads, kraken_output, taxid ]
         }
-        .join(ch_report_by_sample, by: [0], remainder: true)
-        .map { row ->
-            def meta = row[1]
-            if (meta == null) {
-                return null          // a report with no extraction task
-            }
-            def report = row.size() > 5 ? row[5] : null
-            def taxid = row[4]
+        .combine(ch_report_by_batch, by: 0)
+        .map { key, meta, reads, kraken_output, taxid, report ->
             def clade = KreportTree.cladeOf(
                 KreportTree.rowsFromReport(report), taxid).sort()
             if (clade.size() > 1) {
-                log.debug "Validation: taxid ${taxid} in sample '${row[0]}' " +
+                log.debug "Validation: taxid ${taxid} in sample '${key[0]}' " +
                           "covers ${clade.size()} nodes (${clade.join(',')})"
             }
-            return [ meta, row[2], row[3], taxid, clade.join(',') ]
+            return [ meta, reads, kraken_output, taxid, clade.join(',') ]
         }
-        .filter { it != null }
 
     EXTRACT_READS_BY_TAXID(ch_extraction_input)
     // Use .first() to collapse the per-taxid scatter to a single versions
