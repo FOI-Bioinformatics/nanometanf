@@ -449,21 +449,40 @@ nextflow_workflow {
             assert extractions.size() == 2 :
                 "expected one extraction per batch, got ${extractions*.name}"
 
-            // nf-test prints one "[PROCESS <hash>] <name>" line per task as it
-            // starts, in start order. With the old wiring both extractions
-            // started together after the report channel closed, so the two
-            // EXTRACT lines were adjacent and every MINIMAP2 line came after
-            // them. With per-batch pairing batch 0's extraction starts when
-            // its report lands and its minimap2 step has run before batch
-            // 1's report (25 s later) releases batch 1's extraction.
-            def starts = (workflow.stdout ?: []).findAll { it.contains('[PROCESS') }
-            def extract_at = starts.findIndexValues { it.contains('EXTRACT_READS_BY_TAXID') }
-            def first_minimap = starts.findIndexOf { it.contains('MINIMAP2_VALIDATION') }
-            assert extract_at.size() == 2 : "task start lines: ${starts}"
-            assert first_minimap >= 0 : "no minimap2 task started: ${starts}"
-            assert extract_at[1] > first_minimap :
-                "batch 1's extraction started before batch 0's validation ran -- " +
-                "both extractions were held until the report channel closed: ${starts}"
+            // The evidence is the trace's ``submit`` column: when Nextflow
+            // handed each task to the executor. (Console lines are not it:
+            // Nextflow prints "[PROCESS <hash>] <name>" per task start on a
+            // plain terminal and renders the ANSI progress view on the
+            // GitHub runner, where workflow.stdout then carries no task
+            // lines at all -- the first CI run of this test failed on exactly
+            // that.) nf-test writes the trace to ``<metaDir>/trace.csv``;
+            // columns are located by header so a changed field set cannot
+            // silently move them.
+            def trace_file = new File("${metaDir}/trace.csv")
+            assert trace_file.exists() : "no trace written at ${trace_file}"
+            def rows = trace_file.readLines().collect { it.split('\t') as List }
+            def header = rows[0]
+            def name_col = header.indexOf('name')
+            def submit_col = header.indexOf('submit')
+            assert name_col >= 0 && submit_col >= 0 : "trace header: ${header}"
+            def fmt = new java.text.SimpleDateFormat('yyyy-MM-dd HH:mm:ss.SSS')
+            def submitted = rows.drop(1).collect { [name: it[name_col], at: fmt.parse(it[submit_col]).time] }
+                .sort { it.at }
+            def extract_at = submitted.findAll { it.name.contains('EXTRACT_READS_BY_TAXID') }*.at
+            def first_minimap = submitted.find { it.name.contains('MINIMAP2_VALIDATION') }?.at
+            assert extract_at.size() == 2 : "submitted tasks: ${submitted}"
+            assert first_minimap != null : "no minimap2 task submitted: ${submitted}"
+
+            // Batch 1's report is held back 25 s. Its extraction must be
+            // submitted well after batch 0's (the old wiring submitted both
+            // within milliseconds, after the channel closed), and batch 0's
+            // minimap2 step must have been submitted before it.
+            def gap_s = (extract_at[1] - extract_at[0]) / 1000.0
+            assert gap_s >= 15 :
+                "both extractions were submitted ${gap_s} s apart -- " +
+                "held until the report channel closed: ${submitted}"
+            assert first_minimap < extract_at[1] :
+                "batch 1's extraction was submitted before batch 0's validation ran: ${submitted}"
         }
     }
 }
