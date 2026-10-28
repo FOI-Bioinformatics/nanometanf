@@ -152,6 +152,7 @@ jobs:
             tests/lib/assembly_accumulator.nf.test \
             tests/lib/batch_chunk_planner.nf.test \
             tests/lib/backlog_chunk_plan.nf.test \
+            tests/lib/realtime_intake_settle.nf.test \
             modules/local/assembly_read_pool/tests/main.nf.test \
             modules/local/canonical_classification_writer/tests/main.nf.test \
             modules/local/canonical_qc_writer/tests/main.nf.test \

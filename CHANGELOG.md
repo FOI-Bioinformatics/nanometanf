@@ -14,6 +14,19 @@ and its re-runnable probes in `docs/performance/scripts/`.
 
 ### Fixed
 
+- **A file still being written when the watcher reports it is held until
+  it stops changing.** watchPath hands a path on at `create`; a producer
+  that writes in place (MinKNOW appending reads, a copy in progress) was
+  staged into CHOPPER mid-write, the truncated gzip exited 1, error
+  isolation absorbed it and the file was never retried this run (Nanometa
+  Live field audit 2026-10-28, H7). `RealtimeIntake.settle` delays such a
+  file until its size and mtime have been quiet for
+  `--realtime_settle_seconds` (default 2), never drops it (the former age
+  filter dropped and stalled runs: audit F6), passes a file that never
+  settles after 30 s, and does not delay a file already quiet when first
+  seen, which is every file of a start-up backlog. Pinned in
+  `tests/lib/realtime_intake_settle.nf.test`.
+
 - **A real-time batch is validated when its report lands, not when the run
   ends.** The clade lookup paired each extraction task with "the sample's
   report" through a bare `groupTuple()`, which flushes only when its source

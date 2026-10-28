@@ -439,6 +439,14 @@
                     "fa_icon": "fas fa-hourglass-end",
                     "help_text": "Grace period after realtime_timeout_minutes expires to allow downstream processes to complete."
                 },
+                "realtime_settle_seconds": {
+                    "type": "integer",
+                    "default": 2,
+                    "minimum": 0,
+                    "description": "Seconds a watched file's size and mtime must be unchanged before it is handed on (0 = at first sighting).",
+                    "fa_icon": "fas fa-hourglass-half",
+                    "help_text": "A producer that writes a FASTQ in place (MinKNOW appending reads, a copy in progress) is reported by the watcher at creation; staged mid-write, the truncated file fails QC and is lost for the run. The file is delayed until quiet, never dropped: a file already quiet when first seen, including every file of a start-up backlog, is not delayed, and a file that never settles is handed on after 30 s."
+                },
                 "max_file_age_minutes": {
                     "type": "integer",
                     "minimum": 0,

@@ -1,3 +1,4 @@
+import java.io.IOException
 import java.nio.file.FileSystemLoopException
 import java.nio.file.FileVisitOption
 import java.nio.file.FileVisitResult
@@ -135,6 +136,63 @@ class RealtimeIntake {
             }
         }
         return [inputs: inputs, excluded: excluded]
+    }
+
+    /**
+     * Hand a freshly written file on only once it has stopped changing.
+     *
+     * watchPath reports a file at 'create', while a producer that writes in
+     * place -- MinKNOW appending reads, a copy in progress -- may still be
+     * writing it. Staged into CHOPPER mid-write, the truncated gzip exits 1,
+     * error isolation absorbs it, the lost-input marker names it and the
+     * file is in the seen-set, so it is never retried this run (Nanometa
+     * Live field audit 2026-10-28, H7).
+     *
+     * This DELAYS, it never drops: the former `age_ms < 1000` filter dropped
+     * every emission that arrived within a second of creation, and since
+     * the macOS WatchService does not reliably re-emit a stable file, real-
+     * time runs stalled (audit F6). A file whose mtime is already older than
+     * quietMs -- every file of a start-up backlog, every atomic rename --
+     * returns at once with no sleep. A file still being written returns once
+     * its size and mtime have held for quietMs, or at maxWaitMs regardless,
+     * so a file that never settles is passed on rather than withheld. A
+     * path that vanishes is returned as is; the downstream stage reports it.
+     */
+    static Path settle(Path path, long quietMs = 2000L, long maxWaitMs = 30000L, long pollMs = 250L) {
+        if (quietMs <= 0) {
+            return path
+        }
+        long deadline = System.currentTimeMillis() + maxWaitMs
+        long lastSize = -1L
+        long lastMtime = -1L
+        long stableSince = -1L
+        while (true) {
+            long size
+            long mtime
+            try {
+                size = Files.size(path)
+                mtime = Files.getLastModifiedTime(path).toMillis()
+            } catch (IOException ignored) {
+                return path
+            }
+            long now = System.currentTimeMillis()
+            if (lastSize < 0L && now - mtime >= quietMs) {
+                return path          // already quiet when first seen
+            }
+            if (size == lastSize && mtime == lastMtime) {
+                if (now - stableSince >= quietMs) {
+                    return path
+                }
+            } else {
+                lastSize = size
+                lastMtime = mtime
+                stableSince = now
+            }
+            if (now >= deadline) {
+                return path
+            }
+            Thread.sleep(Math.max(1L, Math.min(pollMs, deadline - now)))
+        }
     }
 
     /** A thread-safe set of paths already handed downstream. */
