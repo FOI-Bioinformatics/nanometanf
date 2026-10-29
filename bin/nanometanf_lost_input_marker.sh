@@ -39,8 +39,13 @@ json_escape() {
     printf '%s' "$1" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g'
 }
 
+# Staged inputs are symlinks in the task directory, or one level below it:
+# nf-core/chopper stages under input/, ASSEMBLY_READ_POOL under
+# pool_input*/, and FASTQC / NANOPLOT under indexed ?/ directories (same-named
+# chunks of one sample). A flat glob reported no input files for a CHOPPER
+# failure once chopper moved to input/ (2026-10-29).
 files=""
-for link in ./*; do
+for link in ./* ./*/*; do
     [ -L "$link" ] || continue
     case "$link" in
         *.fastq|*.fastq.gz|*.fq|*.fq.gz) ;;

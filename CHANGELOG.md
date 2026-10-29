@@ -14,6 +14,15 @@ and its re-runnable probes in `docs/performance/scripts/`.
 
 ### Fixed
 
+- **A lost-input marker names the staged files again when the module stages
+  them in a subdirectory.** `bin/nanometanf_lost_input_marker.sh` listed
+  symlinks in the task directory only; nf-core/chopper (since its 2026-10-29
+  update) stages its input under `input/`, ASSEMBLY_READ_POOL under
+  `pool_input*/` and FASTQC / NANOPLOT under indexed `?/` directories, so a
+  CHOPPER failure wrote `"input_files": []` and the report's lost-input
+  clause would have named no file. The marker now looks one level down as
+  well; pinned by `tests/failure_paths.nf.test`.
+
 - **QC benchmarking could not start.** `subworkflows/local/qc_benchmark`
   called the single `FASTQC` and `SEQKIT_STATS` includes once per benchmarked
   tool, which Nextflow refuses at parse time ("Process 'QC_BENCHMARK:FASTQC'
