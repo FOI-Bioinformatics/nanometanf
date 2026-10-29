@@ -92,7 +92,7 @@ workflow QC_BENCHMARK {
 
     // Prepare FILTLONG input (shortreads=empty, longreads=reads)
     ch_filtlong_input = ch_reads.map { meta, reads ->
-        [meta, null, reads]  // [meta, shortreads=empty, longreads=reads]
+        [meta, [], reads]  // [meta, shortreads=empty, longreads=reads]; a path input cannot be null
     }
 
     // Run FILTLONG with standard parameters
@@ -137,7 +137,7 @@ workflow QC_BENCHMARK {
 
     // Prepare PORECHOP+FILTLONG input
     ch_porechop_filtlong_input = PORECHOP_PORECHOP.out.reads.map { meta, reads ->
-        [meta, null, reads]  // [meta, shortreads=empty, longreads=reads]
+        [meta, [], reads]  // [meta, shortreads=empty, longreads=reads]; a path input cannot be null
     }
 
     // PORECHOP -> FILTLONG pipeline, run as a second aliased FILTLONG

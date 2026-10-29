@@ -20,8 +20,11 @@ and its re-runnable probes in `docs/performance/scripts/`.
   was called twice"), so `--enable_qc_benchmark` aborted every run. Each tool
   now has its own aliased instance (`FASTQC_FASTP`, `SEQKIT_STATS_CHOPPER`,
   ...) and the FASTQC / SEQKIT_STATS resource and `ext.args` selectors in the
-  configs cover the aliases. Nothing had run this subworkflow: its test file
-  was excluded from CI as unverified.
+  configs cover the aliases. Behind that parse error sat a second one: both
+  FILTLONG calls passed `null` for the short-read slot, which a `path` input
+  refuses ("Path value cannot be null"); they pass `[]` as qc_analysis does.
+  Nothing had run this subworkflow: its test file was excluded from CI as
+  unverified.
 
 - **`conf/cloud.config` and `conf/cluster.config` parse again under
   Nextflow 26.** The strict config parser rejected bare `${ENV_VAR}`

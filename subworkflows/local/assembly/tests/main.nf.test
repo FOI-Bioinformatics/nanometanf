@@ -273,7 +273,9 @@ nextflow_workflow {
 
         then {
             assert workflow.failed
-            assert workflow.errorReport.contains('Unsupported assembler: bogus_assembler')
+            // `error` raised at workflow definition time reaches nf-test's
+            // captured stdout, not workflow.errorReport (which stays empty).
+            assert workflow.stdout.any { it.contains('Unsupported assembler: bogus_assembler') }
         }
     }
 }
