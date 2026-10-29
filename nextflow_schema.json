@@ -861,11 +861,11 @@
                     "help_text": "JSON file {\"taxid\": \"Species name\", ...} written by Nanometa Live from the watchlist. Used as the authoritative species-name source when aggregating validation results, so names are deterministic regardless of which per-batch Kraken2 reports reach a realtime aggregation."
                 },
                 "taxids_to_validate": {
-                    "type": "string",
+                    "type": ["string", "integer"],
                     "default": "auto",
                     "description": "Taxids to validate.",
                     "fa_icon": "fas fa-list-ol",
-                    "help_text": "auto: Use all taxids from genomes JSON. all: Validate all classified species-level taxids. Or provide comma-separated list of specific taxids."
+                    "help_text": "auto: Use all taxids from genomes JSON. all: Validate all classified species-level taxids. Or provide a comma-separated list of specific taxids. A single taxid is accepted as an integer as well: nf-schema casts a digit-only command-line or params-file value to an integer before it checks the type, so a string-only type refused `--taxids_to_validate 562`."
                 },
                 "min_batch_reads_for_validation": {
                     "type": "integer",

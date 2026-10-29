@@ -40,6 +40,34 @@ nextflow_pipeline {
         }
     }
 
+    test("a single taxid passes validation as a digit-only value") {
+        // nf-schema (2.7.2+) casts a digit-only command-line or params-file
+        // string to an integer BEFORE it checks the type, so `taxids_to_validate`
+        // typed as string alone refused `--taxids_to_validate 562` -- the shape
+        // the GUI sends for a run with one watched organism. The schema accepts
+        // string or integer; the validation subworkflow coerces to string.
+        // tests/realtime_validation_e2e.nf.test hit this first (macOS job,
+        // 2026-10-29); this is the stub-mode cover that runs on every shard.
+
+        when {
+            params {
+                input = "$projectDir/tests/fixtures/samplesheets/test_samplesheet_absolute.csv"
+                outdir = "$outputDir"
+                realtime_mode = false
+                skip_kraken2 = true
+                blast_validation = false
+                taxids_to_validate = "562"
+                max_cpus = 1
+                max_memory = '1.GB'
+                max_time = '1.min'
+            }
+        }
+
+        then {
+            assert workflow.success : "a single taxid was refused: " + workflow.stderr.join("\n")
+        }
+    }
+
     test("real-time mode fails fast when the watch directory does not exist") {
 
         // Regression for the watchPath hang: a non-existent nanopore_output_dir

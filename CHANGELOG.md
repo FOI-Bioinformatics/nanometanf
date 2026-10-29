@@ -14,6 +14,16 @@ and its re-runnable probes in `docs/performance/scripts/`.
 
 ### Fixed
 
+- **A single taxid is accepted by `--taxids_to_validate`.** nf-schema 2.7.2+
+  casts a digit-only command-line or params-file string to an integer before
+  it checks the type, so the string-only schema type refused
+  `--taxids_to_validate 562` -- the shape Nanometa Live sends for a run with
+  one watched organism, and what `tests/realtime_validation_e2e.nf.test`
+  passes. The schema now accepts string or integer; the validation
+  subworkflow already coerces to string. Caught by the macOS real-time e2e
+  job on the first CI run of this branch; `tests/parameter_validation.nf.test`
+  carries the stub-mode cover.
+
 - **A lost-input marker names the staged files again when the module stages
   them in a subdirectory.** `bin/nanometanf_lost_input_marker.sh` listed
   symlinks in the task directory only; nf-core/chopper (since its 2026-10-29
