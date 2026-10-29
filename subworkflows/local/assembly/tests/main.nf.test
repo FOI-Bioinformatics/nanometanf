@@ -275,7 +275,11 @@ nextflow_workflow {
             assert workflow.failed
             // `error` raised at workflow definition time reaches nf-test's
             // captured stdout, not workflow.errorReport (which stays empty).
-            assert workflow.stdout.any { it.contains('Unsupported assembler: bogus_assembler') }
+            // `error` at workflow definition time reaches a stream, not
+                // workflow.errorReport -- stdout under the conda profile locally,
+                // stderr under the docker profile on the CI runner (shard 2,
+                // 2026-10-29). Check both.
+                assert (workflow.stdout + workflow.stderr).any { it.contains('Unsupported assembler: bogus_assembler') }
         }
     }
 }
