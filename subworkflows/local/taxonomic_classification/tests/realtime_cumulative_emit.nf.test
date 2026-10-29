@@ -51,7 +51,7 @@ nextflow_pipeline {
 
         when {
             params {
-                input = false
+                input = null
 
                 // Live watchPath against the existing barcode fixture.
                 realtime_mode = true

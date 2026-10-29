@@ -26,6 +26,9 @@ nextflow_workflow {
                 input[3] = []     // nextflow_cli_args
                 input[4] = "test_output"  // outdir
                 input[5] = "$projectDir/tests/test_samplesheet.csv"  // input samplesheet
+                input[6] = false  // help
+                input[7] = false  // help_full
+                input[8] = false  // show_hidden
                 """
             }
         }
@@ -77,6 +80,9 @@ barcode_sample_2,$projectDir/tests/test_sample.fastq.gz,BC02
                 input[3] = []
                 input[4] = "test_output"
                 input[5] = "$workDir/test_barcode_samplesheet.csv"
+                input[6] = false  // help
+                input[7] = false  // help_full
+                input[8] = false  // show_hidden
                 """
             }
         }
@@ -115,6 +121,9 @@ simple_sample,$projectDir/tests/test_sample.fastq.gz,
                 input[3] = []
                 input[4] = "test_output"
                 input[5] = "$workDir/test_no_barcode_samplesheet.csv"
+                input[6] = false  // help
+                input[7] = false  // help_full
+                input[8] = false  // show_hidden
                 """
             }
         }
@@ -155,6 +164,9 @@ multi_sample,$projectDir/tests/test_sample.fastq.gz,
                 input[3] = []
                 input[4] = "test_output"
                 input[5] = "$workDir/test_multi_run_samplesheet.csv"
+                input[6] = false  // help
+                input[7] = false  // help_full
+                input[8] = false  // show_hidden
                 """
             }
         }
@@ -196,6 +208,9 @@ sample_C,$projectDir/tests/test_sample.fastq.gz,
                 input[3] = []
                 input[4] = "test_output"
                 input[5] = "$workDir/test_endedness_samplesheet.csv"
+                input[6] = false  // help
+                input[7] = false  // help_full
+                input[8] = false  // show_hidden
                 """
             }
         }
@@ -233,6 +248,9 @@ trim_sample,$projectDir/tests/test_sample.fastq.gz,  BC05
                 input[3] = []
                 input[4] = "test_output"
                 input[5] = "$workDir/test_whitespace_samplesheet.csv"
+                input[6] = false  // help
+                input[7] = false  // help_full
+                input[8] = false  // show_hidden
                 """
             }
         }
@@ -264,6 +282,9 @@ trim_sample,$projectDir/tests/test_sample.fastq.gz,  BC05
                 input[3] = []
                 input[4] = "test_output"
                 input[5] = "$projectDir/tests/empty_samplesheet.csv"
+                input[6] = false  // help
+                input[7] = false  // help_full
+                input[8] = false  // show_hidden
                 """
             }
         }
@@ -290,6 +311,9 @@ trim_sample,$projectDir/tests/test_sample.fastq.gz,  BC05
                 input[3] = []
                 input[4] = "test_output"
                 input[5] = "$projectDir/tests/test_samplesheet.csv"
+                input[6] = false  // help
+                input[7] = false  // help_full
+                input[8] = false  // show_hidden
                 """
             }
         }
@@ -324,6 +348,9 @@ long_path_sample,${long_path},BC10
                 input[3] = []
                 input[4] = "test_output"
                 input[5] = "$workDir/test_long_path_samplesheet.csv"
+                input[6] = false  // help
+                input[7] = false  // help_full
+                input[8] = false  // show_hidden
                 """
             }
         }
@@ -362,6 +389,9 @@ sample.02.B,$projectDir/tests/test_sample.fastq.gz,BC11
                 input[3] = []
                 input[4] = "test_output"
                 input[5] = "$workDir/test_special_chars_samplesheet.csv"
+                input[6] = false  // help
+                input[7] = false  // help_full
+                input[8] = false  // show_hidden
                 """
             }
         }
@@ -396,8 +426,7 @@ nextflow_workflow {
                 input[2] = false  // plaintext_email
                 input[3] = "test_output"  // outdir
                 input[4] = false  // monochrome_logs
-                input[5] = null   // hook_url
-                input[6] = Channel.empty()  // multiqc_report
+                input[5] = Channel.empty()  // multiqc_report
                 """
             }
         }
@@ -418,8 +447,7 @@ nextflow_workflow {
                 input[2] = false
                 input[3] = "test_output"
                 input[4] = false
-                input[5] = null
-                input[6] = Channel.of("multiqc_report.html")
+                input[5] = Channel.of("multiqc_report.html")
                 """
             }
         }
@@ -439,29 +467,7 @@ nextflow_workflow {
                 input[2] = true  // plaintext_email
                 input[3] = "test_output"
                 input[4] = false
-                input[5] = null
-                input[6] = Channel.empty()
-                """
-            }
-        }
-
-        then {
-            assert workflow.success
-        }
-    }
-
-    test("Should handle completion with hook URL") {
-
-        when {
-            workflow {
-                """
-                input[0] = null
-                input[1] = null
-                input[2] = false
-                input[3] = "test_output"
-                input[4] = false
-                input[5] = "https://hooks.example.com/notify"
-                input[6] = Channel.empty()
+                input[5] = Channel.empty()
                 """
             }
         }
@@ -481,8 +487,7 @@ nextflow_workflow {
                 input[2] = false
                 input[3] = "test_output"
                 input[4] = true  // monochrome_logs
-                input[5] = null
-                input[6] = Channel.empty()
+                input[5] = Channel.empty()
                 """
             }
         }

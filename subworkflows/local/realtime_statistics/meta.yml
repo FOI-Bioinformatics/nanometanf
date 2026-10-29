@@ -28,4 +28,7 @@ output:
       type: file
       description: Software versions
       pattern: "versions.yml"
-components: []
+components:
+  - generate/realtime/report
+  - generate/snapshot/stats
+  - update/cumulative/stats

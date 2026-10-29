@@ -27,4 +27,10 @@ output:
       type: file
       description: Software versions
       pattern: "versions.yml"
-components: []
+components:
+  - assembly/depth/gate
+  - assembly/read/pool
+  - canonical/assembly/writer
+  - flye
+  - miniasm
+  - minimap2/ava

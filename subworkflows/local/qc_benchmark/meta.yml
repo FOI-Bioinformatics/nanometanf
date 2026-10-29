@@ -20,4 +20,11 @@ output:
       type: file
       description: Software versions
       pattern: "versions.yml"
-components: []
+components:
+  - chopper
+  - fastp
+  - fastqc
+  - filtlong
+  - nanoplot
+  - porechop/porechop
+  - seqkit/stats

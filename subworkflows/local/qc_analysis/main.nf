@@ -103,7 +103,7 @@ workflow QC_ANALYSIS {
         PORECHOP_PORECHOP (
             ch_reads
         )
-        ch_versions = ch_versions.mix(PORECHOP_PORECHOP.out.versions)
+        // PORECHOP_PORECHOP uses topic: versions pattern - no .out.versions channel.
         ch_adapter_trimmed = PORECHOP_PORECHOP.out.reads
     } else {
         ch_adapter_trimmed = ch_reads
@@ -164,7 +164,7 @@ workflow QC_ANALYSIS {
             FILTLONG (
                 ch_filtlong_input
             )
-            ch_versions = ch_versions.mix(FILTLONG.out.versions)
+            // FILTLONG uses topic: versions pattern - no .out.versions channel.
 
             //
             // Enhanced reporting for FILTLONG: Add FastQC and SeqKit stats
@@ -423,7 +423,7 @@ workflow QC_ANALYSIS {
         NANOPLOT (
             ch_nanoplot_nonempty
         )
-        ch_versions = ch_versions.mix(NANOPLOT.out.versions)
+        // NANOPLOT uses topic: versions pattern - no .out.versions channel.
         ch_nanoplot_html = NANOPLOT.out.html
         ch_nanoplot_txt = NANOPLOT.out.txt
         ch_nanoplot_png = NANOPLOT.out.png

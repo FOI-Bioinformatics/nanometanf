@@ -1,14 +1,14 @@
-// LOCAL MODIFICATION: Hardcoded version in stub block instead of calling NanoPlot binary
-// Reason: Stub tests should not require real tool binaries to be installed
-// Last verified against nf-core remote: 2026-04-27
+// Copyright (c) the nf-core community under an open-source MIT license.
+// See https://github.com/nf-core/modules for full license, file patching instructions and upstream contributing.
+
 process NANOPLOT {
     tag "$meta.id"
     label 'process_low'
 
     conda "${moduleDir}/environment.yml"
     container "${ workflow.containerEngine in ['singularity', 'apptainer'] && !task.ext.singularity_pull_docker_container ?
-        'https://depot.galaxyproject.org/singularity/nanoplot:1.46.1--pyhdfd78af_0' :
-        'quay.io/biocontainers/nanoplot:1.46.1--pyhdfd78af_0' }"
+        'https://depot.galaxyproject.org/singularity/nanoplot:1.48.0--pyhdfd78af_1' :
+        'quay.io/biocontainers/nanoplot:1.48.0--pyhdfd78af_1' }"
 
     input:
     // LOCAL MODIFICATION: indexed staging directories. In chunked batch
@@ -20,7 +20,7 @@ process NANOPLOT {
     tuple val(meta), path("*.html")                , emit: html
     tuple val(meta), path("*.png") , optional: true, emit: png
     tuple val(meta), path("*.txt")                 , emit: txt
-    path  "versions.yml"                           , emit: versions
+    tuple val("${task.process}"), val('NanoPlot'), eval('NanoPlot --version | sed \'s/^.*NanoPlot //; s/ .*\$//\''), emit: versions_nanoplot, topic: versions
 
     when:
     task.ext.when == null || task.ext.when
@@ -34,11 +34,6 @@ process NANOPLOT {
         $args \\
         -t $task.cpus \\
         $input_file
-
-    cat <<-END_VERSIONS > versions.yml
-    "${task.process}":
-        nanoplot: \$(echo \$(NanoPlot --version 2>&1) | sed 's/^.*NanoPlot //; s/ .*\$//')
-    END_VERSIONS
     """
 
     stub:
@@ -52,10 +47,5 @@ process NANOPLOT {
     touch WeightedHistogramReadlength.html
     touch WeightedLogTransformed_HistogramReadlength.html
     touch Yield_By_Length.html
-
-    cat <<-END_VERSIONS > versions.yml
-    "${task.process}":
-        nanoplot: 1.46.1
-    END_VERSIONS
     """
 }

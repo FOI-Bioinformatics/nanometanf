@@ -35,7 +35,7 @@ nextflow_pipeline {
         options "-stub"
         when {
             params {
-                input = false
+                input = null
                 barcode_input_dir = "$projectDir/tests/fixtures/barcode_backlog_12"
                 outdir = "$outputDir"
                 realtime_mode = false
@@ -116,7 +116,7 @@ nextflow_pipeline {
         options "-stub"
         when {
             params {
-                input = false
+                input = null
                 barcode_input_dir = "$projectDir/tests/fixtures/barcode_backlog_12"
                 outdir = "$outputDir"
                 realtime_mode = false

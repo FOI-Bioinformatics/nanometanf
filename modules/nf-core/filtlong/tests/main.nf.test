@@ -3,11 +3,7 @@ nextflow_process {
     name "Test Process FILTLONG"
     script "../main.nf"
     process "FILTLONG"
-
-    options "-stub"
-    tag "stub"
     config "./nextflow.config"
-    tag "fast"
     tag "filtlong"
     tag "modules"
     tag "modules_nfcore"
@@ -33,11 +29,7 @@ nextflow_process {
             assertAll(
                 { assert process.success },
                 { assert path(process.out.log.get(0).get(1)).readLines().contains("Scoring long reads")},
-                { assert snapshot(
-                    process.out.reads,
-                    process.out.versions
-                    ).match()
-                }
+                { assert snapshot(sanitizeOutput(process.out)).match() }
             )
         }
 
@@ -65,11 +57,7 @@ nextflow_process {
             assertAll(
                 { assert process.success },
                 { assert path(process.out.log.get(0).get(1)).readLines().contains("Scoring long reads")},
-                { assert snapshot(
-                    process.out.reads,
-                    process.out.versions
-                    ).match()
-                }
+                { assert snapshot(sanitizeOutput(process.out)).match() }
             )
         }
 
@@ -100,11 +88,35 @@ nextflow_process {
             assertAll(
                 { assert process.success },
                 { assert path(process.out.log.get(0).get(1)).readLines().contains("Scoring long reads")},
-                { assert snapshot(
-                    process.out.reads,
-                    process.out.versions
-                    ).match()
-                }
+                { assert snapshot(sanitizeOutput(process.out)).match() }
+            )
+        }
+
+    }
+
+    test("sarscov2 nanopore [fastq] - stub") {
+
+        options "-stub"
+
+        when {
+            params {
+                outdir = "$outputDir"
+            }
+            process {
+                """
+                input[0] = [
+                    [ id:'test', single_end:false ],
+                    [],
+                    [ file(params.modules_testdata_base_path + 'genomics/sarscov2/nanopore/fastq/test.fastq.gz', checkIfExists: true) ]
+                ]
+                """
+            }
+        }
+
+        then {
+            assertAll(
+                { assert process.success },
+                { assert snapshot(sanitizeOutput(process.out)).match() }
             )
         }
 

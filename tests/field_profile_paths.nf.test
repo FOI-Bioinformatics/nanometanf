@@ -20,7 +20,7 @@ nextflow_pipeline {
     test("batch run with kraken2_enable_incremental writes cumulative + per-batch reports") {
         when {
             params {
-                input = false
+                input = null
                 barcode_input_dir = "$projectDir/tests/fixtures/kraken2_real/reads"
                 outdir = "$outputDir"
                 realtime_mode = false
@@ -61,7 +61,7 @@ nextflow_pipeline {
     test("batch run with kraken2_use_optimizations classifies and writes valid performance JSON") {
         when {
             params {
-                input = false
+                input = null
                 barcode_input_dir = "$projectDir/tests/fixtures/kraken2_real/reads"
                 outdir = "$outputDir"
                 realtime_mode = false
@@ -105,7 +105,7 @@ nextflow_pipeline {
     test("batch run with qc_enable_incremental + nanoplot comparison aggregates QC for real") {
         when {
             params {
-                input = false
+                input = null
                 barcode_input_dir = "$projectDir/tests/fixtures/kraken2_real/reads"
                 outdir = "$outputDir"
                 realtime_mode = false

@@ -14,6 +14,60 @@ and its re-runnable probes in `docs/performance/scripts/`.
 
 ### Fixed
 
+- **A single taxid is accepted by `--taxids_to_validate`.** nf-schema 2.7.2+
+  casts a digit-only command-line or params-file string to an integer before
+  it checks the type, so the string-only schema type refused
+  `--taxids_to_validate 562` -- the shape Nanometa Live sends for a run with
+  one watched organism, and what `tests/realtime_validation_e2e.nf.test`
+  passes. The schema now accepts string or integer; the validation
+  subworkflow already coerces to string. Caught by the macOS real-time e2e
+  job on the first CI run of this branch; `tests/parameter_validation.nf.test`
+  carries the stub-mode cover.
+
+- **A lost-input marker names the staged files again when the module stages
+  them in a subdirectory.** `bin/nanometanf_lost_input_marker.sh` listed
+  symlinks in the task directory only; nf-core/chopper (since its 2026-10-29
+  update) stages its input under `input/`, ASSEMBLY_READ_POOL under
+  `pool_input*/` and FASTQC / NANOPLOT under indexed `?/` directories, so a
+  CHOPPER failure wrote `"input_files": []` and the report's lost-input
+  clause would have named no file. The marker now looks one level down as
+  well; pinned by `tests/failure_paths.nf.test`.
+
+- **QC benchmarking could not start.** `subworkflows/local/qc_benchmark`
+  called the single `FASTQC` and `SEQKIT_STATS` includes once per benchmarked
+  tool, which Nextflow refuses at parse time ("Process 'QC_BENCHMARK:FASTQC'
+  was called twice"), so `--enable_qc_benchmark` aborted every run. Each tool
+  now has its own aliased instance (`FASTQC_FASTP`, `SEQKIT_STATS_CHOPPER`,
+  ...) and the FASTQC / SEQKIT_STATS resource and `ext.args` selectors in the
+  configs cover the aliases. Behind that parse error sat a second one: both
+  FILTLONG calls passed `null` for the short-read slot, which a `path` input
+  refuses ("Path value cannot be null"); they pass `[]` as qc_analysis does.
+  Nothing had run this subworkflow: its test file was excluded from CI as
+  unverified.
+
+- **`conf/cloud.config` and `conf/cluster.config` parse again under
+  Nextflow 26.** The strict config parser rejected bare `${ENV_VAR}`
+  references (now `env('...')`), `def` variables beside config statements
+  (the singularity bind test is inlined) and `task` inside an `executor`
+  `jobName` closure (dropped; Nextflow's default job name already carries
+  the process name and index). Neither file is a registered profile, so no
+  default launch was affected.
+
+- **The five test files excluded from CI as "unverified" are verified and
+  wired in.** `subworkflows/local/assembly/tests` is rewritten against the
+  subworkflow's two-input interface (whole-sample reads plus per-organism
+  reads with a reference) in stub mode: eight cases covering metagenome,
+  targeted and both scopes, batch grouping of chunked emissions, miniasm,
+  empty input and an unsupported assembler. `subworkflows/local/qc_benchmark/tests`
+  drops an assertion on a `workflow.duration` property nf-test does not
+  have, and two of its real-execution cases run in CI. The consensus
+  validation, cumulative-aggregator and validation-only-discovery files
+  passed as written. `tests/ci_excluded_tests.txt` carries no `unverified`
+  entry any more.
+
+- **Every local subworkflow's `meta.yml` lists the modules it includes**
+  (`components:`), clearing the `meta_include` lint warnings.
+
 - **A file still being written when the watcher reports it is held until
   it stops changing.** watchPath hands a path on at `create`; a producer
   that writes in place (MinKNOW appending reads, a copy in progress) was
@@ -96,6 +150,68 @@ and its re-runnable probes in `docs/performance/scripts/`.
   from 60 to 66 test files, and an unlisted file is a build failure.
 
 ### Changed
+
+- **nf-schema 3.0.0 and the nf-core/modules master `utils_*` subworkflows.**
+  Version 1.12.0dev. nf-schema 3.0.0 (requires Nextflow >= 26.04.0, the
+  existing floor) removes help-from-config, the positional `workflow`
+  argument of `paramsSummaryMap` / `paramsSummaryLog`, and the deprecated
+  `failUnrecognisedParams` / `failUnrecognisedHeaders`; the three nf-core
+  utility subworkflows move from the 4.2.1 template's pins to nf-core/modules
+  `7b3452a`, whose `utils_nfschema_plugin` is written for 3.0.0, and the two
+  local `paramsSummaryMap` calls drop the positional. `validation.logging`
+  is set explicitly to `warn` for unrecognised parameters and headers, the
+  default and the deliberate choice (Nanometa Live checks its vocabulary
+  before launching). `--help_full` and `--show_hidden` as bare CLI flags
+  reach `paramsHelp()` as the String "true" before nf-schema casts CLI
+  parameters, and 3.0.0 casts `showHidden` to Boolean unchecked (fixed
+  upstream in 3.1.0); the pipeline-utils subworkflow coerces both flags.
+  Validation semantics are unchanged from 2.7.x (values that are `false`
+  are validated; CLI parameters are cast to their schema types).
+  Verified: `--help`, `--help_full --show_hidden`, `--help input`,
+  `--version`; a GUI-shaped real-time stub launch from a typed
+  `-params-file`; the error wording Nanometa Live's log scanner matches
+  ("Validation of pipeline parameters failed", "Missing required
+  parameter(s)") is unchanged. This puts the pipeline one step ahead of the
+  nf-core 4.2.1 template, which still pins 2.7.3.
+
+- **Synced by hand to the nf-core 4.2.1 pipeline template** (`.nf-core.yml`
+  `nf_core_version: 4.2.1`; the repository has no TEMPLATE branch for
+  `nf-core pipelines sync`). nf-schema 2.6.1 -> 2.7.3; the three `utils_*`
+  subworkflows at the template's pinned commits; `PIPELINE_INITIALISATION`
+  takes `help`, `help_full` and `show_hidden` and the schema subworkflow
+  renders the help text (the `validation.help` config block is gone);
+  `PIPELINE_COMPLETION` no longer takes `hook_url`, and the parameter, the
+  `imNotification` call and the Slack/Teams card assets are removed, as in
+  the template. `--help`, `--help_full --show_hidden` and `--version` verified.
+  The parameter schema drops `default: false` from its 20 boolean parameters
+  (nf-core schema lint advice; `nextflow.config` still sets them) and
+  `manifest.diagram` points at a new `docs/images/nanometanf_metro_map.svg`.
+  nf-schema 2.7.0 stopped skipping parameters whose value is `false`, so a
+  string parameter set to `false` now fails validation: the 34 `input = false`
+  lines across 15 test files are `input = null` (the pipeline's own default),
+  and a launch that needs to cancel a profile's `input` does the same.
+  Nanometa Live never sends a boolean for a non-boolean parameter (checked
+  against the schema for the real-time, by-barcode and single-sample
+  launches), so GUI runs are unaffected.
+
+- **nf-core modules brought to nf-core/modules `7b3452a` (2026-10-27) with
+  nf-core/tools 4.2.1.** Tool versions move: chopper 0.12.0b -> 0.14.1 (now
+  piped through pigz, which upstream bundles, so the local gzip pin and
+  `gunzip -c` workaround are retired), fastp 1.1.0 -> 1.4.0, fastqc
+  0.12.1 -> 0.13.0 (upstream adopted the indexed-staging input this pipeline
+  patched in, so that patch is gone too), nanoplot 1.46.1 -> 1.48.0, seqkit
+  2.9.0 -> 2.13.0, minimap2 2.29 -> 2.30 with samtools 1.23.1, multiqc
+  1.34 -> 1.35. FILTLONG, PORECHOP_PORECHOP, NANOPLOT and TAXPASTA_STANDARDISE
+  now emit their versions on the `versions` topic like the rest, and the
+  calling subworkflows no longer mix a `.out.versions` channel that no longer
+  exists. Two local modifications remain and are re-recorded as nf-core
+  patches: filtlong's multi-file concatenation and nanoplot's indexed
+  staging. The never-included nf-core `blast/blastn` and `blast/makeblastdb`
+  modules are removed (validation uses the local `blastn_validation`), and
+  the per-module patches that only added `tag "fast"`/`tag "stub"` to
+  upstream tests are dropped: those tests are excluded from CI as
+  upstream-maintained. `docs/development/nfcore_module_maintenance.md` is
+  rewritten around the post-update checklist.
 
 - `SEQKIT_STATS` and `FASTP_STREAMING` are sized for what they do: they
   inherited 12 GB and 36 GB resource labels, and `withName:'FASTP'` never

@@ -143,6 +143,11 @@ jobs:
             tests/parameter_validation.nf.test \
             tests/qc_tool_integration.nf.test \
             tests/validation_assembly_stub_matrix.nf.test \
+            tests/validation_only_discovery.nf.test \
+            modules/local/consensus_validation/tests/main.nf.test \
+            modules/local/validation_cumulative_aggregator/tests/main.nf.test \
+            subworkflows/local/assembly/tests/main.nf.test \
+            subworkflows/local/qc_benchmark/tests/main.nf.test \
             modules/local/aggregate_validation_results/tests/main.nf.test \
             modules/local/blastn_validation/tests/main.nf.test \
             modules/local/canonical_assembly_writer/tests/main.nf.test \

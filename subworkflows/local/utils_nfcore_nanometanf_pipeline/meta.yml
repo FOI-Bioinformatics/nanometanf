@@ -47,4 +47,3 @@ components:
   # share the utils_nfcore_pipeline subworkflow.
   - completionemail
   - completionsummary
-  - imnotification

@@ -27,7 +27,7 @@ nextflow_pipeline {
         options "-stub"
         when {
             params {
-                input = false
+                input = null
                 realtime_mode = true
                 nanopore_output_dir = "$projectDir/tests/fixtures/batch_chunking"
                 outdir = "$outputDir"
@@ -81,7 +81,7 @@ nextflow_pipeline {
         options "-stub"
         when {
             params {
-                input = false
+                input = null
                 realtime_mode = true
                 nanopore_output_dir = "$projectDir/tests/fixtures/batch_chunking"
                 outdir = "$outputDir"
