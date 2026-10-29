@@ -63,13 +63,22 @@ workflow PIPELINE_INITIALISATION {
     }
     def command = "nextflow run ${workflow.manifest.name} -profile <docker/singularity/.../institute> --input samplesheet.csv --outdir <OUTDIR>"
 
+    // `--help_full` and `--show_hidden` given as bare CLI flags reach this
+    // point as the String "true": nf-schema casts CLI parameters to their
+    // schema types inside validateParameters(), which runs after the help
+    // branch, and nf-schema 3.0.0's paramsHelp() casts showHidden to
+    // Boolean without checking (fixed upstream in 3.1.0). `help` stays as
+    // given: a parameter name is a legitimate String value for it.
+    def help_full_flag   = help_full   instanceof Boolean ? help_full   : (help_full?.toString()?.toBoolean()   ?: false)
+    def show_hidden_flag = show_hidden instanceof Boolean ? show_hidden : (show_hidden?.toString()?.toBoolean() ?: false)
+
     UTILS_NFSCHEMA_PLUGIN (
         workflow,
         validate_params,
         null,
         help,
-        help_full,
-        show_hidden,
+        help_full_flag,
+        show_hidden_flag,
         before_text,
         after_text,
         command,
@@ -144,7 +153,7 @@ workflow PIPELINE_COMPLETION {
     multiqc_report  //  string: Path to MultiQC report
 
     main:
-    summary_params = paramsSummaryMap(workflow, parameters_schema: "nextflow_schema.json")
+    summary_params = paramsSummaryMap(parameters_schema: "nextflow_schema.json")
     def multiqc_reports = multiqc_report.toList()
 
     //

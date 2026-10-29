@@ -133,22 +133,35 @@ shared clone of nf-core/modules (`~/.config/nfcore`): the symptom is
 
 ---
 
-## nf-core subworkflows: `utils_*` follow the pipeline template, not nf-core/modules master
+## nf-core subworkflows: `utils_*` at nf-core/modules master, nf-schema 3.0.0
 
-The three nf-core utility subworkflows are pinned to the commits the nf-core 4.2.1
-pipeline template ships (`utils_nextflow_pipeline` `c2b22d85`, `utils_nfcore_pipeline`
-`6ef220fd`, `utils_nfschema_plugin` `a7b27fd2`) with **nf-schema 2.7.3**, which is what
-`nf-core pipelines create` 4.2.1 produces. Synced by hand on 2026-10-29, since the
-repository has no TEMPLATE branch for `nf-core pipelines sync`; the port touched
-`subworkflows/local/utils_nfcore_nanometanf_pipeline/main.nf` (the schema subworkflow
-takes the help flags and an example command; `PIPELINE_COMPLETION` no longer takes
-`hook_url`, because `imNotification` and the Slack/Teams card assets left the template),
-`main.nf`'s two calls, the `validation` config block (no `help {}`: the subworkflow
-renders `--help` itself) and the `hook_url` parameter, which is gone.
+Since 2026-10-29 the three nf-core utility subworkflows are at nf-core/modules
+`7b3452a` with **nf-schema 3.0.0**, one step ahead of the nf-core 4.2.1 pipeline
+template (which still pins 2.7.3 and the subworkflow commits of 2026-09/10). The
+step was taken because master's `utils_nfschema_plugin` is written for 3.0.0 and is
+what the template will adopt; `nf-core pipelines lint` no longer reports
+`subworkflow_version` for the three.
 
-`nf-core/modules` master is ahead of the template: its `utils_nfschema_plugin` targets
-nf-schema 3.0.0 (renamed option keys, a changed `paramsHelp` signature, CLI typecasting
-through `cast_cli_params`). `nf-core subworkflows lint` therefore still reports
-`subworkflow_version: New version available` for the three. Take that step when the
-template does, and re-run the GUI launch tests in nanometa_live (typed params through
-`-params-file`) before merging it.
+What 3.0.0 changed and where it landed here:
+
+- Help from configuration is gone; `paramsHelp(parameter: ...)` renders it. The
+  pipeline-utils subworkflow passes `help`, `help_full` and `show_hidden` to the
+  schema subworkflow and coerces the two flags to Boolean first: a bare `--show_hidden`
+  arrives as the String "true" before nf-schema casts CLI parameters (casting happens
+  in `validateParameters()`, after the help branch), and 3.0.0's `paramsHelp()` casts
+  `showHidden` unchecked (fixed upstream in 3.1.0).
+- `paramsSummaryMap()` / `paramsSummaryLog()` take no `workflow` argument. Two local
+  calls (`workflows/nanometanf.nf`, `subworkflows/local/utils_nfcore_nanometanf_pipeline/main.nf`)
+  changed.
+- `validation.failUnrecognisedParams` / `Headers` are replaced by
+  `validation.logging.unrecognisedParams` / `unrecognisedHeaders`; `nextflow.config`
+  sets both to `warn` explicitly (the default, and the choice: a typo in an extra
+  parameter is reported, not a refused run).
+- Validation semantics are those of 2.7.x: `false` values are validated (so a
+  string parameter is cancelled with `null`, never `false`) and CLI parameters are
+  cast to their schema types.
+
+Nextflow >= 26.04.0 is required by the plugin, which is the pipeline's floor already.
+`nextflow plugin install nf-schema@3.0.0` once while online puts the plugin in
+`~/.nextflow/plugins`; Nanometa Live's `nanometa-prepare doctor` has a row for it, a
+GUI Start seeds each run's NXF_HOME from that cache, and a bundle export copies it.

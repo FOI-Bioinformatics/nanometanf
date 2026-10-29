@@ -4,6 +4,9 @@ repository_type: pipeline
 # TEMPLATE branch for `nf-core pipelines sync`): nf-schema 2.7.3, the three
 # utils_* subworkflows at the template's pinned commits, the pipeline-utils
 # subworkflow interface (help flags in, hook_url out) and main.nf's calls.
+# One step ahead of that template since the same day: nf-schema 3.0.0 and
+# the utils_* subworkflows at nf-core/modules master (7b3452a), which the
+# template still pins at 2.7.3 (see docs/development/nfcore_module_maintenance.md).
 nf_core_version: 4.2.1
 
 lint:
@@ -127,7 +130,7 @@ template:
   name: nanometanf
   description: Backend of Nanometa-Live
   author: "Andreas Sjodin"
-  version: 1.11.1dev
+  version: 1.12.0dev
   force: true
   outdir: .
   skip_features:

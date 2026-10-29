@@ -25,7 +25,7 @@ sequencing data analysis. It covers:
 POD5 basecalling via Dorado was removed in the 2026-04 refactor and the
 `use_dorado` / `pod5_input_dir` parameters are no longer accepted.
 
-**Current version:** 1.6.0 (released 2026-08-15)
+**Current version:** 1.12.0dev (last release 1.11.0, 2026-09-09)
 **nf-core lint score:** 96/100
 
 ---
@@ -737,8 +737,8 @@ gh pr create --title "Title" --body "Description"
 
 ---
 
-**Last updated:** 2026-10-27
-**Version:** 1.6.0 (released 2026-08-15)
+**Last updated:** 2026-10-29
+**Version:** 1.12.0dev (last release 1.11.0, 2026-09-09)
 **Maintainer:** foi-bioinformatics team (@andreassjodin)
 
 ### Recent changes (v1.5.0)

@@ -141,6 +141,29 @@ and its re-runnable probes in `docs/performance/scripts/`.
 
 ### Changed
 
+- **nf-schema 3.0.0 and the nf-core/modules master `utils_*` subworkflows.**
+  Version 1.12.0dev. nf-schema 3.0.0 (requires Nextflow >= 26.04.0, the
+  existing floor) removes help-from-config, the positional `workflow`
+  argument of `paramsSummaryMap` / `paramsSummaryLog`, and the deprecated
+  `failUnrecognisedParams` / `failUnrecognisedHeaders`; the three nf-core
+  utility subworkflows move from the 4.2.1 template's pins to nf-core/modules
+  `7b3452a`, whose `utils_nfschema_plugin` is written for 3.0.0, and the two
+  local `paramsSummaryMap` calls drop the positional. `validation.logging`
+  is set explicitly to `warn` for unrecognised parameters and headers, the
+  default and the deliberate choice (Nanometa Live checks its vocabulary
+  before launching). `--help_full` and `--show_hidden` as bare CLI flags
+  reach `paramsHelp()` as the String "true" before nf-schema casts CLI
+  parameters, and 3.0.0 casts `showHidden` to Boolean unchecked (fixed
+  upstream in 3.1.0); the pipeline-utils subworkflow coerces both flags.
+  Validation semantics are unchanged from 2.7.x (values that are `false`
+  are validated; CLI parameters are cast to their schema types).
+  Verified: `--help`, `--help_full --show_hidden`, `--help input`,
+  `--version`; a GUI-shaped real-time stub launch from a typed
+  `-params-file`; the error wording Nanometa Live's log scanner matches
+  ("Validation of pipeline parameters failed", "Missing required
+  parameter(s)") is unchanged. This puts the pipeline one step ahead of the
+  nf-core 4.2.1 template, which still pins 2.7.3.
+
 - **Synced by hand to the nf-core 4.2.1 pipeline template** (`.nf-core.yml`
   `nf_core_version: 4.2.1`; the repository has no TEMPLATE branch for
   `nf-core pipelines sync`). nf-schema 2.6.1 -> 2.7.3; the three `utils_*`
