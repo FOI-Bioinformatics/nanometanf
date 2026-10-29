@@ -132,6 +132,26 @@ and its re-runnable probes in `docs/performance/scripts/`.
 
 ### Changed
 
+- **Synced by hand to the nf-core 4.2.1 pipeline template** (`.nf-core.yml`
+  `nf_core_version: 4.2.1`; the repository has no TEMPLATE branch for
+  `nf-core pipelines sync`). nf-schema 2.6.1 -> 2.7.3; the three `utils_*`
+  subworkflows at the template's pinned commits; `PIPELINE_INITIALISATION`
+  takes `help`, `help_full` and `show_hidden` and the schema subworkflow
+  renders the help text (the `validation.help` config block is gone);
+  `PIPELINE_COMPLETION` no longer takes `hook_url`, and the parameter, the
+  `imNotification` call and the Slack/Teams card assets are removed, as in
+  the template. `--help`, `--help_full --show_hidden` and `--version` verified.
+  The parameter schema drops `default: false` from its 20 boolean parameters
+  (nf-core schema lint advice; `nextflow.config` still sets them) and
+  `manifest.diagram` points at a new `docs/images/nanometanf_metro_map.svg`.
+  nf-schema 2.7.0 stopped skipping parameters whose value is `false`, so a
+  string parameter set to `false` now fails validation: the 34 `input = false`
+  lines across 15 test files are `input = null` (the pipeline's own default),
+  and a launch that needs to cancel a profile's `input` does the same.
+  Nanometa Live never sends a boolean for a non-boolean parameter (checked
+  against the schema for the real-time, by-barcode and single-sample
+  launches), so GUI runs are unaffected.
+
 - **nf-core modules brought to nf-core/modules `7b3452a` (2026-10-27) with
   nf-core/tools 4.2.1.** Tool versions move: chopper 0.12.0b -> 0.14.1 (now
   piped through pigz, which upstream bundles, so the local gzip pin and

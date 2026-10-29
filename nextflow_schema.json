@@ -233,13 +233,6 @@
                     "fa_icon": "fas fa-palette",
                     "hidden": true
                 },
-                "hook_url": {
-                    "type": "string",
-                    "description": "Incoming hook URL for messaging service",
-                    "fa_icon": "fas fa-people-group",
-                    "help_text": "Incoming hook URL for messaging service. Currently, MS Teams and Slack are supported.",
-                    "hidden": true
-                },
                 "multiqc_config": {
                     "type": "string",
                     "format": "file-path",
@@ -313,7 +306,6 @@
             "properties": {
                 "realtime_mode": {
                     "type": "boolean",
-                    "default": false,
                     "description": "Enable real-time file monitoring and processing during sequencing runs.",
                     "fa_icon": "fas fa-play",
                     "help_text": "When enabled, the pipeline will monitor specified directories for new files and process them incrementally as they are created during an active sequencing run."
@@ -502,7 +494,6 @@
                 },
                 "skip_fastp": {
                     "type": "boolean",
-                    "default": false,
                     "description": "Skip FASTP QC step (legacy parameter for backward compatibility).",
                     "fa_icon": "fas fa-forward",
                     "hidden": true,
@@ -510,26 +501,22 @@
                 },
                 "skip_nanoplot": {
                     "type": "boolean",
-                    "default": false,
                     "description": "Skip NanoPlot visualization.",
                     "fa_icon": "fas fa-chart-line"
                 },
                 "skip_multiqc": {
                     "type": "boolean",
-                    "default": false,
                     "description": "Skip MultiQC report generation.",
                     "fa_icon": "fas fa-file-alt"
                 },
                 "enable_adapter_trimming": {
                     "type": "boolean",
-                    "default": false,
                     "description": "Enable nanopore adapter trimming with PORECHOP.",
                     "fa_icon": "fas fa-cut",
                     "help_text": "Applies to the chopper and filtlong QC tools, which have no adapter handling of their own. Ignored (with a warning) for fastp, which removes adapters itself. Disable for reads already trimmed by the basecaller."
                 },
                 "enable_qc_benchmark": {
                     "type": "boolean",
-                    "default": false,
                     "description": "Enable QC tool performance benchmarking.",
                     "fa_icon": "fas fa-stopwatch",
                     "help_text": "Compare performance metrics across QC tools (chopper vs fastp vs filtlong)."
@@ -631,7 +618,6 @@
                 },
                 "qc_enable_incremental": {
                     "type": "boolean",
-                    "default": false,
                     "description": "Enable incremental QC statistics aggregation (PromethION optimization).",
                     "fa_icon": "fas fa-rocket",
                     "help_text": "When enabled with chopper/filtlong, batch-level SeqKit statistics are merged using weighted calculations instead of recomputing the entire dataset. Eliminates redundant computations in real-time mode."
@@ -707,21 +693,18 @@
                 },
                 "skip_kraken2": {
                     "type": "boolean",
-                    "default": false,
                     "description": "Skip Kraken2 taxonomic classification.",
                     "fa_icon": "fas fa-ban",
                     "help_text": "Use this option to skip taxonomic classification and run only QC and processing steps."
                 },
                 "save_output_fastqs": {
                     "type": "boolean",
-                    "default": false,
                     "description": "Save classified/unclassified FASTQ files from Kraken2.",
                     "fa_icon": "fas fa-save",
                     "help_text": "Outputs separate FASTQ files for classified and unclassified reads. Useful for downstream analysis of specific taxa."
                 },
                 "save_reads_assignment": {
                     "type": "boolean",
-                    "default": false,
                     "description": "Save read-level taxonomic assignments.",
                     "fa_icon": "fas fa-save",
                     "help_text": "Save the complete Kraken2 output file with per-read taxonomic assignments. Large files for high-depth sequencing runs."
@@ -748,7 +731,6 @@
                 },
                 "kraken2_use_optimizations": {
                     "type": "boolean",
-                    "default": false,
                     "description": "Enable Kraken2 performance optimizations.",
                     "fa_icon": "fas fa-rocket"
                 },
@@ -776,10 +758,9 @@
                 },
                 "kraken2_enable_incremental": {
                     "type": "boolean",
-                    "default": false,
                     "description": "Enable incremental Kraken2 classification with batch caching (PromethION optimization).",
                     "fa_icon": "fas fa-rocket",
-                    "help_text": "Cache batch-level .kraken2 outputs and merge at the end instead of re-classifying the growing dataset. Eliminates O(n\u00b2) complexity. Saves 30-90 minutes for 30-batch runs."
+                    "help_text": "Cache batch-level .kraken2 outputs and merge at the end instead of re-classifying the growing dataset. Eliminates O(n²) complexity. Saves 30-90 minutes for 30-batch runs."
                 },
                 "batch_chunking": {
                     "type": "boolean",
@@ -854,7 +835,6 @@
             "properties": {
                 "run_validation": {
                     "type": "boolean",
-                    "default": false,
                     "description": "Enable pathogen validation after taxonomic classification.",
                     "fa_icon": "fas fa-toggle-on"
                 },
@@ -934,7 +914,6 @@
                 },
                 "generate_consensus": {
                     "type": "boolean",
-                    "default": false,
                     "description": "Generate a consensus sequence per validated (sample, taxid) from read mapping.",
                     "help_text": "Maps extracted reads to the reference with minimap2, then calls a consensus with samtools. Amplicon-aware: positions below consensus_min_depth are masked N and the consensus is trimmed to the covered span. No primer scheme is required.",
                     "fa_icon": "fas fa-align-center"
@@ -964,7 +943,6 @@
                 },
                 "blast_validation": {
                     "type": "boolean",
-                    "default": false,
                     "description": "Deprecated: use run_validation instead.",
                     "fa_icon": "fas fa-search",
                     "hidden": true
@@ -984,7 +962,6 @@
                 },
                 "validation_only": {
                     "type": "boolean",
-                    "default": false,
                     "description": "Run validation without re-running classification.",
                     "fa_icon": "fas fa-check-double"
                 },
@@ -1044,7 +1021,6 @@
             "properties": {
                 "enable_assembly": {
                     "type": "boolean",
-                    "default": false,
                     "description": "Enable genome assembly step for long-read nanopore data.",
                     "fa_icon": "fas fa-power-off"
                 },
@@ -1111,7 +1087,6 @@
                 },
                 "assembly_allow_low_depth": {
                     "type": "boolean",
-                    "default": false,
                     "description": "Assemble below the depth floor anyway, labelling the result as fragments.",
                     "fa_icon": "fas fa-exclamation-triangle",
                     "help_text": "Every artifact produced this way carries low_depth_override so no consumer can mistake the contigs for a genome. Use it to inspect what is there, not to report an assembly."
@@ -1143,7 +1118,6 @@
             "properties": {
                 "enable_nanoplot_comparison": {
                     "type": "boolean",
-                    "default": false,
                     "description": "Enable multi-sample NanoPlot comparison plots.",
                     "fa_icon": "fas fa-chart-bar"
                 },
@@ -1156,7 +1130,6 @@
                 },
                 "skip_krona": {
                     "type": "boolean",
-                    "default": false,
                     "description": "Skip Krona visualization (for ARM Mac compatibility).",
                     "fa_icon": "fas fa-forward",
                     "help_text": "Disables Krona visualization. Required on ARM Mac where the Krona container has permission issues. Equivalent to --enable_krona_plots false."

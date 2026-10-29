@@ -133,27 +133,22 @@ shared clone of nf-core/modules (`~/.config/nfcore`): the symptom is
 
 ---
 
-## nf-core subworkflows: `utils_*` held back on purpose (2026-10-29)
+## nf-core subworkflows: `utils_*` follow the pipeline template, not nf-core/modules master
 
-`nf-core subworkflows update --all --save-diff` reports newer versions of all three
-installed nf-core subworkflows, and they are not taken in the module update because they
-are one change, not three, and it is a major one:
+The three nf-core utility subworkflows are pinned to the commits the nf-core 4.2.1
+pipeline template ships (`utils_nextflow_pipeline` `c2b22d85`, `utils_nfcore_pipeline`
+`6ef220fd`, `utils_nfschema_plugin` `a7b27fd2`) with **nf-schema 2.7.3**, which is what
+`nf-core pipelines create` 4.2.1 produces. Synced by hand on 2026-10-29, since the
+repository has no TEMPLATE branch for `nf-core pipelines sync`; the port touched
+`subworkflows/local/utils_nfcore_nanometanf_pipeline/main.nf` (the schema subworkflow
+takes the help flags and an example command; `PIPELINE_COMPLETION` no longer takes
+`hook_url`, because `imNotification` and the Slack/Teams card assets left the template),
+`main.nf`'s two calls, the `validation` config block (no `help {}`: the subworkflow
+renders `--help` itself) and the `hook_url` parameter, which is gone.
 
-- `utils_nfschema_plugin` at `7b3452a` targets **nf-schema 3.0.0** (its test config pins
-  `nf-schema@3.0.0`; the pipeline runs 2.6.1). It renames the plugin option keys
-  (`parametersSchema` -> `parameters_schema`), changes the `paramsHelp` /
-  `paramsSummaryLog` signatures, and adds a seventh `take` input, `cli_typecast`, so the
-  call in `subworkflows/local/utils_nfcore_nanometanf_pipeline/main.nf` must change with
-  it. nf-schema 3.0 also changes how CLI parameters are typecast, which is the contract
-  Nanometa Live relies on when it launches with `-params-file`.
-- `utils_nfcore_pipeline` drops `imNotification`, which the local pipeline-utils
-  subworkflow imports and calls for `--hook_url`; the function would need to move into
-  the local subworkflow or the feature be removed.
-- `utils_nextflow_pipeline` changes `dumpParametersToJSON` to a typed JSON generator;
-  harmless on its own.
-
-Take all three together with the nf-schema bump, as `nf-core pipelines sync` would, and
-re-run the GUI launch tests in nanometa_live (typed params through `-params-file`) before
-merging. Until then `nf-core pipelines lint` and `nf-core subworkflows lint` report
-`subworkflow_version: New version available` for the three; that warning is the record of
-this decision, not an oversight.
+`nf-core/modules` master is ahead of the template: its `utils_nfschema_plugin` targets
+nf-schema 3.0.0 (renamed option keys, a changed `paramsHelp` signature, CLI typecasting
+through `cast_cli_params`). `nf-core subworkflows lint` therefore still reports
+`subworkflow_version: New version available` for the three. Take that step when the
+template does, and re-run the GUI launch tests in nanometa_live (typed params through
+`-params-file`) before merging it.

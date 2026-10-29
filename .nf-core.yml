@@ -1,6 +1,10 @@
 repository_type: pipeline
 
-nf_core_version: 3.5.2
+# Synced by hand to the 4.2.1 template on 2026-10-29 (the repository has no
+# TEMPLATE branch for `nf-core pipelines sync`): nf-schema 2.7.3, the three
+# utils_* subworkflows at the template's pinned commits, the pipeline-utils
+# subworkflow interface (help flags in, hook_url out) and main.nf's calls.
+nf_core_version: 4.2.1
 
 lint:
   files_exist:
@@ -104,7 +108,11 @@ lint:
   actions_nf_test: false
   # The pipeline-level lint config below cannot suppress subworkflow-internal
   # checks (main_nf_include_versions, meta_name, subworkflow_include) because
-  # the subworkflow linter does not honour per-rule ignores. The residual
+  # the subworkflow linter does not honour per-rule ignores (re-checked with
+  # nf-core/tools 4.2.1 on 2026-10-29: `subworkflow_include: false` and
+  # `meta_name: false` here change nothing). demultiplexing, input_scanner
+  # and realtime_monitoring are channel logic with no process of their own,
+  # so their subworkflow_include warning is the shape, not an omission. The residual
   # warnings on subworkflows/local/utils_nfcore_nanometanf_pipeline are
   # inherent to the nf-core utility-subworkflow pattern: the helper functions
   # imported from utils_nfcore_pipeline (completionEmail, completionSummary,

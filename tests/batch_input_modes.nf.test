@@ -23,7 +23,7 @@ nextflow_pipeline {
         options "-stub"
         when {
             params {
-                input = false
+                input = null
                 barcode_input_dir = "$projectDir/tests/fixtures/barcode_structure"
                 outdir = "$outputDir"
                 realtime_mode = false

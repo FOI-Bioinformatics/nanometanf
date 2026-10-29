@@ -48,5 +48,5 @@ modules/nf-core/untar/tests/main.nf.test                                    nf-c
 subworkflows/nf-core/utils_nextflow_pipeline/tests/main.function.nf.test    nf-core
 subworkflows/nf-core/utils_nextflow_pipeline/tests/main.workflow.nf.test    nf-core
 subworkflows/nf-core/utils_nfcore_pipeline/tests/main.function.nf.test      nf-core
-subworkflows/nf-core/utils_nfcore_pipeline/tests/main.workflow.nf.test      nf-core
+subworkflows/nf-core/utils_nfcore_pipeline/tests/main.nf.test               nf-core
 subworkflows/nf-core/utils_nfschema_plugin/tests/main.nf.test               nf-core

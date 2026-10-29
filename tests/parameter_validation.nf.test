@@ -47,7 +47,7 @@ nextflow_pipeline {
         // the watch queue open and hanging until killed.
         when {
             params {
-                input = false
+                input = null
                 outdir = "$outputDir"
                 realtime_mode = true
                 nanopore_output_dir = "/tmp/nanometanf_nonexistent_watch_dir_xyz"
@@ -79,7 +79,7 @@ nextflow_pipeline {
 
         when {
             params {
-                input = false
+                input = null
                 outdir = "$outputDir"
                 realtime_mode = true
                 nanopore_output_dir = null
