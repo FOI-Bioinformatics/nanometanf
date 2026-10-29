@@ -410,14 +410,27 @@ setup { "cat > $outputDir/test.csv ..." }
 
 ### 4. nf-core Module Maintenance
 
-Four nf-core modules have local modifications. See [nfcore_module_maintenance.md](docs/development/nfcore_module_maintenance.md) for full details.
+All 15 installed nf-core modules are at nf-core/modules `7b3452a` (2026-10-27;
+updated 2026-10-29 with nf-core/tools 4.2.1). Two carry a local modification,
+recorded as nf-core patch files (`modules.json` `patch` key), which
+`nf-core modules update` re-applies and reports when it cannot. See
+[nfcore_module_maintenance.md](docs/development/nfcore_module_maintenance.md)
+for the per-module record and the post-update checklist.
 
-| Module            | Modification                   | Update Strategy                                                           |
-| ----------------- | ------------------------------ | ------------------------------------------------------------------------- |
-| `blast/blastn`    | `export BLASTDB=${db}` env var | Protected in `.nf-core.yml` skip list. Re-apply after manual update.      |
-| `fastp`           | None (restored to upstream)    | Safe to update freely. Streaming handled by local `fastp_streaming/`.     |
-| `kraken2/kraken2` | Container SHAs, stub versions  | Run `nf-core modules update kraken2/kraken2` -- no functional divergence. |
-| `nanoplot`        | Stub hardcoded version         | Run `nf-core modules update nanoplot` -- upstream uses same convention.   |
+| Module     | Modification                                  | Why                                                        |
+| ---------- | --------------------------------------------- | ---------------------------------------------------------- |
+| `filtlong` | Multi-file input concatenated before the call | filtlong takes one positional file; a barcode dir has many |
+| `nanoplot` | `path(ontfile, stageAs: '?/*')`               | Chunked batch mode stages same-named chunks into one task  |
+
+Every installed module now emits its version on the `versions` topic and
+writes no `versions.yml`; `workflows/nanometanf.nf` collects both styles. A
+module moving to topic emission needs its `ch_versions.mix(X.out.versions)`
+line removed in the calling subworkflow or Nextflow fails at parse time.
+The nf-core `blast/*` modules were removed (installed, never included:
+validation uses `modules/local/blastn_validation`). The upstream module
+tests are excluded from CI (`tests/ci_excluded_tests.txt`, reason `nf-core`)
+and the pipeline no longer patches tags into them; run one directly with
+`nf-test test modules/nf-core/<module>/tests/main.nf.test`.
 
 ```bash
 nf-core lint

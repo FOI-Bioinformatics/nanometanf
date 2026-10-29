@@ -1,167 +1,49 @@
-# nf-core Module Maintenance Assessment
+# nf-core Module Maintenance
 
-This document assesses the maintenance burden of the four locally-modified nf-core modules in
-nanometanf. For each module the divergence from upstream is characterised, the justification for
-the modification is evaluated, and a recommendation is given regarding the long-term maintenance
-strategy.
+How the nf-core modules installed under `modules/nf-core/` are kept current, which ones
+carry a local modification, and how that modification survives an update.
 
-Last reviewed: 2026-03-01
-Actions completed: 2026-03-01
+Last reviewed: 2026-10-29 (all modules at nf-core/modules `7b3452a`, 2026-10-27)
 
 ---
 
 ## Summary
 
-| Module                    | Divergence                       | Can use ext.args | Status                                                                                          |
-| ------------------------- | -------------------------------- | ---------------- | ----------------------------------------------------------------------------------------------- |
-| `nf-core/fastp`           | Script logic (multi-file concat) | No               | DONE: Streaming logic moved to `modules/local/fastp_streaming`; upstream module restored        |
-| `nf-core/blast/blastn`    | Environment variable export      | No               | DONE: Protected via `.nf-core.yml` update skip list; comment updated with re-apply instructions |
-| `nf-core/kraken2/kraken2` | Container SHA + stub hardcoding  | N/A              | Pending: Run `nf-core modules update kraken2/kraken2`                                           |
-| `nf-core/nanoplot`        | Stub hardcoding only             | N/A              | Pending: Run `nf-core modules update nanoplot`                                                  |
+| Module          | Local modification                            | Mechanism                                |
+| --------------- | --------------------------------------------- | ---------------------------------------- |
+| `filtlong`      | Multi-file input concatenated before filtlong | nf-core patch (`filtlong.diff`)          |
+| `nanoplot`      | Inputs staged in indexed directories (`?/*`)  | nf-core patch (`nanoplot.diff`)          |
+| all others (13) | None                                          | Plain upstream; `nf-core modules update` |
+
+The patch files are recorded in `modules.json` (`patch` key) and re-applied by
+`nf-core modules update`; when upstream changes the patched lines the update reports
+"Failed to apply patch" and the modification has to be re-applied by hand, then recorded
+again with `nf-core modules patch <module>`. There is no `.nf-core.yml` update skip list
+and there never was one in effect: an earlier version of this document described one, but
+the file only ever carried lint configuration.
 
 ---
 
-## Module: nf-core/fastp
+## Module: nf-core/filtlong
 
 ### Local modification
 
-The `adapter_fasta` parameter was moved into the first input tuple (matching the upstream
-`meta.yml` interface), and a multi-file concatenation block was added to the `script` section.
-
-Specifically, before each `fastp` invocation the script counts the number of input files and, if
-more than one is present, concatenates them with `cat` before calling fastp:
-
-```bash
-if [ ${num_files} -gt 1 ]; then
-    cat ${reads} > ${prefix}.fastq.gz
-else
-    [ ! -f ${prefix}.fastq.gz ] && ln -sf ${reads} ${prefix}.fastq.gz
-fi
-```
-
-### What the upstream module provides
-
-Inspection of the upstream `meta.yml` shows that the nf-core FASTP module already declares
-`adapter_fasta` as part of the first input tuple. The local input signature therefore matches
-upstream exactly. The divergence is confined to the script body.
+filtlong accepts exactly one positional long-read file. A multi-file sample (every
+barcode directory of a MinKNOW run, every chunk in chunked batch mode) is concatenated
+into `${prefix}.concat_input.fq.gz` before the call and the concatenation is removed
+afterwards; gzip members concatenate as a valid stream. Without this the extra files are
+passed as positionals and filtlong exits 1 ("passed in argument, but no positional
+arguments were ready to receive it"): Nanometa Live audit round 5, 2026-09-03, P1.
 
 ### Can this be achieved with task.ext.args?
 
-No. The multi-file concatenation is a shell-level pre-processing step that must execute before
-fastp runs. There is no fastp CLI flag that accepts a list of input files and concatenates them.
+No. The concatenation is a shell step before the tool runs.
 
 ### Maintenance burden
 
-Medium. Every time nf-core updates the FASTP module (for example, to update the container, change
-the script logic, or add new parameters), the concatenation block must be manually re-applied to
-the updated script. The concatenation logic spans three conditional branches (interleaved,
-single-end, and paired-end), which increases the merge effort.
-
-### What happens on nf-core update
-
-The concatenation block must be re-inserted into all three script branches. The stub block does
-not require changes. The input/output signature is stable.
-
-### Recommendation
-
-Create a thin local pre-process module (for example `CONCATENATE_FASTQ_BATCHES`) that takes a
-list of FASTQ files and emits a single FASTQ file. Call this module immediately before FASTP in
-the streaming subworkflow, then pass the single output file to the unmodified upstream FASTP
-module.
-
-This eliminates the divergence from upstream entirely and makes future nf-core updates a
-straightforward `nf-core modules update` operation.
-
----
-
-## Module: nf-core/blast/blastn
-
-### Local modification
-
-A single line was added to the script section before the BLAST database discovery step:
-
-```bash
-export BLASTDB=${db}
-```
-
-### Why this is needed
-
-The BLAST suite resolves database paths by consulting the `BLASTDB` environment variable in
-addition to the path provided to `-db`. The upstream module uses `find` to locate the `.nal` or
-`.nin` index files relative to the staged database directory. Setting `BLASTDB` to the staged
-directory ensures that BLAST can resolve the database correctly when the database is a staged
-symlink forest, as occurs in the nanometanf validation subworkflow.
-
-### Can this be achieved with task.ext.args?
-
-No. `BLASTDB` is an environment variable, not a blastn CLI argument. There is no way to set it
-via `ext.args`.
-
-A workaround using `ext.beforeScript` is possible in principle:
-
-```groovy
-ext.beforeScript = "export BLASTDB=\${db}"
-```
-
-However, `ext.beforeScript` receives the process working directory, not the staged path of the
-`db` input. The staged path is only available inside the process script block, so `ext.beforeScript`
-cannot be used here without additional scaffolding.
-
-### Maintenance burden
-
-Low. The modification is a single line inserted immediately before the `find` command. The rest of
-the script is unchanged. On nf-core update, the single line must be re-applied, which is a minimal
-effort.
-
-### What happens on nf-core update
-
-Re-insert `export BLASTDB=${db}` before the `find -L ./ -name "*.nal"` line. No other changes
-are required.
-
-### Recommendation
-
-Keep the module as a local fork. The modification is minimal, well-isolated, and clearly
-documented with the `// LOCAL MODIFICATION` comment. The risk of a merge conflict on nf-core
-update is low.
-
-Document the exact upstream commit against which the fork was made so that future diffs can be
-generated automatically.
-
----
-
-## Module: nf-core/kraken2/kraken2
-
-### Local modification
-
-Two changes were made:
-
-1. The container SHA URLs in the `container` directive were updated to match the latest nf-core
-   remote (this is a cosmetic sync, not a functional change).
-2. The stub block was updated to use hardcoded version strings (`kraken2: 2.1.3`, `pigz: 2.8`)
-   instead of calling the real binaries. This is now standard nf-core practice for stub blocks.
-
-### Can this be achieved with task.ext.args?
-
-Not applicable. Both changes are module-level and independent of the tool CLI.
-
-### Maintenance burden
-
-Very low. The container SHA change is a cosmetic sync that aligns with upstream. The stub
-hardcoding change is a best practice improvement that nf-core itself applies to new modules. There
-is no functional divergence from upstream behaviour.
-
-### What happens on nf-core update
-
-The container SHAs will be overwritten by `nf-core modules update`, which is the intended
-behaviour. The stub hardcoding will also be overwritten, but nf-core stubs now follow the same
-hardcoded convention, so the updated stub will be functionally equivalent.
-
-### Recommendation
-
-Re-sync with upstream using `nf-core modules update kraken2/kraken2`. The local modifications
-will be superseded by the upstream versions, which is acceptable because neither change is
-functionally required by nanometanf. Remove the `// LOCAL MODIFICATION` comment after re-sync to
-keep the module clean.
+Low. The modification is five `def` lines plus two script lines around the `filtlong`
+call. It had to be re-applied on 2026-10-29 because upstream added a stub block and
+rewrote the script indentation; re-applying took minutes.
 
 ---
 
@@ -169,70 +51,109 @@ keep the module clean.
 
 ### Local modification
 
-The stub block was updated to use a hardcoded version string (`nanoplot: 1.46.1`) instead of
-calling `NanoPlot --version`.
-
-### Can this be achieved with task.ext.args?
-
-Not applicable.
+`tuple val(meta), path(ontfile, stageAs: '?/*')`. In chunked batch mode one NanoPlot task
+receives every chunk of a sample, and the chunks all carry the same file name, which
+collides when staged flat. Indexed staging directories give each file its own directory.
 
 ### Maintenance burden
 
-Negligible. The only divergence from upstream is the stub block. Stub blocks are never executed
-in production runs. The hardcoded version may become outdated if the module is updated to a newer
-NanoPlot version, but this causes no runtime impact.
-
-### What happens on nf-core update
-
-`nf-core modules update nanoplot` will overwrite the stub block. The updated stub block will
-likely also hardcode the version (this is current nf-core convention) or may call the binary. In
-either case no functional regression occurs.
-
-### Recommendation
-
-Re-sync with upstream using `nf-core modules update nanoplot`. Remove the `// LOCAL MODIFICATION`
-comment after re-sync. This module requires no further attention.
+Negligible: one input line. fastqc needed the same change and upstream has since adopted
+it (`stageAs: '?/*'` is in the upstream fastqc module as of `7b3452a`), so the fastqc patch
+is gone. Proposing the same one-line change upstream for nanoplot would remove this patch
+too.
 
 ---
 
-## General Maintenance Guidance
+## Modifications retired on 2026-10-29
 
-### Tracking divergence
+- **`chopper` gzip pin and `gunzip -c`.** Added because the slim community image shipped
+  chopper alone and macOS BSD `zcat` could not read `.fastq.gz`. Upstream now bundles
+  `pigz` in both the conda environment and the Wave image and pipes through it, which
+  covers both platforms, so the patch is dropped. The pipeline keeps its own
+  `ext.prefix = "${meta.id}.chopped"` in `conf/modules.config`, so upstream's new default
+  prefix (`${meta.id}.chopper`) changes no file name.
+- **`fastqc` indexed staging.** Upstreamed (see above).
+- **`nanoplot` hardcoded stub version.** Upstream's stub now hardcodes too.
+- **`blast/blastn` `export BLASTDB=${db}` and `blast/makeblastdb`.** Both modules were
+  installed but included by nothing: validation runs through the local
+  `modules/local/blastn_validation` module, which has carried the `BLASTDB` export since
+  it was written. Removed with `nf-core modules remove`.
+- **`tag "fast"` / `tag "stub"` added to upstream module tests** (porechop, flye,
+  minimap2/align, seqkit/stats, taxpasta/\*). These tags selected the upstream module
+  tests under `tests/run_tests.sh fast`. They are not in the CI allowlist (excluded in
+  `tests/ci_excluded_tests.txt` with reason `nf-core`: upstream maintains them), so the
+  tags bought nothing in CI and cost a patch file per module. Run an upstream module's
+  own tests directly: `nf-test test modules/nf-core/<module>/tests/main.nf.test`.
+- **`miniasm` stub snapshot edits.** Upstream's snapshot is authoritative again.
 
-Each locally-modified module carries a header comment in `main.nf`:
+---
 
-```groovy
-// LOCAL MODIFICATION: <description>
-// Reason: <rationale>
-// Last verified against nf-core remote: YYYY-MM-DD
-```
+## Version emission: topic channels
 
-Update the `Last verified` date whenever the module is manually re-examined against upstream,
-even if no changes are made.
+As of `7b3452a` every installed nf-core module emits its tool version as
+`tuple val(process), val(tool), eval(cmd), topic: versions` and no longer writes
+`versions.yml`. The pipeline collects both styles in `workflows/nanometanf.nf`
+(`Channel.topic('versions')` beside the legacy `ch_versions`), so a module switching
+style needs one change: delete the `ch_versions.mix(MODULE.out.versions)` line in the
+subworkflow that calls it, or Nextflow fails at parse time with "no such output".
+The 2026-10-29 update switched FILTLONG, PORECHOP_PORECHOP, NANOPLOT and
+TAXPASTA_STANDARDISE; the lines are replaced by a comment naming the pattern, as the
+earlier switches (FASTP, FASTQC, SEQKIT_STATS, KRAKEN2_KRAKEN2, CHOPPER) were.
 
-### Updating nf-core modules
+---
 
-For modules with no functional divergence (kraken2/kraken2, nanoplot):
+## Updating
 
 ```bash
-cd /Users/andreassjodin/Code/nanometanf
-nf-core modules update kraken2/kraken2
-nf-core modules update nanoplot
+nf-core modules list local                      # installed versions and dates
+nf-core modules update --all --save-diff u.diff # dry run: review u.diff, nothing applied
+nf-core modules update --all                    # apply; patches re-applied where they fit
+nf-core modules lint --all                      # patch_reversible, version topic, containers
+nf-core modules patch <module>                  # re-record a modification you re-applied
 ```
 
-Review the diff before committing to confirm no regression.
+Checklist after an update:
 
-For modules with functional divergence (fastp, blast/blastn):
+1. Read the "Failed to apply patch" warnings. For each, re-apply the modification by
+   hand from the table above, then `nf-core modules patch <module>`. Delete any stale
+   `.diff` left behind for a module whose modification is gone, and its `patch` key in
+   `modules.json`, or `nf-core modules lint` fails `patch_reversible`.
+2. `grep -rn '\.out\.versions' subworkflows/local workflows` for every module the update
+   moved to topic emission.
+3. Check `ext.prefix` defaults: an upstream prefix change renames published files unless
+   `conf/modules.config` pins the prefix.
+4. Run the subworkflow and pipeline nf-tests that include the module (the real-execution
+   ones need `--profile test,docker` or `test,conda`; stub tests need neither).
+5. The regenerated `conf/containers_*.config` files change whenever a container
+   reference does; `nf-core pipelines lint` rewrites them.
 
-1. Run `nf-core modules update <module> --preview` to review upstream changes.
-2. Apply the upstream changes manually, then re-apply the local modification.
-3. Update the `Last verified` date in the header comment.
-4. Run nf-test stub tests to confirm the module still behaves correctly.
+Running several `nf-core` commands at once against a fresh checkout corrupts their
+shared clone of nf-core/modules (`~/.config/nfcore`): the symptom is
+"Branch 'master' not found" on every module. Run them one after another.
 
-### Reducing future maintenance burden
+---
 
-The highest-priority action for reducing maintenance burden is to eliminate the fastp divergence
-by introducing a dedicated concatenation module. This converts a medium-maintenance fork into a
-zero-maintenance upstream module plus a small, stable local module with no upstream dependency.
+## nf-core subworkflows: `utils_*` held back on purpose (2026-10-29)
 
-The blast/blastn fork is justified and low-maintenance. No structural change is recommended.
+`nf-core subworkflows update --all --save-diff` reports newer versions of all three
+installed nf-core subworkflows, and they are not taken in the module update because they
+are one change, not three, and it is a major one:
+
+- `utils_nfschema_plugin` at `7b3452a` targets **nf-schema 3.0.0** (its test config pins
+  `nf-schema@3.0.0`; the pipeline runs 2.6.1). It renames the plugin option keys
+  (`parametersSchema` -> `parameters_schema`), changes the `paramsHelp` /
+  `paramsSummaryLog` signatures, and adds a seventh `take` input, `cli_typecast`, so the
+  call in `subworkflows/local/utils_nfcore_nanometanf_pipeline/main.nf` must change with
+  it. nf-schema 3.0 also changes how CLI parameters are typecast, which is the contract
+  Nanometa Live relies on when it launches with `-params-file`.
+- `utils_nfcore_pipeline` drops `imNotification`, which the local pipeline-utils
+  subworkflow imports and calls for `--hook_url`; the function would need to move into
+  the local subworkflow or the feature be removed.
+- `utils_nextflow_pipeline` changes `dumpParametersToJSON` to a typed JSON generator;
+  harmless on its own.
+
+Take all three together with the nf-schema bump, as `nf-core pipelines sync` would, and
+re-run the GUI launch tests in nanometa_live (typed params through `-params-file`) before
+merging. Until then `nf-core pipelines lint` and `nf-core subworkflows lint` report
+`subworkflow_version: New version available` for the three; that warning is the record of
+this decision, not an oversight.

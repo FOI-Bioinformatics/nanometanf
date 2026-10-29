@@ -91,7 +91,7 @@ workflow QC_BENCHMARK {
     FILTLONG (
         ch_filtlong_input
     )
-    ch_versions = ch_versions.mix(FILTLONG.out.versions.first())
+    // FILTLONG uses topic: versions pattern - no .out.versions channel.
 
     // Run FastQC on FILTLONG output for comparison
     FASTQC (
@@ -125,7 +125,7 @@ workflow QC_BENCHMARK {
     PORECHOP_PORECHOP (
         ch_reads
     )
-    ch_versions = ch_versions.mix(PORECHOP_PORECHOP.out.versions.first())
+    // PORECHOP_PORECHOP uses topic: versions pattern - no .out.versions channel.
 
     // Prepare PORECHOP+FILTLONG input
     ch_porechop_filtlong_input = PORECHOP_PORECHOP.out.reads.map { meta, reads ->
@@ -140,7 +140,7 @@ workflow QC_BENCHMARK {
     FILTLONG_AFTER_PORECHOP (
         ch_porechop_filtlong_input
     )
-    ch_versions = ch_versions.mix(FILTLONG_AFTER_PORECHOP.out.versions.first())
+    // FILTLONG_AFTER_PORECHOP uses topic: versions pattern - no .out.versions channel.
 
     ch_porechop_filtlong_benchmark = FILTLONG_AFTER_PORECHOP.out.reads
         .join(FILTLONG_AFTER_PORECHOP.out.log, by: 0, remainder: true)
@@ -213,7 +213,7 @@ workflow QC_BENCHMARK {
     NANOPLOT (
         ch_all_qc_outputs_nonempty
     )
-    ch_versions = ch_versions.mix(NANOPLOT.out.versions.first())
+    // NANOPLOT uses topic: versions pattern - no .out.versions channel.
 
     //
     // Combine all benchmark results

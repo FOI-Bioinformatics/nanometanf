@@ -97,6 +97,25 @@ and its re-runnable probes in `docs/performance/scripts/`.
 
 ### Changed
 
+- **nf-core modules brought to nf-core/modules `7b3452a` (2026-10-27) with
+  nf-core/tools 4.2.1.** Tool versions move: chopper 0.12.0b -> 0.14.1 (now
+  piped through pigz, which upstream bundles, so the local gzip pin and
+  `gunzip -c` workaround are retired), fastp 1.1.0 -> 1.4.0, fastqc
+  0.12.1 -> 0.13.0 (upstream adopted the indexed-staging input this pipeline
+  patched in, so that patch is gone too), nanoplot 1.46.1 -> 1.48.0, seqkit
+  2.9.0 -> 2.13.0, minimap2 2.29 -> 2.30 with samtools 1.23.1, multiqc
+  1.34 -> 1.35. FILTLONG, PORECHOP_PORECHOP, NANOPLOT and TAXPASTA_STANDARDISE
+  now emit their versions on the `versions` topic like the rest, and the
+  calling subworkflows no longer mix a `.out.versions` channel that no longer
+  exists. Two local modifications remain and are re-recorded as nf-core
+  patches: filtlong's multi-file concatenation and nanoplot's indexed
+  staging. The never-included nf-core `blast/blastn` and `blast/makeblastdb`
+  modules are removed (validation uses the local `blastn_validation`), and
+  the per-module patches that only added `tag "fast"`/`tag "stub"` to
+  upstream tests are dropped: those tests are excluded from CI as
+  upstream-maintained. `docs/development/nfcore_module_maintenance.md` is
+  rewritten around the post-update checklist.
+
 - `SEQKIT_STATS` and `FASTP_STREAMING` are sized for what they do: they
   inherited 12 GB and 36 GB resource labels, and `withName:'FASTP'` never
   matched the streaming wrapper. Set in `conf/base.config` so the platform

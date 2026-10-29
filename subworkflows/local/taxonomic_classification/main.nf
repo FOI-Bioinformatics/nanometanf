@@ -746,7 +746,7 @@ workflow TAXONOMIC_CLASSIFICATION {
             Channel.value(output_format),
             Channel.value(taxonomy_file)
         )
-        ch_versions = ch_versions.mix(TAXPASTA_STANDARDISE.out.versions)
+        // TAXPASTA_STANDARDISE uses topic: versions pattern - no .out.versions channel.
         ch_standardized_reports = TAXPASTA_STANDARDISE.out.standardised_profile
     } else {
         ch_standardized_reports = ch_raw_reports

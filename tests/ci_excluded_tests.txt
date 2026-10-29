@@ -30,8 +30,6 @@ tests/realtime_backlog_12_barcodes.nf.test                                  watc
 subworkflows/local/realtime_monitoring/tests/main.nf.test                   watchpath
 subworkflows/local/taxonomic_classification/tests/realtime_cumulative_emit.nf.test  watchpath run manually against a real Kraken2 DB
 
-modules/nf-core/blast/blastn/tests/main.nf.test                             nf-core
-modules/nf-core/blast/makeblastdb/tests/main.nf.test                        nf-core
 modules/nf-core/chopper/tests/main.nf.test                                  nf-core
 modules/nf-core/fastp/tests/main.nf.test                                    nf-core
 modules/nf-core/fastqc/tests/main.nf.test                                   nf-core

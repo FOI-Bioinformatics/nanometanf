@@ -1,3 +1,6 @@
+// Copyright (c) the nf-core community under an open-source MIT license.
+// See https://github.com/nf-core/modules for full license, file patching instructions and upstream contributing.
+
 process FILTLONG {
     tag "$meta.id"
     label 'process_low'
@@ -5,7 +8,7 @@ process FILTLONG {
     conda "${moduleDir}/environment.yml"
     container "${ workflow.containerEngine in ['singularity', 'apptainer'] && !task.ext.singularity_pull_docker_container ?
         'https://depot.galaxyproject.org/singularity/filtlong:0.2.1--h9a82719_0' :
-        'biocontainers/filtlong:0.2.1--h9a82719_0' }"
+        'quay.io/biocontainers/filtlong:0.2.1--h9a82719_0' }"
 
     input:
     tuple val(meta), path(shortreads), path(longreads)
@@ -13,7 +16,7 @@ process FILTLONG {
     output:
     tuple val(meta), path("*.fastq.gz"), emit: reads
     tuple val(meta), path("*.log")     , emit: log
-    path "versions.yml"                 , emit: versions
+    tuple val("${task.process}"), val('filtlong'), eval('filtlong --version | sed -e "s/Filtlong v//g"'), topic: versions, emit: versions_filtlong
 
     when:
     task.ext.when == null || task.ext.when
@@ -23,12 +26,12 @@ process FILTLONG {
     def prefix = task.ext.prefix ?: "${meta.id}"
     def short_reads = !shortreads ? "" : meta.single_end ? "-1 $shortreads" : "-1 ${shortreads[0]} -2 ${shortreads[1]}"
     if ("$longreads" == "${prefix}.fastq.gz") error "Longread FASTQ input and output names are the same, set prefix in module configuration to disambiguate!"
-    // filtlong takes exactly one positional long-read file. A multi-file
-    // sample (every barcode directory of a MinKNOW run) is concatenated
-    // first; gzip members concatenate as a valid stream. Without this the
-    // extra files are passed as positionals and filtlong exits 1
-    // ("passed in argument, but no positional arguments were ready to
-    // receive it"): nanometa_live audit round 5, 2026-09-03, P1.
+    // LOCAL MODIFICATION: filtlong takes exactly one positional long-read
+    // file. A multi-file sample (every barcode directory of a MinKNOW run)
+    // is concatenated first; gzip members concatenate as a valid stream.
+    // Without this the extra files are passed as positionals and filtlong
+    // exits 1 ("passed in argument, but no positional arguments were ready
+    // to receive it"): nanometa_live audit round 5, 2026-09-03, P1.
     def longread_list = longreads instanceof List ? longreads : [longreads]
     def concat_input = longread_list.size() > 1
     def longread_input = concat_input ? "${prefix}.concat_input.fq.gz" : "${longreads}"
@@ -42,10 +45,12 @@ process FILTLONG {
         2>| >(tee ${prefix}.log >&2) \\
         | gzip -n > ${prefix}.fastq.gz
     rm -f ${prefix}.concat_input.fq.gz
+    """
 
-    cat <<-END_VERSIONS > versions.yml
-    "${task.process}":
-        filtlong: \$( filtlong --version | sed -e "s/Filtlong v//g" )
-    END_VERSIONS
+    stub:
+    def prefix = task.ext.prefix ?: "${meta.id}"
+    """
+    echo "" | gzip > ${prefix}.fastq.gz
+    touch ${prefix}.log
     """
 }
