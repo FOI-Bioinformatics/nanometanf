@@ -11,11 +11,13 @@ keywords:
 authors:
   - "@foi-bioinformatics"
 components:
-  - extract/reads/by/taxid
-  - blastn/validation
-  - minimap2/validation
   - aggregate/validation/results
+  - blastn/validation
   - canonical/validation/writer
+  - consensus/validation
+  - extract/reads/by/taxid
+  - minimap2/validation
+  - validation/cumulative/aggregator
 input:
   - ch_classified_reads:
       type: tuple

@@ -14,6 +14,38 @@ and its re-runnable probes in `docs/performance/scripts/`.
 
 ### Fixed
 
+- **QC benchmarking could not start.** `subworkflows/local/qc_benchmark`
+  called the single `FASTQC` and `SEQKIT_STATS` includes once per benchmarked
+  tool, which Nextflow refuses at parse time ("Process 'QC_BENCHMARK:FASTQC'
+  was called twice"), so `--enable_qc_benchmark` aborted every run. Each tool
+  now has its own aliased instance (`FASTQC_FASTP`, `SEQKIT_STATS_CHOPPER`,
+  ...) and the FASTQC / SEQKIT_STATS resource and `ext.args` selectors in the
+  configs cover the aliases. Nothing had run this subworkflow: its test file
+  was excluded from CI as unverified.
+
+- **`conf/cloud.config` and `conf/cluster.config` parse again under
+  Nextflow 26.** The strict config parser rejected bare `${ENV_VAR}`
+  references (now `env('...')`), `def` variables beside config statements
+  (the singularity bind test is inlined) and `task` inside an `executor`
+  `jobName` closure (dropped; Nextflow's default job name already carries
+  the process name and index). Neither file is a registered profile, so no
+  default launch was affected.
+
+- **The five test files excluded from CI as "unverified" are verified and
+  wired in.** `subworkflows/local/assembly/tests` is rewritten against the
+  subworkflow's two-input interface (whole-sample reads plus per-organism
+  reads with a reference) in stub mode: eight cases covering metagenome,
+  targeted and both scopes, batch grouping of chunked emissions, miniasm,
+  empty input and an unsupported assembler. `subworkflows/local/qc_benchmark/tests`
+  drops an assertion on a `workflow.duration` property nf-test does not
+  have, and two of its real-execution cases run in CI. The consensus
+  validation, cumulative-aggregator and validation-only-discovery files
+  passed as written. `tests/ci_excluded_tests.txt` carries no `unverified`
+  entry any more.
+
+- **Every local subworkflow's `meta.yml` lists the modules it includes**
+  (`components:`), clearing the `meta_include` lint warnings.
+
 - **A file still being written when the watcher reports it is held until
   it stops changing.** watchPath hands a path on at `create`; a producer
   that writes in place (MinKNOW appending reads, a copy in progress) was

@@ -50,9 +50,3 @@ subworkflows/nf-core/utils_nextflow_pipeline/tests/main.workflow.nf.test    nf-c
 subworkflows/nf-core/utils_nfcore_pipeline/tests/main.function.nf.test      nf-core
 subworkflows/nf-core/utils_nfcore_pipeline/tests/main.workflow.nf.test      nf-core
 subworkflows/nf-core/utils_nfschema_plugin/tests/main.nf.test               nf-core
-
-modules/local/consensus_validation/tests/main.nf.test                       unverified
-modules/local/validation_cumulative_aggregator/tests/main.nf.test           unverified
-subworkflows/local/assembly/tests/main.nf.test                              unverified
-subworkflows/local/qc_benchmark/tests/main.nf.test                          unverified
-tests/validation_only_discovery.nf.test                                     unverified

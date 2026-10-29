@@ -4,35 +4,36 @@ nextflow_workflow {
     script "../main.nf"
     workflow "ASSEMBLY"
 
-    // Test Level & Component
     tag "subworkflow"
     tag "assembly"
+    tag "stub"
+    tag "fast"
 
-    // Feature Area
-    tag "assembly"
+    // The subworkflow takes TWO channels: whole-sample reads and per-organism
+    // (reads, reference) pairs. An earlier version of this file called it with
+    // one and every case failed at parse time ("declares 2 inputs but was
+    // called with 1 argument"), which is why the file sat in
+    // tests/ci_excluded_tests.txt as unverified. Stub mode: the depth gate's
+    // stub records 'attempt' for every candidate, so the assembler branch
+    // runs; the module stubs still evaluate `<tool> --version`, so the tools
+    // must resolve (conda or docker profile), as for every stub test here.
 
-    // Execution Speed & Criticality
-    tag "slow"
-    tag "extended"
+    test("metagenome scope: one decision and one flye attempt per sample") {
 
-    test("Should perform basic Flye assembly") {
+        options "-stub"
 
         when {
             workflow {
                 """
-                input[0] = [
-                    [
-                        [id: 'flye_test', single_end: true],
-                        file('$projectDir/tests/fixtures/fastq/test_sample.fastq.gz')
-                    ]
-                ]
+                input[0] = Channel.of([ [id: 'asm1', single_end: true],
+                                        file('${projectDir}/tests/fixtures/fastq/test_sample.fastq.gz') ])
+                input[1] = Channel.empty()
                 """
             }
-
             params {
                 assembler = 'flye'
-                genome_size = '5m'
-                sequencing_mode = '--nano-raw'
+                assembly_scope = 'metagenome'
+                realtime_mode = false
                 max_cpus = 2
                 max_memory = '4.GB'
                 max_time = '5.min'
@@ -41,45 +42,168 @@ nextflow_workflow {
 
         then {
             assert workflow.success
+            assert workflow.out.assembler_used == ['flye']
+            assert workflow.out.decision.size() == 1
+            assert workflow.out.decision[0][1].endsWith('asm1.assembly_decision.json')
+            assert workflow.out.assembly.size() == 1
+            assert workflow.out.assembly[0][1].endsWith('asm1.assembly.fasta.gz')
+            assert workflow.out.assembly_graph.size() == 1
+            assert workflow.out.assembly_info.size() == 1
+            assert workflow.out.canonical_assembly.size() == 1
             assert workflow.out.versions
-            assert workflow.out.assembly
-            assert workflow.out.assembly_graph
-            assert workflow.out.assembly_info
-            assert workflow.out.assembler_used
-            assert workflow.out.versions
-
-            // Verify Flye assembly outputs
-            def assemblies = workflow.out.assembly.toList()
-            assert assemblies.size() >= 1
-
-            def graphs = workflow.out.assembly_graph.toList()
-            assert graphs.size() >= 1
-
-            def info = workflow.out.assembly_info.toList()
-            assert info.size() >= 1
-
-            // Check assembler identification
-            def assembler_used = workflow.out.assembler_used.getVal()
-            assert assembler_used == 'flye'
         }
     }
 
-    test("Should perform Miniasm assembly with overlap detection") {
+    test("targeted scope assembles the per-organism reads and ignores whole-sample reads") {
+
+        options "-stub"
 
         when {
             workflow {
                 """
-                input[0] = [
-                    [
-                        [id: 'miniasm_test', single_end: true],
-                        file('$projectDir/tests/fixtures/fastq/test_sample.fastq.gz')
-                    ]
-                ]
+                input[0] = Channel.of([ [id: 'asm1', single_end: true],
+                                        file('${projectDir}/tests/fixtures/fastq/test_sample.fastq.gz') ])
+                input[1] = Channel.of([ [id: 'asm1', single_end: true, taxid: 562],
+                                        file('${projectDir}/tests/fixtures/fastq/barcode01.fastq.gz'),
+                                        file('${projectDir}/tests/fixtures/fasta/query_sequences.fasta') ])
                 """
             }
+            params {
+                assembler = 'flye'
+                assembly_scope = 'targeted'
+                realtime_mode = false
+                max_cpus = 2
+                max_memory = '4.GB'
+                max_time = '5.min'
+            }
+        }
 
+        then {
+            assert workflow.success
+            assert workflow.out.decision.size() == 1
+            assert workflow.out.decision[0][1].endsWith('asm1.taxid562.assembly_decision.json')
+            assert workflow.out.decision[0][0].assembly_scope == 'targeted'
+            assert workflow.out.assembly.size() == 1
+        }
+    }
+
+    test("scope both: one decision per candidate, whole-sample and targeted") {
+
+        options "-stub"
+
+        when {
+            workflow {
+                """
+                input[0] = Channel.of([ [id: 'asm1', single_end: true],
+                                        file('${projectDir}/tests/fixtures/fastq/test_sample.fastq.gz') ])
+                input[1] = Channel.of([ [id: 'asm1', single_end: true, taxid: 562],
+                                        file('${projectDir}/tests/fixtures/fastq/barcode01.fastq.gz'),
+                                        file('${projectDir}/tests/fixtures/fasta/query_sequences.fasta') ])
+                """
+            }
+            params {
+                assembler = 'flye'
+                assembly_scope = 'both'
+                realtime_mode = false
+                max_cpus = 2
+                max_memory = '4.GB'
+                max_time = '5.min'
+            }
+        }
+
+        then {
+            assert workflow.success
+            assert workflow.out.decision.size() == 2
+            assert workflow.out.decision.collect { it[0].assembly_scope }.sort() == ['metagenome', 'targeted']
+            assert workflow.out.assembly.size() == 2
+        }
+    }
+
+    test("two samples in batch mode get one attempt each") {
+
+        options "-stub"
+
+        when {
+            workflow {
+                """
+                input[0] = Channel.of(
+                    [ [id: 'barcode01', single_end: true], file('${projectDir}/tests/fixtures/fastq/barcode01.fastq.gz') ],
+                    [ [id: 'barcode02', single_end: true], file('${projectDir}/tests/fixtures/fastq/barcode02.fastq.gz') ]
+                )
+                input[1] = Channel.empty()
+                """
+            }
+            params {
+                assembler = 'flye'
+                assembly_scope = 'metagenome'
+                realtime_mode = false
+                max_cpus = 2
+                max_memory = '4.GB'
+                max_time = '5.min'
+            }
+        }
+
+        then {
+            assert workflow.success
+            assert workflow.out.decision.collect { it[0].id }.sort() == ['barcode01', 'barcode02']
+            assert workflow.out.assembly.collect { it[0].id }.sort() == ['barcode01', 'barcode02']
+        }
+    }
+
+    // Chunked batch mode emits a sample once per chunk. The subworkflow groups
+    // the chunks by assembly key before pooling, so one sample gets one decision
+    // and one attempt built on every chunk, whatever order the chunks arrive in.
+    test("chunked emissions of one sample are pooled into a single attempt") {
+
+        options "-stub"
+
+        when {
+            workflow {
+                """
+                input[0] = Channel.of(
+                    [ [id: 'chunky', single_end: true, batch_id: 1, chunk_count: 2], file('${projectDir}/tests/fixtures/fastq/barcode02.fastq.gz') ],
+                    [ [id: 'chunky', single_end: true, batch_id: 0, chunk_count: 2], file('${projectDir}/tests/fixtures/fastq/barcode01.fastq.gz') ]
+                )
+                input[1] = Channel.empty()
+                """
+            }
+            params {
+                assembler = 'flye'
+                assembly_scope = 'metagenome'
+                realtime_mode = false
+                max_cpus = 2
+                max_memory = '4.GB'
+                max_time = '5.min'
+            }
+        }
+
+        then {
+            assert workflow.success
+            assert workflow.out.decision.size() == 1
+            assert workflow.out.assembly.size() == 1
+            // The chunk fields describe an emission, not the sample, and must
+            // not reach the whole-sample artifact's meta.
+            assert !workflow.out.decision[0][0].containsKey('batch_id')
+            assert !workflow.out.decision[0][0].containsKey('chunk_count')
+        }
+    }
+
+    test("miniasm takes the all-vs-all overlap path and reports no assembly info") {
+
+        options "-stub"
+
+        when {
+            workflow {
+                """
+                input[0] = Channel.of([ [id: 'asm1', single_end: true],
+                                        file('${projectDir}/tests/fixtures/fastq/test_sample.fastq.gz') ])
+                input[1] = Channel.empty()
+                """
+            }
             params {
                 assembler = 'miniasm'
+                assembly_scope = 'metagenome'
+                realtime_mode = false
                 max_cpus = 2
                 max_memory = '4.GB'
                 max_time = '5.min'
@@ -88,243 +212,30 @@ nextflow_workflow {
 
         then {
             assert workflow.success
-            assert workflow.out.versions
-            assert workflow.out.assembly
-            assert workflow.out.assembly_graph
-            assert workflow.out.assembler_used
-            assert workflow.out.versions
-
-            // Verify Miniasm assembly outputs
-            def assemblies = workflow.out.assembly.toList()
-            assert assemblies.size() >= 1
-
-            def graphs = workflow.out.assembly_graph.toList()
-            assert graphs.size() >= 1
-
-            // Check assembler identification
-            def assembler_used = workflow.out.assembler_used.getVal()
-            assert assembler_used == 'miniasm'
-
-            // Miniasm doesn't provide assembly info
-            if (workflow.out.assembly_info) {
-                def info = workflow.out.assembly_info.toList()
-                assert info.size() == 0
-            }
+            assert workflow.out.assembler_used == ['miniasm']
+            assert workflow.out.decision.size() == 1
+            assert workflow.out.assembly.size() == 1
+            assert workflow.out.assembly_graph.size() == 1
+            // Miniasm writes no assembly_info, so the canonical writer does not run.
+            assert workflow.out.canonical_assembly.size() == 0
         }
     }
 
-    test("Should handle different genome size parameters") {
+    test("empty input completes and records no decision") {
+
+        options "-stub"
 
         when {
             workflow {
                 """
-                input[0] = [
-                    [
-                        [id: 'genome_size_test', single_end: true],
-                        file('$projectDir/tests/fixtures/fastq/test_sample.fastq.gz')
-                    ]
-                ]
+                input[0] = Channel.empty()
+                input[1] = Channel.empty()
                 """
             }
-
             params {
                 assembler = 'flye'
-                genome_size = '2.5m'  // Smaller genome
-                sequencing_mode = '--nano-raw'
-                max_cpus = 2
-                max_memory = '4.GB'
-                max_time = '5.min'
-            }
-        }
-
-        then {
-            assert workflow.success
-            assert workflow.out.versions
-            assert workflow.out.assembly
-            assert workflow.out.assembly_graph
-            assert workflow.out.assembly_info
-
-            // Verify assembly with custom genome size
-            def assemblies = workflow.out.assembly.toList()
-            assert assemblies.size() >= 1
-        }
-    }
-
-    test("Should handle different sequencing modes") {
-
-        when {
-            workflow {
-                """
-                input[0] = [
-                    [
-                        [id: 'seq_mode_test', single_end: true],
-                        file('$projectDir/tests/fixtures/fastq/test_sample.fastq.gz')
-                    ]
-                ]
-                """
-            }
-
-            params {
-                assembler = 'flye'
-                genome_size = '5m'
-                sequencing_mode = '--nano-corr'  // Corrected reads mode
-                max_cpus = 2
-                max_memory = '4.GB'
-                max_time = '5.min'
-            }
-        }
-
-        then {
-            assert workflow.success
-            assert workflow.out.versions
-            assert workflow.out.assembly
-            assert workflow.out.assembly_graph
-            assert workflow.out.assembly_info
-
-            // Verify assembly with corrected reads mode
-            def assemblies = workflow.out.assembly.toList()
-            assert assemblies.size() >= 1
-        }
-    }
-
-    test("Should process multiple samples in batch") {
-
-        when {
-            workflow {
-                """
-                input[0] = [
-                    [
-                        [id: 'batch_sample1', single_end: true],
-                        file('$projectDir/tests/fixtures/fastq/test_sample.fastq.gz')
-                    ],
-                    [
-                        [id: 'batch_sample2', single_end: true],
-                        file('$projectDir/tests/fixtures/fastq/test_sample.fastq.gz')
-                    ],
-                    [
-                        [id: 'batch_sample3', single_end: true],
-                        file('$projectDir/tests/fixtures/fastq/test_sample.fastq.gz')
-                    ]
-                ]
-                """
-            }
-
-            params {
-                assembler = 'flye'
-                genome_size = '5m'
-                sequencing_mode = '--nano-raw'
-                max_cpus = 2
-                max_memory = '4.GB'
-                max_time = '8.min'
-            }
-        }
-
-        then {
-            assert workflow.success
-            assert workflow.out.versions
-            assert workflow.out.assembly
-            assert workflow.out.assembly_graph
-            assert workflow.out.assembly_info
-
-            // Verify batch processing
-            def assemblies = workflow.out.assembly.toList()
-            assert assemblies.size() >= 3
-
-            def graphs = workflow.out.assembly_graph.toList()
-            assert graphs.size() >= 3
-
-            def info = workflow.out.assembly_info.toList()
-            assert info.size() >= 3
-        }
-    }
-
-    test("Should handle high-accuracy nanopore reads") {
-
-        when {
-            workflow {
-                """
-                input[0] = [
-                    [
-                        [id: 'hac_test', single_end: true],
-                        file('$projectDir/tests/fixtures/fastq/test_sample.fastq.gz')
-                    ]
-                ]
-                """
-            }
-
-            params {
-                assembler = 'flye'
-                genome_size = '5m'
-                sequencing_mode = '--nano-hq'  // High-quality mode
-                flye_extra_args = '--meta'
-                max_cpus = 2
-                max_memory = '4.GB'
-                max_time = '5.min'
-            }
-        }
-
-        then {
-            assert workflow.success
-            assert workflow.out.versions
-            assert workflow.out.assembly
-            assert workflow.out.assembly_graph
-            assert workflow.out.assembly_info
-
-            // Verify high-quality assembly
-            def assemblies = workflow.out.assembly.toList()
-            assert assemblies.size() >= 1
-        }
-    }
-
-    test("Should handle large genome assembly") {
-
-        when {
-            workflow {
-                """
-                input[0] = [
-                    [
-                        [id: 'large_genome_test', single_end: true],
-                        file('$projectDir/tests/fixtures/fastq/test_sample.fastq.gz')
-                    ]
-                ]
-                """
-            }
-
-            params {
-                assembler = 'flye'
-                genome_size = '100m'  // Large genome (100Mb)
-                sequencing_mode = '--nano-raw'
-                max_cpus = 2
-                max_memory = '6.GB'
-                max_time = '8.min'
-            }
-        }
-
-        then {
-            assert workflow.success
-            assert workflow.out.versions
-            assert workflow.out.assembly
-            assert workflow.out.assembly_graph
-            assert workflow.out.assembly_info
-
-            // Verify large genome assembly
-            def assemblies = workflow.out.assembly.toList()
-            assert assemblies.size() >= 1
-        }
-    }
-
-    test("Should handle empty input gracefully") {
-
-        when {
-            workflow {
-                """
-                input[0] = []
-                """
-            }
-
-            params {
-                assembler = 'flye'
-                genome_size = '5m'
+                assembly_scope = 'both'
+                realtime_mode = false
                 max_cpus = 1
                 max_memory = '2.GB'
                 max_time = '1.min'
@@ -332,37 +243,28 @@ nextflow_workflow {
         }
 
         then {
-            // Should handle empty input gracefully
             assert workflow.success
-            assert workflow.out.versions
-
-            if (workflow.success) {
-                // Empty outputs expected
-                if (workflow.out.assembly) {
-                    def assemblies = workflow.out.assembly.toList()
-                    assert assemblies.size() == 0
-                }
-            }
+            assert workflow.out.decision.size() == 0
+            assert workflow.out.canonical_assembly.size() == 0
         }
     }
 
-    test("Should reject invalid assembler parameter") {
+    test("an unsupported assembler is refused by name") {
+
+        options "-stub"
 
         when {
             workflow {
                 """
-                input[0] = [
-                    [
-                        [id: 'invalid_assembler_test', single_end: true],
-                        file('$projectDir/tests/fixtures/fastq/test_sample.fastq.gz')
-                    ]
-                ]
+                input[0] = Channel.of([ [id: 'asm1', single_end: true],
+                                        file('${projectDir}/tests/fixtures/fastq/test_sample.fastq.gz') ])
+                input[1] = Channel.empty()
                 """
             }
-
             params {
-                assembler = 'invalid_assembler'  // Invalid assembler
-                genome_size = '5m'
+                assembler = 'bogus_assembler'
+                assembly_scope = 'metagenome'
+                realtime_mode = false
                 max_cpus = 1
                 max_memory = '2.GB'
                 max_time = '1.min'
@@ -370,52 +272,8 @@ nextflow_workflow {
         }
 
         then {
-            // Should fail due to invalid assembler
             assert workflow.failed
-
-            // Should fail quickly during parameter validation
-            assert workflow.duration.toMillis() < 60000 // Less than 1 minute
-        }
-    }
-
-    test("Should compare Flye vs Miniasm assembly strategies") {
-
-        when {
-            workflow {
-                """
-                input[0] = [
-                    [
-                        [id: 'comparison_test', single_end: true],
-                        file('$projectDir/tests/fixtures/fastq/test_sample.fastq.gz')
-                    ]
-                ]
-                """
-            }
-
-            params {
-                assembler = 'flye'  // Primary assembler for comparison
-                genome_size = '5m'
-                sequencing_mode = '--nano-raw'
-                max_cpus = 2
-                max_memory = '4.GB'
-                max_time = '5.min'
-            }
-        }
-
-        then {
-            assert workflow.success
-            assert workflow.out.versions
-            assert workflow.out.assembly
-            assert workflow.out.assembly_graph
-            assert workflow.out.assembly_info
-            assert workflow.out.assembler_used
-
-            // Verify comparison-ready outputs
-            def assemblies = workflow.out.assembly.toList()
-            assert assemblies.size() >= 1
-
-            def assembler_used = workflow.out.assembler_used.getVal()
-            assert assembler_used == 'flye'
+            assert workflow.errorReport.contains('Unsupported assembler: bogus_assembler')
         }
     }
 }

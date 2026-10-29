@@ -11,11 +11,15 @@ nextflow_workflow {
     // Feature Area
     tag "qc"
 
-    // Execution Speed & Criticality
+    // Execution Speed & Criticality. Real tools, no stub: the point of the
+    // benchmark is the tools' own output. Two cases carry "integration" and
+    // run in CI under the docker profile; the rest are local runs.
     tag "slow"
     tag "extended"
 
     test("Should perform basic QC benchmarking with FASTP, FILTLONG, and CHOPPER") {
+
+        tag "integration"
 
         when {
             workflow {
@@ -185,6 +189,8 @@ nextflow_workflow {
 
     test("Should handle empty input gracefully") {
 
+        tag "integration"
+
         when {
             workflow {
                 """
@@ -249,7 +255,6 @@ nextflow_workflow {
             def benchmark_results = workflow.out.benchmark_results.toList()
             assert benchmark_results.size() >= 3
 
-            assert workflow.duration.toMillis() < 480000
         }
     }
 
