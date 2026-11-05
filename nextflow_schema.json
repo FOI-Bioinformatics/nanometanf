@@ -10,7 +10,7 @@
             "type": "object",
             "fa_icon": "fas fa-arrows-to-dot",
             "description": "Input mode mutual exclusion.",
-            "help_text": "Exactly one of the four input modes must be supplied: --input (samplesheet CSV), --input_dir (auto-detect barcode or flat layout), --barcode_input_dir (deprecated; use --input_dir), or --nanopore_output_dir together with --realtime_mode for real-time monitoring.",
+            "help_text": "Exactly one of the five input modes must be supplied: --input (samplesheet CSV), --input_dir (auto-detect barcode or flat layout), --barcode_input_dir (deprecated; use --input_dir), --nanopore_output_dir together with --realtime_mode for real-time monitoring, or --validation_only together with --kraken2_output_dir and --reads_dir to validate an existing run without re-running classification.",
             "properties": {},
             "oneOf": [
                 {
@@ -24,6 +24,12 @@
                 },
                 {
                     "required": ["nanopore_output_dir"]
+                },
+                {
+                    "properties": {
+                        "validation_only": { "const": true }
+                    },
+                    "required": ["validation_only", "kraken2_output_dir", "reads_dir"]
                 }
             ]
         },
@@ -325,7 +331,7 @@
                     "help_text": "Glob pattern to match FASTQ files (.fastq or .fq, compressed or uncompressed) at any depth, including the root of the watched directory and subdirectories. Hidden files and anything under fastq_fail/ or fastq_skip/ are excluded at intake."
                 },
                 "sample_name": {
-                    "type": "string",
+                    "type": ["string", "integer"],
                     "description": "Sample name to use for single-sample mode (non-barcoded runs).",
                     "fa_icon": "fas fa-tag",
                     "help_text": "When processing a single sample without barcodes, use this name for output files instead of the input filename. If not provided, the input filename will be used."

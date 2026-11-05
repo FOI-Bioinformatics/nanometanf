@@ -68,6 +68,59 @@ nextflow_pipeline {
         }
     }
 
+    test("a digit-only sample name passes validation") {
+        // Same nf-schema cast as the taxid case above: "007" reaches the type
+        // check as an integer. The schema accepts string or integer and the
+        // input scanner coerces to String, so the sample keeps its exact name
+        // (tests/input_scanner.nf.test pins the name itself).
+
+        when {
+            params {
+                input = "$projectDir/tests/fixtures/samplesheets/test_samplesheet_absolute.csv"
+                outdir = "$outputDir"
+                realtime_mode = false
+                skip_kraken2 = true
+                blast_validation = false
+                sample_name = "007"
+                max_cpus = 1
+                max_memory = '1.GB'
+                max_time = '1.min'
+            }
+        }
+
+        then {
+            assert workflow.success : "a digit-only sample name was refused: " + workflow.stderr.join("\n")
+        }
+    }
+
+    test("validation-only without its paths is refused by the schema") {
+        // --validation_only is an input mode: the schema requires
+        // kraken2_output_dir and reads_dir beside it. Until 2026-11 this entry
+        // skipped PIPELINE_INITIALISATION and only the hand-written guards in
+        // VALIDATION_ONLY caught a missing path.
+
+        when {
+            params {
+                input = null
+                validation_only = true
+                reads_dir = "$projectDir/tests/fixtures/validation_only/reads"
+                outdir = "$outputDir"
+                skip_kraken2 = true
+                blast_validation = false
+                max_cpus = 1
+                max_memory = '1.GB'
+                max_time = '1.min'
+            }
+        }
+
+        then {
+            assert !workflow.success
+            def text = (workflow.stdout + workflow.stderr).join("\n")
+            assert text.contains("Validation of pipeline parameters failed") : text.take(600)
+            assert text.contains("kraken2_output_dir") : text.take(600)
+        }
+    }
+
     test("real-time mode fails fast when the watch directory does not exist") {
 
         // Regression for the watchPath hang: a non-existent nanopore_output_dir

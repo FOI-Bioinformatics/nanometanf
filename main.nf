@@ -79,11 +79,12 @@ workflow VALIDATION_ONLY {
     //
     // INPUT VALIDATION
     //
-    // This entry workflow does not run PIPELINE_INITIALISATION, so
-    // validateParameters() never fires here and the schema cannot catch a
-    // missing path. Both params default to null, so without these guards
-    // the globs below interpolate to "null/*.fastq{,.gz}", every channel is
-    // empty, and the run reports SUCCESS having validated nothing.
+    // The schema requires both paths for the validation-only input mode
+    // (PIPELINE_INITIALISATION runs validateParameters() before this entry
+    // since 2026-11). The guards stay for a launch with --validate_params
+    // false: both params default to null, and without them the globs below
+    // interpolate to "null/*.fastq{,.gz}", every channel is empty, and the
+    // run reports SUCCESS having validated nothing.
     //
     if (!params.reads_dir) {
         error "--validation_only requires --reads_dir <path to the FASTQ files " +
@@ -209,27 +210,35 @@ workflow {
         log.warn "========================================================================="
     }
 
+    //
+    // SUBWORKFLOW: Run initialisation tasks
+    //
+    // Both entry workflows run it. Until 2026-11 the validation-only entry
+    // skipped it, so --validation_only never validated its parameters: a
+    // missing --kraken2_output_dir fell through to the hand-written guards
+    // in VALIDATION_ONLY, a mistyped --taxids_to_validate was never seen,
+    // and --help / --version did nothing in that mode. The schema names
+    // validation-only as the fifth input mode (nextflow_schema.json,
+    // input_mode_selection), so validateParameters() accepts it.
+    //
+    PIPELINE_INITIALISATION (
+        params.version,
+        params.validate_params,
+        params.monochrome_logs,
+        args,
+        params.outdir,
+        params.input,
+        params.help,
+        params.help_full,
+        params.show_hidden
+    )
+
     if (params.validation_only) {
         //
         // WORKFLOW: Validation-only mode (skip classification)
         //
         VALIDATION_ONLY()
     } else {
-        //
-        // SUBWORKFLOW: Run initialisation tasks
-        //
-        PIPELINE_INITIALISATION (
-            params.version,
-            params.validate_params,
-            params.monochrome_logs,
-            args,
-            params.outdir,
-            params.input,
-            params.help,
-            params.help_full,
-            params.show_hidden
-        )
-
         //
         // WORKFLOW: Run main workflow
         //

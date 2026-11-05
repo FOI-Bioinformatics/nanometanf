@@ -14,6 +14,22 @@ and its re-runnable probes in `docs/performance/scripts/`.
 
 ### Fixed
 
+- **`--validation_only` validates its parameters.** The validation-only entry
+  skipped `PIPELINE_INITIALISATION`, so nf-schema never saw its parameters: a
+  missing `--kraken2_output_dir` fell through to hand-written guards, a
+  mistyped value was never reported, and `--help` / `--version` did nothing in
+  that mode. Initialisation now runs before both entry workflows, and the
+  schema names validation-only as the fifth input mode (`--validation_only`
+  with `--kraken2_output_dir` and `--reads_dir`, exactly one mode at a time;
+  `WorkflowNanometanf.validateInputModes` agrees). Pinned in
+  `tests/parameter_validation.nf.test`.
+- **A digit-only `--sample_name` is accepted and kept verbatim.** The same
+  nf-schema cast that refused a single taxid refused `--sample_name 007`.
+  The schema accepts string or integer and both call sites pass the value
+  to `InputDetector.extractSampleId` as a String, so the sample keeps its
+  exact name, leading zero included. Pinned in `tests/input_scanner.nf.test`
+  and `tests/parameter_validation.nf.test`.
+
 - **A single taxid is accepted by `--taxids_to_validate`.** nf-schema 2.7.2+
   casts a digit-only command-line or params-file string to an integer before
   it checks the type, so the string-only schema type refused

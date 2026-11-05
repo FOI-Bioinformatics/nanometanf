@@ -28,6 +28,9 @@ nextflow_pipeline {
         options "-stub"
         when {
             params {
+                // The test profile sets a samplesheet; the schema allows exactly
+                // one input mode and validation-only is one of them.
+                input = null
                 validation_only = true
                 run_validation = true
                 outdir = "$outputDir"

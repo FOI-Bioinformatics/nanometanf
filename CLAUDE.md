@@ -611,6 +611,13 @@ Enforced at the schema level via a `oneOf` constraint
 - `--input_dir` - Unified directory scanning (v1.5+; replaces `barcode_input_dir`)
 - `--barcode_input_dir` - Deprecated, hidden in `--help`; use `--input_dir`
 - `--realtime_mode` + `--nanopore_output_dir` - Live FASTQ monitoring
+- `--validation_only` + `--kraken2_output_dir` + `--reads_dir` - Validate an
+  existing run's output without classifying (the GUI's on-demand check).
+  Since 1.12.0dev this entry runs `PIPELINE_INITIALISATION` like the main
+  one, so its parameters are schema-validated and `--help` / `--version`
+  work; it needs no `--kraken2_db` (`WorkflowNanometanf.initialise` skips
+  the database check in this mode). Until then the entry skipped
+  initialisation and only hand-written guards caught a missing path.
 
 ### Real-time Processing
 
