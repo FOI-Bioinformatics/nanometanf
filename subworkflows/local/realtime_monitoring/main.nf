@@ -170,7 +170,7 @@ workflow REALTIME_MONITORING {
                 InputDetector.extractSampleId(
                     f,
                     params.sample_regex,
-                    params.sample_name,
+                    params.sample_name?.toString(),
                     params.nanopore_output_dir
                 ) ?: 'unknown'
             })
