@@ -206,4 +206,50 @@ nextflow_function {
             ]
         }
     }
+
+    test("previous classified pools are found by sample, nested files and other names ignored") {
+        // KRAKEN2_FINAL_AGGREGATOR pools this run's per-batch classified
+        // FASTQs into kraken2/<sample>.kraken2.classified.fastq.gz; on a
+        // Continue the previous run's pool is handed to it too, so the pool
+        // keeps covering every read the cumulative per-read output lists.
+        function "priorPools"
+        when {
+            function {
+                """
+                input[0] = "${outputDir}/pools_a"
+                input[1] = [
+                    'kraken2/barcode05.kraken2.classified.fastq.gz': 'x',
+                    'kraken2/barcode06.kraken2.classified.fastq.gz': 'x',
+                    'kraken2/barcode06.kraken2.unclassified.fastq.gz': 'x',
+                    'kraken2/barcode06.cumulative.kraken2.output.txt': 'x',
+                    'kraken2/barcode07/batches/batch_0.kraken2.output.txt': 'x',
+                    'kraken2/.kraken2.classified.fastq.gz': 'x',
+                ]
+                """
+            }
+        }
+        then {
+            assert function.success
+            assert function.result == [
+                ['barcode05', 'barcode05.kraken2.classified.fastq.gz'],
+                ['barcode06', 'barcode06.kraken2.classified.fastq.gz'],
+            ]
+        }
+    }
+
+    test("no kraken2 directory yields no previous pools") {
+        function "priorPools"
+        when {
+            function {
+                """
+                input[0] = "${outputDir}/pools_b"
+                input[1] = [:]
+                """
+            }
+        }
+        then {
+            assert function.success
+            assert function.result == []
+        }
+    }
 }

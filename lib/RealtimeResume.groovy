@@ -184,4 +184,26 @@ class RealtimeResume {
         }
         return pairs
     }
+
+    /**
+     * The previous run's per-sample classified read pools,
+     * ``kraken2/<sample>.kraken2.classified.fastq.gz``, as ``[sample, Path]``
+     * pairs. KRAKEN2_FINAL_AGGREGATOR concatenates this run's per-batch
+     * classified FASTQs into that file; on a Continue the previous pool is
+     * handed to it as well so the pool keeps covering every read the
+     * cumulative per-read output lists.
+     */
+    static List priorClassifiedPools(String outdir) {
+        def pairs = []
+        def kraken = new File(outdir, 'kraken2')
+        if (!kraken.isDirectory()) {
+            return pairs
+        }
+        def suffix = '.kraken2.classified.fastq.gz'
+        kraken.listFiles()
+            ?.findAll { it.isFile() && it.name.endsWith(suffix) && it.name.length() > suffix.length() }
+            ?.sort { it.name }
+            ?.each { f -> pairs.add([f.name - suffix, Paths.get(f.absolutePath)]) }
+        return pairs
+    }
 }

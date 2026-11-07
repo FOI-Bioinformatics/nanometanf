@@ -11,11 +11,16 @@ process KRAKEN2_FINAL_AGGREGATOR {
         'quay.io/biocontainers/python:3.11' }"
 
     input:
-    tuple val(meta), path(batch_outputs), path(batch_reports)
+    // classified_fastqs: the sample's per-batch classified FASTQs (and, on a
+    // Continue, the previous run's pool), or [] when save_output_fastqs is
+    // off. Staged under their own directory because the previous pool has
+    // the very name this task writes.
+    tuple val(meta), path(batch_outputs), path(batch_reports), path(classified_fastqs, stageAs: 'classified_in/*')
 
     output:
     tuple val(meta), path("${meta.id}.cumulative.kraken2.output.txt"), emit: cumulative_output
     tuple val(meta), path("${meta.id}.cumulative.kraken2.report.txt"), emit: cumulative_report
+    tuple val(meta), path("${meta.id}.kraken2.classified.fastq.gz"),   optional: true, emit: classified_pool
     tuple val(meta), path("aggregation_stats.json"),                   emit: stats
     path  "versions.yml",                                              emit: versions
 
@@ -29,6 +34,7 @@ process KRAKEN2_FINAL_AGGREGATOR {
 
     import json
     import re
+    import shutil
     import sys
     import glob
     from pathlib import Path
@@ -73,6 +79,27 @@ process KRAKEN2_FINAL_AGGREGATOR {
                         classified_reads += 1
 
     print(f"  Concatenated {total_reads} reads to cumulative output", file=sys.stderr)
+
+    # Per-sample classified read pool: the per-batch classified FASTQs (and
+    # a previous run's pool, which has no batch index and sorts first) joined
+    # into the flat <sample>.kraken2.classified.fastq.gz that KRAKEN2_KRAKEN2
+    # publishes directly and --validation_only discovers samples from. gzip
+    # members concatenate into one valid stream (zcat, seqtk, kraken2 and
+    # Python's gzip all read it). Nothing is written when no FASTQ was
+    # staged (save_output_fastqs off): the output is optional, and a pool a
+    # previous run published is left as it is.
+    def pool_index(path):
+        m = re.search(r'_batch(\\d+)\\.classified\\.fastq\\.gz\$', path)
+        return (1, int(m.group(1))) if m else (0, path)
+
+    classified_pool_file = f'{sample_id}.kraken2.classified.fastq.gz'
+    classified_inputs = sorted(glob.glob('classified_in/*.fastq.gz'), key=pool_index)
+    if classified_inputs:
+        with open(classified_pool_file, 'wb') as out:
+            for fastq in classified_inputs:
+                with open(fastq, 'rb') as src:
+                    shutil.copyfileobj(src, out)
+        print(f"  Pooled {len(classified_inputs)} classified FASTQ file(s) into {classified_pool_file}", file=sys.stderr)
 
     # Merge all batch reports to create cumulative report.
     #
@@ -213,6 +240,9 @@ process KRAKEN2_FINAL_AGGREGATOR {
     """
     touch ${prefix}.cumulative.kraken2.output.txt
     touch ${prefix}.cumulative.kraken2.report.txt
+    if ls classified_in/*.fastq.gz 1> /dev/null 2>&1; then
+        touch ${prefix}.kraken2.classified.fastq.gz
+    fi
     echo '{"sample_id": "${meta.id}", "total_batches": 0, "total_reads": 0}' > aggregation_stats.json
 
 cat <<-END_VERSIONS > versions.yml

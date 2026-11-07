@@ -412,4 +412,57 @@ nextflow_workflow {
             assert path("${outputDir}/kraken2/barcode01/stats/merge_stats.json").exists()
         }
     }
+
+    test("incremental mode with save_output_fastqs publishes the flat classified pool") {
+        // KRAKEN2_KRAKEN2 publishes kraken2/<sample>.kraken2.classified.fastq.gz
+        // and the --validation_only entry (Nanometa Live's on-demand
+        // validation) discovers samples from exactly that file. The
+        // incremental path -- the default, and the only one a GUI run takes
+        // -- published no per-sample read pool at all, so on-demand
+        // validation after a default run found no inputs (bug audit
+        // 2026-11-06, finding 4). KRAKEN2_FINAL_AGGREGATOR now pools the
+        // per-batch classified FASTQs under that name.
+        when {
+            workflow {
+                """
+                input[0] = [
+                    [
+                        [id: 'barcode01', single_end: true],
+                        file('$projectDir/tests/fixtures/fastq/test_sample.fastq.gz')
+                    ],
+                    [
+                        [id: 'barcode02', single_end: true],
+                        file('$projectDir/tests/fixtures/fastq/test_sample.fastq.gz')
+                    ]
+                ]
+                input[1] = file('$projectDir/tests/fixtures/kraken2_db')
+                """
+            }
+
+            params {
+                outdir = "$outputDir"
+                classifier = 'kraken2'
+                taxpasta_format = 'tsv'
+                kraken2_enable_incremental = true
+                realtime_mode = false
+                save_output_fastqs = true
+                save_reads_assignment = true
+                max_cpus = 2
+                max_memory = '4.GB'
+                max_time = '3.min'
+            }
+        }
+
+        options "-stub"
+
+        then {
+            assert workflow.success
+            ['barcode01', 'barcode02'].each { bc ->
+                assert path("${outputDir}/kraken2/${bc}.kraken2.classified.fastq.gz").exists(), \
+                    "No pooled classified FASTQ for ${bc} under the name --validation_only discovers"
+                assert path("${outputDir}/kraken2/${bc}.cumulative.kraken2.output.txt").exists(), \
+                    "No cumulative per-read output for ${bc}"
+            }
+        }
+    }
 }

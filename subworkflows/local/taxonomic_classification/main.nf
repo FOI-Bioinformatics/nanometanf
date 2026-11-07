@@ -600,11 +600,19 @@ workflow TAXONOMIC_CLASSIFICATION {
                 // resumed counter counts both runs) can be satisfied. Staged via
                 // channels, so the module keeps reading only its work directory.
                 def resume_realtime = workflow.resume && params.realtime_mode
+                def save_classified_pool = (params.save_output_fastqs ?: false) as boolean
                 def ch_prior_outputs = resume_realtime
                     ? Channel.fromList(RealtimeResume.priorBatchFiles(params.outdir.toString(), 'batches', 'kraken2.output.txt'))
                     : Channel.empty()
                 def ch_prior_reports = resume_realtime
                     ? Channel.fromList(RealtimeResume.priorBatchFiles(params.outdir.toString(), 'batch_reports', 'kraken2.report.txt'))
+                    : Channel.empty()
+                // The previous run's per-sample classified pool joins this
+                // run's per-batch classified FASTQs (below), so the pool the
+                // aggregator rewrites keeps covering every read its cumulative
+                // per-read output lists.
+                def ch_prior_pools = (resume_realtime && save_classified_pool)
+                    ? Channel.fromList(RealtimeResume.priorClassifiedPools(params.outdir.toString()))
                     : Channel.empty()
 
                 // Collect batch output files per sample
@@ -621,6 +629,22 @@ workflow TAXONOMIC_CLASSIFICATION {
                         return tuple(meta.id, report_file)
                     }
                     .mix(ch_prior_reports)
+                    .groupTuple(by: 0)
+
+                // Per-batch classified FASTQs per sample, when save_output_fastqs
+                // asked for them. KRAKEN2_FINAL_AGGREGATOR concatenates them
+                // into the flat kraken2/<sample>.kraken2.classified.fastq.gz
+                // that the standard classifier publishes directly and that
+                // the --validation_only entry (Nanometa Live's on-demand
+                // validation) discovers samples from. Until 2026-11 nothing
+                // on this path published a per-sample read pool, so every
+                // on-demand validation after a default run -- the GUI forces
+                // this path -- found no inputs (bug audit 2026-11-06,
+                // finding 4). Nanopore reads are single-end; a paired
+                // classified pair is not pooled.
+                ch_sample_classified = KRAKEN2_INCREMENTAL_CLASSIFIER.out.classified_reads_fastq
+                    .map { meta, fastq -> tuple(meta.id, fastq) }
+                    .mix(ch_prior_pools)
                     .groupTuple(by: 0)
 
                 // Join outputs and reports by sample_id, then run aggregation.
@@ -651,7 +675,8 @@ workflow TAXONOMIC_CLASSIFICATION {
                 // run's, and with the reports missing an empty cumulative
                 // report over the progressive one. It used to reach the
                 // module as a null path side (bug audit 2026-11-06, finding
-                // 31).
+                // 31). The classified pool is optional and joins with [] when
+                // save_output_fastqs is off.
                 ch_aggregator_input = ch_sample_outputs
                     .join(ch_sample_reports, by: 0, remainder: true)
                     .filter { sample_id, outputs, reports ->
@@ -664,13 +689,15 @@ workflow TAXONOMIC_CLASSIFICATION {
                         }
                         return complete
                     }
-                    .map { sample_id, outputs, reports ->
+                    .join(ch_sample_classified, by: 0, remainder: true)
+                    .filter { entry -> entry[1] != null && entry[2] != null }
+                    .map { sample_id, outputs, reports, classified ->
                         def assigned_batches = BatchUtils.withLock(sample_batch_counters) {
                             sample_batch_counters[sample_id] as int
                         }
                         return tuple(
                             [id: sample_id, batch_count: assigned_batches],
-                            outputs, reports)
+                            outputs, reports, classified != null ? classified.flatten() : [])
                     }
 
                 KRAKEN2_FINAL_AGGREGATOR (

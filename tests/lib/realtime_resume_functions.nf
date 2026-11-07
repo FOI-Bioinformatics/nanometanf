@@ -54,3 +54,13 @@ def ledgerLinesForChunk(String outdir, List files) {
     def lines = RealtimeResume.ledgerFile(outdir).readLines().findAll { it && !it.startsWith('sample_id\t') }
     return [lines.size(), lines.collect { it.split('\t')[2] }, RealtimeResume.readProcessedInputs(outdir).sort()]
 }
+
+// Previous per-sample classified pools over a fake outdir.
+def priorPools(String outdir, Map files) {
+    files.each { rel, text ->
+        def f = new File(outdir, rel)
+        f.parentFile.mkdirs()
+        f.text = text
+    }
+    return RealtimeResume.priorClassifiedPools(outdir).collect { [it[0], it[1].fileName.toString()] }
+}

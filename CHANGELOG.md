@@ -25,6 +25,24 @@ and its re-runnable probes in `docs/performance/scripts/`.
   twice. A chunk's meta now carries its files as a list and
   `RealtimeResume.recordProcessedInput` writes one line per file. Pinned in
   `tests/lib/realtime_resume.nf.test` (bug audit 2026-11-06, finding 3).
+- **On-demand validation finds its inputs after a default run.** The
+  incremental classifier path -- real time, chunked batch mode (the default)
+  and `kraken2_enable_incremental`, i.e. every run Nanometa Live starts --
+  published no per-sample read pool and no flat per-read output under the
+  names the `--validation_only` entry discovers samples from, so every
+  on-demand validation after such a run finished having validated nothing
+  ("skipping sample ... has only one of the two required Kraken2 outputs").
+  `KRAKEN2_FINAL_AGGREGATOR` now pools the per-batch classified FASTQs into
+  `kraken2/<sample>.kraken2.classified.fastq.gz` (the name `KRAKEN2_KRAKEN2`
+  publishes; `save_output_fastqs` only; on a Continue the previous run's
+  pool is pooled too), and the entry reads the end-of-session
+  `<sample>.cumulative.kraken2.output.txt` / `.cumulative.kraken2.report.txt`
+  as the sample's files (`lib/ValidationOnlyInputs.groovy`), preferring them
+  over the zero-read placeholder report beside them. Pinned in
+  `tests/validation_only_discovery.nf.test` (incremental-layout fixture),
+  `tests/lib/validation_only_inputs.nf.test`, the aggregator's module test
+  and `subworkflows/local/taxonomic_classification/tests/gui_filename_compatibility.nf.test`
+  (finding 4, pipeline side; the GUI's own reader is a Nanometa Live change).
 - **A CLI real-time run at defaults publishes `kraken2/<sample>/batches/`.**
   `KRAKEN2_OUTPUT_MERGER`'s publish gate lacked the `realtime_mode` term the
   subworkflow's branch condition has, so a real-time run started without
