@@ -48,27 +48,71 @@ import sys
 SKIP_COMPONENTS = {".nf-test", "work", ".git"}
 
 
+#: A ``$projectDir/...`` reference runs to the closing quote. Path characters
+#: plus SINGLE spaces between them: the first version stopped at any
+#: whitespace, so ``tests/fixtures/samplesheets/dir with space/samplesheet.csv``
+#: (added 2026-11-07 for the schema's ``input`` pattern) was recorded as
+#: ``tests/fixtures/samplesheets/dir`` and never checked. A comma or a run of
+#: whitespace ends the match so a samplesheet row written inline in a test
+#: (``"$projectDir/tests/x.fastq.gz,  BC05"``) still yields the file alone.
+_REFERENCE = re.compile(r"\$\{?projectDir\}?/([^\s\"',]+(?: [^\s\"',]+)*)")
+
+
+def references_in(text: str) -> set[str]:
+    """Every ``$projectDir/...`` path mentioned in one nf-test file's text."""
+    return {m.group(1) for m in _REFERENCE.finditer(text)}
+
+
 def referenced_fixture_paths(root: pathlib.Path) -> set[str]:
     """Every ``$projectDir/...`` path mentioned by any nf-test file."""
     refs: set[str] = set()
     for test in root.rglob("*.nf.test"):
         if SKIP_COMPONENTS & set(test.relative_to(root).parts):
             continue
-        for match in re.finditer(
-            r"\$\{?projectDir\}?/([A-Za-z0-9_./-]+)", test.read_text()
-        ):
-            refs.add(match.group(1))
+        refs |= references_in(test.read_text())
     return refs
 
 
 def tracked_files(root: pathlib.Path) -> set[str]:
+    # NUL-separated: ``split()`` on the default output broke a tracked path
+    # containing a space into two names, neither of which was the file, so
+    # such a fixture read as untracked however the reference was parsed.
     out = subprocess.run(
-        ["git", "ls-files"], cwd=root, capture_output=True, text=True, check=True
+        ["git", "ls-files", "-z"], cwd=root, capture_output=True, text=True,
+        check=True,
     )
-    return set(out.stdout.split())
+    return {f for f in out.stdout.split("\0") if f}
+
+
+def self_check() -> None:
+    """The parser must see the shapes this repository's tests actually use.
+
+    Run before the scan on every invocation: a guard whose parser silently
+    stops short passes while protecting nothing, which is how the
+    space-containing fixture went unguarded for a release.
+    """
+    text = (
+        'input = "$projectDir/tests/fixtures/samplesheets/dir with space/x.csv"\n'
+        "kraken2_db = \"${projectDir}/tests/fixtures/db\"\n"
+        '"$projectDir/tests/test_sample.fastq.gz,  BC05"\n'
+        "file(\'$projectDir/tests/fixtures/a.txt\')\n"
+    )
+    expected = {
+        "tests/fixtures/samplesheets/dir with space/x.csv",
+        "tests/fixtures/db",
+        "tests/test_sample.fastq.gz",
+        "tests/fixtures/a.txt",
+    }
+    got = references_in(text)
+    if got != expected:
+        raise SystemExit(
+            f"fixtures_are_tracked.py self-check failed: parsed {sorted(got)}, "
+            f"expected {sorted(expected)}"
+        )
 
 
 def main() -> int:
+    self_check()
     root = pathlib.Path(__file__).resolve().parent.parent.parent
     refs = referenced_fixture_paths(root)
     tracked = tracked_files(root)
