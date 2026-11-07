@@ -70,7 +70,20 @@ process MINIMAP2_VALIDATION {
     # and leaves sort writing into a drained pipe -- SIGPIPE / exit 141 for
     # any PAF over the 64 KB pipe buffer. Regression-covered by the "real
     # run" nf-test in tests/main.nf.test.
-    sort -k8,8n "${prefix}.paf" | awk -v total_reads="\$TOTAL_READS" \
+    # Total length of the REFERENCE, every contig of it. The PAF names only
+    # the contigs that carried an alignment, so summing tlen over the PAF
+    # would shrink the denominator to the part of the genome that was hit and
+    # overstate breadth on exactly the references this matters for.
+    if [[ "${reference}" == *.gz ]]; then
+        REF_TOTAL_LEN=\$(gunzip -c "${reference}" | awk '/^>/{next}{gsub(/[ \\t\\r]/,""); n+=length(\$0)} END{print n+0}')
+    else
+        REF_TOTAL_LEN=\$(awk '/^>/{next}{gsub(/[ \\t\\r]/,""); n+=length(\$0)} END{print n+0}' "${reference}")
+    fi
+
+    # Sorted by target NAME then target start: the single-pass interval merge
+    # below runs per contig, so the stream must be grouped by contig and
+    # ascending within it.
+    sort -k6,6 -k8,8n "${prefix}.paf" | awk -v total_reads="\$TOTAL_READS" \
         -v min_mapq="${min_mapq}" \
         -v hit_threshold="${hit_threshold}" \
         -v identity_threshold="${identity_threshold}" \
@@ -79,6 +92,7 @@ process MINIMAP2_VALIDATION {
         -v sample_id="${sample_id}" \
         -v taxid="${taxid}" \
         -v preset="${preset}" \
+        -v ref_total_len="\$REF_TOTAL_LEN" \
         -v out_file="${prefix}.minimap2_stats.json" \
     'BEGIN { OFS="\\t" }
     NF >= 12 {
@@ -92,23 +106,34 @@ process MINIMAP2_VALIDATION {
         alen   = \$11 + 0
         mapq   = \$12 + 0
 
-        # Track the longest reference contig seen
+        # Track the longest reference contig seen. ref_name / ref_length
+        # describe that one contig (the GUI labels its coverage plot with
+        # them); the breadth denominator is the whole reference, below.
         if (tlen > ref_max_len) {
             ref_max_len  = tlen
             ref_max_name = tname
         }
 
         if (mapq >= min_mapq) {
-            # Genome breadth: merge target intervals. Input arrives sorted by
-            # target start (see the sort pipe), so one pass is enough -- awk
-            # has no portable sort. avg_coverage below is per-READ query
-            # coverage and cannot answer "how much of the genome did we see".
+            # Genome breadth: merge target intervals, PER CONTIG. Input
+            # arrives sorted by target name then target start (see the sort
+            # pipe), so one pass is enough -- awk has no portable sort.
+            # NOTE: no apostrophe or quote may appear in this comment; the awk
+            # program is a single-quoted shell string and one closes it.
+            # The merge used to run over all contigs at once, as if the
+            # reference were one sequence: position 500 of contig 2 was
+            # treated as already covered by position 500 of contig 1, and the
+            # result was divided by the LONGEST contig. Multi-contig
+            # references are the normal case, and breadth is a conjunct of the
+            # confirmed verdict. avg_coverage below is per-READ query coverage
+            # and cannot answer how much of the genome was seen.
             tstart = \$8 + 0
             tend   = \$9 + 0
             if (tend > tstart && tend <= tlen) {
                 aligned_bp += tend - tstart
-                if (!have_iv) {
-                    cur_start = tstart; cur_end = tend; have_iv = 1
+                if (!have_iv || tname != cur_name) {
+                    if (have_iv) covered_bp += cur_end - cur_start
+                    cur_name = tname; cur_start = tstart; cur_end = tend; have_iv = 1
                 } else if (tstart > cur_end) {
                     covered_bp += cur_end - cur_start
                     cur_start = tstart; cur_end = tend
@@ -160,7 +185,9 @@ process MINIMAP2_VALIDATION {
         avg_cov    = (cov_n > 0) ? cov_sum / cov_n : 0.0
 
         if (have_iv) covered_bp += cur_end - cur_start
-        genome_breadth = (ref_max_len > 0) ? covered_bp / ref_max_len : 0.0
+        # Divided by the whole reference, not by its longest contig.
+        breadth_denom = (ref_total_len > 0) ? ref_total_len : ref_max_len
+        genome_breadth = (breadth_denom > 0) ? covered_bp / breadth_denom : 0.0
         local_depth    = (covered_bp > 0) ? aligned_bp / covered_bp : 0.0
         # Amplicon-like coverage -- a small share of the genome at high local
         # depth -- is legitimate and must not be downgraded for thin breadth.
@@ -196,6 +223,8 @@ process MINIMAP2_VALIDATION {
         printf "  \\"validation_status\\": \\"%s\\",\\n", status > out_file
         printf "  \\"ref_name\\": \\"%s\\",\\n", ref_max_name > out_file
         printf "  \\"ref_length\\": %d,\\n", ref_max_len > out_file
+        printf "  \\"ref_total_length\\": %d,\\n", breadth_denom > out_file
+        printf "  \\"covered_bases\\": %d,\\n", covered_bp > out_file
         printf "  \\"parameters\\": {\\"preset\\": \\"%s\\", \\"min_mapq\\": %s}\\n", preset, min_mapq > out_file
         printf "}\\n" > out_file
 
@@ -224,6 +253,8 @@ END_VERSIONS
     "avg_mapq": 0.0,
     "avg_identity": 0.0,
     "avg_coverage": 0.0,
+    "ref_total_length": 0,
+    "covered_bases": 0,
     "validation_status": "stub"
 }
 EOF
