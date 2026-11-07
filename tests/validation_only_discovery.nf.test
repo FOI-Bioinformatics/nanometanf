@@ -49,6 +49,17 @@ nextflow_pipeline {
                 "validation_only failed against a by_barcode input layout: " +
                 ((workflow.errorReport ?: '') + '\n' +
                  (workflow.stdout?.join('\n') ?: '')).take(400)
+            // Which aggregator wrote validation_results.json is decided by
+            // the items, not the mode flags: this run's metas carry no
+            // batch_id, so the batch aggregator runs and the live one -- whose
+            // cumulative inputs are gated on batch_id and never ran, so it
+            // wrote `results: {}` over the main run's aggregate -- does not
+            // (bug audit 2026-11-06, finding 5).
+            def names = workflow.trace.tasks().collect { it.name }
+            assert names.any { it.contains('AGGREGATE_VALIDATION_RESULTS') } :
+                "AGGREGATE_VALIDATION_RESULTS did not run; tasks: ${names}"
+            assert !names.any { it.contains('AGGREGATE_VALIDATION_LIVE') } :
+                "AGGREGATE_VALIDATION_LIVE ran on a run without batch ids; tasks: ${names}"
         }
     }
 
@@ -93,6 +104,8 @@ nextflow_pipeline {
                 "barcode01 was not discovered from the incremental layout; tasks: ${names}"
             assert !names.any { it.contains('barcode01.cumulative') } :
                 "the cumulative file was taken for a sample of its own; tasks: ${names}"
+            assert names.any { it.contains('AGGREGATE_VALIDATION_RESULTS') } :
+                "AGGREGATE_VALIDATION_RESULTS did not run; tasks: ${names}"
         }
     }
 }

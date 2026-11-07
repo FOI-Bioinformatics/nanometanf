@@ -637,7 +637,10 @@ Enforced at the schema level via a `oneOf` constraint
   plus the per-read output and report, in either the standard
   (`<sample>.kraken2.*`) or the incremental (`<sample>.cumulative.kraken2.*`)
   naming (`lib/ValidationOnlyInputs.groovy`); `--reads_dir` is only the
-  fallback read pool for outdirs without saved classified FASTQs.
+  fallback read pool for outdirs without saved classified FASTQs. Its metas
+  carry no batch id, so the validation subworkflow's batch aggregator writes
+  `validation_results.json`; the live aggregator is armed by batched items
+  only (finding 5).
   Since 1.12.0dev this entry runs `PIPELINE_INITIALISATION` like the main
   one, so its parameters are schema-validated and `--help` / `--version`
   work; it needs no `--kraken2_db` (`WorkflowNanometanf.initialise` skips

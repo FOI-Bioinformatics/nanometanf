@@ -43,6 +43,17 @@ and its re-runnable probes in `docs/performance/scripts/`.
   `tests/lib/validation_only_inputs.nf.test`, the aggregator's module test
   and `subworkflows/local/taxonomic_classification/tests/gui_filename_compatibility.nf.test`
   (finding 4, pipeline side; the GUI's own reader is a Nanometa Live change).
+- **`--validation_only` writes an aggregate with results in it.** Which
+  aggregator writes `validation_results.json` was keyed on `realtime_mode ||
+batch_chunking`, so a validation-only run under the default chunking took
+  the live path; its metas carry no batch id, the cumulative aggregators
+  (gated on `meta.batch_id`) never ran, and `AGGREGATE_VALIDATION_LIVE`
+  wrote `results: {}` over the main run's aggregate while every per-pair
+  result sat on disk. The choice is now made by the items: the live path is
+  armed by the first batched item and `AGGREGATE_VALIDATION_RESULTS` runs
+  when the inputs close without one. Verified with a real `--validation_only`
+  run on `tests/fixtures/validation_only` (barcode01/562 present in the
+  aggregate); the stub test asserts which aggregator ran (finding 5).
 - **A CLI real-time run at defaults publishes `kraken2/<sample>/batches/`.**
   `KRAKEN2_OUTPUT_MERGER`'s publish gate lacked the `realtime_mode` term the
   subworkflow's branch condition has, so a real-time run started without
