@@ -278,10 +278,13 @@ workflow REALTIME_MONITORING {
         //    second run holds different reads and reusing the number would make
         //    the dashboard count the first run's reads twice. Fresh sequential
         //    ids from the head-process counter are the safe choice here.
-        def backlog_chunking = (params.realtime_backlog_chunking == null
+        def backlog_chunking_requested = params.realtime_backlog_chunking == null
             ? true
-            : (params.realtime_backlog_chunking as boolean)) && !params.max_files
-        if (params.realtime_backlog_chunking && params.max_files) {
+            : (params.realtime_backlog_chunking as boolean)
+        def backlog_chunking = backlog_chunking_requested && !params.max_files
+        // The notice tests the resolved boolean, as the decision does; the raw
+        // param is truthy for the string "false" and null for the default.
+        if (backlog_chunking_requested && params.max_files) {
             log.info "Start-up backlog chunking is off because --max_files is set: that cap counts files, and a chunk is one emission"
         }
         def chunk_first = (params.batch_first_chunk_files ?: 1) as int
