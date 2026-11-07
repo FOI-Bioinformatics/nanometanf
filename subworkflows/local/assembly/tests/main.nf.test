@@ -116,6 +116,19 @@ nextflow_workflow {
             assert workflow.out.decision.size() == 2
             assert workflow.out.decision.collect { it[0].assembly_scope }.sort() == ['metagenome', 'targeted']
             assert workflow.out.assembly.size() == 2
+            // The two assemblies must not share a publish name. FLYE and the
+            // canonical writer named every artifact by meta.id alone, so with
+            // scope 'both' the targeted assembly overwrote the whole-sample one
+            // at the same path. The metagenome scope keeps the bare sample
+            // name, so single-scope runs are unchanged.
+            def names = workflow.out.assembly.collect { it[1].split('/')[-1] }.sort()
+            assert names == ['asm1.assembly.fasta.gz', 'asm1.targeted.taxid562.assembly.fasta.gz']
+            def canonical = workflow.out.canonical_assembly.collect { it[1].split('/')[-1] }.sort()
+            assert canonical == ['asm1.assembly_stats.json', 'asm1.targeted.taxid562.assembly_stats.json']
+            // The decision records keep the documented <sample>[.taxid<N>] name
+            // that Nanometa Live reads.
+            def decisions = workflow.out.decision.collect { it[1].split('/')[-1] }.sort()
+            assert decisions == ['asm1.assembly_decision.json', 'asm1.taxid562.assembly_decision.json']
         }
     }
 
@@ -185,6 +198,54 @@ nextflow_workflow {
             // not reach the whole-sample artifact's meta.
             assert !workflow.out.decision[0][0].containsKey('batch_id')
             assert !workflow.out.decision[0][0].containsKey('chunk_count')
+        }
+    }
+
+    test("real time: each attempt keeps its own decision record") {
+        // In a real-time run one key is gated once per attempt, and every
+        // attempt wrote <sample>.assembly_decision.json -- so the last attempt
+        // overwrote the record of every earlier one, and the GUI could not say
+        // why an earlier attempt had been declined. The record now carries the
+        // attempt number in real time; the batch-mode name (the one documented
+        // for Nanometa Live) is unchanged.
+        //
+        // interval 1 with no growth requirement makes every emission due, so
+        // the two emissions below are attempt 1 and attempt 2 of one sample.
+
+        options "-stub"
+
+        when {
+            workflow {
+                """
+                input[0] = Channel.of(
+                    [ [id: 'asm1', single_end: true], file('${projectDir}/tests/fixtures/fastq/test_sample.fastq.gz') ],
+                    [ [id: 'asm1', single_end: true], file('${projectDir}/tests/fixtures/fastq/barcode01.fastq.gz') ]
+                )
+                input[1] = Channel.empty()
+                """
+            }
+            params {
+                assembler = 'flye'
+                assembly_scope = 'metagenome'
+                realtime_mode = true
+                assembly_batch_interval = 1
+                assembly_min_growth = 0
+                max_cpus = 2
+                max_memory = '4.GB'
+                max_time = '5.min'
+            }
+        }
+
+        then {
+            assert workflow.success
+            assert workflow.out.decision.size() == 2
+            def decisions = workflow.out.decision.collect { it[1].split('/')[-1] }.sort()
+            assert decisions == ['asm1.attempt1.assembly_decision.json',
+                                 'asm1.attempt2.assembly_decision.json']
+            // The assembly itself still publishes under the sample name: each
+            // attempt is built from a superset of the last, so a newer result
+            // is meant to supersede the previous one.
+            assert workflow.out.assembly.every { it[1].endsWith('asm1.assembly.fasta.gz') }
         }
     }
 
