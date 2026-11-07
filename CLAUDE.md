@@ -100,8 +100,28 @@ outdir/kraken2/
 │       ├── batch_0_taxid_counts.json # per batch, NOT a cumulative state file
 │       └── aggregation_stats.json    # end of session
 ├── {sample_id}.cumulative.kraken2.output.txt  # End-of-session
-└── {sample_id}.cumulative.kraken2.report.txt  # Updated per-batch for dashboard
+├── {sample_id}.cumulative.kraken2.report.txt  # Updated per-batch for dashboard
+└── {sample_id}.kraken2.classified.fastq.gz    # End-of-session, save_output_fastqs only
 ```
+
+The last two flat files are what `--validation_only` discovers a sample from:
+the per-batch classified FASTQs are pooled into
+`{sample_id}.kraken2.classified.fastq.gz` by `KRAKEN2_FINAL_AGGREGATOR` (on a
+Continue the previous run's pool is pooled in too), and
+`lib/ValidationOnlyInputs.groovy` reads `{sample_id}.cumulative.kraken2.output.txt`
+and `.cumulative.kraken2.report.txt` as the sample's files, preferring them
+over the zero-read placeholder `{sample_id}.kraken2.report.txt` beside them.
+Before 2026-11 this path published no per-sample read pool and the entry took
+the cumulative file's stem as a sample called `barcode01.cumulative`, so
+on-demand validation after any default run found nothing (bug audit
+2026-11-06, finding 4).
+
+The merger publishes `batches/`, `batch_reports/` and `merge_stats.json`
+behind an `enabled:` gate that is THE SAME EXPRESSION as the subworkflow's
+branch condition (`kraken2_enable_incremental || realtime_mode ||
+batch_chunking`); keep them identical. Without the `realtime_mode` term a CLI
+real-time run at defaults classified incrementally and published no
+`batches/`, so a Continue restarted numbering at 0 (finding 17).
 
 ### Concurrency Parameters
 
@@ -612,7 +632,15 @@ Enforced at the schema level via a `oneOf` constraint
 - `--barcode_input_dir` - Deprecated, hidden in `--help`; use `--input_dir`
 - `--realtime_mode` + `--nanopore_output_dir` - Live FASTQ monitoring
 - `--validation_only` + `--kraken2_output_dir` + `--reads_dir` - Validate an
-  existing run's output without classifying (the GUI's on-demand check).
+  existing run's output without classifying (the GUI's on-demand check). A
+  sample is discovered from `kraken2/<sample>.kraken2.classified.fastq.gz`
+  plus the per-read output and report, in either the standard
+  (`<sample>.kraken2.*`) or the incremental (`<sample>.cumulative.kraken2.*`)
+  naming (`lib/ValidationOnlyInputs.groovy`); `--reads_dir` is only the
+  fallback read pool for outdirs without saved classified FASTQs. Its metas
+  carry no batch id, so the validation subworkflow's batch aggregator writes
+  `validation_results.json`; the live aggregator is armed by batched items
+  only (finding 5).
   Since 1.12.0dev this entry runs `PIPELINE_INITIALISATION` like the main
   one, so its parameters are schema-validated and `--help` / `--version`
   work; it needs no `--kraken2_db` (`WorkflowNanometanf.initialise` skips

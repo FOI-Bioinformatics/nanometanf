@@ -186,7 +186,15 @@ workflow TAXONOMIC_CLASSIFICATION {
             if (params.batch_chunking && !params.realtime_mode && !params.kraken2_enable_incremental) {
                 log.info "Batch chunking is on, so the incremental classifier path is used (per-chunk reports and a cumulative report per sample)"
             }
-            if (params.kraken2_enable_incremental == true || params.realtime_mode == true || (params.batch_chunking == true && !params.realtime_mode)) {
+            // This expression IS the publish gate of KRAKEN2_OUTPUT_MERGER in
+            // conf/modules.config (`enabled:` on batches/, batch_reports/ and
+            // merge_stats.json); keep the two identical. The gate used to lack
+            // the realtime_mode term, so a CLI real-time run at defaults took
+            // this path and published no batches/: the resume scan and
+            // RealtimeResume.priorBatchFiles read only that directory, so a
+            // Continue restarted numbering at 0 and the final aggregate held
+            // run 2 alone (bug audit 2026-11-06, finding 17).
+            if ((params.kraken2_enable_incremental ?: false) || (params.realtime_mode ?: false) || (params.batch_chunking ?: false)) {
                 log.info "=== Phase 1.1: Incremental Kraken2 Classification ==="
                 log.info "Using incremental Kraken2 processing with batch caching:"
                 log.info "  - Classify only NEW reads per batch (O(n) vs O(n^2))"
@@ -483,10 +491,13 @@ workflow TAXONOMIC_CLASSIFICATION {
                                 // batch has a per-batch report, and not at intake: a
                                 // file the run was cut before classifying must be
                                 // processed again next time.
+                                // meta.source_file is one path for a live file
+                                // and a LIST for a backlog chunk; the ledger
+                                // writes one line per file either way.
                                 if (params.realtime_mode && meta.source_file) {
                                     RealtimeResume.recordProcessedInput(
                                         params.outdir.toString(), sample_id, meta.batch_id,
-                                        meta.source_file.toString())
+                                        meta.source_file)
                                 }
 
                                 batch_write_counter[sample_id] = batch_write_counter[sample_id] + 1
@@ -589,11 +600,19 @@ workflow TAXONOMIC_CLASSIFICATION {
                 // resumed counter counts both runs) can be satisfied. Staged via
                 // channels, so the module keeps reading only its work directory.
                 def resume_realtime = workflow.resume && params.realtime_mode
+                def save_classified_pool = (params.save_output_fastqs ?: false) as boolean
                 def ch_prior_outputs = resume_realtime
                     ? Channel.fromList(RealtimeResume.priorBatchFiles(params.outdir.toString(), 'batches', 'kraken2.output.txt'))
                     : Channel.empty()
                 def ch_prior_reports = resume_realtime
                     ? Channel.fromList(RealtimeResume.priorBatchFiles(params.outdir.toString(), 'batch_reports', 'kraken2.report.txt'))
+                    : Channel.empty()
+                // The previous run's per-sample classified pool joins this
+                // run's per-batch classified FASTQs (below), so the pool the
+                // aggregator rewrites keeps covering every read its cumulative
+                // per-read output lists.
+                def ch_prior_pools = (resume_realtime && save_classified_pool)
+                    ? Channel.fromList(RealtimeResume.priorClassifiedPools(params.outdir.toString()))
                     : Channel.empty()
 
                 // Collect batch output files per sample
@@ -610,6 +629,22 @@ workflow TAXONOMIC_CLASSIFICATION {
                         return tuple(meta.id, report_file)
                     }
                     .mix(ch_prior_reports)
+                    .groupTuple(by: 0)
+
+                // Per-batch classified FASTQs per sample, when save_output_fastqs
+                // asked for them. KRAKEN2_FINAL_AGGREGATOR concatenates them
+                // into the flat kraken2/<sample>.kraken2.classified.fastq.gz
+                // that the standard classifier publishes directly and that
+                // the --validation_only entry (Nanometa Live's on-demand
+                // validation) discovers samples from. Until 2026-11 nothing
+                // on this path published a per-sample read pool, so every
+                // on-demand validation after a default run -- the GUI forces
+                // this path -- found no inputs (bug audit 2026-11-06,
+                // finding 4). Nanopore reads are single-end; a paired
+                // classified pair is not pooled.
+                ch_sample_classified = KRAKEN2_INCREMENTAL_CLASSIFIER.out.classified_reads_fastq
+                    .map { meta, fastq -> tuple(meta.id, fastq) }
+                    .mix(ch_prior_pools)
                     .groupTuple(by: 0)
 
                 // Join outputs and reports by sample_id, then run aggregation.
@@ -630,15 +665,39 @@ workflow TAXONOMIC_CLASSIFICATION {
                 // no trace at all. The counter is final by the time this runs:
                 // groupTuple emits only once its upstream channel has closed, which
                 // is after every batch has been assigned an id.
+                //
+                // remainder: true keeps a sample that has only one of the two
+                // sides visible, and the two sides can differ only through the
+                // previous run's files mixed in above (this run's come paired
+                // from one process). Such a sample is NOT aggregated: with the
+                // outputs missing the module would publish an EMPTY
+                // <sample>.cumulative.kraken2.output.txt over the previous
+                // run's, and with the reports missing an empty cumulative
+                // report over the progressive one. It used to reach the
+                // module as a null path side (bug audit 2026-11-06, finding
+                // 31). The classified pool is optional and joins with [] when
+                // save_output_fastqs is off.
                 ch_aggregator_input = ch_sample_outputs
                     .join(ch_sample_reports, by: 0, remainder: true)
-                    .map { sample_id, outputs, reports ->
+                    .filter { sample_id, outputs, reports ->
+                        def complete = outputs != null && reports != null
+                        if (!complete) {
+                            log.warn "Final aggregation skipped for sample '${sample_id}': found " +
+                                "${outputs == null ? 0 : outputs.size()} batch output file(s) and " +
+                                "${reports == null ? 0 : reports.size()} batch report file(s); both are " +
+                                "needed, so the cumulative files already in ${params.outdir}/kraken2 stand"
+                        }
+                        return complete
+                    }
+                    .join(ch_sample_classified, by: 0, remainder: true)
+                    .filter { entry -> entry[1] != null && entry[2] != null }
+                    .map { sample_id, outputs, reports, classified ->
                         def assigned_batches = BatchUtils.withLock(sample_batch_counters) {
                             sample_batch_counters[sample_id] as int
                         }
                         return tuple(
                             [id: sample_id, batch_count: assigned_batches],
-                            outputs, reports)
+                            outputs, reports, classified != null ? classified.flatten() : [])
                     }
 
                 KRAKEN2_FINAL_AGGREGATOR (

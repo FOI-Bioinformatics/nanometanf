@@ -49,6 +49,63 @@ nextflow_pipeline {
                 "validation_only failed against a by_barcode input layout: " +
                 ((workflow.errorReport ?: '') + '\n' +
                  (workflow.stdout?.join('\n') ?: '')).take(400)
+            // Which aggregator wrote validation_results.json is decided by
+            // the items, not the mode flags: this run's metas carry no
+            // batch_id, so the batch aggregator runs and the live one -- whose
+            // cumulative inputs are gated on batch_id and never ran, so it
+            // wrote `results: {}` over the main run's aggregate -- does not
+            // (bug audit 2026-11-06, finding 5).
+            def names = workflow.trace.tasks().collect { it.name }
+            assert names.any { it.contains('AGGREGATE_VALIDATION_RESULTS') } :
+                "AGGREGATE_VALIDATION_RESULTS did not run; tasks: ${names}"
+            assert !names.any { it.contains('AGGREGATE_VALIDATION_LIVE') } :
+                "AGGREGATE_VALIDATION_LIVE ran on a run without batch ids; tasks: ${names}"
+        }
+    }
+
+    test("incremental layout: cumulative per-read output and pooled classified FASTQ are discovered") {
+        // The default classifier path (real time, chunked batch mode, or
+        // kraken2_enable_incremental) publishes no <sample>.kraken2.output.txt:
+        // the per-read output is the end-of-session
+        // <sample>.cumulative.kraken2.output.txt, and the flat
+        // <sample>.kraken2.report.txt beside the cumulative report is the
+        // zero-read placeholder for a batch that produced nothing. Globbed as
+        // a stem the cumulative file was the sample "barcode01.cumulative",
+        // matched no read pool, and the join dropped both halves with
+        // "skipping sample ... has only one of the two required Kraken2
+        // outputs" -- every on-demand validation after a default GUI run
+        // found nothing (bug audit 2026-11-06, finding 4).
+        options "-stub"
+        when {
+            params {
+                input = null
+                validation_only = true
+                run_validation = true
+                outdir = "$outputDir"
+                reads_dir = "$projectDir/tests/fixtures/validation_only/reads"
+                kraken2_output_dir = "$projectDir/tests/fixtures/validation_only_incremental/kraken2"
+                pathogen_genomes = "$projectDir/tests/fixtures/validation/test_genomes.json"
+                taxids_to_validate = '562'
+                validation_method = 'both'
+                max_cpus = 2
+                max_memory = '4.GB'
+                max_time = '5.min'
+            }
+        }
+        then {
+            def out = ((workflow.stdout ?: []) + (workflow.stderr ?: [])).join('\n')
+            assert workflow.success :
+                "validation_only failed against an incremental-layout outdir: " +
+                ((workflow.errorReport ?: '') + '\n' + out).take(400)
+            assert !out.contains('has only one of the two required Kraken2 outputs') :
+                "the sample was dropped at the classified-reads/per-read-output join"
+            def names = workflow.trace.tasks().collect { it.name }
+            assert names.any { it.contains('EXTRACT_READS_BY_TAXID') && it.contains('barcode01') } :
+                "barcode01 was not discovered from the incremental layout; tasks: ${names}"
+            assert !names.any { it.contains('barcode01.cumulative') } :
+                "the cumulative file was taken for a sample of its own; tasks: ${names}"
+            assert names.any { it.contains('AGGREGATE_VALIDATION_RESULTS') } :
+                "AGGREGATE_VALIDATION_RESULTS did not run; tasks: ${names}"
         }
     }
 }

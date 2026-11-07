@@ -1,0 +1,105 @@
+nextflow_function {
+
+    name "Test ValidationOnlyInputs (sample discovery for --validation_only)"
+    script "tests/lib/validation_only_inputs_functions.nf"
+    tag "unit"
+    tag "fast"
+    tag "validation_only"
+
+    // The --validation_only entry (Nanometa Live's on-demand validation)
+    // builds its per-sample channels from the files in kraken2_output_dir.
+    // Until 2026-11 it took each file's stem as the sample id, so the
+    // incremental layout's <sample>.cumulative.kraken2.output.txt became a
+    // sample called "barcode01.cumulative", matched no read pool, and the
+    // run finished having validated nothing (bug audit 2026-11-06, finding 4).
+
+    test("the standard layout keeps the stem as the sample id") {
+        function "perSampleFrom"
+        when {
+            function {
+                """
+                input[0] = "${outputDir}/standard"
+                input[1] = ['barcode02.kraken2.output.txt', 'barcode01.kraken2.output.txt']
+                input[2] = '.kraken2.output.txt'
+                """
+            }
+        }
+        then {
+            assert function.success
+            assert function.result == [
+                ['barcode01', 'barcode01.kraken2.output.txt'],
+                ['barcode02', 'barcode02.kraken2.output.txt'],
+            ]
+        }
+    }
+
+    test("the incremental layout's cumulative file names the sample, not 'sample.cumulative'") {
+        function "perSampleFrom"
+        when {
+            function {
+                """
+                input[0] = "${outputDir}/incremental"
+                input[1] = ['barcode01.cumulative.kraken2.output.txt']
+                input[2] = '.kraken2.output.txt'
+                """
+            }
+        }
+        then {
+            assert function.success
+            assert function.result == [['barcode01', 'barcode01.cumulative.kraken2.output.txt']]
+        }
+    }
+
+    test("the cumulative report wins over the zero-read placeholder beside it") {
+        // EMIT_EMPTY_KRAKEN2_REPORT publishes <sample>.kraken2.report.txt for
+        // a batch that produced nothing while the cumulative report carries
+        // the run; taken as two samples the placeholder matched the id and
+        // showed no reads to validate.
+        function "perSampleFrom"
+        when {
+            function {
+                """
+                input[0] = "${outputDir}/both"
+                input[1] = [
+                    'barcode01.kraken2.report.txt',
+                    'barcode01.cumulative.kraken2.report.txt',
+                    'barcode02.cumulative.kraken2.report.txt',
+                    'barcode02.kraken2.report.txt',
+                    'barcode03.kraken2.report.txt',
+                ]
+                input[2] = '.kraken2.report.txt'
+                """
+            }
+        }
+        then {
+            assert function.success
+            assert function.result == [
+                ['barcode01', 'barcode01.cumulative.kraken2.report.txt'],
+                ['barcode02', 'barcode02.cumulative.kraken2.report.txt'],
+                ['barcode03', 'barcode03.kraken2.report.txt'],
+            ]
+        }
+    }
+
+    test("files with another suffix, and a bare marker, are ignored") {
+        function "perSampleFrom"
+        when {
+            function {
+                """
+                input[0] = "${outputDir}/other"
+                input[1] = [
+                    'barcode01.kraken2.report.txt',
+                    'barcode01.kraken2.classified.fastq.gz',
+                    '.cumulative.kraken2.output.txt',
+                    '.kraken2.output.txt',
+                ]
+                input[2] = '.kraken2.output.txt'
+                """
+            }
+        }
+        then {
+            assert function.success
+            assert function.result == []
+        }
+    }
+}

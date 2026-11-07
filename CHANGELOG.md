@@ -14,6 +14,62 @@ and its re-runnable probes in `docs/performance/scripts/`.
 
 ### Fixed
 
+- **A real-time Continue no longer reclassifies and double counts the
+  start-up backlog.** Backlog chunking (the default) classifies the start-up
+  listing in chunks of several files, and the processed-input ledger
+  (`pipeline_info/processed_inputs.tsv`) recorded each chunk as ONE line
+  holding its files joined with commas. The intake compares single paths
+  against the ledgered set, so nothing matched, the whole backlog was
+  classified again, and -- the accumulator being seeded from the previous
+  run's per-batch counts as well -- every one of those reads was counted
+  twice. A chunk's meta now carries its files as a list and
+  `RealtimeResume.recordProcessedInput` writes one line per file. Pinned in
+  `tests/lib/realtime_resume.nf.test` (bug audit 2026-11-06, finding 3).
+- **On-demand validation finds its inputs after a default run.** The
+  incremental classifier path -- real time, chunked batch mode (the default)
+  and `kraken2_enable_incremental`, i.e. every run Nanometa Live starts --
+  published no per-sample read pool and no flat per-read output under the
+  names the `--validation_only` entry discovers samples from, so every
+  on-demand validation after such a run finished having validated nothing
+  ("skipping sample ... has only one of the two required Kraken2 outputs").
+  `KRAKEN2_FINAL_AGGREGATOR` now pools the per-batch classified FASTQs into
+  `kraken2/<sample>.kraken2.classified.fastq.gz` (the name `KRAKEN2_KRAKEN2`
+  publishes; `save_output_fastqs` only; on a Continue the previous run's
+  pool is pooled too), and the entry reads the end-of-session
+  `<sample>.cumulative.kraken2.output.txt` / `.cumulative.kraken2.report.txt`
+  as the sample's files (`lib/ValidationOnlyInputs.groovy`), preferring them
+  over the zero-read placeholder report beside them. Pinned in
+  `tests/validation_only_discovery.nf.test` (incremental-layout fixture),
+  `tests/lib/validation_only_inputs.nf.test`, the aggregator's module test
+  and `subworkflows/local/taxonomic_classification/tests/gui_filename_compatibility.nf.test`
+  (finding 4, pipeline side; the GUI's own reader is a Nanometa Live change).
+- **`--validation_only` writes an aggregate with results in it.** Which
+  aggregator writes `validation_results.json` was keyed on `realtime_mode ||
+batch_chunking`, so a validation-only run under the default chunking took
+  the live path; its metas carry no batch id, the cumulative aggregators
+  (gated on `meta.batch_id`) never ran, and `AGGREGATE_VALIDATION_LIVE`
+  wrote `results: {}` over the main run's aggregate while every per-pair
+  result sat on disk. The choice is now made by the items: the live path is
+  armed by the first batched item and `AGGREGATE_VALIDATION_RESULTS` runs
+  when the inputs close without one. Verified with a real `--validation_only`
+  run on `tests/fixtures/validation_only` (barcode01/562 present in the
+  aggregate); the stub test asserts which aggregator ran (finding 5).
+- **A CLI real-time run at defaults publishes `kraken2/<sample>/batches/`.**
+  `KRAKEN2_OUTPUT_MERGER`'s publish gate lacked the `realtime_mode` term the
+  subworkflow's branch condition has, so a real-time run started without
+  `--kraken2_enable_incremental` classified incrementally but published no
+  batch files; the resume scan reads only that directory, so a Continue
+  restarted numbering at 0 and the final aggregate held run 2 alone. The
+  gate is now the same expression as the branch condition, and both say so.
+  GUI runs were unaffected (the GUI sends the flag). Pinned at subworkflow
+  level in `gui_filename_compatibility.nf.test` (finding 17).
+- **`KRAKEN2_FINAL_AGGREGATOR` is never handed a null path side.** The
+  outputs/reports join uses `remainder: true`, and a sample whose previous
+  run left only one of `batches/` and `batch_reports/` reached the module
+  with `null` for the other. Such a sample is now skipped with a warning
+  naming it: with the outputs missing the module would have published an
+  empty cumulative per-read output, and with the reports missing an empty
+  cumulative report, over the files the previous run wrote (finding 31).
 - **`--validation_only` validates its parameters.** The validation-only entry
   skipped `PIPELINE_INITIALISATION`, so nf-schema never saw its parameters: a
   missing `--kraken2_output_dir` fell through to hand-written guards, a

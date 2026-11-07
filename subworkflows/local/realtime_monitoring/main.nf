@@ -385,7 +385,12 @@ workflow REALTIME_MONITORING {
                 }
                 meta.single_end = true
                 meta.batch_time = new Date().format('yyyy-MM-dd_HH-mm-ss')
-                meta.source_file = row[2].collect { it.toString() }.join(',')
+                // A LIST, one entry per file, so the processed-input ledger
+                // gets one line per file (RealtimeResume.recordProcessedInput).
+                // Joined with commas it was one line the intake's per-path
+                // lookup never matched, and a Continue reclassified -- and
+                // double counted -- the whole backlog.
+                meta.source_file = row[2].collect { it.toString() }
                 return [meta, row[2]]
             }
             // The live stream must not also receive the backlog.
