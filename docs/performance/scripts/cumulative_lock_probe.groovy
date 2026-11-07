@@ -68,7 +68,7 @@ def writeCumulative = { String sampleId, Map state ->
     KreportTree.depthFirstOrder(state.taxa).each { taxid ->
         def tdata = state.taxa[taxid]
         if (tdata == null) return
-        def pct = String.format("%.2f", ((tdata.cumul as double) / total) * 100.0)
+        def pct = String.format(java.util.Locale.ROOT, "%.2f", ((tdata.cumul as double) / total) * 100.0)
         sb.append("${pct}\t${tdata.cumul}\t${tdata.reads}\t${tdata.rank}\t${taxid}\t${tdata.name}\n")
     }
     def temp = new File(outdir, "${sampleId}.cumulative.kraken2.report.txt.tmp")

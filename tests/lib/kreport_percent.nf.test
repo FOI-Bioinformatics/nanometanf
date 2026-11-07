@@ -1,0 +1,64 @@
+nextflow_function {
+
+    name "Test KreportTree.formatPercent (a kreport's decimal separator is the dot)"
+    script "tests/lib/kreport_tree_functions.nf"
+    function "percentUnderLocale"
+
+    tag "unit"
+    tag "fast"
+    tag "classification"
+    tag "realtime"
+
+    // The cumulative writer formatted its percent column with a bare
+    // String.format("%.2f", ...), which takes the JVM default locale. A
+    // Nextflow driver on a Swedish or German field laptop therefore wrote
+    // "12,35": nanometa_live parsed the whole percent column as NaN, silently,
+    // and bin/kreport_to_canonical.py raised on float(). The formatter now
+    // runs under Locale.ROOT, whatever the operator's locale.
+
+    test("a comma-decimal default locale still yields a dot") {
+        when {
+            function {
+                """
+                input[0] = 1235
+                input[1] = 10000
+                input[2] = 'sv'
+                input[3] = 'SE'
+                """
+            }
+        }
+        then {
+            def bare    = function.result[0]
+            def percent = function.result[1]
+            def row     = function.result[2]
+            assertAll(
+                { assert function.success },
+                // Precondition: the locale in force here does use the comma,
+                // so the assertion below is not vacuous.
+                { assert bare == '12,35' },
+                { assert percent == '12.35' },
+                { assert row == '12.35\t1235\t3\tS\t562\t  Escherichia coli\n' }
+            )
+        }
+    }
+
+    test("German locale, whole-number share") {
+        when {
+            function {
+                """
+                input[0] = 50
+                input[1] = 50
+                input[2] = 'de'
+                input[3] = 'DE'
+                """
+            }
+        }
+        then {
+            assertAll(
+                { assert function.success },
+                { assert function.result[0] == '100,00' },
+                { assert function.result[1] == '100.00' }
+            )
+        }
+    }
+}

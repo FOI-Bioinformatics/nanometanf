@@ -421,8 +421,10 @@ workflow TAXONOMIC_CLASSIFICATION {
                         if (tdata == null) {
                             return
                         }
-                        def pct = String.format("%.2f", ((tdata.cumul as double) / total) * 100.0)
-                        sb.append("${pct}\t${tdata.cumul}\t${tdata.reads}\t${tdata.rank}\t${taxid}\t${tdata.name}\n")
+                        // Locale.ROOT formatting lives in KreportTree.formatRow: a
+                        // bare String.format took the JVM default locale and wrote
+                        // "12,35" on a Swedish or German field laptop.
+                        sb.append(KreportTree.formatRow(taxid, tdata, total))
                     }
 
                     // Atomic write: temp file then rename

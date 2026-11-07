@@ -57,3 +57,28 @@ def reportRoundTrip(List reports) {
 def cladeOfRows(List rows, String taxid) {
     return KreportTree.cladeOf(rows, taxid).sort()
 }
+
+
+/*
+ * The percent column under a given default locale.
+ *
+ * Sets the JVM default locale for the duration of the call, as a field laptop
+ * configured for Swedish or German would have it, and returns both the bare
+ * String.format result (what the writer used to do) and KreportTree's. The
+ * first proves the test exercises a comma-decimal locale; the second is the
+ * property under test.
+ *
+ * @return [ bare String.format("%.2f") result, KreportTree.formatPercent result,
+ *           KreportTree.formatRow result ]
+ */
+def percentUnderLocale(Object cumul, Object total, String language, String country) {
+    // No try/finally: the strict v2 grammar does not allow it in a script.
+    // The test JVM is disposable, and every branch below restores the locale.
+    def previous = java.util.Locale.getDefault()
+    java.util.Locale.setDefault(new java.util.Locale(language, country))
+    def bare = String.format("%.2f", ((cumul as double) / (total as double)) * 100.0d)
+    def viaTree = KreportTree.formatPercent(cumul, total)
+    def row = KreportTree.formatRow('562', [cumul: cumul, reads: 3, rank: 'S', name: '  Escherichia coli'], total)
+    java.util.Locale.setDefault(previous)
+    return [ bare, viaTree, row ]
+}
