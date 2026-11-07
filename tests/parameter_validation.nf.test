@@ -40,6 +40,33 @@ nextflow_pipeline {
         }
     }
 
+    test("a samplesheet under a directory with a space is accepted") {
+        // The schema's `input` pattern was `^\S+\.csv$`, which refuses any
+        // path containing whitespace. Nanometa Live writes the samplesheet
+        // under the results folder, so a results folder on a macOS volume such
+        // as `/Volumes/My Passport` failed every single_sample, per_file and
+        // custom-folder by_barcode launch before the pipeline started. The
+        // pattern now only checks the extension; `format: file-path` still
+        // checks that the file exists.
+
+        when {
+            params {
+                input = "$projectDir/tests/fixtures/samplesheets/dir with space/samplesheet.csv"
+                outdir = "$outputDir"
+                realtime_mode = false
+                skip_kraken2 = true
+                blast_validation = false
+                max_cpus = 1
+                max_memory = '1.GB'
+                max_time = '1.min'
+            }
+        }
+
+        then {
+            assert workflow.success : "a path with a space was refused: " + workflow.stderr.join("\n")
+        }
+    }
+
     test("a single taxid passes validation as a digit-only value") {
         // nf-schema (2.7.2+) casts a digit-only command-line or params-file
         // string to an integer BEFORE it checks the type, so `taxids_to_validate`
