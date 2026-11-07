@@ -133,6 +133,46 @@ nextflow_process {
         }
     }
 
+    test("minimap2 cumulative - breadth is merged per contig, over the whole reference") {
+        // Two contigs of one reference: chr1 (1000 bp) carries 50..150 and
+        // 100..200, which merge to 150 bp; chr2 (500 bp) carries 0..200, at
+        // positions chr1 has already "used". Covered is therefore 350 bp of a
+        // 1500 bp reference, 0.2333.
+        //
+        // The old code merged every contig's intervals in one list, as if the
+        // reference were a single sequence, and divided by the LONGEST contig:
+        // 200 bp over chr1's 1000, 0.2000. Multi-contig references are the
+        // normal case and breadth is a conjunct of "confirmed", so the error
+        // reached a verdict.
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id:'test', single_end:true ], "2697049",
+                    [ file("\${projectDir}/modules/local/validation_cumulative_aggregator/tests/fixtures/two_contigs/test_taxid2697049.paf", checkIfExists: true) ],
+                    [ file("\${projectDir}/modules/local/validation_cumulative_aggregator/tests/fixtures/two_contigs/test_taxid2697049.minimap2_stats.json", checkIfExists: true) ]
+                ]
+                input[1] = 'minimap2'
+                """
+            }
+        }
+        then {
+            def stats = new groovy.json.JsonSlurper().parseText(file(process.out.stats.get(0).get(2)).text)
+            assertAll(
+                { assert process.success },
+                { assert stats.covered_bases == 350 },
+                // The reference's whole length, as MINIMAP2_VALIDATION measured
+                // it from the FASTA and recorded in the batch stats.
+                { assert stats.ref_total_length == 1500 },
+                { assert stats.genome_breadth == 0.233333 },
+                // ref_name / ref_length still describe the longest contig: the
+                // GUI labels its coverage plot with them.
+                { assert stats.ref_name == 'chr1' },
+                { assert stats.ref_length == 1000 }
+            )
+        }
+    }
+
     test("minimap2 cumulative - stub") {
         options "-stub"
         when {
