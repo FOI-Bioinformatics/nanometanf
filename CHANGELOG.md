@@ -27,6 +27,18 @@ and its re-runnable probes in `docs/performance/scripts/`.
   comma there; re-verified end to end by running the real-time validation
   end-to-end test with the JVM defaulted to Swedish.
 
+- **The fixture guard sees a fixture path that contains a space.**
+  `tests/lib/fixtures_are_tracked.py` matched a `$projectDir/...` reference
+  only up to the first whitespace and read `git ls-files` by splitting on
+  whitespace, so the `dir with space` samplesheet fixture added for the
+  schema fix below was recorded as `tests/fixtures/samplesheets/dir` and
+  would have passed the guard untracked. The parser now runs to the closing
+  quote (a comma or a whitespace run still ends an inline samplesheet row),
+  the tracked set is read NUL-separated, and a self-check of the parser runs
+  before every scan so a parser that stops short fails rather than passes.
+  Verified by untracking the fixture: the previous script passed, this one
+  names it.
+
 - **A samplesheet path containing a space is accepted.** The schema's `input`
   pattern was `^\S+\.csv$`, which refuses any whitespace, while Nanometa Live
   writes the samplesheet under the results folder and passes that path. A
