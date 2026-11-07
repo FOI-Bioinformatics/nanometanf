@@ -483,10 +483,13 @@ workflow TAXONOMIC_CLASSIFICATION {
                                 // batch has a per-batch report, and not at intake: a
                                 // file the run was cut before classifying must be
                                 // processed again next time.
+                                // meta.source_file is one path for a live file
+                                // and a LIST for a backlog chunk; the ledger
+                                // writes one line per file either way.
                                 if (params.realtime_mode && meta.source_file) {
                                     RealtimeResume.recordProcessedInput(
                                         params.outdir.toString(), sample_id, meta.batch_id,
-                                        meta.source_file.toString())
+                                        meta.source_file)
                                 }
 
                                 batch_write_counter[sample_id] = batch_write_counter[sample_id] + 1

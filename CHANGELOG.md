@@ -14,6 +14,17 @@ and its re-runnable probes in `docs/performance/scripts/`.
 
 ### Fixed
 
+- **A real-time Continue no longer reclassifies and double counts the
+  start-up backlog.** Backlog chunking (the default) classifies the start-up
+  listing in chunks of several files, and the processed-input ledger
+  (`pipeline_info/processed_inputs.tsv`) recorded each chunk as ONE line
+  holding its files joined with commas. The intake compares single paths
+  against the ledgered set, so nothing matched, the whole backlog was
+  classified again, and -- the accumulator being seeded from the previous
+  run's per-batch counts as well -- every one of those reads was counted
+  twice. A chunk's meta now carries its files as a list and
+  `RealtimeResume.recordProcessedInput` writes one line per file. Pinned in
+  `tests/lib/realtime_resume.nf.test` (bug audit 2026-11-06, finding 3).
 - **`--validation_only` validates its parameters.** The validation-only entry
   skipped `PIPELINE_INITIALISATION`, so nf-schema never saw its parameters: a
   missing `--kraken2_output_dir` fell through to hand-written guards, a

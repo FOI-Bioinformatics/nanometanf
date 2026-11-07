@@ -37,6 +37,65 @@ nextflow_function {
         }
     }
 
+    test("a chunked backlog batch is ledgered one line per file, and each file is recognised on resume") {
+        // Backlog chunking (the default) classifies the start-up listing in
+        // chunks of several files per batch, and the intake compares single
+        // paths against the ledgered set. Until 2026-11 the chunk's files
+        // were joined with commas into ONE line, so nothing matched and a
+        // Continue reclassified -- and, seeded from the previous run's
+        // per-batch counts, double counted -- the whole backlog (bug audit
+        // 2026-11-06, finding 3).
+        function "ledgerLinesForChunk"
+        when {
+            function {
+                """
+                input[0] = "${outputDir}/ledger_chunk"
+                input[1] = [
+                    '/watch/barcode05/a.fastq.gz',
+                    '/watch/barcode05/b.fastq.gz',
+                    '/watch/barcode05/c.fastq.gz',
+                ]
+                """
+            }
+        }
+        then {
+            assert function.success
+            assert function.result[0] == 3
+            assert function.result[1] == [
+                '/watch/barcode05/a.fastq.gz',
+                '/watch/barcode05/b.fastq.gz',
+                '/watch/barcode05/c.fastq.gz',
+            ]
+            // What the intake asks: is THIS path in the set?
+            assert '/watch/barcode05/b.fastq.gz' in function.result[2]
+            assert !('/watch/barcode05/a.fastq.gz,/watch/barcode05/b.fastq.gz,/watch/barcode05/c.fastq.gz' in function.result[2])
+        }
+    }
+
+    test("a single live file and a chunk list round-trip through the same ledger") {
+        function "ledgerRoundTrip"
+        when {
+            function {
+                """
+                input[0] = "${outputDir}/ledger_mixed"
+                input[1] = [
+                    ['barcode05', 0, ['/watch/barcode05/a.fastq.gz', '/watch/barcode05/b.fastq.gz']],
+                    ['barcode05', 1, '/watch/barcode05/c.fastq.gz'],
+                    ['barcode06', 0, []],
+                ]
+                """
+            }
+        }
+        then {
+            assert function.success
+            assert function.result == [
+                '/watch/barcode05/a.fastq.gz',
+                '/watch/barcode05/b.fastq.gz',
+                '/watch/barcode05/c.fastq.gz',
+            ]
+        }
+    }
+
     test("a missing ledger is an empty set, a torn last line is dropped") {
         function "readLedgerText"
         when {
