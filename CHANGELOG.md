@@ -14,6 +14,107 @@ and its re-runnable probes in `docs/performance/scripts/`.
 
 ### Fixed
 
+- **The cumulative Kraken2 report keeps dot decimals in every locale.** The
+  progressive writer formatted its percent column with a bare
+  `String.format("%.2f", ...)`, which takes the JVM default locale, so a
+  Nextflow driver on a Swedish or German field laptop wrote `12,35`: Nanometa
+  Live parsed the whole percent column as NaN, silently, and
+  `bin/kreport_to_canonical.py` raised on `float()`. The formatting moved to
+  `KreportTree.formatPercent` / `formatRow` under `Locale.ROOT`, which is also
+  where the row layout now lives so the writer and any future caller cannot
+  drift. Pinned in `tests/lib/kreport_percent.nf.test`, which asserts a dot
+  under `sv_SE` and `de_DE` after checking that the bare format does yield a
+  comma there; re-verified end to end by running the real-time validation
+  end-to-end test with the JVM defaulted to Swedish.
+
+- **A samplesheet path containing a space is accepted.** The schema's `input`
+  pattern was `^\S+\.csv$`, which refuses any whitespace, while Nanometa Live
+  writes the samplesheet under the results folder and passes that path. A
+  results folder on a macOS external volume (`/Volumes/My Passport`) therefore
+  failed every single_sample, per_file and custom-folder by_barcode launch
+  before the pipeline started. The pattern checks the extension only;
+  `format: file-path` still checks that the file exists. Pinned in
+  `tests/parameter_validation.nf.test` against a committed fixture under a
+  directory with a space in its name.
+
+- **Real-time statistics no longer lose a batch to a publish-directory race.**
+  `REALTIME_STATISTICS` built `UPDATE_CUMULATIVE_STATS`'s input by reading
+  `realtime_stats/cumulative_state.json` out of `params.outdir` inside a
+  channel `.map`, which is not ordered against the task that writes that very
+  path, and the update was not serialised. Two batches finishing close
+  together -- the normal case on a start-up backlog -- both saw the same prior,
+  each published `prior + own`, and the later publish dropped the earlier
+  batch from the session totals the Reports tab shows. The update now receives
+  every snapshot of the session so far from `lib/BatchSeriesAccumulator.groovy`
+  (the pattern `CumulativeBatchAccumulator` already used for validation) and
+  recomputes the totals from that set, with `maxForks 1` so the most complete
+  result is also the last one published. Nothing in the module reads its own
+  publish directory. Pinned in `tests/lib/batch_series_accumulator.nf.test`,
+  `modules/local/update_cumulative_stats/tests/main.nf.test` and
+  `subworkflows/local/realtime_statistics/tests/main.nf.test`.
+
+- **`genome_breadth` is merged per contig and divided by the whole reference.**
+  Both breadth implementations -- the awk in `modules/local/minimap2_validation`
+  and the Python in `modules/local/validation_cumulative_aggregator` -- merged
+  every contig's intervals in one list, as if the reference were a single
+  sequence (position 500 of contig 2 counted as already covered by position 500
+  of contig 1), and divided the result by the LONGEST contig. Multi-contig
+  references are the normal case for a pathogen genome (chromosome plus
+  plasmids, or a draft in scaffolds) and breadth is a conjunct of the
+  `confirmed` verdict, so the error reached a verdict. The merge is now keyed
+  by target name (the PAF is sorted by name then start) and the denominator is
+  the reference's total length, measured from the reference FASTA and carried
+  to the cumulative aggregator in the batch stats as the new
+  `ref_total_length`; `covered_bases` is emitted alongside it so the figure is
+  auditable. `ref_name` / `ref_length` still describe the longest contig, which
+  is what the GUI labels its coverage plot with. Pinned by a two-contig case in
+  each module's tests (0.2333 against the old 0.2000, and 0.60 against the old
+  0.50).
+
+- **`assembly_scope: both` no longer collides on publish names, and a
+  real-time attempt keeps its own decision record.** FLYE, MINIASM and
+  `CANONICAL_ASSEMBLY_WRITER` named every artifact by `meta.id` alone, so a
+  sample assembled at both scopes published its whole-sample and its
+  per-organism assembly to the same path and one overwrote the other. Their
+  `ext.prefix` now carries the scope and the taxid (`<sample>.targeted.taxid<N>`);
+  the metagenome scope keeps the bare sample name, so a single-scope run's
+  names are unchanged. `ASSEMBLY_DEPTH_GATE` likewise wrote one
+  `<sample>[.taxid<N>].assembly_decision.json` per key, so in a real-time run
+  each attempt overwrote the record of every earlier one; the record carries
+  the attempt number in real time and keeps the documented batch-mode name,
+  which is the one Nanometa Live reads. Pinned in
+  `subworkflows/local/assembly/tests/main.nf.test`.
+
+- **The multi-sample NanoPlot comparison survives an empty QC channel.**
+  `workflows/nanometanf.nf` destructured `ch_qc_reads` with a bare
+  `.map { meta, reads -> reads }` -- the one `.ifEmpty([])` consumer the PR #11
+  pass missed. With `--enable_nanoplot_comparison` and every QC task skipped or
+  isolated, the sentinel reached that map and aborted the run with
+  "Invalid method invocation `call` with arguments: []" instead of continuing
+  without the comparison. The standard filter now precedes the map; pinned in
+  `tests/ifempty_sentinel_regression.nf.test`.
+
+- **An isolated BLAST or minimap2 failure leaves a lost-input marker.** Both
+  validators are isolated on exit 1/2 by `conf/error_isolation.config` and were
+  the only isolated processes without the `afterScript` marker, so a failed
+  confirmation left no record anywhere: the organism simply had no result. They
+  now write the same marker the QC, classification and assembly processes do,
+  naming the extracted per-taxid FASTQ.
+
+- **Extracted per-taxid reads are kept per batch in real time.** Every batch of
+  a (sample, taxid) writes the same `<sample>_taxid<N>` names, so each batch's
+  extraction overwrote the last under `validation/extracted_reads/` and what
+  was published was one batch's reads rather than the organism's. The publish
+  suffixes the batch id when `meta.batch_id` is set, mirroring the BLASTN and
+  MINIMAP2 per-batch publishes (`!= null`, so batch 0 is not treated as absent).
+
+- **The backlog-chunking notice tests the resolved setting.** The log line that
+  explains chunking is off because `--max_files` is set tested the raw
+  `params.realtime_backlog_chunking`, which is null for the default (chunking
+  on) and truthy for the string `"false"`, so the message was absent exactly
+  when the default was in force and present when chunking had been switched
+  off anyway. It now tests the same resolved boolean the decision uses.
+
 - **`--validation_only` validates its parameters.** The validation-only entry
   skipped `PIPELINE_INITIALISATION`, so nf-schema never saw its parameters: a
   missing `--kraken2_output_dir` fell through to hand-written guards, a
