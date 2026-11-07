@@ -373,7 +373,14 @@ workflow NANOMETANF {
         if (params.enable_nanoplot_comparison && !params.skip_nanoplot) {
             log.info "NanoPlot multi-sample comparison enabled -- this defers until all samples complete"
             // Collect all QC'd reads for comparative analysis
-            ch_comparison_reads = ch_qc_reads.map { meta, reads -> reads }.collect()
+            // Filter before destructuring: ch_qc_reads carries the .ifEmpty([])
+            // sentinel when every QC task was skipped or isolated, and the bare
+            // map crashed the run with MissingMethodException instead of
+            // letting it continue without the comparison.
+            ch_comparison_reads = ch_qc_reads
+                .filter { it instanceof List && it.size() >= 2 && it[0] instanceof Map && it[1] != null }
+                .map { meta, reads -> reads }
+                .collect()
 
             NANOPLOT_COMPARE (
                 ch_comparison_reads,
