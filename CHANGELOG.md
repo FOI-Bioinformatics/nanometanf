@@ -25,6 +25,15 @@ and its re-runnable probes in `docs/performance/scripts/`.
   twice. A chunk's meta now carries its files as a list and
   `RealtimeResume.recordProcessedInput` writes one line per file. Pinned in
   `tests/lib/realtime_resume.nf.test` (bug audit 2026-11-06, finding 3).
+- **A CLI real-time run at defaults publishes `kraken2/<sample>/batches/`.**
+  `KRAKEN2_OUTPUT_MERGER`'s publish gate lacked the `realtime_mode` term the
+  subworkflow's branch condition has, so a real-time run started without
+  `--kraken2_enable_incremental` classified incrementally but published no
+  batch files; the resume scan reads only that directory, so a Continue
+  restarted numbering at 0 and the final aggregate held run 2 alone. The
+  gate is now the same expression as the branch condition, and both say so.
+  GUI runs were unaffected (the GUI sends the flag). Pinned at subworkflow
+  level in `gui_filename_compatibility.nf.test` (finding 17).
 - **`--validation_only` validates its parameters.** The validation-only entry
   skipped `PIPELINE_INITIALISATION`, so nf-schema never saw its parameters: a
   missing `--kraken2_output_dir` fell through to hand-written guards, a

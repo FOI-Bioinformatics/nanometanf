@@ -186,7 +186,15 @@ workflow TAXONOMIC_CLASSIFICATION {
             if (params.batch_chunking && !params.realtime_mode && !params.kraken2_enable_incremental) {
                 log.info "Batch chunking is on, so the incremental classifier path is used (per-chunk reports and a cumulative report per sample)"
             }
-            if (params.kraken2_enable_incremental == true || params.realtime_mode == true || (params.batch_chunking == true && !params.realtime_mode)) {
+            // This expression IS the publish gate of KRAKEN2_OUTPUT_MERGER in
+            // conf/modules.config (`enabled:` on batches/, batch_reports/ and
+            // merge_stats.json); keep the two identical. The gate used to lack
+            // the realtime_mode term, so a CLI real-time run at defaults took
+            // this path and published no batches/: the resume scan and
+            // RealtimeResume.priorBatchFiles read only that directory, so a
+            // Continue restarted numbering at 0 and the final aggregate held
+            // run 2 alone (bug audit 2026-11-06, finding 17).
+            if ((params.kraken2_enable_incremental ?: false) || (params.realtime_mode ?: false) || (params.batch_chunking ?: false)) {
                 log.info "=== Phase 1.1: Incremental Kraken2 Classification ==="
                 log.info "Using incremental Kraken2 processing with batch caching:"
                 log.info "  - Classify only NEW reads per batch (O(n) vs O(n^2))"

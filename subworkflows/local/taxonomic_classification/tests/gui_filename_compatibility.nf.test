@@ -363,4 +363,53 @@ nextflow_workflow {
             }
         }
     }
+
+    test("realtime mode alone publishes the per-sample batches/ the resume scan reads") {
+        // The incremental path is taken for realtime_mode whatever
+        // kraken2_enable_incremental says, and the merger's publish gate in
+        // conf/modules.config must say the same: it used to lack the
+        // realtime_mode term, so a CLI real-time run at defaults classified
+        // incrementally and published no kraken2/<sample>/batches/. The
+        // resume scan and RealtimeResume.priorBatchFiles read only that
+        // directory, so a Continue restarted batch numbering at 0 and the
+        // final aggregate held run 2 alone (bug audit 2026-11-06, finding
+        // 17). The subworkflow itself opens no watchPath, so realtime_mode
+        // is safe to set here; the Nanometa Live GUI always sends the flag
+        // and was never affected.
+        when {
+            workflow {
+                """
+                input[0] = [
+                    [
+                        [id: 'barcode01', single_end: true],
+                        file('$projectDir/tests/fixtures/fastq/test_sample.fastq.gz')
+                    ]
+                ]
+                input[1] = file('$projectDir/tests/fixtures/kraken2_db')
+                """
+            }
+
+            params {
+                outdir = "$outputDir"
+                classifier = 'kraken2'
+                taxpasta_format = 'tsv'
+                kraken2_enable_incremental = false
+                realtime_mode = true
+                batch_chunking = false
+                max_cpus = 2
+                max_memory = '4.GB'
+                max_time = '3.min'
+            }
+        }
+
+        options "-stub"
+
+        then {
+            assert workflow.success
+            assert path("${outputDir}/kraken2/barcode01/batches/batch_0.kraken2.output.txt").exists(), \
+                "batches/ was not published for a realtime run without kraken2_enable_incremental"
+            assert path("${outputDir}/kraken2/barcode01/batch_reports/batch_0.kraken2.report.txt").exists()
+            assert path("${outputDir}/kraken2/barcode01/stats/merge_stats.json").exists()
+        }
+    }
 }

@@ -103,6 +103,13 @@ outdir/kraken2/
 └── {sample_id}.cumulative.kraken2.report.txt  # Updated per-batch for dashboard
 ```
 
+The merger publishes `batches/`, `batch_reports/` and `merge_stats.json`
+behind an `enabled:` gate that is THE SAME EXPRESSION as the subworkflow's
+branch condition (`kraken2_enable_incremental || realtime_mode ||
+batch_chunking`); keep them identical. Without the `realtime_mode` term a CLI
+real-time run at defaults classified incrementally and published no
+`batches/`, so a Continue restarted numbering at 0 (finding 17).
+
 ### Concurrency Parameters
 
 ```groovy
