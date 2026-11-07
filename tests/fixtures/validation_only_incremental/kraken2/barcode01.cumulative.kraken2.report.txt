@@ -1,0 +1,3 @@
+taxid	count	name
+1	100	root
+2	50	Bacteria

@@ -37,6 +37,65 @@ nextflow_function {
         }
     }
 
+    test("a chunked backlog batch is ledgered one line per file, and each file is recognised on resume") {
+        // Backlog chunking (the default) classifies the start-up listing in
+        // chunks of several files per batch, and the intake compares single
+        // paths against the ledgered set. Until 2026-11 the chunk's files
+        // were joined with commas into ONE line, so nothing matched and a
+        // Continue reclassified -- and, seeded from the previous run's
+        // per-batch counts, double counted -- the whole backlog (bug audit
+        // 2026-11-06, finding 3).
+        function "ledgerLinesForChunk"
+        when {
+            function {
+                """
+                input[0] = "${outputDir}/ledger_chunk"
+                input[1] = [
+                    '/watch/barcode05/a.fastq.gz',
+                    '/watch/barcode05/b.fastq.gz',
+                    '/watch/barcode05/c.fastq.gz',
+                ]
+                """
+            }
+        }
+        then {
+            assert function.success
+            assert function.result[0] == 3
+            assert function.result[1] == [
+                '/watch/barcode05/a.fastq.gz',
+                '/watch/barcode05/b.fastq.gz',
+                '/watch/barcode05/c.fastq.gz',
+            ]
+            // What the intake asks: is THIS path in the set?
+            assert '/watch/barcode05/b.fastq.gz' in function.result[2]
+            assert !('/watch/barcode05/a.fastq.gz,/watch/barcode05/b.fastq.gz,/watch/barcode05/c.fastq.gz' in function.result[2])
+        }
+    }
+
+    test("a single live file and a chunk list round-trip through the same ledger") {
+        function "ledgerRoundTrip"
+        when {
+            function {
+                """
+                input[0] = "${outputDir}/ledger_mixed"
+                input[1] = [
+                    ['barcode05', 0, ['/watch/barcode05/a.fastq.gz', '/watch/barcode05/b.fastq.gz']],
+                    ['barcode05', 1, '/watch/barcode05/c.fastq.gz'],
+                    ['barcode06', 0, []],
+                ]
+                """
+            }
+        }
+        then {
+            assert function.success
+            assert function.result == [
+                '/watch/barcode05/a.fastq.gz',
+                '/watch/barcode05/b.fastq.gz',
+                '/watch/barcode05/c.fastq.gz',
+            ]
+        }
+    }
+
     test("a missing ledger is an empty set, a torn last line is dropped") {
         function "readLedgerText"
         when {
@@ -145,6 +204,52 @@ nextflow_function {
                 ['barcode05', 'batch_1.kraken2.output.txt'],
                 ['barcode06', 'batch_0.kraken2.output.txt'],
             ]
+        }
+    }
+
+    test("previous classified pools are found by sample, nested files and other names ignored") {
+        // KRAKEN2_FINAL_AGGREGATOR pools this run's per-batch classified
+        // FASTQs into kraken2/<sample>.kraken2.classified.fastq.gz; on a
+        // Continue the previous run's pool is handed to it too, so the pool
+        // keeps covering every read the cumulative per-read output lists.
+        function "priorPools"
+        when {
+            function {
+                """
+                input[0] = "${outputDir}/pools_a"
+                input[1] = [
+                    'kraken2/barcode05.kraken2.classified.fastq.gz': 'x',
+                    'kraken2/barcode06.kraken2.classified.fastq.gz': 'x',
+                    'kraken2/barcode06.kraken2.unclassified.fastq.gz': 'x',
+                    'kraken2/barcode06.cumulative.kraken2.output.txt': 'x',
+                    'kraken2/barcode07/batches/batch_0.kraken2.output.txt': 'x',
+                    'kraken2/.kraken2.classified.fastq.gz': 'x',
+                ]
+                """
+            }
+        }
+        then {
+            assert function.success
+            assert function.result == [
+                ['barcode05', 'barcode05.kraken2.classified.fastq.gz'],
+                ['barcode06', 'barcode06.kraken2.classified.fastq.gz'],
+            ]
+        }
+    }
+
+    test("no kraken2 directory yields no previous pools") {
+        function "priorPools"
+        when {
+            function {
+                """
+                input[0] = "${outputDir}/pools_b"
+                input[1] = [:]
+                """
+            }
+        }
+        then {
+            assert function.success
+            assert function.result == []
         }
     }
 }

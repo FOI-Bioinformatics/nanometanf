@@ -199,6 +199,7 @@ jobs:
             tests/lib/kreport_tree.nf.test \
             tests/lib/realtime_intake.nf.test \
             tests/lib/realtime_resume.nf.test \
+            tests/lib/validation_only_inputs.nf.test \
             tests/lib/snapshot_accumulator.nf.test \
             tests/lib/snapshot_accumulator_kraken_key.nf.test
 
