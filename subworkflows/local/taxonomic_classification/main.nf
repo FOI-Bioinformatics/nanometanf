@@ -641,8 +641,29 @@ workflow TAXONOMIC_CLASSIFICATION {
                 // no trace at all. The counter is final by the time this runs:
                 // groupTuple emits only once its upstream channel has closed, which
                 // is after every batch has been assigned an id.
+                //
+                // remainder: true keeps a sample that has only one of the two
+                // sides visible, and the two sides can differ only through the
+                // previous run's files mixed in above (this run's come paired
+                // from one process). Such a sample is NOT aggregated: with the
+                // outputs missing the module would publish an EMPTY
+                // <sample>.cumulative.kraken2.output.txt over the previous
+                // run's, and with the reports missing an empty cumulative
+                // report over the progressive one. It used to reach the
+                // module as a null path side (bug audit 2026-11-06, finding
+                // 31).
                 ch_aggregator_input = ch_sample_outputs
                     .join(ch_sample_reports, by: 0, remainder: true)
+                    .filter { sample_id, outputs, reports ->
+                        def complete = outputs != null && reports != null
+                        if (!complete) {
+                            log.warn "Final aggregation skipped for sample '${sample_id}': found " +
+                                "${outputs == null ? 0 : outputs.size()} batch output file(s) and " +
+                                "${reports == null ? 0 : reports.size()} batch report file(s); both are " +
+                                "needed, so the cumulative files already in ${params.outdir}/kraken2 stand"
+                        }
+                        return complete
+                    }
                     .map { sample_id, outputs, reports ->
                         def assigned_batches = BatchUtils.withLock(sample_batch_counters) {
                             sample_batch_counters[sample_id] as int

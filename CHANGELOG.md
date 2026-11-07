@@ -34,6 +34,13 @@ and its re-runnable probes in `docs/performance/scripts/`.
   gate is now the same expression as the branch condition, and both say so.
   GUI runs were unaffected (the GUI sends the flag). Pinned at subworkflow
   level in `gui_filename_compatibility.nf.test` (finding 17).
+- **`KRAKEN2_FINAL_AGGREGATOR` is never handed a null path side.** The
+  outputs/reports join uses `remainder: true`, and a sample whose previous
+  run left only one of `batches/` and `batch_reports/` reached the module
+  with `null` for the other. Such a sample is now skipped with a warning
+  naming it: with the outputs missing the module would have published an
+  empty cumulative per-read output, and with the reports missing an empty
+  cumulative report, over the files the previous run wrote (finding 31).
 - **`--validation_only` validates its parameters.** The validation-only entry
   skipped `PIPELINE_INITIALISATION`, so nf-schema never saw its parameters: a
   missing `--kraken2_output_dir` fell through to hand-written guards, a
