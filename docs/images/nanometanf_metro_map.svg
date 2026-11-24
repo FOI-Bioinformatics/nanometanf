@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1180" height="420" viewBox="0 0 1180 420" font-family="Helvetica, Arial, sans-serif">
+  <title>nanometanf workflow</title>
+  <desc>Input FASTQ (real-time watchPath or batch directory) flows through read filtering and QC, Kraken2 classification, confirmatory validation and optional assembly into canonical outputs read by Nanometa Live.</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#555"/>
+    </marker>
+    <style>
+      .station { fill: #ffffff; stroke-width: 3; }
+      .label { font-size: 14px; fill: #222; }
+      .small { font-size: 11px; fill: #555; }
+      .title { font-size: 20px; font-weight: bold; fill: #222; }
+      .line { fill: none; stroke-width: 8; stroke-linecap: round; }
+      .link { fill: none; stroke: #555; stroke-width: 1.5; marker-end: url(#arrow); }
+    </style>
+  </defs>
+
+  <text x="24" y="36" class="title">nanometanf</text>
+  <text x="24" y="58" class="small">Nextflow backend of Nanometa Live: real-time and batch Oxford Nanopore metagenomics</text>
+
+  <!-- main line: input -> QC -> classification -> validation -> outputs -->
+  <path class="line" stroke="#1f77b4" d="M 90 160 H 1090"/>
+  <!-- assembly branch -->
+  <path class="line" stroke="#9467bd" d="M 660 160 Q 700 160 720 200 L 760 270 H 940 Q 980 270 1000 230 L 1070 165"/>
+  <!-- realtime cumulative loop -->
+  <path class="line" stroke="#ff7f0e" d="M 520 160 Q 480 100 520 60 H 760 Q 800 60 800 100 L 800 150"/>
+
+  <!-- stations -->
+  <g>
+    <circle class="station" cx="90" cy="160" r="12" stroke="#1f77b4"/>
+    <text x="90" y="198" class="label" text-anchor="middle">Input</text>
+    <text x="90" y="214" class="small" text-anchor="middle">watchPath (real-time)</text>
+    <text x="90" y="228" class="small" text-anchor="middle">or barcode directory</text>
+
+    <circle class="station" cx="260" cy="160" r="12" stroke="#1f77b4"/>
+    <text x="260" y="198" class="label" text-anchor="middle">Read filter</text>
+    <text x="260" y="214" class="small" text-anchor="middle">chopper / filtlong / fastp</text>
+
+    <circle class="station" cx="390" cy="160" r="12" stroke="#1f77b4"/>
+    <text x="390" y="198" class="label" text-anchor="middle">QC</text>
+    <text x="390" y="214" class="small" text-anchor="middle">NanoPlot, FastQC, seqkit</text>
+
+    <circle class="station" cx="520" cy="160" r="12" stroke="#1f77b4"/>
+    <text x="520" y="198" class="label" text-anchor="middle">Kraken2</text>
+    <text x="520" y="214" class="small" text-anchor="middle">incremental per batch</text>
+
+    <circle class="station" cx="660" cy="160" r="12" stroke="#1f77b4"/>
+    <text x="660" y="198" class="label" text-anchor="middle">Extract by clade</text>
+    <text x="660" y="214" class="small" text-anchor="middle">watched taxids</text>
+
+    <circle class="station" cx="800" cy="160" r="12" stroke="#1f77b4"/>
+    <text x="800" y="198" class="label" text-anchor="middle">Validation</text>
+    <text x="800" y="214" class="small" text-anchor="middle">BLAST, minimap2</text>
+
+    <circle class="station" cx="940" cy="160" r="12" stroke="#1f77b4"/>
+    <text x="940" y="198" class="label" text-anchor="middle">Reports</text>
+    <text x="940" y="214" class="small" text-anchor="middle">MultiQC, taxpasta</text>
+
+    <circle class="station" cx="1090" cy="160" r="12" stroke="#1f77b4"/>
+    <text x="1090" y="198" class="label" text-anchor="middle">Canonical outputs</text>
+    <text x="1090" y="214" class="small" text-anchor="middle">read by Nanometa Live</text>
+
+    <!-- realtime loop stations -->
+    <text x="640" y="48" class="label" text-anchor="middle">Cumulative reports, rewritten every batch</text>
+    <circle class="station" cx="640" cy="60" r="9" stroke="#ff7f0e"/>
+
+    <!-- assembly branch stations -->
+    <circle class="station" cx="760" cy="270" r="12" stroke="#9467bd"/>
+    <text x="760" y="308" class="label" text-anchor="middle">Depth gate</text>
+    <text x="760" y="324" class="small" text-anchor="middle">decision record, attempt or decline</text>
+
+    <circle class="station" cx="940" cy="270" r="12" stroke="#9467bd"/>
+    <text x="940" y="308" class="label" text-anchor="middle">Assembly</text>
+    <text x="940" y="324" class="small" text-anchor="middle">Flye (or miniasm), optional</text>
+  </g>
+
+  <!-- legend -->
+  <g transform="translate(24 370)">
+    <line x1="0" y1="0" x2="40" y2="0" stroke="#1f77b4" stroke-width="8" stroke-linecap="round"/>
+    <text x="50" y="5" class="small">main line, every run</text>
+    <line x1="220" y1="0" x2="260" y2="0" stroke="#ff7f0e" stroke-width="8" stroke-linecap="round"/>
+    <text x="270" y="5" class="small">real-time mode: per-batch classification and cumulative reports</text>
+    <line x1="700" y1="0" x2="740" y2="0" stroke="#9467bd" stroke-width="8" stroke-linecap="round"/>
+    <text x="750" y="5" class="small">assembly branch, enabled by --enable_assembly</text>
+  </g>
+</svg>

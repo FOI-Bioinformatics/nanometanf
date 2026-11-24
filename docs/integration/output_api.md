@@ -12,11 +12,21 @@ the JSON schemas of the machine-readable artefacts, and integration
 patterns.
 
 The Kraken2 output layout is the v1.5+ streaming structure -- each
-sample writes to its own directory with `batches/`, `batch_reports/`,
-`index.json`, and `taxid_counts.json`. Cumulative
+sample writes to its own directory with `batches/`, `batch_reports/`
+and `stats/`. Cumulative
 `{sample_id}.cumulative.kraken2.{output,report}.txt` files are
 rebuilt at end of session for downstream tools that consume a single
-file. See [`CLAUDE.md`](../../CLAUDE.md) for the architectural
+file; the report half is also rewritten after every batch by the
+pipeline's own accumulator, so a dashboard can follow it live.
+
+This paragraph and the tree below previously named a per-sample
+`index.json` and `taxid_counts.json`. **Neither has ever been written
+by any module.** The modules are stateless: every output name carries
+its batch id, and the only state file is a per-batch
+`stats/batch_<N>_taxid_counts.json`. Cumulative accumulation happens
+in the classification subworkflow's head process, in memory. A
+consumer written against the old names read nothing (corrected
+2026-10-27; audit F14). See [`CLAUDE.md`](../../CLAUDE.md) for the architectural
 rationale.
 
 ---
@@ -60,13 +70,14 @@ results/
 │   │   │   ├── batch_1.kraken2.output.txt
 │   │   │   └── ...
 │   │   ├── batch_reports/
-│   │   │   ├── batch_0.kraken2.report.txt
-│   │   │   └── ...
-│   │   ├── index.json              # Atomic batch manifest
-│   │   ├── taxid_counts.json       # Incremental per-taxid state
+│   │   │   ├── batch_0.kraken2.report.txt              # from OUTPUT_MERGER
+│   │   │   ├── {sample_id}_batch0.kraken2.report.txt   # from REPORT_GENERATOR,
+│   │   │   └── ...                                     #   byte-identical to the above
 │   │   └── stats/
-│   │       ├── merge_stats.json
-│   │       └── report_stats.json
+│   │       ├── merge_stats.json                        # latest batch only, not renamed
+│   │       ├── batch_0_report_stats.json
+│   │       ├── batch_0_taxid_counts.json               # per batch, NOT cumulative
+│   │       └── aggregation_stats.json                  # end of session
 │   ├── {sample_id}.cumulative.kraken2.output.txt   # End-of-session aggregation
 │   └── {sample_id}.cumulative.kraken2.report.txt   # Updated per-batch for dashboards
 │

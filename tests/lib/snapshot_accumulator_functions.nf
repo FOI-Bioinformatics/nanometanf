@@ -30,7 +30,13 @@ def krakenSnapshotKeys(List reports) {
     reports.each { r ->
         def key = ValidationSnapshotAccumulator.krakenKey(r[0], r[1])
         keys.add(key)
-        last = acc.update(key, "${r[0]}_batch${r[1]}.report", true)
+        // .toString() so the harness returns plain Strings, not GStrings. A
+        // GString never equals a String under Java equals(), so an assertion
+        // written with List.contains() behaves differently from one written
+        // with ==, on the same value. nf-test appears to serialize
+        // function.result, which would hide the difference; returning plain
+        // data means no assertion style depends on that.
+        last = acc.update(key, "${r[0]}_batch${r[1]}.report".toString(), true)
     }
     return [ keys, last == null ? [] : last[1] ]
 }

@@ -19,7 +19,7 @@ nextflow_pipeline {
     test("batch run classifies reads and writes a populated Kraken2 report") {
         when {
             params {
-                input = false
+                input = null
                 barcode_input_dir = "$projectDir/tests/fixtures/kraken2_real/reads"
                 outdir = "$outputDir"
                 realtime_mode = false

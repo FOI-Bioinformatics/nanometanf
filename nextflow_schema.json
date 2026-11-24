@@ -10,7 +10,7 @@
             "type": "object",
             "fa_icon": "fas fa-arrows-to-dot",
             "description": "Input mode mutual exclusion.",
-            "help_text": "Exactly one of the four input modes must be supplied: --input (samplesheet CSV), --input_dir (auto-detect barcode or flat layout), --barcode_input_dir (deprecated; use --input_dir), or --nanopore_output_dir together with --realtime_mode for real-time monitoring.",
+            "help_text": "Exactly one of the five input modes must be supplied: --input (samplesheet CSV), --input_dir (auto-detect barcode or flat layout), --barcode_input_dir (deprecated; use --input_dir), --nanopore_output_dir together with --realtime_mode for real-time monitoring, or --validation_only together with --kraken2_output_dir and --reads_dir to validate an existing run without re-running classification.",
             "properties": {},
             "oneOf": [
                 {
@@ -24,6 +24,12 @@
                 },
                 {
                     "required": ["nanopore_output_dir"]
+                },
+                {
+                    "properties": {
+                        "validation_only": { "const": true }
+                    },
+                    "required": ["validation_only", "kraken2_output_dir", "reads_dir"]
                 }
             ]
         },
@@ -39,7 +45,7 @@
                     "format": "file-path",
                     "schema": "assets/schema_input.json",
                     "mimetype": "text/csv",
-                    "pattern": "^\\S+\\.csv$",
+                    "pattern": "^.+\\.csv$",
                     "description": "Path to comma-separated file containing information about the samples in the experiment.",
                     "help_text": "You will need to create a design file with information about the samples in your experiment before running the pipeline. Use this parameter to specify its location. It has to be a comma-separated file with 3 columns, and a header row. Can be a local file path or URL.",
                     "fa_icon": "fas fa-file-csv"
@@ -233,13 +239,6 @@
                     "fa_icon": "fas fa-palette",
                     "hidden": true
                 },
-                "hook_url": {
-                    "type": "string",
-                    "description": "Incoming hook URL for messaging service",
-                    "fa_icon": "fas fa-people-group",
-                    "help_text": "Incoming hook URL for messaging service. Currently, MS Teams and Slack are supported.",
-                    "hidden": true
-                },
                 "multiqc_config": {
                     "type": "string",
                     "format": "file-path",
@@ -313,7 +312,6 @@
             "properties": {
                 "realtime_mode": {
                     "type": "boolean",
-                    "default": false,
                     "description": "Enable real-time file monitoring and processing during sequencing runs.",
                     "fa_icon": "fas fa-play",
                     "help_text": "When enabled, the pipeline will monitor specified directories for new files and process them incrementally as they are created during an active sequencing run."
@@ -333,7 +331,7 @@
                     "help_text": "Glob pattern to match FASTQ files (.fastq or .fq, compressed or uncompressed) at any depth, including the root of the watched directory and subdirectories. Hidden files and anything under fastq_fail/ or fastq_skip/ are excluded at intake."
                 },
                 "sample_name": {
-                    "type": "string",
+                    "type": ["string", "integer"],
                     "description": "Sample name to use for single-sample mode (non-barcoded runs).",
                     "fa_icon": "fas fa-tag",
                     "help_text": "When processing a single sample without barcodes, use this name for output files instead of the input filename. If not provided, the input filename will be used."
@@ -439,6 +437,14 @@
                     "fa_icon": "fas fa-hourglass-end",
                     "help_text": "Grace period after realtime_timeout_minutes expires to allow downstream processes to complete."
                 },
+                "realtime_settle_seconds": {
+                    "type": "integer",
+                    "default": 2,
+                    "minimum": 0,
+                    "description": "Seconds a watched file's size and mtime must be unchanged before it is handed on (0 = at first sighting).",
+                    "fa_icon": "fas fa-hourglass-half",
+                    "help_text": "A producer that writes a FASTQ in place (MinKNOW appending reads, a copy in progress) is reported by the watcher at creation; staged mid-write, the truncated file fails QC and is lost for the run. The file is delayed until quiet, never dropped: a file already quiet when first seen, including every file of a start-up backlog, is not delayed, and a file that never settles is handed on after 30 s."
+                },
                 "max_file_age_minutes": {
                     "type": "integer",
                     "minimum": 0,
@@ -459,7 +465,8 @@
                     "default": 1,
                     "minimum": 0,
                     "description": "Write the progressive cumulative Kraken2 report every N batches (a sample's first batch always flushes; 0 also means every batch).",
-                    "fa_icon": "fas fa-pen"
+                    "fa_icon": "fas fa-pen",
+                    "help_text": "The rebuild this thins re-walks every cumulative taxon inside the one lock that serialises this work across all barcodes, and is 76-79% of that locked section at realistic diversity. Measured at 3,000 cumulative taxa with 300 per batch: 30 ms per batch, so 24 barcodes over 20 batches serialise about 14 s; at 10,000 taxa, 26 s. Raise it on a high-barcode, high-diversity run to thin that in proportion, at the price of dashboard lag."
                 },
                 "skip_fastqc_realtime": {
                     "type": "boolean",
@@ -493,7 +500,6 @@
                 },
                 "skip_fastp": {
                     "type": "boolean",
-                    "default": false,
                     "description": "Skip FASTP QC step (legacy parameter for backward compatibility).",
                     "fa_icon": "fas fa-forward",
                     "hidden": true,
@@ -501,26 +507,22 @@
                 },
                 "skip_nanoplot": {
                     "type": "boolean",
-                    "default": false,
                     "description": "Skip NanoPlot visualization.",
                     "fa_icon": "fas fa-chart-line"
                 },
                 "skip_multiqc": {
                     "type": "boolean",
-                    "default": false,
                     "description": "Skip MultiQC report generation.",
                     "fa_icon": "fas fa-file-alt"
                 },
                 "enable_adapter_trimming": {
                     "type": "boolean",
-                    "default": false,
                     "description": "Enable nanopore adapter trimming with PORECHOP.",
                     "fa_icon": "fas fa-cut",
                     "help_text": "Applies to the chopper and filtlong QC tools, which have no adapter handling of their own. Ignored (with a warning) for fastp, which removes adapters itself. Disable for reads already trimmed by the basecaller."
                 },
                 "enable_qc_benchmark": {
                     "type": "boolean",
-                    "default": false,
                     "description": "Enable QC tool performance benchmarking.",
                     "fa_icon": "fas fa-stopwatch",
                     "help_text": "Compare performance metrics across QC tools (chopper vs fastp vs filtlong)."
@@ -622,7 +624,6 @@
                 },
                 "qc_enable_incremental": {
                     "type": "boolean",
-                    "default": false,
                     "description": "Enable incremental QC statistics aggregation (PromethION optimization).",
                     "fa_icon": "fas fa-rocket",
                     "help_text": "When enabled with chopper/filtlong, batch-level SeqKit statistics are merged using weighted calculations instead of recomputing the entire dataset. Eliminates redundant computations in real-time mode."
@@ -641,6 +642,30 @@
                     "description": "Run NanoPlot visualization every N batches in real-time mode (PromethION optimization).",
                     "fa_icon": "fas fa-hashtag",
                     "help_text": "When nanoplot_realtime_skip_intermediate is enabled, NanoPlot runs every N batches plus the final batch. Lower values = more frequent plots. Platform defaults: MinION=5, PromethION-8=7, PromethION=10."
+                },
+                "realtime_backlog_chunking": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Plan a real-time run's start-up backlog as chunks ordered across samples.",
+                    "fa_icon": "fas fa-layer-group",
+                    "help_text": "A run started after sequencing began finds a backlog, and a backlog is a batch-shaped workload: every file is present at once, so one task per file is the worst granularity available -- each classifier task pays a database load for a single file and nothing bounds the task count. When enabled the start-up listing is planned as geometric chunks per sample, ordered so every sample's chunk 0 is classified before any sample's chunk 1, using the same planner batch mode uses. The live watcher stream is unaffected and stays per file. Ignored when --max_files is set, because that cap counts files while a chunk is a single emission. Chunk shape comes from batch_first_chunk_files and batch_chunk_growth."
+                },
+                "max_qc_forks": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 64,
+                    "description": "Maximum parallel read-filter and FastQC jobs (global cap). Unset matches max_classification_forks.",
+                    "fa_icon": "fas fa-code-branch",
+                    "help_text": "QC sits upstream of classification, so on a start-up backlog every file becomes a runnable QC task before any file can be classified. The classifier has had a cap since v1.5 and QC had none, so the classifier could not use its slots: QC had already committed the CPU and was ahead of it in the pending queue (audit F3). Unset, the cap is max_classification_forks, because QC is a one-to-one producer for the classifier and more QC in flight than it can consume only displaces it. QC is left uncapped when --skip_kraken2 is set, where there is no consumer to protect. Inert on the local executor once the cap exceeds max_cpus divided by the task's own CPU request (4 by default, 6 under the server profile), since past that point the executor admits fewer than the cap anyway."
+                },
+                "max_nanoplot_forks": {
+                    "type": "integer",
+                    "default": 2,
+                    "minimum": 1,
+                    "maximum": 64,
+                    "description": "Maximum parallel NanoPlot jobs (global cap).",
+                    "fa_icon": "fas fa-code-branch",
+                    "help_text": "NanoPlot is a live QC snapshot rather than a step towards a classification result, so it is capped so it cannot crowd out the classifier. Its milestone rule fires on each sample's first file, so a run started after sequencing began -- where the backlog delivers every barcode at once -- would otherwise make one NanoPlot task per barcode runnable at the same moment as those barcodes' first classifications. Raise it on a host with CPUs to spare."
                 },
                 "multiqc_realtime_final_only": {
                     "type": "boolean",
@@ -674,21 +699,18 @@
                 },
                 "skip_kraken2": {
                     "type": "boolean",
-                    "default": false,
                     "description": "Skip Kraken2 taxonomic classification.",
                     "fa_icon": "fas fa-ban",
                     "help_text": "Use this option to skip taxonomic classification and run only QC and processing steps."
                 },
                 "save_output_fastqs": {
                     "type": "boolean",
-                    "default": false,
                     "description": "Save classified/unclassified FASTQ files from Kraken2.",
                     "fa_icon": "fas fa-save",
                     "help_text": "Outputs separate FASTQ files for classified and unclassified reads. Useful for downstream analysis of specific taxa."
                 },
                 "save_reads_assignment": {
                     "type": "boolean",
-                    "default": false,
                     "description": "Save read-level taxonomic assignments.",
                     "fa_icon": "fas fa-save",
                     "help_text": "Save the complete Kraken2 output file with per-read taxonomic assignments. Large files for high-depth sequencing runs."
@@ -715,7 +737,6 @@
                 },
                 "kraken2_use_optimizations": {
                     "type": "boolean",
-                    "default": false,
                     "description": "Enable Kraken2 performance optimizations.",
                     "fa_icon": "fas fa-rocket"
                 },
@@ -743,10 +764,9 @@
                 },
                 "kraken2_enable_incremental": {
                     "type": "boolean",
-                    "default": false,
                     "description": "Enable incremental Kraken2 classification with batch caching (PromethION optimization).",
                     "fa_icon": "fas fa-rocket",
-                    "help_text": "Cache batch-level .kraken2 outputs and merge at the end instead of re-classifying the growing dataset. Eliminates O(n\u00b2) complexity. Saves 30-90 minutes for 30-batch runs."
+                    "help_text": "Cache batch-level .kraken2 outputs and merge at the end instead of re-classifying the growing dataset. Eliminates O(n²) complexity. Saves 30-90 minutes for 30-batch runs."
                 },
                 "batch_chunking": {
                     "type": "boolean",
@@ -821,7 +841,6 @@
             "properties": {
                 "run_validation": {
                     "type": "boolean",
-                    "default": false,
                     "description": "Enable pathogen validation after taxonomic classification.",
                     "fa_icon": "fas fa-toggle-on"
                 },
@@ -848,11 +867,11 @@
                     "help_text": "JSON file {\"taxid\": \"Species name\", ...} written by Nanometa Live from the watchlist. Used as the authoritative species-name source when aggregating validation results, so names are deterministic regardless of which per-batch Kraken2 reports reach a realtime aggregation."
                 },
                 "taxids_to_validate": {
-                    "type": "string",
+                    "type": ["string", "integer"],
                     "default": "auto",
                     "description": "Taxids to validate.",
                     "fa_icon": "fas fa-list-ol",
-                    "help_text": "auto: Use all taxids from genomes JSON. all: Validate all classified species-level taxids. Or provide comma-separated list of specific taxids."
+                    "help_text": "auto: Use all taxids from genomes JSON. all: Validate all classified species-level taxids. Or provide a comma-separated list of specific taxids. A single taxid is accepted as an integer as well: nf-schema casts a digit-only command-line or params-file value to an integer before it checks the type, so a string-only type refused `--taxids_to_validate 562`."
                 },
                 "min_batch_reads_for_validation": {
                     "type": "integer",
@@ -901,7 +920,6 @@
                 },
                 "generate_consensus": {
                     "type": "boolean",
-                    "default": false,
                     "description": "Generate a consensus sequence per validated (sample, taxid) from read mapping.",
                     "help_text": "Maps extracted reads to the reference with minimap2, then calls a consensus with samtools. Amplicon-aware: positions below consensus_min_depth are masked N and the consensus is trimmed to the covered span. No primer scheme is required.",
                     "fa_icon": "fas fa-align-center"
@@ -931,7 +949,6 @@
                 },
                 "blast_validation": {
                     "type": "boolean",
-                    "default": false,
                     "description": "Deprecated: use run_validation instead.",
                     "fa_icon": "fas fa-search",
                     "hidden": true
@@ -951,7 +968,6 @@
                 },
                 "validation_only": {
                     "type": "boolean",
-                    "default": false,
                     "description": "Run validation without re-running classification.",
                     "fa_icon": "fas fa-check-double"
                 },
@@ -1011,7 +1027,6 @@
             "properties": {
                 "enable_assembly": {
                     "type": "boolean",
-                    "default": false,
                     "description": "Enable genome assembly step for long-read nanopore data.",
                     "fa_icon": "fas fa-power-off"
                 },
@@ -1078,7 +1093,6 @@
                 },
                 "assembly_allow_low_depth": {
                     "type": "boolean",
-                    "default": false,
                     "description": "Assemble below the depth floor anyway, labelling the result as fragments.",
                     "fa_icon": "fas fa-exclamation-triangle",
                     "help_text": "Every artifact produced this way carries low_depth_override so no consumer can mistake the contigs for a genome. Use it to inspect what is there, not to report an assembly."
@@ -1110,7 +1124,6 @@
             "properties": {
                 "enable_nanoplot_comparison": {
                     "type": "boolean",
-                    "default": false,
                     "description": "Enable multi-sample NanoPlot comparison plots.",
                     "fa_icon": "fas fa-chart-bar"
                 },
@@ -1123,7 +1136,6 @@
                 },
                 "skip_krona": {
                     "type": "boolean",
-                    "default": false,
                     "description": "Skip Krona visualization (for ARM Mac compatibility).",
                     "fa_icon": "fas fa-forward",
                     "help_text": "Disables Krona visualization. Required on ARM Mac where the Krona container has permission issues. Equivalent to --enable_krona_plots false."

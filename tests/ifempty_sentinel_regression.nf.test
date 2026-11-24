@@ -79,4 +79,40 @@ nextflow_pipeline {
             assert !err.contains('Cannot invoke method `call` with arguments')
         }
     }
+
+    test("NanoPlot comparison survives an empty QC channel") {
+        // workflows/nanometanf.nf built ch_comparison_reads with a bare
+        // `.map { meta, reads -> reads }` over ch_qc_reads, the one .ifEmpty([])
+        // consumer the PR #11 pass missed. With --enable_nanoplot_comparison
+        // and every QC task skipped (here) or isolated (a run of corrupt
+        // files), the sentinel reached the map and the run aborted instead of
+        // continuing without the comparison.
+        config "./ifempty_sentinel_regression.config"
+        options "-stub"
+
+        when {
+            params {
+                input = "$projectDir/assets/test_samplesheet.csv"
+                outdir = "$outputDir"
+                realtime_mode = false
+                skip_kraken2 = true
+                blast_validation = false
+                qc_tool = 'chopper'
+                skip_fastp = false
+                skip_nanoplot = false
+                enable_nanoplot_comparison = true
+                max_cpus = 2
+                max_memory = '4.GB'
+                max_time = '5.min'
+            }
+        }
+
+        then {
+            def err = (workflow.errorReport ?: '') + '\n' + (workflow.stdout?.join('\n') ?: '')
+            assert !err.contains('MissingMethodException')
+            assert !err.contains('Invalid method invocation `call`')
+            assert !err.contains('Cannot invoke method `call` with arguments')
+            assert workflow.success
+        }
+    }
 }

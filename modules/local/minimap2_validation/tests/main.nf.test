@@ -100,4 +100,53 @@ nextflow_process {
             )
         }
     }
+
+    test("real run: breadth is merged per contig and divided by the whole reference") {
+        // A two-contig reference: contig_a is 20,000 bp with reads tiling its
+        // first 10,000, contig_b is 5,000 bp with reads tiling all of it. True
+        // breadth is 15,000 of 25,000 bp, 0.60.
+        //
+        // The old merge ran over both contigs' intervals at once, so contig_b's
+        // positions 0..5,000 counted as already covered by contig_a's, and the
+        // result was divided by the longest contig: 10,000 over 20,000, 0.50.
+        // Multi-contig references are the normal case for a pathogen genome
+        // (chromosome plus plasmids, or a draft in scaffolds) and breadth is a
+        // conjunct of "confirmed".
+
+        tag "real"
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id: 'bc02', taxid: 8888 ],
+                    file("\${projectDir}/modules/local/minimap2_validation/tests/fixtures/reads_two_contigs.fastq"),
+                    file("\${projectDir}/modules/local/minimap2_validation/tests/fixtures/reference_two_contigs.fasta")
+                ]
+                input[1] = 'map-ont'
+                input[2] = 10
+                input[3] = 0.5
+                input[4] = 90.0
+                """
+            }
+        }
+
+        then {
+            def stats = new groovy.json.JsonSlurper().parse(file(process.out.stats.get(0).get(1)))
+            assertAll(
+                { assert process.success },
+                { assert stats.total_reads == 30 },
+                { assert stats.mapped_reads >= 28 },
+                // The denominator is the whole reference, both contigs.
+                { assert stats.ref_total_length == 25000 },
+                // ref_length is still the longest contig (the GUI's plot label).
+                { assert stats.ref_length == 20000 },
+                // 0.60, give or take the alignment ends. The defect reported
+                // 0.50 here, which this lower bound excludes.
+                { assert stats.genome_breadth >= 0.55 },
+                { assert stats.genome_breadth <= 0.62 },
+                { assert stats.covered_bases >= 13500 }
+            )
+        }
+    }
 }

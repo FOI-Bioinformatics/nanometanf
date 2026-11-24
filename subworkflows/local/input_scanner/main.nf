@@ -61,7 +61,9 @@ workflow INPUT_SCANNER {
                 def sample_id = InputDetector.extractSampleId(
                     f,
                     sample_regex,
-                    params.sample_name,
+                    // toString(): the schema accepts an integer (a digit-only
+                    // name), and extractSampleId takes a String.
+                    params.sample_name?.toString(),
                     input_dir
                 )
                 def meta = [

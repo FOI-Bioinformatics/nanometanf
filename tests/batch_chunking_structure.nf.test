@@ -29,7 +29,7 @@ nextflow_pipeline {
     test("Plan file and per-batch reports agree") {
         when {
             params {
-                input = false
+                input = null
                 barcode_input_dir = "$projectDir/tests/fixtures/batch_chunking"
                 outdir = "$outputDir"
                 realtime_mode = false
@@ -88,7 +88,7 @@ nextflow_pipeline {
     test("Chunking off restores one classification per sample") {
         when {
             params {
-                input = false
+                input = null
                 barcode_input_dir = "$projectDir/tests/fixtures/batch_chunking"
                 outdir = "$outputDir"
                 realtime_mode = false
@@ -142,7 +142,7 @@ nextflow_pipeline {
         }
         when {
             params {
-                input = false
+                input = null
                 barcode_input_dir = "$projectDir/tests/fixtures/batch_chunking"
                 outdir = "$outputDir"
                 realtime_mode = false
@@ -194,7 +194,7 @@ nextflow_pipeline {
         tag "chunking_qc"
         when {
             params {
-                input = false
+                input = null
                 barcode_input_dir = "$projectDir/tests/fixtures/batch_chunking"
                 outdir = "$outputDir"
                 realtime_mode = false
@@ -277,7 +277,7 @@ nextflow_pipeline {
     test("Chunked batch mode makes one assembly decision per sample, not one per chunk") {
         when {
             params {
-                input = false
+                input = null
                 barcode_input_dir = "$projectDir/tests/fixtures/batch_chunking"
                 outdir = "$outputDir"
                 realtime_mode = false

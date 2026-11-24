@@ -106,6 +106,52 @@ nextflow_workflow {
         }
     }
 
+    test("single_sample: a digit-only sample_name names the sample verbatim") {
+        // nf-schema casts "007" to 7 for its type check but Nextflow hands
+        // the pipeline the String it was given; the scanner must keep it,
+        // leading zero included, and must not choke on an Integer either
+        // (a YAML params file or a config can carry one).
+
+        when {
+            params {
+                sample_name = '007'
+            }
+            workflow {
+                """
+                input[0] = "$projectDir/tests/fixtures/flat_multisample"
+                input[1] = null
+                """
+            }
+        }
+
+        then {
+            assert workflow.success
+            assert workflow.out.samples.size() == 1
+            assert workflow.out.samples.get(0).get(0).id == '007'
+        }
+    }
+
+    test("single_sample: an Integer sample_name is coerced, not a type error") {
+
+        when {
+            params {
+                sample_name = 7
+            }
+            workflow {
+                """
+                input[0] = "$projectDir/tests/fixtures/flat_multisample"
+                input[1] = null
+                """
+            }
+        }
+
+        then {
+            assert workflow.success
+            assert workflow.out.samples.size() == 1
+            assert workflow.out.samples.get(0).get(0).id == '7'
+        }
+    }
+
     test("single_sample: params.sample_name merges all flat files into one sample") {
 
         when {

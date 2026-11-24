@@ -39,4 +39,74 @@ nextflow_process {
             )
         }
     }
+
+    test("the sidecar labels an end-of-session aggregate as cumulative") {
+        // Not stubbed: the stub writes no sidecar body, and the body is what
+        // is under test. is_cumulative tells a consumer whether to SUM this
+        // file as an increment or take it as a snapshot, so getting it
+        // backwards double-counts reads. A report with no batch_id covers the
+        // whole sample (audit F8).
+        options ""
+
+        setup {
+            file("${outputDir}").mkdirs()
+            file("${outputDir}/agg.kraken2.report.txt").text =
+                "100.00\t10\t0\tR\t1\troot\n" +
+                " 80.00\t8\t8\tS\t562\t  Escherichia coli\n"
+        }
+
+        when {
+            process {
+                """
+                input[0] = [ [ id: 'agg', is_cumulative: true ],
+                             file("${outputDir}/agg.kraken2.report.txt") ]
+                input[1] = 'kraken2'
+                input[2] = 'auto'
+                """
+            }
+        }
+
+        then {
+            assertAll(
+                { assert process.success },
+                { def sc = new groovy.json.JsonSlurper().parseText(
+                      file(process.out.sidecar[0][1]).text)
+                  assert sc.is_cumulative == true :
+                      "an end-of-session aggregate must not be labelled an increment: ${sc}"
+                  assert sc.batch_id == null :
+                      "a cumulative sidecar carries no batch_id: ${sc}" }
+            )
+        }
+    }
+
+    test("the sidecar labels a per-batch report as an increment") {
+        options ""
+
+        setup {
+            file("${outputDir}").mkdirs()
+            file("${outputDir}/inc.kraken2.report.txt").text =
+                "100.00\t4\t0\tR\t1\troot\n"
+        }
+
+        when {
+            process {
+                """
+                input[0] = [ [ id: 'inc', batch_id: 3, is_cumulative: false ],
+                             file("${outputDir}/inc.kraken2.report.txt") ]
+                input[1] = 'kraken2'
+                input[2] = 'auto'
+                """
+            }
+        }
+
+        then {
+            assertAll(
+                { assert process.success },
+                { def sc = new groovy.json.JsonSlurper().parseText(
+                      file(process.out.sidecar[0][1]).text)
+                  assert sc.is_cumulative == false : "expected an increment: ${sc}"
+                  assert sc.batch_id == 3 : "the batch id must reach the sidecar: ${sc}" }
+            )
+        }
+    }
 }

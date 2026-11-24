@@ -43,15 +43,20 @@ workflow REALTIME_STATISTICS {
     //
     // Update cumulative statistics with each new batch
     //
+    // The update receives EVERY snapshot seen so far and recomputes the session
+    // totals from that set. It used to receive the prior cumulative_state.json
+    // read out of params.outdir inside this map, which raced the task that
+    // writes it: two concurrent batches both saw the same prior and each
+    // published prior + own, so the later publish dropped the earlier batch
+    // from the session totals. Nothing here may read the publish directory;
+    // BatchSeriesAccumulator keeps the series in the head process, and the
+    // maxForks 1 on UPDATE_CUMULATIVE_STATS (conf/modules.config) makes the
+    // most complete result also the last one published.
+    //
+    def snapshot_series = new BatchSeriesAccumulator()
     ch_cumulative_input = GENERATE_SNAPSHOT_STATS.out.snapshot_stats
         .map { batch_meta, snapshot_stats ->
-            // Prepare input for cumulative update
-            [
-                batch_meta,
-                snapshot_stats,
-                file("${params.outdir}/realtime_stats/cumulative_state.json").exists() ?
-                    file("${params.outdir}/realtime_stats/cumulative_state.json") : []
-            ]
+            [ batch_meta, snapshot_series.accumulate('session', batch_meta.batch_id, snapshot_stats) ]
         }
 
     UPDATE_CUMULATIVE_STATS (

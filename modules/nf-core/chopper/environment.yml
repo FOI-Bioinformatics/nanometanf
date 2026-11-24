@@ -4,10 +4,5 @@ channels:
   - conda-forge
   - bioconda
 dependencies:
-  - bioconda::chopper=0.12.0b
-  # GNU gzip is required by the script's `gunzip -c | chopper | gzip` pipe.
-  # macOS conda environments otherwise fall back to BSD utilities and the
-  # slim seqera community image for chopper does not bundle GNU coreutils,
-  # so listing gzip explicitly forces both platforms (and any wave-built
-  # container) to include a working gzip/gunzip on PATH.
-  - conda-forge::gzip=1.13
+  - bioconda::chopper=0.14.1
+  - conda-forge::pigz=2.8

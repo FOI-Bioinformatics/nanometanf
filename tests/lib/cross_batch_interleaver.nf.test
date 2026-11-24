@@ -8,10 +8,15 @@ nextflow_function {
     tag "fast"
 
     // The classifier maxForks is global, so the flattened per-file order is the
-    // classification order. This interleaver carries per-barcode served-counts
-    // across batches so a barcode that fell behind is drained first later (audit
+    // classification order. This interleaver carries per-sample served-counts
+    // across batches so a sample that fell behind is drained first later (audit
     // P2.9). These cases pin both the within-batch round-robin and the cross-batch
     // catch-up.
+    //
+    // Keys come from the resolved sample id, through BatchUtils.sampleKeyOf,
+    // so this interleaver and the stateless one it follows cannot disagree.
+    // The flat-layout case below is the one the parent-directory key failed
+    // (audit F1, docs/performance/realtime_many_barcodes_audit_2026-10-26.md).
 
     test("single batch with empty history is a plain round-robin") {
         when {
@@ -27,8 +32,8 @@ nextflow_function {
             }
         }
         then {
-            // bc01/a, bc02/c, bc01/b, bc02/d -- one from each barcode per round,
-            // identical to the stateless interleaveFilesByParentDir.
+            // bc01/a, bc02/c, bc01/b, bc02/d -- one from each sample per round,
+            // identical to the stateless interleaveFilesBySample.
             assert function.result == [['a.fastq.gz', 'c.fastq.gz', 'b.fastq.gz', 'd.fastq.gz']]
         }
     }
@@ -83,6 +88,34 @@ nextflow_function {
         }
         then {
             assert function.result == [[]]
+        }
+    }
+
+    test("flat directory, sample from filename: fair within and across batches") {
+        // One parent directory (fastq_pass/), three samples resolved from the
+        // filename. Under the parent-directory key all nine files were one
+        // group, every batch was emitted in name order, and barcode03 waited
+        // for the whole backlog of the other two.
+        when {
+            function {
+                """
+                input[0] = [
+                    [ file('d/fastq_pass/barcode01_000.fastq.gz'),
+                      file('d/fastq_pass/barcode01_001.fastq.gz'),
+                      file('d/fastq_pass/barcode02_000.fastq.gz') ],
+                    [ file('d/fastq_pass/barcode01_002.fastq.gz'),
+                      file('d/fastq_pass/barcode03_000.fastq.gz') ],
+                ]
+                """
+            }
+        }
+        then {
+            // Batch 1 round-robins bc01/bc02 and leaves bc01 served twice.
+            // Batch 2 gives bc03 (served 0) the first slot ahead of bc01.
+            assert function.result == [
+                ['barcode01_000.fastq.gz', 'barcode02_000.fastq.gz', 'barcode01_001.fastq.gz'],
+                ['barcode03_000.fastq.gz', 'barcode01_002.fastq.gz'],
+            ]
         }
     }
 }

@@ -1,25 +1,23 @@
+// Copyright (c) the nf-core community under an open-source MIT license.
+// See https://github.com/nf-core/modules for full license, file patching instructions and upstream contributing.
+
 process CHOPPER {
     tag "$meta.id"
     label 'process_medium'
 
     conda "${moduleDir}/environment.yml"
-    // The Seqera community image for chopper 0.12.0b ships chopper alone --
-    // no gzip/gunzip -- and the script below pipes through `gunzip -c | gzip`.
-    // The biocontainers/galaxy build is debian-based and includes coreutils,
-    // so it works under apptainer/singularity on Linux without extra config.
-    // macOS development continues to use the conda env (which now pins
-    // conda-forge::gzip explicitly).
-    container "${ workflow.containerEngine in ['singularity', 'apptainer'] && !task.ext.singularity_pull_docker_container ?
-        'https://depot.galaxyproject.org/singularity/chopper:0.12.0b--hdcadc20_0':
-        'biocontainers/chopper:0.12.0b--hdcadc20_0' }"
+    container "${ workflow.containerEngine in ['singularity', 'apptainer'] && !task.ext.singularity_pull_docker_container
+?         'https://community-cr-prod.seqera.io/docker/registry/v2/blobs/sha256/b9/b9dd927988112cce2d9586eaebaba7d32a12e569531a7559c76692ca35862cca/data'
+:         'community.wave.seqera.io/library/chopper_pigz:4ae8a43e228724c3' }"
 
     input:
-    tuple val(meta), path(fastq)
+    tuple val(meta), path(fastq, stageAs: 'input/*')
     path  fasta
 
     output:
     tuple val(meta), path("*.fastq.gz") , emit: fastq
     tuple val("${task.process}"), val('chopper'), eval("chopper --version 2>&1 | cut -d ' ' -f 2"), topic: versions, emit: versions_chopper
+    tuple val("${task.process}"), val('pigz'),    eval("pigz --version | sed 's/pigz //g'"),        topic: versions, emit: versions_pigz
 
     when:
     task.ext.when == null || task.ext.when
@@ -28,35 +26,30 @@ process CHOPPER {
     def args   = task.ext.args   ?: ''
     def args2  = task.ext.args2  ?: ''
     def args3  = task.ext.args3  ?: ''
-    def prefix = task.ext.prefix ?: "${meta.id}"
+    def prefix = task.ext.prefix ?: "${meta.id}.chopper"
     def fasta_filtering = fasta ? "--contam ${fasta}" : ""
 
     if ("$fastq" == "${prefix}.fastq.gz") error "Input and output names are the same, set prefix in module configuration to disambiguate!"
-    // Use `gunzip -c` rather than `zcat`. macOS BSD `zcat` only handles
-    // legacy `.Z` files and fails on `.fastq.gz` inputs. The companion
-    // environment.yml lists `conda-forge::gzip` alongside chopper so that
-    // GNU gzip/gunzip is on PATH on both macOS and Linux, including when
-    // the seqera wave service rebuilds the container from this env file
-    // (the original community image is too slim to include coreutils).
-    // Filed locally because the upstream nf-core module is the same
-    // shape; if the upstream module ever ships its own gunzip-c version
-    // and pins gzip in the env, this comment can be removed at the next
-    // `nf-core modules update`.
     """
-    gunzip -c \\
+    pigz \\
+        --decompress \\
+        --processes $task.cpus \\
+        --stdout \\
         $args \\
         $fastq | \\
     chopper \\
         --threads $task.cpus \\
         $fasta_filtering \\
         $args2 | \\
-    gzip \\
+    pigz \\
+        --processes $task.cpus \\
+        --stdout \\
         $args3 > ${prefix}.fastq.gz
     """
 
     stub:
-    def prefix = task.ext.prefix ?: "${meta.id}"
+    def prefix = task.ext.prefix ?: "${meta.id}.chopper"
     """
-    echo | gzip > ${prefix}.fastq.gz
+    echo "" | gzip > ${prefix}.fastq.gz
     """
 }

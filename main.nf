@@ -79,11 +79,12 @@ workflow VALIDATION_ONLY {
     //
     // INPUT VALIDATION
     //
-    // This entry workflow does not run PIPELINE_INITIALISATION, so
-    // validateParameters() never fires here and the schema cannot catch a
-    // missing path. Both params default to null, so without these guards
-    // the globs below interpolate to "null/*.fastq{,.gz}", every channel is
-    // empty, and the run reports SUCCESS having validated nothing.
+    // The schema requires both paths for the validation-only input mode
+    // (PIPELINE_INITIALISATION runs validateParameters() before this entry
+    // since 2026-11). The guards stay for a launch with --validate_params
+    // false: both params default to null, and without them the globs below
+    // interpolate to "null/*.fastq{,.gz}", every channel is empty, and the
+    // run reports SUCCESS having validated nothing.
     //
     if (!params.reads_dir) {
         error "--validation_only requires --reads_dir <path to the FASTQ files " +
@@ -143,32 +144,46 @@ workflow VALIDATION_ONLY {
         }
     }
 
-    // Kraken2 raw output (per-read classification)
-    ch_kraken_output = Channel.fromFilePairs(
-        "${params.kraken2_output_dir}/*.kraken2.output.txt",
-        size: 1,
-        flat: true
-    ).map { sample_id, output_file ->
-        def meta = [id: sample_id]
-        [ meta, output_file ]
-    }.ifEmpty {
-        error "No *.kraken2.output.txt files found in " +
+    // Kraken2 raw output (per-read classification) and reports, one per
+    // sample. The standard classifier publishes <sample>.kraken2.output.txt;
+    // the incremental path (real time, chunked batch mode -- the default --
+    // and kraken2_enable_incremental) publishes the end-of-session
+    // <sample>.cumulative.kraken2.output.txt instead, and its only flat
+    // <sample>.kraken2.report.txt is the zero-read placeholder for a batch
+    // that produced nothing. ValidationOnlyInputs.perSample strips the
+    // marker so the stem is the sample id -- globbed as a stem it was the
+    // sample "barcode01.cumulative", which matched no read pool and left
+    // every on-demand validation after a default run with nothing to do
+    // (bug audit 2026-11-06, finding 4) -- and prefers the cumulative file
+    // where a sample has both.
+    def output_suffix = '.kraken2.output.txt'
+    def outputs_found = file("${params.kraken2_output_dir}/*${output_suffix}")
+    def per_sample_outputs = ValidationOnlyInputs.perSample(
+        outputs_found instanceof List ? outputs_found : (outputs_found ? [outputs_found] : []),
+        output_suffix)
+    if (!per_sample_outputs) {
+        error "No *${output_suffix} files found in " +
               "${params.kraken2_output_dir}. Validation needs the per-read " +
               "Kraken2 output, which requires save_reads_assignment on the " +
               "original run."
     }
+    ch_kraken_output = Channel.fromList(per_sample_outputs).map { sample_id, output_file ->
+        def meta = [id: sample_id]
+        [ meta, output_file ]
+    }
 
-    // Kraken2 reports
-    ch_kraken_reports = Channel.fromFilePairs(
-        "${params.kraken2_output_dir}/*.kraken2.report.txt",
-        size: 1,
-        flat: true
-    ).map { sample_id, report ->
+    def report_suffix = '.kraken2.report.txt'
+    def reports_found = file("${params.kraken2_output_dir}/*${report_suffix}")
+    def per_sample_reports = ValidationOnlyInputs.perSample(
+        reports_found instanceof List ? reports_found : (reports_found ? [reports_found] : []),
+        report_suffix)
+    if (!per_sample_reports) {
+        error "No *${report_suffix} files found in " +
+              "${params.kraken2_output_dir}."
+    }
+    ch_kraken_reports = Channel.fromList(per_sample_reports).map { sample_id, report ->
         def meta = [id: sample_id]
         [ meta, report ]
-    }.ifEmpty {
-        error "No *.kraken2.report.txt files found in " +
-              "${params.kraken2_output_dir}."
     }
 
     // Run validation subworkflow
@@ -209,24 +224,35 @@ workflow {
         log.warn "========================================================================="
     }
 
+    //
+    // SUBWORKFLOW: Run initialisation tasks
+    //
+    // Both entry workflows run it. Until 2026-11 the validation-only entry
+    // skipped it, so --validation_only never validated its parameters: a
+    // missing --kraken2_output_dir fell through to the hand-written guards
+    // in VALIDATION_ONLY, a mistyped --taxids_to_validate was never seen,
+    // and --help / --version did nothing in that mode. The schema names
+    // validation-only as the fifth input mode (nextflow_schema.json,
+    // input_mode_selection), so validateParameters() accepts it.
+    //
+    PIPELINE_INITIALISATION (
+        params.version,
+        params.validate_params,
+        params.monochrome_logs,
+        args,
+        params.outdir,
+        params.input,
+        params.help,
+        params.help_full,
+        params.show_hidden
+    )
+
     if (params.validation_only) {
         //
         // WORKFLOW: Validation-only mode (skip classification)
         //
         VALIDATION_ONLY()
     } else {
-        //
-        // SUBWORKFLOW: Run initialisation tasks
-        //
-        PIPELINE_INITIALISATION (
-            params.version,
-            params.validate_params,
-            params.monochrome_logs,
-            args,
-            params.outdir,
-            params.input
-        )
-
         //
         // WORKFLOW: Run main workflow
         //
@@ -242,7 +268,6 @@ workflow {
             params.plaintext_email,
             params.outdir,
             params.monochrome_logs,
-            params.hook_url,
             FOIBIOINFORMATICS_NANOMETANF.out.multiqc_report
         )
     }

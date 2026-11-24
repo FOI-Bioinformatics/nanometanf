@@ -23,8 +23,11 @@ class WorkflowNanometanf {
         // Validate QC tool selection
         validateQcTool(params, log)
 
-        // Validate Kraken2 database if classification enabled
-        if (!params.skip_kraken2) {
+        // Validate Kraken2 database if classification enabled. The
+        // validation-only entry reads an existing run's Kraken2 output and
+        // never classifies, so it needs no database (the GUI's on-demand
+        // launch sends none).
+        if (!params.skip_kraken2 && !params.validation_only) {
             validateKraken2Database(params, log)
         }
 
@@ -39,7 +42,10 @@ class WorkflowNanometanf {
             'samplesheet': params.input,
             'input_dir': params.input_dir,
             'barcode_discovery': params.barcode_input_dir,
-            'realtime_fastq': (params.realtime_mode && params.nanopore_output_dir)
+            'realtime_fastq': (params.realtime_mode && params.nanopore_output_dir),
+            // Validation against an existing run's output is an input mode
+            // of its own; the schema's input_mode_selection says the same.
+            'validation_only': params.validation_only
         ]
 
         def active_modes = input_modes.findAll { k, v -> v }
@@ -61,6 +67,9 @@ You must provide one of the following input methods:
   3. Real-time FASTQ monitoring:
      --realtime_mode --nanopore_output_dir /path/to/fastq/
 
+  4. Validation of an existing run (no classification):
+     --validation_only --kraken2_output_dir /path/to/kraken2 --reads_dir /path/to/fastq/
+
 For more details, see: https://github.com/foi-bioinformatics/nanometanf
 ===========================================================================
 """)
@@ -76,7 +85,8 @@ ERROR: Multiple input modes detected
 Conflicting input modes: ${mode_names}
 
 Only ONE input mode can be used per run. Please specify only one of:
-  --input, --barcode_input_dir, or --nanopore_output_dir
+  --input, --input_dir, --barcode_input_dir, --nanopore_output_dir,
+  or --validation_only (with --kraken2_output_dir and --reads_dir)
 
 ===========================================================================
 """)

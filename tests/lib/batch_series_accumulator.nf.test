@@ -1,0 +1,82 @@
+nextflow_function {
+
+    name "Test BatchSeriesAccumulator (realtime statistics are a function of the batch set)"
+    script "tests/lib/batch_series_accumulator_functions.nf"
+    function "accumulateSeries"
+
+    tag "unit"
+    tag "fast"
+    tag "realtime"
+
+    // REALTIME_STATISTICS used to read the prior cumulative_state.json out of
+    // the publish directory inside a channel map, racing the task that writes
+    // it; two concurrent batches each published prior + own and one vanished
+    // from the session totals. The update now receives every snapshot seen so
+    // far, from this accumulator, and recomputes.
+
+    test("each emission carries every snapshot seen so far, in order") {
+        when {
+            function {
+                """
+                input[0] = [
+                    [ 'session', 'batch_0', 'batch_0_snapshot.json' ],
+                    [ 'session', 'batch_1', 'batch_1_snapshot.json' ],
+                    [ 'session', 'batch_2', 'batch_2_snapshot.json' ],
+                ]
+                """
+            }
+        }
+        then {
+            assertAll(
+                { assert function.success },
+                { assert function.result[0] == [ 'batch_0_snapshot.json' ] },
+                { assert function.result[1] == [ 'batch_0_snapshot.json', 'batch_1_snapshot.json' ] },
+                { assert function.result[2] == [ 'batch_0_snapshot.json', 'batch_1_snapshot.json', 'batch_2_snapshot.json' ] }
+            )
+        }
+    }
+
+    test("a re-emitted batch replaces its entry instead of duplicating it") {
+        when {
+            function {
+                """
+                input[0] = [
+                    [ 'session', 'batch_0', 'first.json' ],
+                    [ 'session', 'batch_0', 'retry.json' ],
+                    [ 'session', 1,         'batch_1.json' ],
+                    [ 'session', '1',       'batch_1_again.json' ],
+                ]
+                """
+            }
+        }
+        then {
+            assertAll(
+                { assert function.success },
+                { assert function.result[1] == [ 'retry.json' ] },
+                // Integer and String ids of the same batch are one entry.
+                { assert function.result[3] == [ 'retry.json', 'batch_1_again.json' ] }
+            )
+        }
+    }
+
+    test("keys accumulate independently and id 0 is a real batch") {
+        when {
+            function {
+                """
+                input[0] = [
+                    [ 'a', 0, 'a0.json' ],
+                    [ 'b', 0, 'b0.json' ],
+                    [ 'a', 1, 'a1.json' ],
+                ]
+                """
+            }
+        }
+        then {
+            assertAll(
+                { assert function.success },
+                { assert function.result[1] == [ 'b0.json' ] },
+                { assert function.result[2] == [ 'a0.json', 'a1.json' ] }
+            )
+        }
+    }
+}

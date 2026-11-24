@@ -373,7 +373,14 @@ workflow NANOMETANF {
         if (params.enable_nanoplot_comparison && !params.skip_nanoplot) {
             log.info "NanoPlot multi-sample comparison enabled -- this defers until all samples complete"
             // Collect all QC'd reads for comparative analysis
-            ch_comparison_reads = ch_qc_reads.map { meta, reads -> reads }.collect()
+            // Filter before destructuring: ch_qc_reads carries the .ifEmpty([])
+            // sentinel when every QC task was skipped or isolated, and the bare
+            // map crashed the run with MissingMethodException instead of
+            // letting it continue without the comparison.
+            ch_comparison_reads = ch_qc_reads
+                .filter { it instanceof List && it.size() >= 2 && it[0] instanceof Map && it[1] != null }
+                .map { meta, reads -> reads }
+                .collect()
 
             NANOPLOT_COMPARE (
                 ch_comparison_reads,
@@ -809,8 +816,7 @@ workflow NANOMETANF {
         Channel.fromPath(params.multiqc_logo, checkIfExists: true) :
         Channel.empty()
 
-    summary_params      = paramsSummaryMap(
-        workflow, parameters_schema: "nextflow_schema.json")
+    summary_params      = paramsSummaryMap(parameters_schema: "nextflow_schema.json")
     ch_workflow_summary = Channel.value(paramsSummaryMultiqc(summary_params))
     ch_multiqc_files = ch_multiqc_files.mix(
         ch_workflow_summary.collectFile(name: 'workflow_summary_mqc.yaml'))

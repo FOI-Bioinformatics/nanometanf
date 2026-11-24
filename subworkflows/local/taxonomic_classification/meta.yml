@@ -35,4 +35,14 @@ output:
       type: file
       description: Software versions
       pattern: "versions.yml"
-components: []
+components:
+  - canonical/classification/writer
+  - emit/empty/kraken2/report
+  - kraken2/db/preload
+  - kraken2/final/aggregator
+  - kraken2/incremental/classifier
+  - kraken2/kraken2
+  - kraken2/optimized
+  - kraken2/output/merger
+  - kraken2/report/generator
+  - taxpasta/standardise

@@ -40,6 +40,114 @@ nextflow_pipeline {
         }
     }
 
+    test("a samplesheet under a directory with a space is accepted") {
+        // The schema's `input` pattern was `^\S+\.csv$`, which refuses any
+        // path containing whitespace. Nanometa Live writes the samplesheet
+        // under the results folder, so a results folder on a macOS volume such
+        // as `/Volumes/My Passport` failed every single_sample, per_file and
+        // custom-folder by_barcode launch before the pipeline started. The
+        // pattern now only checks the extension; `format: file-path` still
+        // checks that the file exists.
+
+        when {
+            params {
+                input = "$projectDir/tests/fixtures/samplesheets/dir with space/samplesheet.csv"
+                outdir = "$outputDir"
+                realtime_mode = false
+                skip_kraken2 = true
+                blast_validation = false
+                max_cpus = 1
+                max_memory = '1.GB'
+                max_time = '1.min'
+            }
+        }
+
+        then {
+            assert workflow.success : "a path with a space was refused: " + workflow.stderr.join("\n")
+        }
+    }
+
+    test("a single taxid passes validation as a digit-only value") {
+        // nf-schema (2.7.2+) casts a digit-only command-line or params-file
+        // string to an integer BEFORE it checks the type, so `taxids_to_validate`
+        // typed as string alone refused `--taxids_to_validate 562` -- the shape
+        // the GUI sends for a run with one watched organism. The schema accepts
+        // string or integer; the validation subworkflow coerces to string.
+        // tests/realtime_validation_e2e.nf.test hit this first (macOS job,
+        // 2026-10-29); this is the stub-mode cover that runs on every shard.
+
+        when {
+            params {
+                input = "$projectDir/tests/fixtures/samplesheets/test_samplesheet_absolute.csv"
+                outdir = "$outputDir"
+                realtime_mode = false
+                skip_kraken2 = true
+                blast_validation = false
+                taxids_to_validate = "562"
+                max_cpus = 1
+                max_memory = '1.GB'
+                max_time = '1.min'
+            }
+        }
+
+        then {
+            assert workflow.success : "a single taxid was refused: " + workflow.stderr.join("\n")
+        }
+    }
+
+    test("a digit-only sample name passes validation") {
+        // Same nf-schema cast as the taxid case above: "007" reaches the type
+        // check as an integer. The schema accepts string or integer and the
+        // input scanner coerces to String, so the sample keeps its exact name
+        // (tests/input_scanner.nf.test pins the name itself).
+
+        when {
+            params {
+                input = "$projectDir/tests/fixtures/samplesheets/test_samplesheet_absolute.csv"
+                outdir = "$outputDir"
+                realtime_mode = false
+                skip_kraken2 = true
+                blast_validation = false
+                sample_name = "007"
+                max_cpus = 1
+                max_memory = '1.GB'
+                max_time = '1.min'
+            }
+        }
+
+        then {
+            assert workflow.success : "a digit-only sample name was refused: " + workflow.stderr.join("\n")
+        }
+    }
+
+    test("validation-only without its paths is refused by the schema") {
+        // --validation_only is an input mode: the schema requires
+        // kraken2_output_dir and reads_dir beside it. Until 2026-11 this entry
+        // skipped PIPELINE_INITIALISATION and only the hand-written guards in
+        // VALIDATION_ONLY caught a missing path.
+
+        when {
+            params {
+                input = null
+                validation_only = true
+                reads_dir = "$projectDir/tests/fixtures/validation_only/reads"
+                outdir = "$outputDir"
+                skip_kraken2 = true
+                blast_validation = false
+                max_cpus = 1
+                max_memory = '1.GB'
+                max_time = '1.min'
+            }
+        }
+
+        then {
+            assert !workflow.success
+            def text = (workflow.stdout + workflow.stderr).join("\n")
+            assert text.contains("Validation of pipeline parameters failed") : text.take(600)
+            assert text.contains("kraken2_output_dir") : text.take(600)
+        }
+    }
+
     test("real-time mode fails fast when the watch directory does not exist") {
 
         // Regression for the watchPath hang: a non-existent nanopore_output_dir
@@ -47,7 +155,7 @@ nextflow_pipeline {
         // the watch queue open and hanging until killed.
         when {
             params {
-                input = false
+                input = null
                 outdir = "$outputDir"
                 realtime_mode = true
                 nanopore_output_dir = "/tmp/nanometanf_nonexistent_watch_dir_xyz"
@@ -61,7 +169,13 @@ nextflow_pipeline {
 
         then {
             assert workflow.failed
-            def err = (workflow.errorReport ?: '') + '\n' + (workflow.stdout?.join('\n') ?: '')
+            // Every channel, because which one carries the refusal is a
+            // race -- see the note in tests/failure_paths.nf.test. On
+            // 2026-10-27 the text reached only stderr.
+            def err = (workflow.errorReport ?: '') + '\n' +
+                      (workflow.errorMessage ?: '') + '\n' +
+                      (workflow.stderr?.join('\n') ?: '') + '\n' +
+                      (workflow.stdout?.join('\n') ?: '')
             assert err.contains('does not exist')
             // A clean validation failure, not a Groovy crash or a hang.
             assert !err.contains('MethodSelectionException')
@@ -73,7 +187,7 @@ nextflow_pipeline {
 
         when {
             params {
-                input = false
+                input = null
                 outdir = "$outputDir"
                 realtime_mode = true
                 nanopore_output_dir = null
@@ -90,7 +204,13 @@ nextflow_pipeline {
             // the missing input before the custom guard, or the custom guard
             // fires) -- either way it must not hang or raise a Groovy crash.
             assert workflow.failed
-            def err = (workflow.errorReport ?: '') + '\n' + (workflow.stdout?.join('\n') ?: '')
+            // Every channel, because which one carries the refusal is a
+            // race -- see the note in tests/failure_paths.nf.test. On
+            // 2026-10-27 the text reached only stderr.
+            def err = (workflow.errorReport ?: '') + '\n' +
+                      (workflow.errorMessage ?: '') + '\n' +
+                      (workflow.stderr?.join('\n') ?: '') + '\n' +
+                      (workflow.stdout?.join('\n') ?: '')
             assert err.contains('nanopore_output_dir') ||
                    err.contains('Validation of pipeline parameters failed') ||
                    err.contains('No input')

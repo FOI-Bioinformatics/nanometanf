@@ -21,8 +21,7 @@ nextflow_process {
                 """
                 input[0] = [
                     [batch_id: 'batch_001'],
-                    file('$projectDir/tests/fixtures/snapshots/real_snapshot.json'),
-                    []
+                    [ file('$projectDir/tests/fixtures/snapshots/real_snapshot.json') ]
                 ]
                 input[1] = [ enable_alerts: true ]
                 """
@@ -41,17 +40,24 @@ nextflow_process {
         }
     }
 
-    test("second batch accumulates onto the previous cumulative state") {
+    test("second batch accumulates over the snapshot series") {
 
         tag "cumulative_update"
 
         when {
             process {
                 """
+                // Both snapshots of the session so far, as BatchSeriesAccumulator
+                // hands them on: batch_001 and batch_002 (60 s later), 2 files
+                // and 18000 reads each. The module no longer takes a prior
+                // cumulative file -- the one it used to read out of its own
+                // publish directory, racing the task that wrote it.
                 input[0] = [
                     [batch_id: 'batch_002'],
-                    file('$projectDir/tests/fixtures/snapshots/real_snapshot.json'),
-                    file('$projectDir/tests/fixtures/snapshots/cumulative_one_batch.json')
+                    [
+                        file('$projectDir/tests/fixtures/snapshots/real_snapshot.json'),
+                        file('$projectDir/tests/fixtures/snapshots/real_snapshot_batch2.json')
+                    ]
                 ]
                 input[1] = [ enable_trending: true ]
                 """
@@ -61,12 +67,41 @@ nextflow_process {
         then {
             assert process.success
             def cum = new groovy.json.JsonSlurper().parse(file(process.out.cumulative_stats.get(0).get(1)))
-            // previous (1 batch, 2 files, 18000 reads) + this snapshot (2 files, 18000 reads)
             assert cum.session_info.total_batches == 2
             assert cum.totals.total_files == 4
             assert cum.totals.total_size_bytes == 188743680
             assert cum.totals.total_estimated_reads == 36000
             assert cum.trends.batch_file_counts.size() == 2
+            // Session timing is derived from the series, not from a prior file.
+            assert cum.session_info.session_start == 1640995200000
+            assert cum.session_info.last_update == 1640995260000
+            assert cum.performance.session_duration_seconds == 60.0
+        }
+    }
+
+    test("snapshot order is by processing time, not by arrival") {
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [batch_id: 'batch_001'],
+                    [
+                        file('$projectDir/tests/fixtures/snapshots/real_snapshot_batch2.json'),
+                        file('$projectDir/tests/fixtures/snapshots/real_snapshot.json')
+                    ]
+                ]
+                input[1] = [:]
+                """
+            }
+        }
+
+        then {
+            assert process.success
+            def cum = new groovy.json.JsonSlurper().parse(file(process.out.cumulative_stats.get(0).get(1)))
+            assert cum.session_info.total_batches == 2
+            assert cum.session_info.session_start == 1640995200000
+            assert cum.trends.batch_timestamps == [1640995200000, 1640995260000]
         }
     }
 }

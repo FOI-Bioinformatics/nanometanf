@@ -146,6 +146,36 @@ workflow REALTIME_MONITORING {
 
         def seen_paths = RealtimeIntake.newSeenSet()
 
+        // ONE sample-id resolver for the whole real-time path: both
+        // interleavers order files by it and the meta map that reaches every
+        // process is built from it. They have to be the same function, or the
+        // fairness ordering is computed on a key the pipeline does not use --
+        // which is exactly what keying on the immediate parent directory name
+        // did. InputDetector resolves the sample from the FILENAME for a flat
+        // directory with --sample_regex, for a MinKNOW fastq_pass/ holding
+        // barcode-named files and for per-file naming, so in those layouts
+        // every file landed in one group, the interleave degenerated to a
+        // name sort, and a name sort is sample-major: measured over a
+        // 24-sample, 480-file backlog, 461 files were classified before every
+        // sample had a first result and the first ten were all one sample
+        // (docs/performance/realtime_many_barcodes_audit_2026-10-26.md, F1).
+        //
+        // Memoized on the path string: the resolver is called once per file by
+        // the start-up interleave, once per batch by the cross-batch
+        // interleave and once by the meta map, and for a custom-named sample
+        // folder (Turex/, Zymo/) it canonicalises paths on the filesystem.
+        def sample_id_cache = new java.util.concurrent.ConcurrentHashMap<String, String>()
+        def resolve_sample_id = { f ->
+            sample_id_cache.computeIfAbsent(f.toString(), { ignored ->
+                InputDetector.extractSampleId(
+                    f,
+                    params.sample_regex,
+                    params.sample_name?.toString(),
+                    params.nanopore_output_dir
+                ) ?: 'unknown'
+            })
+        }
+
         // Existing files, listed when the igniter fires (see above), and
         // listed once more after a short delay: a directory walk taken while
         // a sequencer renames files into the folder can return a partial
@@ -157,12 +187,31 @@ workflow REALTIME_MONITORING {
         // RealtimeIntake.listInputs, not file(): Nextflow's glob walk aborts
         // on the first entry that vanishes mid-walk (a producer renaming a
         // temporary name into place) and returns the partial listing.
+        // The second listing runs on a daemon Timer that binds its files
+        // into a queue mixed with the stream -- the same idiom the realtime
+        // timeout sentinel below and BatchUtils' flush use. It used to be a
+        // Thread.sleep inside this flatMap, which held a GPars operator-pool
+        // thread for ten seconds at exactly the moment the whole backlog was
+        // flowing through mix -> filter -> map -> subscribe. Nextflow sizes
+        // that pool max(3, availableProcessors) and this pipeline never sets
+        // poolSize, so on a 2-core field laptop it was one of three operator
+        // threads, during the busiest ten seconds of the run (audit F11,
+        // docs/performance/realtime_many_barcodes_audit_2026-10-26.md).
         def sweep_delay_ms = 10000L
-        def ch_existing = Channel.fromList([0, 1]).flatMap { sweep ->
-            if (sweep > 0) {
-                Thread.sleep(sweep_delay_ms)
-            }
-            def existing_list = RealtimeIntake.listInputs(watch_dir, file_pattern)
+
+        // One listing: matched, filtered, resume-skipped and interleaved.
+        // ``first`` only decides what is logged, so both sweeps see exactly
+        // the same selection rules.
+        //
+        // Invoked as scan_existing.call(...), not scan_existing(...). The
+        // strict (v2) parser, the default from Nextflow 26, does not treat a
+        // local closure variable as callable and fails the whole script with
+        // "`scan_existing` is not defined" -- which takes down every pipeline
+        // that includes this subworkflow, not just a real-time run. The same
+        // applies to resolve_sample_id below; see the matching note at
+        // subworkflows/local/taxonomic_classification/main.nf.
+        def scan_existing = { boolean first ->
+            def found = RealtimeIntake.listInputs(watch_dir, file_pattern)
             // Hidden files are AppleDouble "._*" sidecars on exFAT/USB media
             // (gzip then fails the QC process, 2026-08-17); fastq_fail/ and
             // fastq_skip/ are MinKNOW's rejected reads.
@@ -172,45 +221,78 @@ workflow REALTIME_MONITORING {
             def max_age = params.max_file_age_minutes != null
                 ? (params.max_file_age_minutes as Integer)
                 : null
-            def parts = RealtimeIntake.partitionExisting(existing_list, max_age)
-            existing_list = parts.inputs
-            parts.excluded.each { reason, n ->
-                log.info "Ignoring ${n} matched file(s): ${reason}"
+            def parts = RealtimeIntake.partitionExisting(found, max_age)
+            def kept = parts.inputs
+            if (first) {
+                parts.excluded.each { reason, n ->
+                    log.info "Ignoring ${n} matched file(s): ${reason}"
+                }
             }
 
             if (already_processed) {
-                def before = existing_list.size()
-                existing_list = existing_list.findAll { !(it.toString() in already_processed) }
-                if (sweep == 0) {
-                    log.info "Continue: skipping ${before - existing_list.size()} of ${before} existing input files already classified by the previous run in ${params.outdir} (pipeline_info/processed_inputs.tsv)"
+                def before = kept.size()
+                kept = kept.findAll { !(it.toString() in already_processed) }
+                if (first) {
+                    log.info "Continue: skipping ${before - kept.size()} of ${before} existing input files already classified by the previous run in ${params.outdir} (pipeline_info/processed_inputs.tsv)"
                 }
             }
 
-            // Round-robin interleave existing files by parent (barcode)
-            // directory so take(max_files) selects fairly across all
-            // barcodes rather than in filesystem order. See
-            // BatchUtils.interleaveFilesByParentDir.
-            existing_list = BatchUtils.interleaveFilesByParentDir(existing_list)
+            // Round-robin interleave existing files across SAMPLES so
+            // take(max_files) selects fairly across all of them rather than in
+            // filesystem order, and so the head of a late-started backlog
+            // covers every sample instead of draining one. The key is the
+            // resolver above, not the parent directory name. See
+            // BatchUtils.interleaveFilesBySample.
+            return BatchUtils.interleaveFilesBySample(kept, resolve_sample_id)
+        }
 
-            if (sweep > 0) {
-                def unseen = existing_list.findAll {
-                    !(it.toAbsolutePath().normalize().toString() in seen_paths)
-                }
-                // A file younger than a few polls is simply not reported
-                // yet; an older one was missed by the first listing or the
-                // watcher and is worth a line in the log.
-                def now_ms = System.currentTimeMillis()
-                def missed = unseen.findAll { f ->
-                    now_ms - java.nio.file.Files.getLastModifiedTime(f).toMillis() > 3000L
-                }
-                if (missed) {
-                    log.info "Start-up sweep: ${missed.size()} file(s) older than 3 s that neither the first listing nor the watcher had handed on"
-                    missed.each { f -> log.info "  - ${f.name}" }
-                } else if (unseen) {
-                    log.debug "Start-up sweep: ${unseen.size()} file(s) not yet reported by the watcher"
-                }
-                return unseen
-            }
+        def ch_resweep = new groovyx.gpars.dataflow.DataflowQueue()
+        def resweep_timer = new Timer('realtime-startup-resweep', /* isDaemon */ true)
+
+        // CHUNK THE START-UP BACKLOG (audit F7).
+        //
+        // A run started after sequencing began finds a backlog, and a backlog
+        // is a batch-shaped workload: every file is present at once. Handing it
+        // to the per-file stream gives the worst granularity available -- one QC
+        // task and one classifier task per file, each classifier paying a
+        // database load for a single file, with nothing bounding the task count.
+        // Batch mode has solved this since BatchChunkPlanner: geometric chunks
+        // per sample, every sample's chunk 0 before any sample's chunk 1. Both
+        // mitigations were gated on `!realtime_mode`, so the mode that needs
+        // them most had neither.
+        //
+        // The backlog is planned here, from the igniter, where the whole listing
+        // is known, and emitted on its own channel as [meta, files] -- the same
+        // shape batch chunking emits, so DEMULTIPLEXING, QC_ANALYSIS and the
+        // classifier need no change (CHOPPER gunzips a list into one stream).
+        // The live watcher stream is left exactly as it was, per file, so none
+        // of the termination machinery below is touched.
+        //
+        // Two interactions are deliberate:
+        //  - `max_files` disables it. That cap is a per-FILE bound applied by
+        //    .take() on the live stream, and a chunk is one emission there; the
+        //    bounded tests that rely on it must keep counting files.
+        //  - No `batch_id` is pre-assigned. The classifier honours a planned id
+        //    only when `!realtime_mode`, on purpose: a Continue re-lists a
+        //    SMALLER backlog (the ledger skips finished files), so chunk 0 of a
+        //    second run holds different reads and reusing the number would make
+        //    the dashboard count the first run's reads twice. Fresh sequential
+        //    ids from the head-process counter are the safe choice here.
+        def backlog_chunking_requested = params.realtime_backlog_chunking == null
+            ? true
+            : (params.realtime_backlog_chunking as boolean)
+        def backlog_chunking = backlog_chunking_requested && !params.max_files
+        // The notice tests the resolved boolean, as the decision does; the raw
+        // param is truthy for the string "false" and null for the default.
+        if (backlog_chunking_requested && params.max_files) {
+            log.info "Start-up backlog chunking is off because --max_files is set: that cap counts files, and a chunk is one emission"
+        }
+        def chunk_first = (params.batch_first_chunk_files ?: 1) as int
+        def chunk_growth = (params.batch_chunk_growth ?: 2.0) as double
+        def ch_backlog_chunks = Channel.empty()
+
+        def ch_existing = Channel.fromList([0]).flatMap { sweep ->
+            def existing_list = scan_existing.call(true)
 
             def existing_count = existing_list.size()
             if (existing_count > 0) {
@@ -220,29 +302,121 @@ workflow REALTIME_MONITORING {
                 log.info "No existing files found - waiting for new files..."
             }
 
-            // Log truncation warning if take() will exclude some existing files
+            // Log truncation warning if take() will exclude some existing files.
+            // Counted per SAMPLE, the key the interleave above is fair on; the
+            // parent directory is not the sample for a flat layout.
             if (params.max_files && existing_count > params.max_files.toInteger()) {
                 def limit = params.max_files.toInteger()
                 def included = existing_list.take(limit)
                 def excluded = existing_list.drop(limit)
-                def included_counts = included.countBy { it.parent.name }
-                def excluded_counts = excluded.countBy { it.parent.name }
+                def included_counts = included.countBy { resolve_sample_id.call(it) }
+                def excluded_counts = excluded.countBy { resolve_sample_id.call(it) }
                 log.warn "take(${limit}) will truncate ${existing_count} existing files"
-                log.warn "  Included per directory: ${included_counts}"
-                log.warn "  Excluded per directory: ${excluded_counts}"
+                log.warn "  Included per sample: ${included_counts}"
+                log.warn "  Excluded per sample: ${excluded_counts}"
             }
-            return existing_list
+
+            // Arm the second listing now, from inside the igniter, so it is
+            // measured from the first listing exactly as the sleep was and so
+            // the watcher's baseline is already taken when it runs.
+            resweep_timer.schedule({
+                try {
+                    def unseen = scan_existing.call(false).findAll {
+                        !(it.toAbsolutePath().normalize().toString() in seen_paths)
+                    }
+                    // A file younger than a few polls is simply not reported
+                    // yet; an older one was missed by the first listing or the
+                    // watcher and is worth a line in the log.
+                    def now_ms = System.currentTimeMillis()
+                    def missed = unseen.findAll { f ->
+                        now_ms - java.nio.file.Files.getLastModifiedTime(f).toMillis() > 3000L
+                    }
+                    if (missed) {
+                        log.info "Start-up sweep: ${missed.size()} file(s) older than 3 s that neither the first listing nor the watcher had handed on"
+                        missed.each { f -> log.info "  - ${f.name}" }
+                    } else if (unseen) {
+                        log.debug "Start-up sweep: ${unseen.size()} file(s) not yet reported by the watcher"
+                    }
+                    unseen.each { f -> ch_resweep.bind(f) }
+                } catch (Exception e) {
+                    log.debug "Start-up sweep failed: ${e.message}"
+                }
+                try {
+                    // Close it either way: the session waits on every upstream
+                    // queue, so an unclosed one hangs the run.
+                    ch_resweep.bind(groovyx.gpars.dataflow.operator.PoisonPill.instance)
+                } catch (Exception ignored) {
+                    // Already closed by an earlier termination path.
+                }
+                resweep_timer.cancel()
+            } as TimerTask, sweep_delay_ms)
+
+            if (!backlog_chunking) {
+                return existing_list
+            }
+
+            // Mark every planned path seen, so the watcher's own report of the
+            // same file is dropped by the firstSighting filter below rather
+            // than classified a second time as a live arrival.
+            existing_list.each { f -> RealtimeIntake.firstSighting(seen_paths, f) }
+            def rows = BatchChunkPlanner.planBySample(
+                existing_list, resolve_sample_id, chunk_first, chunk_growth)
+            def per_sample = rows.countBy { it[0] }
+            log.info "Start-up backlog chunked: ${existing_count} file(s) across ${per_sample.size()} sample(s) into ${rows.size()} chunk(s); first chunk ${chunk_first} file(s), growth x${chunk_growth}"
+            log.info "  Chunks per sample: ${per_sample}"
+            if (metrics_interval_s > 0) {
+                files_seen.addAndGet(existing_count as long)
+                batches_emitted.addAndGet(rows.size() as long)
+                rows.each { id, k, files ->
+                    per_barcode_batches
+                        .computeIfAbsent(id, { new java.util.concurrent.atomic.AtomicLong(0L) })
+                        .incrementAndGet()
+                }
+            }
+            return rows
         }
 
-        // Combine existing files (processed first) with new files (watched
-        // continuously). The PoisonPill never reaches the filter closures --
-        // operators terminate on it without invoking user code. A path is
-        // handed on once: the scan and the watcher overlap by design, and
-        // the watcher re-emits a file whose mtime changes ('modify').
-        def ch_watched = ch_existing.mix(ch_new)
+        if (backlog_chunking) {
+            // [sampleId, chunkIndex, files] -> [meta, files]. meta.batch_time
+            // disambiguates the per-batch publish names exactly as it does for
+            // a live file; batch_id is assigned downstream (see above).
+            ch_backlog_chunks = ch_existing.map { row ->
+                def meta = [:]
+                meta.id = row[0]
+                if (row[0] =~ /^barcode\d+$/ || row[0] == 'unclassified') {
+                    meta.barcode = row[0]
+                }
+                meta.single_end = true
+                meta.batch_time = new Date().format('yyyy-MM-dd_HH-mm-ss')
+                // A LIST, one entry per file, so the processed-input ledger
+                // gets one line per file (RealtimeResume.recordProcessedInput).
+                // Joined with commas it was one line the intake's per-path
+                // lookup never matched, and a Continue reclassified -- and
+                // double counted -- the whole backlog.
+                meta.source_file = row[2].collect { it.toString() }
+                return [meta, row[2]]
+            }
+            // The live stream must not also receive the backlog.
+            ch_existing = Channel.empty()
+        }
+
+        // Combine the start-up listing and its ten-second re-sweep
+        // (processed first) with new files (watched continuously). The
+        // PoisonPill never reaches the filter closures -- operators terminate
+        // on it without invoking user code. A path is handed on once: the two
+        // listings and the watcher overlap by design, and the watcher
+        // re-emits a file whose mtime changes ('modify').
+        // A file still being written when the watcher reports it is held
+        // until its size and mtime have been quiet for realtime_settle_seconds
+        // (delayed, never dropped -- see RealtimeIntake.settle and the F6
+        // note below). A start-up backlog and an atomic rename cost nothing
+        // here: their mtimes are already quiet.
+        def settle_ms = ((params.realtime_settle_seconds == null ? 2 : params.realtime_settle_seconds) as long) * 1000L
+        def ch_watched = ch_existing.mix(ch_resweep).mix(ch_new)
             .filter { RealtimeIntake.isInput(it) }
             .filter { !(it.toString() in already_processed) }
             .filter { RealtimeIntake.firstSighting(seen_paths, it) }
+            .map { RealtimeIntake.settle(it, settle_ms) }
 
         //
         // TIMEOUT LOGIC: Intelligent inactivity timeout with grace period (v1.2.1+)
@@ -253,9 +427,9 @@ workflow REALTIME_MONITORING {
         // rename, MinKNOW, rsync) always land in that window, and the macOS
         // Java NIO WatchService does not reliably re-emit a stable file, so
         // the filter stalled real-time runs indefinitely. Atomic writes are
-        // complete by the time watchPath sees them, so no settling is
-        // needed. Callers producing non-atomic appended writes should use
-        // a wrapper that renames into place instead of relying on settling.
+        // complete by the time watchPath sees them. A producer that writes
+        // in place is handled by RealtimeIntake.settle above, which waits
+        // for the file to stop changing instead of dropping it.
         //
         // last_file_at feeds the inactivity timer below: every emission,
         // existing or watched, resets it. Before this the timer was a
@@ -504,29 +678,27 @@ workflow REALTIME_MONITORING {
         // CHANNEL: Convert files to meta map format with barcode extraction
         //
         // One interleaver instance for the whole run: it keeps a cumulative
-        // served-count per barcode across batches, so a barcode that fell behind
+        // served-count per sample across batches, so a sample that fell behind
         // in earlier batches is drained first in later ones. This carries the
         // round-robin fairness ACROSS batch boundaries -- the stateless per-batch
         // interleave could not, because it ordered each batch independently and so
-        // a fast barcode that kept filling batches stayed ahead all run (audit
+        // a fast sample that kept filling batches stayed ahead all run (audit
         // P2.9). Still feedback-free: it only reorders files already in a batch, so
-        // nothing is held back and termination is unaffected.
-        def cross_batch_interleaver = new CrossBatchInterleaver()
+        // nothing is held back and termination is unaffected. It takes the same
+        // resolver the start-up interleave and the meta map below use.
+        def cross_batch_interleaver = new CrossBatchInterleaver(resolve_sample_id)
         ch_samples = ch_batched_files
             .map { batch -> cross_batch_interleaver.interleave(batch instanceof List ? batch : [batch]) }
             .flatten()
             .map { file ->
                 def meta = [:]
 
-                // Use InputDetector priority chain for sample ID
-                // The watched root is passed so a custom-named folder
-                // directly under it names the sample (Turex/, Zymo/).
-                def sample_id = InputDetector.extractSampleId(
-                    file,
-                    params.sample_regex,
-                    params.sample_name,
-                    params.nanopore_output_dir
-                )
+                // The InputDetector priority chain, through the one resolver
+                // the interleavers above are keyed on, so the order they
+                // produced is fair for exactly the ids that reach the
+                // processes. The watched root is passed so a custom-named
+                // folder directly under it names the sample (Turex/, Zymo/).
+                def sample_id = resolve_sample_id.call(file)
                 meta.id = sample_id
 
                 // Add barcode metadata if applicable; the unclassified bin
@@ -543,6 +715,21 @@ workflow REALTIME_MONITORING {
 
                 return [ meta, file ]
             }
+
+        // The planned backlog joins the live per-file stream. Both carry the
+        // same [meta, reads] shape -- a chunk's reads are a list, a live file's
+        // are one path -- which is what batch chunking already emits, so every
+        // downstream stage is unchanged. mix() does not order the two, but the
+        // backlog is bound from the igniter and the live files arrive later, so
+        // the chunks reach the scheduler first in practice.
+        //
+        // Not covered: REALTIME_STATISTICS reads ch_batches below, which is
+        // built from the live batching operator, so a chunked backlog does not
+        // appear in the snapshot statistics. The [runtime-metrics] counters are
+        // fed explicitly above instead.
+        if (backlog_chunking) {
+            ch_samples = ch_backlog_chunks.mix(ch_samples)
+        }
 
         // Transform batches for REALTIME_STATISTICS
         // GENERATE_SNAPSHOT_STATS expects: tuple val(batch_meta), val(file_metas)

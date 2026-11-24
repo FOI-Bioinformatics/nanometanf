@@ -60,4 +60,59 @@ nextflow_workflow {
             assert !html.contains('(Stub)')
         }
     }
+
+    test("two batches: the second cumulative carries both, with no publish-dir read") {
+        // Before the fix the cumulative input was built from
+        // <outdir>/realtime_stats/cumulative_state.json read inside a channel
+        // map. Both batches here are emitted before any task has run, so both
+        // saw no prior and both reported total_batches == 1 -- the race of a
+        // real start-up backlog, made deterministic. The update now receives
+        // the snapshot series from the head process.
+
+        when {
+            workflow {
+                """
+                input[0] = Channel.of(
+                    [
+                        [ batch_id: 'b1', batch_timestamp: 1640995200000, batch_time: '2022-01-01T00:00:00Z' ],
+                        [
+                            [ file_name: 's1.fastq.gz', file_size: 52428800, estimated_reads: 10000, is_compressed: true, priority_score: 85, watch_dir: '/run1', sample_id: 's1', file_age_ms: 120000 ],
+                            [ file_name: 's2.fastq.gz', file_size: 41943040, estimated_reads: 8000,  is_compressed: true, priority_score: 75, watch_dir: '/run1', sample_id: 's2', file_age_ms: 90000 ]
+                        ]
+                    ],
+                    [
+                        [ batch_id: 'b2', batch_timestamp: 1640995260000, batch_time: '2022-01-01T00:01:00Z' ],
+                        [
+                            [ file_name: 's3.fastq.gz', file_size: 10485760, estimated_reads: 2000, is_compressed: true, priority_score: 50, watch_dir: '/run1', sample_id: 's3', file_age_ms: 30000 ]
+                        ]
+                    ]
+                )
+                input[1] = [ enable_quality_indicators: true, report_format: 'html,json' ]
+                """
+            }
+            params {
+                max_cpus = 2
+                max_memory = '4.GB'
+                max_time = '5.min'
+            }
+        }
+
+        then {
+            assert workflow.success
+            assert workflow.out.cumulative_stats.size() == 2
+            def slurper = new groovy.json.JsonSlurper()
+            def cums = workflow.out.cumulative_stats.collect { item -> slurper.parse(file(item[1])) }
+            // Snapshot tasks complete in either order, so which batch label the
+            // complete cumulative carries is not fixed; what is fixed is that
+            // one update saw a single snapshot and the other saw both. Before
+            // the fix both reported total_batches == 1.
+            def batches = cums.collect { it.session_info.total_batches }.sort()
+            assert batches == [1, 2]
+            def full = cums.find { it.session_info.total_batches == 2 }
+            assert full.totals.total_files == 3
+            assert full.totals.total_estimated_reads == 20000
+            assert full.source_summary.unique_samples.sort() == ['s1', 's2', 's3']
+            assert full.session_info.session_start == 1640995200000
+        }
+    }
 }

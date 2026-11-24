@@ -83,6 +83,15 @@ jobs:
         # rather than surfacing as 20 "No such file or directory" errors.
         run: python3 tests/lib/fixtures_are_tracked.py
 
+      - name: Every nf-test file must run here or be excluded on the record
+        # The `run:` block below is an explicit allowlist, so a new test file
+        # is silent by default -- committed, never executed, nothing saying
+        # so. The 2026-10-26 real-time audit found 41 of 101 test files in
+        # that state, two of them pure-function suites excluded only because
+        # their names begin with "realtime". This fails when a test file is
+        # in neither the allowlist nor tests/ci_excluded_tests.txt.
+        run: python3 tests/lib/tests_are_wired.py
+
       - name: Install nf-test
         uses: nf-core/setup-nf-test@v1
         with:
@@ -107,7 +116,12 @@ jobs:
         # the batch/interleave/detect helpers. They were excluded along with
         # the realtime suite but touch no watchPath and need no container --
         # verified locally at 20 tests in 72s -- so they were free coverage
-        # sitting unused.
+        # sitting unused. Six more joined them on 2026-10-27, among them
+        # realtime_intake and realtime_resume: those two are pure-function
+        # suites that were swept up by the `tests/realtime_*` name pattern
+        # despite touching no watchPath, so the exclusion was about their
+        # filenames rather than their behaviour. tests_are_wired.py above now
+        # makes an unlisted test file a CI failure instead of a silent gap.
         run: |
           nf-test test --profile test,docker \
             --shard ${{ matrix.shard }}/4 --shard-strategy round-robin \
@@ -124,18 +138,28 @@ jobs:
             tests/input_scanner.nf.test \
             tests/main_workflow.nf.test \
             tests/multiplex_scaling.nf.test \
+            tests/multiplex_12_batch_chunking.nf.test \
             tests/nanoseq_test.nf.test \
             tests/parameter_validation.nf.test \
             tests/qc_tool_integration.nf.test \
             tests/validation_assembly_stub_matrix.nf.test \
+            tests/validation_only_discovery.nf.test \
+            modules/local/consensus_validation/tests/main.nf.test \
+            modules/local/validation_cumulative_aggregator/tests/main.nf.test \
+            subworkflows/local/assembly/tests/main.nf.test \
+            subworkflows/local/qc_benchmark/tests/main.nf.test \
             modules/local/aggregate_validation_results/tests/main.nf.test \
             modules/local/blastn_validation/tests/main.nf.test \
             modules/local/canonical_assembly_writer/tests/main.nf.test \
             modules/local/minimap2_ava/tests/main.nf.test \
             modules/local/assembly_depth_gate/tests/main.nf.test \
             tests/lib/kreport_clade.nf.test \
+            tests/lib/kreport_percent.nf.test \
+            tests/lib/batch_series_accumulator.nf.test \
             tests/lib/assembly_accumulator.nf.test \
             tests/lib/batch_chunk_planner.nf.test \
+            tests/lib/backlog_chunk_plan.nf.test \
+            tests/lib/realtime_intake_settle.nf.test \
             modules/local/assembly_read_pool/tests/main.nf.test \
             modules/local/canonical_classification_writer/tests/main.nf.test \
             modules/local/canonical_qc_writer/tests/main.nf.test \
@@ -167,10 +191,17 @@ jobs:
             subworkflows/local/utils_nfcore_nanometanf_pipeline/tests/main.nf.test \
             subworkflows/local/validation/tests/main.nf.test \
             tests/lib/batch_utils.nf.test \
+            tests/lib/batch_utils_sample_key.nf.test \
             tests/lib/batch_utils_taxid_counts.nf.test \
             tests/lib/cross_batch_interleaver.nf.test \
+            tests/lib/cumulative_batch_accumulator.nf.test \
             tests/lib/input_detector.nf.test \
-            tests/lib/snapshot_accumulator.nf.test
+            tests/lib/kreport_tree.nf.test \
+            tests/lib/realtime_intake.nf.test \
+            tests/lib/realtime_resume.nf.test \
+            tests/lib/validation_only_inputs.nf.test \
+            tests/lib/snapshot_accumulator.nf.test \
+            tests/lib/snapshot_accumulator_kraken_key.nf.test
 
   realtime-e2e:
     # The realtime + validation end-to-end test (tag: real_execution,
@@ -265,7 +296,14 @@ jobs:
     #      Here the expected name is derived independently and compared to
     #      what Nextflow actually produces.
     name: Singularity profile and image cache naming
-    runs-on: ubuntu-latest
+    # Pinned, where every other job here rides ubuntu-latest: that label
+    # became ubuntu-26.04 in October 2026, and apptainer's published .deb
+    # depends on libfuse3-3, which 26.04 does not carry -- the install step
+    # ends in "apptainer : Depends: libfuse3-3 (>= 3.2.3) but it is not
+    # installable" before any assertion in this job runs. 24.04 is where
+    # apptainer 1.3.6 installs, and the job's subject is the cache FILENAME
+    # Nextflow derives, which the host distribution does not affect.
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
 
@@ -364,7 +402,24 @@ jobs:
           nextflow -v
 
       - name: Render config for profile
-        run: nextflow config -profile ${{ matrix.profile }} > /dev/null
+        run: nextflow config -profile ${{ matrix.profile }} > rendered.config
+
+      - name: The QC cap renders as the classifier's cap
+        # max_qc_forks is derived: unset, the read filter and FastQC take
+        # max_classification_forks, which each profile sets to a different
+        # number (audit F3). A derivation that silently stops matching is the
+        # inert-option class this repository keeps finding, and the config is
+        # already rendered here, so assert it rather than trust it. Every one
+        # of these five selectors must print the same maxForks for the profile.
+        run: |
+          caps=$(awk '/^ *withName/ { sel = $0 } /maxForks/ { print sel " " $0 }' rendered.config \
+            | grep -E 'CHOPPER|FASTQC|FILTLONG|FASTP_STREAMING|KRAKEN2_INCREMENTAL_CLASSIFIER' \
+            | awk '{ print $NF }' | sort -u)
+          echo "rendered caps: $(echo $caps)"
+          if [ "$(printf '%s\n' "$caps" | grep -c .)" -ne 1 ]; then
+            echo "::error::QC and classifier maxForks disagree under -profile ${{ matrix.profile }}: $(echo $caps)"
+            exit 1
+          fi
 
       - name: Stub-run pipeline under profile
         # Booleans go via -params-file rather than CLI flags so nf-schema

@@ -103,7 +103,7 @@ workflow QC_ANALYSIS {
         PORECHOP_PORECHOP (
             ch_reads
         )
-        ch_versions = ch_versions.mix(PORECHOP_PORECHOP.out.versions)
+        // PORECHOP_PORECHOP uses topic: versions pattern - no .out.versions channel.
         ch_adapter_trimmed = PORECHOP_PORECHOP.out.reads
     } else {
         ch_adapter_trimmed = ch_reads
@@ -164,7 +164,7 @@ workflow QC_ANALYSIS {
             FILTLONG (
                 ch_filtlong_input
             )
-            ch_versions = ch_versions.mix(FILTLONG.out.versions)
+            // FILTLONG uses topic: versions pattern - no .out.versions channel.
 
             //
             // Enhanced reporting for FILTLONG: Add FastQC and SeqKit stats
@@ -366,6 +366,16 @@ workflow QC_ANALYSIS {
                     }
                     [m, reads]
                 }
+                // Index 0 stays a milestone deliberately. Deferring it (to
+                // index 1, or to idx > 0) would bound the opening burst a
+                // late-started backlog produces, but a real-time run never
+                // knows which batch is a sample's last, so any barcode that
+                // receives a single file for the whole run would then get no
+                // NanoPlot at all -- and a one-file barcode is the low-yield
+                // one an operator most wants to look at. The burst is bounded
+                // by maxForks on NANOPLOT instead (params.max_nanoplot_forks,
+                // conf/modules.config), which costs no coverage. See audit F2
+                // in docs/performance/realtime_many_barcodes_audit_2026-10-26.md.
                 .filter { meta, reads -> (meta._nanoplot_idx as int) % batch_interval == 0 }
                 .map { meta, reads ->
                     def m = meta.clone()
@@ -413,7 +423,7 @@ workflow QC_ANALYSIS {
         NANOPLOT (
             ch_nanoplot_nonempty
         )
-        ch_versions = ch_versions.mix(NANOPLOT.out.versions)
+        // NANOPLOT uses topic: versions pattern - no .out.versions channel.
         ch_nanoplot_html = NANOPLOT.out.html
         ch_nanoplot_txt = NANOPLOT.out.txt
         ch_nanoplot_png = NANOPLOT.out.png

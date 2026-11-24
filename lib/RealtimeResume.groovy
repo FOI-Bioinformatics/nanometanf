@@ -59,17 +59,32 @@ class RealtimeResume {
         return out
     }
 
-    /** Append one completed input. Serialised: onNext callbacks may overlap. */
-    static synchronized void recordProcessedInput(String outdir, String sampleId, Object batchId, String sourceFile) {
-        if (!sourceFile) {
+    /**
+     * Append the completed input(s) of one batch, ONE LINE PER SOURCE FILE.
+     * Serialised: onNext callbacks may overlap.
+     *
+     * ``sourceFiles`` is a single path or a List of paths. A start-up backlog
+     * is classified in chunks (RealtimeIntake / BatchChunkPlanner), so one
+     * batch can hold many files; its meta carries them as a list. Until
+     * 2026-11 the chunk's files were joined with commas and written as ONE
+     * line, which the intake -- comparing single paths against the ledgered
+     * set -- never matched: a Continue classified the whole backlog again,
+     * and because the accumulator is also seeded from the previous run's
+     * per-batch counts, every one of those reads was counted twice.
+     */
+    static synchronized void recordProcessedInput(String outdir, String sampleId, Object batchId, Object sourceFiles) {
+        def paths = (sourceFiles instanceof Collection ? sourceFiles : [sourceFiles])
+            .findAll { it }
+            .collect { it.toString() }
+        if (!paths) {
             return
         }
         def f = ledgerFile(outdir)
         f.parentFile.mkdirs()
         def isNew = !f.isFile() || f.length() == 0L
         def stamp = new Date().format("yyyy-MM-dd'T'HH:mm:ss")
-        def line = "${sampleId}\t${batchId}\t${sourceFile}\t${stamp}\n"
-        f.append((isNew ? LEDGER_HEADER + '\n' : '') + line)
+        def lines = paths.collect { "${sampleId}\t${batchId}\t${it}\t${stamp}\n" }.join('')
+        f.append((isNew ? LEDGER_HEADER + '\n' : '') + lines)
     }
 
     /**
@@ -167,6 +182,28 @@ class RealtimeResume {
                 ?.sort { batchIndex(it.name) }
                 ?.each { f -> pairs.add([sampleDir.name, Paths.get(f.absolutePath)]) }
         }
+        return pairs
+    }
+
+    /**
+     * The previous run's per-sample classified read pools,
+     * ``kraken2/<sample>.kraken2.classified.fastq.gz``, as ``[sample, Path]``
+     * pairs. KRAKEN2_FINAL_AGGREGATOR concatenates this run's per-batch
+     * classified FASTQs into that file; on a Continue the previous pool is
+     * handed to it as well so the pool keeps covering every read the
+     * cumulative per-read output lists.
+     */
+    static List priorClassifiedPools(String outdir) {
+        def pairs = []
+        def kraken = new File(outdir, 'kraken2')
+        if (!kraken.isDirectory()) {
+            return pairs
+        }
+        def suffix = '.kraken2.classified.fastq.gz'
+        kraken.listFiles()
+            ?.findAll { it.isFile() && it.name.endsWith(suffix) && it.name.length() > suffix.length() }
+            ?.sort { it.name }
+            ?.each { f -> pairs.add([f.name - suffix, Paths.get(f.absolutePath)]) }
         return pairs
     }
 }

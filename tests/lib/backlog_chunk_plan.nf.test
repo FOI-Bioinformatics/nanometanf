@@ -1,0 +1,131 @@
+nextflow_function {
+
+    name "Test BatchChunkPlanner.planBySample (real-time start-up backlog)"
+    script "tests/lib/batch_chunk_planner_functions.nf"
+    function "planBacklog"
+
+    tag "unit"
+    tag "fast"
+    tag "chunking"
+    tag "realtime"
+
+    // A real-time run started after sequencing began finds a backlog, and a
+    // backlog is a batch-shaped workload: every file is present at once, so one
+    // task per file is the worst granularity available -- each classifier task
+    // pays a database load for a single file and nothing bounds the task count
+    // (audit F7). This plans the backlog the way batch mode plans a samplesheet:
+    // geometric chunks per sample, every sample's chunk 0 before any sample's
+    // chunk 1, so the task count falls without delaying any sample's first
+    // result.
+    //
+    // The key is the resolved sample id, so the flat layouts where the sample
+    // comes from the FILENAME are planned correctly too (audit F1).
+
+    test("every sample's chunk 0 comes before any sample's chunk 1") {
+        when {
+            function {
+                """
+                input[0] = [
+                    '/run/fastq_pass/barcode01_000.fastq.gz',
+                    '/run/fastq_pass/barcode01_001.fastq.gz',
+                    '/run/fastq_pass/barcode01_002.fastq.gz',
+                    '/run/fastq_pass/barcode01_003.fastq.gz',
+                    '/run/fastq_pass/barcode01_004.fastq.gz',
+                    '/run/fastq_pass/barcode01_005.fastq.gz',
+                    '/run/fastq_pass/barcode01_006.fastq.gz',
+                    '/run/fastq_pass/barcode02_000.fastq.gz',
+                    '/run/fastq_pass/barcode02_001.fastq.gz',
+                    '/run/fastq_pass/barcode02_002.fastq.gz',
+                    '/run/fastq_pass/barcode03_000.fastq.gz',
+                ]
+                input[1] = 1
+                input[2] = 2.0
+                """
+            }
+        }
+        then {
+            assert function.success
+            // One flat directory, three samples resolved from the filenames.
+            assert function.result == [
+                ['barcode01', 0, ['barcode01_000.fastq.gz']],
+                ['barcode02', 0, ['barcode02_000.fastq.gz']],
+                ['barcode03', 0, ['barcode03_000.fastq.gz']],
+                ['barcode01', 1, ['barcode01_001.fastq.gz', 'barcode01_002.fastq.gz']],
+                ['barcode02', 1, ['barcode02_001.fastq.gz', 'barcode02_002.fastq.gz']],
+                ['barcode01', 2, ['barcode01_003.fastq.gz', 'barcode01_004.fastq.gz',
+                                  'barcode01_005.fastq.gz', 'barcode01_006.fastq.gz']],
+            ]
+            // 11 files in, 11 files out, each once: the plan reorders, never drops.
+            def emitted = function.result.collectMany { it[2] }
+            assert emitted.size() == 11
+            assert emitted.unique().size() == 11
+            // Eleven files cost six classifier tasks rather than eleven.
+            assert function.result.size() == 6
+        }
+    }
+
+    test("per-barcode directories plan identically") {
+        // The parent directory IS the sample here, so the sample-id key and the
+        // old parent-directory key agree and the plan is the same shape.
+        when {
+            function {
+                """
+                input[0] = [
+                    '/run/fastq_pass/barcode01/r000.fastq.gz',
+                    '/run/fastq_pass/barcode01/r001.fastq.gz',
+                    '/run/fastq_pass/barcode01/r002.fastq.gz',
+                    '/run/fastq_pass/barcode02/r000.fastq.gz',
+                ]
+                input[1] = 1
+                input[2] = 2.0
+                """
+            }
+        }
+        then {
+            assert function.success
+            assert function.result == [
+                ['barcode01', 0, ['r000.fastq.gz']],
+                ['barcode02', 0, ['r000.fastq.gz']],
+                ['barcode01', 1, ['r001.fastq.gz', 'r002.fastq.gz']],
+            ]
+        }
+    }
+
+    test("growth 1.0 keeps every chunk the first size") {
+        when {
+            function {
+                """
+                input[0] = [
+                    '/run/fastq_pass/barcode01_000.fastq.gz',
+                    '/run/fastq_pass/barcode01_001.fastq.gz',
+                    '/run/fastq_pass/barcode01_002.fastq.gz',
+                    '/run/fastq_pass/barcode01_003.fastq.gz',
+                ]
+                input[1] = 2
+                input[2] = 1.0
+                """
+            }
+        }
+        then {
+            assert function.success
+            assert function.result.collect { it[1] } == [0, 1]
+            assert function.result.every { it[2].size() == 2 }
+        }
+    }
+
+    test("an empty backlog plans nothing") {
+        when {
+            function {
+                """
+                input[0] = []
+                input[1] = 1
+                input[2] = 2.0
+                """
+            }
+        }
+        then {
+            assert function.success
+            assert function.result == []
+        }
+    }
+}

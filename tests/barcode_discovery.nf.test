@@ -23,7 +23,7 @@ nextflow_pipeline {
                 outdir = "$outputDir"
 
                 // Provide required input parameter (empty samplesheet for barcode mode)
-                input = false
+                input = null
                 realtime_mode = false
 
                 // Disable advanced features for focused testing
@@ -57,7 +57,7 @@ nextflow_pipeline {
         when {
             params {
                 // Use a non-existent directory to test graceful handling
-                input = false
+                input = null
                 barcode_input_dir = "$projectDir/tests/fixtures/empty_barcode_structure"
                 outdir = "$outputDir"
 

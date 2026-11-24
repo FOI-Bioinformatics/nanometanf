@@ -13,7 +13,6 @@ include { paramsSummaryMap          } from 'plugin/nf-schema'
 include { samplesheetToList         } from 'plugin/nf-schema'
 include { completionEmail           } from '../../nf-core/utils_nfcore_pipeline'
 include { completionSummary         } from '../../nf-core/utils_nfcore_pipeline'
-include { imNotification            } from '../../nf-core/utils_nfcore_pipeline'
 include { UTILS_NFCORE_PIPELINE     } from '../../nf-core/utils_nfcore_pipeline'
 include { UTILS_NEXTFLOW_PIPELINE   } from '../../nf-core/utils_nextflow_pipeline'
 
@@ -34,6 +33,9 @@ workflow PIPELINE_INITIALISATION {
     nextflow_cli_args //   array: List of positional nextflow CLI args
     outdir            //  string: The output directory where the results will be saved
     input             //  string: Path to input samplesheet
+    help              // boolean: Display help message and exit
+    help_full         // boolean: Show the full help message
+    show_hidden       // boolean: Show hidden parameters in the help message
 
     main:
 
@@ -52,15 +54,34 @@ workflow PIPELINE_INITIALISATION {
     //
     // Validate parameters and generate parameter summary to stdout
     //
+    // nf-core template 4.2.1: the help text is rendered by the schema
+    // subworkflow from these inputs, not by a `validation.help` config block.
+    def before_text = ""
+    def after_text = ""
+    if (monochrome_logs) {
+        before_text = before_text.replaceAll(/\033\[[0-9;]*m/, '')
+    }
+    def command = "nextflow run ${workflow.manifest.name} -profile <docker/singularity/.../institute> --input samplesheet.csv --outdir <OUTDIR>"
+
+    // `--help_full` and `--show_hidden` given as bare CLI flags reach this
+    // point as the String "true": nf-schema casts CLI parameters to their
+    // schema types inside validateParameters(), which runs after the help
+    // branch, and nf-schema 3.0.0's paramsHelp() casts showHidden to
+    // Boolean without checking (fixed upstream in 3.1.0). `help` stays as
+    // given: a parameter name is a legitimate String value for it.
+    def help_full_flag   = help_full   instanceof Boolean ? help_full   : (help_full?.toString()?.toBoolean()   ?: false)
+    def show_hidden_flag = show_hidden instanceof Boolean ? show_hidden : (show_hidden?.toString()?.toBoolean() ?: false)
+
     UTILS_NFSCHEMA_PLUGIN (
         workflow,
         validate_params,
         null,
-        false,
-        false,
-        false,
-        null,
-        null,
+        help,
+        help_full_flag,
+        show_hidden_flag,
+        before_text,
+        after_text,
+        command,
         null
     )
 
@@ -129,11 +150,10 @@ workflow PIPELINE_COMPLETION {
     plaintext_email // boolean: Send plain-text email instead of HTML
     outdir          //    path: Path to output directory where results will be published
     monochrome_logs // boolean: Disable ANSI colour codes in log output
-    hook_url        //  string: hook URL for notifications
     multiqc_report  //  string: Path to MultiQC report
 
     main:
-    summary_params = paramsSummaryMap(workflow, parameters_schema: "nextflow_schema.json")
+    summary_params = paramsSummaryMap(parameters_schema: "nextflow_schema.json")
     def multiqc_reports = multiqc_report.toList()
 
     //
@@ -148,14 +168,11 @@ workflow PIPELINE_COMPLETION {
                 plaintext_email,
                 outdir,
                 monochrome_logs,
-                multiqc_reports.getVal(),
+                multiqc_reports.isBound() ? multiqc_reports.getVal() : [],
             )
         }
 
         completionSummary(monochrome_logs)
-        if (hook_url) {
-            imNotification(summary_params, hook_url)
-        }
     }
 
     workflow.onError {

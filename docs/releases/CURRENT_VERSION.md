@@ -87,11 +87,20 @@ features that have not yet shipped.
 **Concurrency parameters (defaults shown):**
 
 ```bash
---max_concurrent_batches 4     # Backpressure limit per sample
---max_classification_forks 8   # Max parallel Kraken2 jobs
---kraken2_sync_interval 10     # Batches between report regeneration
---kraken2_enable_incremental true
+--max_concurrent_batches 4      # ADVISORY ONLY: logged, not enforced (audit P2.9)
+--max_classification_forks 4    # Max parallel Kraken2 jobs -- a GLOBAL cap, not per sample
+--max_nanoplot_forks 2          # Max parallel NanoPlot jobs
+--report_write_interval 1       # Batches between cumulative-report writes
+--kraken2_enable_incremental false
 ```
+
+Corrected 2026-10-27: this block previously showed `8` for
+`--max_classification_forks`, `true` for `--kraken2_enable_incremental` and a
+`--kraken2_sync_interval` parameter. The first two were never the defaults in
+`nextflow.config`, and the third has never existed -- the real knob for how
+often the cumulative report is rewritten is `--report_write_interval`. Raising
+`--max_classification_forks` above `max_cpus / 4` is also inert, because the
+per-task CPU request is `max(4, max_cpus / forks)`.
 
 **Output structure (per sample):**
 

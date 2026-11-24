@@ -42,6 +42,7 @@ class FixtureGenerator:
             ("statistics", self.generate_statistics_fixtures),
             ("system_metrics", self.generate_system_metrics_fixtures),
             ("edge_cases", self.generate_edge_case_fixtures),
+            ("barcode_backlog_12", self.generate_barcode_backlog_fixtures),
         ]
 
         total_files = 0
@@ -522,6 +523,57 @@ class FixtureGenerator:
 
         return len(fixtures)
 
+    def generate_barcode_backlog_fixtures(self) -> int:
+        """Generate a 12-barcode backlog: barcode01-12, three FASTQ files each.
+
+        The suite had no realtime fixture above three barcodes, so nothing at
+        any level ran the shape a field run has -- many barcodes, all of them
+        already on disk when the run starts (audit F13,
+        docs/performance/realtime_many_barcodes_audit_2026-10-26.md).
+
+        Three files per barcode is the smallest count that makes chunking
+        observable: with batch_first_chunk_files = 1 and batch_chunk_growth =
+        2.0 a sample plans as chunks of 1 and 2, so 36 files become 24 tasks
+        and a per-file run is a different number rather than the same one.
+
+        Reads are generated from a seed derived from the barcode and file
+        index, and gzipped with mtime=0, so regenerating the fixture produces
+        the same bytes and does not show up as a diff.
+        """
+        output_dir = self.output_dir / "barcode_backlog_12"
+        output_dir.mkdir(exist_ok=True)
+
+        barcodes = 12
+        files_per_barcode = 3
+        reads_per_file = 2
+        read_length = 100
+        count = 0
+
+        for barcode_num in range(1, barcodes + 1):
+            barcode = f"barcode{barcode_num:02d}"
+            barcode_dir = output_dir / barcode
+            barcode_dir.mkdir(exist_ok=True)
+
+            for file_idx in range(files_per_barcode):
+                rng = random.Random(f"{barcode}-{file_idx}")
+                records = []
+                for read_idx in range(reads_per_file):
+                    seq = "".join(rng.choice("ACGT") for _ in range(read_length))
+                    qual = "".join(
+                        chr(33 + rng.randint(20, 40)) for _ in range(read_length)
+                    )
+                    records.append(
+                        f"@{barcode}_f{file_idx}_r{read_idx} runid=fixture\n"
+                        f"{seq}\n+\n{qual}\n"
+                    )
+
+                filepath = barcode_dir / f"reads_{file_idx:03d}.fastq.gz"
+                with gzip.GzipFile(filepath, "wb", mtime=0) as handle:
+                    handle.write("".join(records).encode())
+                count += 1
+
+        return count
+
     def generate_readme(self):
         """Generate README documenting all fixtures."""
         readme_path = self.output_dir / "README.md"
@@ -664,9 +716,28 @@ def main():
     generator = FixtureGenerator(args.output_dir)
 
     if args.fixtures:
-        fixture_types = args.fixtures.split(',')
+        fixture_types = [name.strip() for name in args.fixtures.split(',') if name.strip()]
         print(f"Generating specific fixtures: {', '.join(fixture_types)}")
-        # TODO: Implement selective generation
+        # Selective generation matters more than it looks: generate_all() also
+        # rewrites README.md and every other category, so regenerating one
+        # fixture without it would show up as a diff across the directory.
+        known = {
+            "characteristics": generator.generate_characteristics_fixtures,
+            "predictions": generator.generate_prediction_fixtures,
+            "statistics": generator.generate_statistics_fixtures,
+            "system_metrics": generator.generate_system_metrics_fixtures,
+            "edge_cases": generator.generate_edge_case_fixtures,
+            "barcode_backlog_12": generator.generate_barcode_backlog_fixtures,
+        }
+        unknown = [name for name in fixture_types if name not in known]
+        if unknown:
+            parser.error(
+                f"unknown fixture type(s): {', '.join(unknown)}. "
+                f"Known: {', '.join(sorted(known))}"
+            )
+        for name in fixture_types:
+            count = known[name]()
+            print(f"   OK {name}: {count} files")
     else:
         generator.generate_all()
 

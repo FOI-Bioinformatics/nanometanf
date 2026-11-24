@@ -9,7 +9,14 @@ process UPDATE_CUMULATIVE_STATS {
         'quay.io/biocontainers/python:3.11' }"
 
     input:
-    tuple val(batch_meta), path(snapshot_stats), path(previous_cumulative)
+    // Every snapshot seen so far this session, one per batch, from
+    // BatchSeriesAccumulator in the subworkflow. The totals are recomputed
+    // from this set on every call, so the result is a pure function of the
+    // inputs: this module must never read its own publish directory for a
+    // prior state (it used to, and a concurrent batch's totals vanished).
+    // Snapshot names carry their batch id and so are distinct, but the indexed
+    // stageAs keeps the staging independent of that.
+    tuple val(batch_meta), path(snapshots, stageAs: 'snapshot_input_*')
     val stats_config
 
     output:
@@ -23,151 +30,147 @@ process UPDATE_CUMULATIVE_STATS {
 
     script:
     def args = task.ext.args ?: ''
-    def has_previous = previous_cumulative.name != 'input.1' && previous_cumulative.size() > 0
-    def has_previous_py = has_previous ? 'True' : 'False'
 
     """
     #!/usr/bin/env python3
 
+    import glob
     import json
-    import time
-    from datetime import datetime, timedelta
+    import re
     from pathlib import Path
 
-    # Load current snapshot
-    with open('${snapshot_stats}', 'r') as f:
-        snapshot = json.load(f)
+    # Every snapshot of the session so far, replayed in processing order. The
+    # staged index preserves the accumulator's first-seen order and breaks a
+    # timestamp tie.
+    def staged_index(path):
+        m = re.search(r'(\\d+)\$', path)
+        return int(m.group(1)) if m else 0
 
-    # Load previous cumulative state if it exists
-    cumulative = {}
-    if ${has_previous_py} and Path('${previous_cumulative}').exists():
-        try:
-            with open('${previous_cumulative}', 'r') as f:
-                cumulative = json.load(f)
-            # Convert lists back to sets for proper .update() calls
-            if 'source_summary' in cumulative:
-                if 'unique_directories' in cumulative['source_summary']:
-                    cumulative['source_summary']['unique_directories'] = set(cumulative['source_summary']['unique_directories'])
-                if 'unique_samples' in cumulative['source_summary']:
-                    cumulative['source_summary']['unique_samples'] = set(cumulative['source_summary']['unique_samples'])
-        except:
-            cumulative = {}
+    snapshots = []
+    for path in sorted(glob.glob('snapshot_input_*'), key=staged_index):
+        with open(path, 'r') as f:
+            snapshots.append(json.load(f))
+    snapshots.sort(key=lambda s: s['batch_info']['processing_timestamp'])
+    if not snapshots:
+        raise SystemExit("UPDATE_CUMULATIVE_STATS received no snapshots")
 
-    # Initialize cumulative structure if empty
-    if not cumulative:
-        cumulative = {
-            'session_info': {
-                'session_start': snapshot['batch_info']['processing_timestamp'],
-                'session_start_formatted': snapshot['batch_info']['processing_time_formatted'],
-                'total_batches': 0,
-                'last_update': 0
-            },
-            'totals': {
-                'total_files': 0,
-                'total_size_bytes': 0,
-                'total_size_mb': 0,
-                'total_estimated_reads': 0,
-                'total_compressed_files': 0
-            },
-            'averages': {
-                'avg_files_per_batch': 0,
-                'avg_batch_size_mb': 0,
-                'avg_reads_per_batch': 0,
-                'avg_file_size_mb': 0
-            },
-            'performance': {
-                'files_per_second': 0,
-                'mb_per_second': 0,
-                'reads_per_second': 0,
-                'batches_per_minute': 0,
-                'session_duration_seconds': 0
-            },
-            'trends': {
-                'batch_timestamps': [],
-                'batch_file_counts': [],
-                'batch_sizes_mb': [],
-                'batch_read_counts': []
-            },
-            'quality_trends': {
-                'compression_ratios': [],
-                'priority_scores': [],
-                'large_file_ratios': []
-            },
-            'source_summary': {
-                'unique_directories': set(),
-                'unique_samples': set(),
-                'directory_totals': {}
-            }
+    first = snapshots[0]
+    cumulative = {
+        'session_info': {
+            'session_start': first['batch_info']['processing_timestamp'],
+            'session_start_formatted': first['batch_info']['processing_time_formatted'],
+            'total_batches': 0,
+            'last_update': 0
+        },
+        'totals': {
+            'total_files': 0,
+            'total_size_bytes': 0,
+            'total_size_mb': 0,
+            'total_estimated_reads': 0,
+            'total_compressed_files': 0
+        },
+        'averages': {
+            'avg_files_per_batch': 0,
+            'avg_batch_size_mb': 0,
+            'avg_reads_per_batch': 0,
+            'avg_file_size_mb': 0
+        },
+        'performance': {
+            'files_per_second': 0,
+            'mb_per_second': 0,
+            'reads_per_second': 0,
+            'batches_per_minute': 0,
+            'session_duration_seconds': 0
+        },
+        'trends': {
+            'batch_timestamps': [],
+            'batch_file_counts': [],
+            'batch_sizes_mb': [],
+            'batch_read_counts': []
+        },
+        'quality_trends': {
+            'compression_ratios': [],
+            'priority_scores': [],
+            'large_file_ratios': []
+        },
+        'source_summary': {
+            'unique_directories': set(),
+            'unique_samples': set(),
+            'directory_totals': {}
         }
+    }
 
-    # Update with current snapshot
+    max_trend_points = 100
+
+    for snapshot in snapshots:
+        current_time = snapshot['batch_info']['processing_timestamp']
+
+        # Update session info
+        cumulative['session_info']['total_batches'] += 1
+        cumulative['session_info']['last_update'] = current_time
+        cumulative['session_info']['last_update_formatted'] = snapshot['batch_info']['processing_time_formatted']
+
+        # Update totals
+        cumulative['totals']['total_files'] += snapshot['file_statistics']['file_count']
+        cumulative['totals']['total_size_bytes'] += snapshot['file_statistics']['total_size_bytes']
+        cumulative['totals']['total_size_mb'] += snapshot['file_statistics']['total_size_mb']
+        cumulative['totals']['total_estimated_reads'] += snapshot['file_statistics']['estimated_total_reads']
+        cumulative['totals']['total_compressed_files'] += snapshot['file_statistics']['compressed_files']
+
+        # Calculate session duration
+        session_duration = (current_time - cumulative['session_info']['session_start']) / 1000.0  # Convert to seconds
+        cumulative['performance']['session_duration_seconds'] = round(session_duration, 2)
+
+        # Update performance metrics
+        if session_duration > 0:
+            cumulative['performance']['files_per_second'] = round(cumulative['totals']['total_files'] / session_duration, 2)
+            cumulative['performance']['mb_per_second'] = round(cumulative['totals']['total_size_mb'] / session_duration, 2)
+            cumulative['performance']['reads_per_second'] = round(cumulative['totals']['total_estimated_reads'] / session_duration, 0)
+            cumulative['performance']['batches_per_minute'] = round((cumulative['session_info']['total_batches'] / session_duration) * 60, 2)
+
+        # Update averages
+        total_batches = cumulative['session_info']['total_batches']
+        cumulative['averages']['avg_files_per_batch'] = round(cumulative['totals']['total_files'] / total_batches, 2)
+        cumulative['averages']['avg_batch_size_mb'] = round(cumulative['totals']['total_size_mb'] / total_batches, 2)
+        cumulative['averages']['avg_reads_per_batch'] = round(cumulative['totals']['total_estimated_reads'] / total_batches, 0)
+        if cumulative['totals']['total_files'] > 0:
+            cumulative['averages']['avg_file_size_mb'] = round(cumulative['totals']['total_size_mb'] / cumulative['totals']['total_files'], 2)
+
+        # Update trends (keep last 100 data points)
+        cumulative['trends']['batch_timestamps'].append(current_time)
+        cumulative['trends']['batch_file_counts'].append(snapshot['file_statistics']['file_count'])
+        cumulative['trends']['batch_sizes_mb'].append(snapshot['file_statistics']['total_size_mb'])
+        cumulative['trends']['batch_read_counts'].append(snapshot['file_statistics']['estimated_total_reads'])
+
+        for trend_key in ['batch_timestamps', 'batch_file_counts', 'batch_sizes_mb', 'batch_read_counts']:
+            if len(cumulative['trends'][trend_key]) > max_trend_points:
+                cumulative['trends'][trend_key] = cumulative['trends'][trend_key][-max_trend_points:]
+
+        # Update quality trends
+        cumulative['quality_trends']['compression_ratios'].append(snapshot['quality_indicators']['compressed_ratio'])
+        cumulative['quality_trends']['priority_scores'].append(snapshot['priority_analysis']['average_priority'])
+        cumulative['quality_trends']['large_file_ratios'].append(snapshot['quality_indicators']['large_files_ratio'])
+
+        for quality_key in ['compression_ratios', 'priority_scores', 'large_file_ratios']:
+            if len(cumulative['quality_trends'][quality_key]) > max_trend_points:
+                cumulative['quality_trends'][quality_key] = cumulative['quality_trends'][quality_key][-max_trend_points:]
+
+        # Update source summary
+        cumulative['source_summary']['unique_directories'].update(snapshot['source_analysis']['watch_directories'])
+        cumulative['source_summary']['unique_samples'].update(snapshot['source_analysis']['sample_ids'])
+
+        for directory, count in snapshot['source_analysis']['directory_file_counts'].items():
+            if directory not in cumulative['source_summary']['directory_totals']:
+                cumulative['source_summary']['directory_totals'][directory] = 0
+            cumulative['source_summary']['directory_totals'][directory] += count
+
+    # The newest snapshot is this batch: alerts are judged against it.
+    snapshot = snapshots[-1]
     current_time = snapshot['batch_info']['processing_timestamp']
 
-    # Update session info
-    cumulative['session_info']['total_batches'] += 1
-    cumulative['session_info']['last_update'] = current_time
-    cumulative['session_info']['last_update_formatted'] = snapshot['batch_info']['processing_time_formatted']
-
-    # Update totals
-    cumulative['totals']['total_files'] += snapshot['file_statistics']['file_count']
-    cumulative['totals']['total_size_bytes'] += snapshot['file_statistics']['total_size_bytes']
-    cumulative['totals']['total_size_mb'] += snapshot['file_statistics']['total_size_mb']
-    cumulative['totals']['total_estimated_reads'] += snapshot['file_statistics']['estimated_total_reads']
-    cumulative['totals']['total_compressed_files'] += snapshot['file_statistics']['compressed_files']
-
-    # Calculate session duration
-    session_duration = (current_time - cumulative['session_info']['session_start']) / 1000.0  # Convert to seconds
-    cumulative['performance']['session_duration_seconds'] = round(session_duration, 2)
-
-    # Update performance metrics
-    if session_duration > 0:
-        cumulative['performance']['files_per_second'] = round(cumulative['totals']['total_files'] / session_duration, 2)
-        cumulative['performance']['mb_per_second'] = round(cumulative['totals']['total_size_mb'] / session_duration, 2)
-        cumulative['performance']['reads_per_second'] = round(cumulative['totals']['total_estimated_reads'] / session_duration, 0)
-        cumulative['performance']['batches_per_minute'] = round((cumulative['session_info']['total_batches'] / session_duration) * 60, 2)
-
-    # Update averages
-    total_batches = cumulative['session_info']['total_batches']
-    cumulative['averages']['avg_files_per_batch'] = round(cumulative['totals']['total_files'] / total_batches, 2)
-    cumulative['averages']['avg_batch_size_mb'] = round(cumulative['totals']['total_size_mb'] / total_batches, 2)
-    cumulative['averages']['avg_reads_per_batch'] = round(cumulative['totals']['total_estimated_reads'] / total_batches, 0)
-    if cumulative['totals']['total_files'] > 0:
-        cumulative['averages']['avg_file_size_mb'] = round(cumulative['totals']['total_size_mb'] / cumulative['totals']['total_files'], 2)
-
-    # Update trends (keep last 100 data points)
-    max_trend_points = 100
-    cumulative['trends']['batch_timestamps'].append(current_time)
-    cumulative['trends']['batch_file_counts'].append(snapshot['file_statistics']['file_count'])
-    cumulative['trends']['batch_sizes_mb'].append(snapshot['file_statistics']['total_size_mb'])
-    cumulative['trends']['batch_read_counts'].append(snapshot['file_statistics']['estimated_total_reads'])
-
-    # Trim trends to max points
-    for trend_key in ['batch_timestamps', 'batch_file_counts', 'batch_sizes_mb', 'batch_read_counts']:
-        if len(cumulative['trends'][trend_key]) > max_trend_points:
-            cumulative['trends'][trend_key] = cumulative['trends'][trend_key][-max_trend_points:]
-
-    # Update quality trends
-    cumulative['quality_trends']['compression_ratios'].append(snapshot['quality_indicators']['compressed_ratio'])
-    cumulative['quality_trends']['priority_scores'].append(snapshot['priority_analysis']['average_priority'])
-    cumulative['quality_trends']['large_file_ratios'].append(snapshot['quality_indicators']['large_files_ratio'])
-
-    # Trim quality trends
-    for quality_key in ['compression_ratios', 'priority_scores', 'large_file_ratios']:
-        if len(cumulative['quality_trends'][quality_key]) > max_trend_points:
-            cumulative['quality_trends'][quality_key] = cumulative['quality_trends'][quality_key][-max_trend_points:]
-
-    # Update source summary
-    cumulative['source_summary']['unique_directories'].update(snapshot['source_analysis']['watch_directories'])
-    cumulative['source_summary']['unique_samples'].update(snapshot['source_analysis']['sample_ids'])
-
-    for directory, count in snapshot['source_analysis']['directory_file_counts'].items():
-        if directory not in cumulative['source_summary']['directory_totals']:
-            cumulative['source_summary']['directory_totals'][directory] = 0
-        cumulative['source_summary']['directory_totals'][directory] += count
-
     # Convert sets to lists for JSON serialization
-    cumulative['source_summary']['unique_directories'] = list(cumulative['source_summary']['unique_directories'])
-    cumulative['source_summary']['unique_samples'] = list(cumulative['source_summary']['unique_samples'])
+    cumulative['source_summary']['unique_directories'] = sorted(cumulative['source_summary']['unique_directories'])
+    cumulative['source_summary']['unique_samples'] = sorted(cumulative['source_summary']['unique_samples'])
 
     # Generate alerts based on configurable thresholds
     alerts = []
@@ -223,7 +226,8 @@ process UPDATE_CUMULATIVE_STATS {
     with open('cumulative_stats.json', 'w') as f:
         json.dump(cumulative, f, indent=2)
 
-    # Save state for next iteration (copy of cumulative)
+    # Kept for consumers of the previous layout; it is a copy of the
+    # cumulative statistics, not a state this module reads back.
     with open('cumulative_state.json', 'w') as f:
         json.dump(cumulative, f, indent=2)
 

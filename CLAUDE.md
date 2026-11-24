@@ -25,7 +25,7 @@ sequencing data analysis. It covers:
 POD5 basecalling via Dorado was removed in the 2026-04 refactor and the
 `use_dorado` / `pod5_input_dir` parameters are no longer accepted.
 
-**Current version:** 1.6.0 (released 2026-08-15)
+**Current version:** 1.12.0 (released 2026-11-24)
 **nf-core lint score:** 96/100
 
 ---
@@ -60,14 +60,20 @@ at roughly 10--15 files per second with more than ten barcodes.
 **`modules/local/kraken2_output_merger/main.nf`** - Append-only batch storage
 
 - Writes each batch to separate file: `batches/batch_N.kraken2.output.txt`
-- Maintains atomic index file with batch manifest
-- Per-sample parallelism (no maxForks 1)
+- Every output name carries its batch id, so concurrent batches of one sample
+  cannot clobber each other and no shared state file is needed
+- Per-sample parallelism (no maxForks 1); `maxForks` is `max_classification_forks`,
+  a GLOBAL cap
 
 **`modules/local/kraken2_report_generator/main.nf`** - Incremental taxid counting
 
-- Maintains `taxid_counts.json` state file per sample
-- Accumulates counts without re-reading full output
-- Atomic state updates prevent race conditions
+- Writes a per-batch `stats/batch_<N>_taxid_counts.json`; it holds that batch's
+  counts only
+- Cumulative accumulation is NOT in this module: the classification
+  subworkflow's head process merges each batch's counts in memory and rewrites
+  `{sample_id}.cumulative.kraken2.report.txt`
+- There is no per-sample `index.json` or cumulative `taxid_counts.json`; both
+  were documented here and written by nothing (corrected 2026-10-27, audit F14)
 
 **`modules/local/kraken2_final_aggregator/main.nf`** - End-of-session aggregation
 
@@ -85,16 +91,37 @@ outdir/kraken2/
 │   │   ├── batch_1.kraken2.output.txt
 │   │   └── ...
 │   ├── batch_reports/
-│   │   ├── batch_0.kraken2.report.txt
-│   │   └── ...
-│   ├── index.json                    # Batch manifest
-│   ├── taxid_counts.json             # Incremental taxid state
+│   │   ├── batch_0.kraken2.report.txt             # from OUTPUT_MERGER
+│   │   ├── {sample_id}_batch0.kraken2.report.txt  # from REPORT_GENERATOR,
+│   │   └── ...                                    #   byte-identical to the above
 │   └── stats/
-│       ├── merge_stats.json
-│       └── report_stats.json
+│       ├── merge_stats.json          # latest batch only, not renamed per batch
+│       ├── batch_0_report_stats.json
+│       ├── batch_0_taxid_counts.json # per batch, NOT a cumulative state file
+│       └── aggregation_stats.json    # end of session
 ├── {sample_id}.cumulative.kraken2.output.txt  # End-of-session
-└── {sample_id}.cumulative.kraken2.report.txt  # Updated per-batch for dashboard
+├── {sample_id}.cumulative.kraken2.report.txt  # Updated per-batch for dashboard
+└── {sample_id}.kraken2.classified.fastq.gz    # End-of-session, save_output_fastqs only
 ```
+
+The last two flat files are what `--validation_only` discovers a sample from:
+the per-batch classified FASTQs are pooled into
+`{sample_id}.kraken2.classified.fastq.gz` by `KRAKEN2_FINAL_AGGREGATOR` (on a
+Continue the previous run's pool is pooled in too), and
+`lib/ValidationOnlyInputs.groovy` reads `{sample_id}.cumulative.kraken2.output.txt`
+and `.cumulative.kraken2.report.txt` as the sample's files, preferring them
+over the zero-read placeholder `{sample_id}.kraken2.report.txt` beside them.
+Before 2026-11 this path published no per-sample read pool and the entry took
+the cumulative file's stem as a sample called `barcode01.cumulative`, so
+on-demand validation after any default run found nothing (bug audit
+2026-11-06, finding 4).
+
+The merger publishes `batches/`, `batch_reports/` and `merge_stats.json`
+behind an `enabled:` gate that is THE SAME EXPRESSION as the subworkflow's
+branch condition (`kraken2_enable_incremental || realtime_mode ||
+batch_chunking`); keep them identical. Without the `realtime_mode` term a CLI
+real-time run at defaults classified incrementally and published no
+`batches/`, so a Continue restarted numbering at 0 (finding 17).
 
 ### Concurrency Parameters
 
@@ -102,7 +129,37 @@ outdir/kraken2/
 // Scalable streaming architecture (v1.5+)
 max_concurrent_batches   = 4    // ADVISORY (not enforced; see audit P2.9)
 max_classification_forks = 4    // Max parallel Kraken2 jobs (global cap, enforced via process maxForks)
+max_nanoplot_forks       = 2    // Max parallel NanoPlot jobs (global cap)
+max_qc_forks             = null // Max parallel read-filter/FastQC jobs; null = match max_classification_forks
 ```
+
+> Raising `max_classification_forks` above `max_cpus / 4` does nothing. The
+> per-task CPU request is `max(4, max_cpus / forks)` (`conf/modules.config`),
+> so past that point the tasks ask for more CPU than exists and the executor
+> admits fewer than the cap. Raise `--max_cpus` in the same proportion.
+>
+> `max_nanoplot_forks` exists because NanoPlot's real-time milestone rule fires
+> on each sample's FIRST file, so a run started after sequencing began -- where
+> the backlog delivers every barcode at once -- made one uncapped NanoPlot task
+> runnable per barcode against those barcodes' first classifications (audit
+> F2). Deferring that first milestone instead was rejected: a real-time run
+> never knows which batch is a sample's last, so any barcode receiving a single
+> file all run would get no NanoPlot at all.
+
+> `max_qc_forks` caps the read filter (CHOPPER, FASTP_STREAMING, FILTLONG) and
+> FASTQC. QC is UPSTREAM of classification, so on a start-up backlog every file
+> becomes a runnable QC task before any file can be classified: the classifier
+> was capped and its producer was not, so a classifier task became runnable
+> into a queue already holding every remaining QC task (audit F3). Unset, the
+> cap is `max_classification_forks` -- a QC task produces exactly one input for
+> one classifier task, so more QC in flight cannot raise classification
+> throughput and can only displace it. QC is left UNCAPPED under
+> `--skip_kraken2`, where there is no consumer to protect, and `SEQKIT_STATS`
+> is never capped: it asks 1 CPU and its per-batch output is the QC figure the
+> dashboard watches during a run. Like `max_classification_forks` the cap is
+> inert once it exceeds `max_cpus` divided by the task's own CPU request (4
+> by default, 6 under the `server` profile), and inert altogether on a 2-CPU
+> host.
 
 > `max_concurrent_batches` is logged for visibility but has no
 > enforcement effect today. Per-barcode backpressure is tracked under
@@ -218,32 +275,57 @@ proves isolation happened and nothing else.
 
 ### Key Modules (modules/local/)
 
-| Module                             | Purpose                                      |
-| ---------------------------------- | -------------------------------------------- |
-| `kraken2_incremental_classifier/`  | Classify only NEW reads per batch            |
-| `kraken2_output_merger/`           | Append-only batch storage with atomic index  |
-| `kraken2_report_generator/`        | Incremental taxid counting                   |
-| `kraken2_final_aggregator/`        | End-of-session concatenation                 |
-| `emit_empty_kraken2_report/`       | Placeholder report for samples with 0 reads  |
-| `fastp_streaming/`                 | FASTP wrapper for multi-file streaming input |
-| `extract_reads_by_taxid/`          | Extract reads for validation                 |
-| `blastn_validation/`               | BLAST validation                             |
-| `minimap2_validation/`             | Fast minimap2 validation                     |
-| `canonical_classification_writer/` | Kraken2 report to canonical TSV              |
-| `canonical_qc_writer/`             | FASTP/SeqKit metrics to canonical TSV        |
-| `canonical_validation_writer/`     | BLAST/minimap2 results to canonical TSV      |
-| `canonical_assembly_writer/`       | Assembly stats to canonical TSV              |
-| `manifest_writer/`                 | Generates \_manifest.json for canonical dir  |
+| Module                             | Purpose                                       |
+| ---------------------------------- | --------------------------------------------- |
+| `kraken2_incremental_classifier/`  | Classify only NEW reads per batch             |
+| `kraken2_output_merger/`           | Append-only batch storage, batch-id filenames |
+| `kraken2_report_generator/`        | Per-batch taxid counts                        |
+| `kraken2_final_aggregator/`        | End-of-session concatenation                  |
+| `emit_empty_kraken2_report/`       | Placeholder report for samples with 0 reads   |
+| `fastp_streaming/`                 | FASTP wrapper for multi-file streaming input  |
+| `extract_reads_by_taxid/`          | Extract reads for validation                  |
+| `blastn_validation/`               | BLAST validation                              |
+| `minimap2_validation/`             | Fast minimap2 validation                      |
+| `canonical_classification_writer/` | Kraken2 report to canonical TSV               |
+| `canonical_qc_writer/`             | FASTP/SeqKit metrics to canonical TSV         |
+| `canonical_validation_writer/`     | BLAST/minimap2 results to canonical TSV       |
+| `canonical_assembly_writer/`       | Assembly stats to canonical TSV               |
+| `manifest_writer/`                 | Generates \_manifest.json for canonical dir   |
 
 ### Library Utilities (lib/)
 
-| File                   | Purpose                                           |
-| ---------------------- | ------------------------------------------------- |
-| `InputDetector.groovy` | Type-agnostic input detection (FASTQ / directory) |
-| `BatchUtils.groovy`    | Batching utilities using `buffer()` operator      |
-| `WorkflowMain.groovy`  | Main workflow initialization                      |
-| `Utils.groovy`         | General utility functions                         |
-| `NfcoreSchema.groovy`  | Schema validation helpers                         |
+`WorkflowMain.groovy`, `Utils.groovy` and `NfcoreSchema.groovy` were listed
+here and do not exist; nine files that do were missing. Corrected 2026-10-27.
+
+| File                                   | Purpose                                                                     |
+| -------------------------------------- | --------------------------------------------------------------------------- |
+| `InputDetector.groovy`                 | Type-agnostic input detection; `extractSampleId` is the sample-id authority |
+| `BarcodeUtils.groovy`                  | Barcode extracted from a filename, zero-padded                              |
+| `BatchUtils.groovy`                    | Count-or-timeout batching, `interleaveFilesBySample`, `sampleKeyOf`         |
+| `CrossBatchInterleaver.groovy`         | Deficit round-robin across samples, stateful across batches                 |
+| `BatchChunkPlanner.groovy`             | Batch mode only: geometric chunking + cross-sample chunk order              |
+| `RealtimeIntake.groovy`                | Start-up listing, exclusions, file-age rule, seen-set                       |
+| `RealtimeResume.groovy`                | Continue into a populated outdir: the processed-input ledger                |
+| `CumulativeBatchAccumulator.groovy`    | Realtime validation: the whole batch set per key                            |
+| `ValidationSnapshotAccumulator.groovy` | Bounded live-aggregation snapshot state                                     |
+| `AssemblyReadAccumulator.groovy`       | When a sample's read pool is due another assembly                           |
+| `KreportTree.groovy`                   | Depth-first order and clade resolution for kreports                         |
+| `WorkflowNanometanf.groovy`            | Workflow initialisation helpers                                             |
+
+**Cross-sample fairness is keyed on the resolved sample id, not the parent
+directory.** `interleaveFilesBySample` and `CrossBatchInterleaver` both take
+the key as a required parameter and resolve it through `BatchUtils.sampleKeyOf`;
+`subworkflows/local/realtime_monitoring` builds ONE memoized resolver over
+`InputDetector.extractSampleId` and uses it for both interleavers and for
+`meta.id`, so the order fairness is computed on cannot drift from the id the
+processes see. The two keys agree only when the sample IS a directory:
+`extractSampleId` derives it from the FILENAME for a flat directory with
+`--sample_regex`, for a MinKNOW `fastq_pass/` of barcode-named files, and for
+per-file naming. Keying on the parent there collapsed every file into one group
+and degenerated to a name sort, which is sample-major -- measured at 461 of 480
+files before every sample had a first result, against 24 once keyed on the
+sample id. Do not reintroduce a parent-directory default
+([audit F1](docs/performance/realtime_many_barcodes_audit_2026-10-26.md)).
 
 ---
 
@@ -300,7 +382,9 @@ with open(batch_output_file, 'w') as f_out:
     for line in current_batch:
         f_out.write(line)
 
-# Atomic index update
+# Atomic rename is the idiom used for every state file the pipeline does
+# write (the cumulative report, the processed-input ledger). Note the modules
+# themselves keep no index: each output name carries its batch id instead.
 temp_index = outdir / f'index.{batch_id}.tmp'
 with open(temp_index, 'w') as f:
     json.dump(index, f)
@@ -312,7 +396,9 @@ os.rename(temp_index, existing_index_path)  # Atomic on POSIX
 **Pattern:** Accumulate counts in state file, avoid re-reading outputs.
 
 ```python
-# Load existing state
+# Load existing state. This accumulation lives in the classification
+# SUBWORKFLOW's head process (Groovy), not in a module: no module reads or
+# writes a cumulative taxid_counts.json.
 if taxid_state_file.exists():
     taxid_counts = json.load(open(taxid_state_file))
 
@@ -344,14 +430,27 @@ setup { "cat > $outputDir/test.csv ..." }
 
 ### 4. nf-core Module Maintenance
 
-Four nf-core modules have local modifications. See [nfcore_module_maintenance.md](docs/development/nfcore_module_maintenance.md) for full details.
+All 15 installed nf-core modules are at nf-core/modules `7b3452a` (2026-10-27;
+updated 2026-10-29 with nf-core/tools 4.2.1). Two carry a local modification,
+recorded as nf-core patch files (`modules.json` `patch` key), which
+`nf-core modules update` re-applies and reports when it cannot. See
+[nfcore_module_maintenance.md](docs/development/nfcore_module_maintenance.md)
+for the per-module record and the post-update checklist.
 
-| Module            | Modification                   | Update Strategy                                                           |
-| ----------------- | ------------------------------ | ------------------------------------------------------------------------- |
-| `blast/blastn`    | `export BLASTDB=${db}` env var | Protected in `.nf-core.yml` skip list. Re-apply after manual update.      |
-| `fastp`           | None (restored to upstream)    | Safe to update freely. Streaming handled by local `fastp_streaming/`.     |
-| `kraken2/kraken2` | Container SHAs, stub versions  | Run `nf-core modules update kraken2/kraken2` -- no functional divergence. |
-| `nanoplot`        | Stub hardcoded version         | Run `nf-core modules update nanoplot` -- upstream uses same convention.   |
+| Module     | Modification                                  | Why                                                        |
+| ---------- | --------------------------------------------- | ---------------------------------------------------------- |
+| `filtlong` | Multi-file input concatenated before the call | filtlong takes one positional file; a barcode dir has many |
+| `nanoplot` | `path(ontfile, stageAs: '?/*')`               | Chunked batch mode stages same-named chunks into one task  |
+
+Every installed module now emits its version on the `versions` topic and
+writes no `versions.yml`; `workflows/nanometanf.nf` collects both styles. A
+module moving to topic emission needs its `ch_versions.mix(X.out.versions)`
+line removed in the calling subworkflow or Nextflow fails at parse time.
+The nf-core `blast/*` modules were removed (installed, never included:
+validation uses `modules/local/blastn_validation`). The upstream module
+tests are excluded from CI (`tests/ci_excluded_tests.txt`, reason `nf-core`)
+and the pipeline no longer patches tags into them; run one directly with
+`nf-test test modules/nf-core/<module>/tests/main.nf.test`.
 
 ```bash
 nf-core lint
@@ -365,11 +464,45 @@ The test suite is designed to run in stub mode without Docker or external tools.
 
 **Test structure:**
 
-- **59 pipeline-level test functions** under `tests/*.nf.test` -- smoke tests,
-  scaling stubs, parameter validation, and the V4 ifEmpty regression cover
-- **23 module-internal test files** under `modules/local/*/tests/` -- stub-mode
+- **76 pipeline-level test functions** across 27 `tests/*.nf.test` files --
+  smoke tests, scaling stubs, parameter validation, the V4 ifEmpty regression
+  cover, and the 12-barcode backlog pair below
+- **29 module-internal test files** under `modules/local/*/tests/` -- stub-mode
   unit tests, three of which (output_merger, report_generator, final_aggregator)
   also exercise the real Python algorithm without containers
+- **15 pure-Groovy function suites** under `tests/lib/` -- no Nextflow runtime
+  beyond config loading, no containers, 80 cases. Run them with
+  `nf-test test tests/lib/`
+
+**Twelve barcodes is the smallest fixture that can show a fairness defect.**
+`tests/fixtures/barcode_backlog_12` is 12 barcodes x 3 files, all present
+before the run starts, generated reproducibly by
+`tests/fixtures/generate_fixtures.py --fixtures barcode_backlog_12` (seeded,
+`mtime=0`, 12 kB). It is driven from both sides, because a watchPath test
+cannot run on the ubuntu runner: `tests/multiplex_12_batch_chunking.nf.test`
+in CI and `tests/realtime_backlog_12_barcodes.nf.test` locally. The three task
+counts they pin are the three granularities a 36-file backlog can get -- 12
+(one per sample, unchunked batch), 24 (chunked, either mode), 36 (one per
+file, the real-time stream with chunking off) -- so a change that collapses
+one into another is visible. Before them nothing above three barcodes ran at
+any level, and the production default `enable_realtime_stats = true` had never
+run beside classification (audit F13).
+
+**CI runs an explicit allowlist, so a new test file is silent by default.**
+`.github/workflows/nf-test.yml` names each test file it runs. A file that is
+committed but unnamed is never executed and nothing says so: 41 of 101 files
+were in that state, two of them pure-function suites excluded only because
+their filenames begin with `realtime` (audit F13).
+`tests/lib/tests_are_wired.py` now runs before the suite and FAILS when a test
+file is neither in the allowlist nor in `tests/ci_excluded_tests.txt` with a
+reason code (`watchpath`, `nf-core`, `unverified`). It also fails on a stale
+exclusion, on a path both excluded and referenced, and when it finds nothing to
+check. **When you add a test file, add it to the workflow or record why not.**
+
+A `watchPath` test still cannot run on the ubuntu runner (the commons-io
+monitor thread leaks and the job hangs), so the realtime suite is a local
+development run and `tests/realtime_validation_e2e.nf.test` runs in the macOS
+job instead.
 
 **Required skip flags for pipeline tests:** All pipeline-level tests must include
 `skip_kraken2 = true` and `blast_validation = false` in their params blocks
@@ -498,6 +631,21 @@ Enforced at the schema level via a `oneOf` constraint
 - `--input_dir` - Unified directory scanning (v1.5+; replaces `barcode_input_dir`)
 - `--barcode_input_dir` - Deprecated, hidden in `--help`; use `--input_dir`
 - `--realtime_mode` + `--nanopore_output_dir` - Live FASTQ monitoring
+- `--validation_only` + `--kraken2_output_dir` + `--reads_dir` - Validate an
+  existing run's output without classifying (the GUI's on-demand check). A
+  sample is discovered from `kraken2/<sample>.kraken2.classified.fastq.gz`
+  plus the per-read output and report, in either the standard
+  (`<sample>.kraken2.*`) or the incremental (`<sample>.cumulative.kraken2.*`)
+  naming (`lib/ValidationOnlyInputs.groovy`); `--reads_dir` is only the
+  fallback read pool for outdirs without saved classified FASTQs. Its metas
+  carry no batch id, so the validation subworkflow's batch aggregator writes
+  `validation_results.json`; the live aggregator is armed by batched items
+  only (finding 5).
+  Since 1.12.0dev this entry runs `PIPELINE_INITIALISATION` like the main
+  one, so its parameters are schema-validated and `--help` / `--version`
+  work; it needs no `--kraken2_db` (`WorkflowNanometanf.initialise` skips
+  the database check in this mode). Until then the entry skipped
+  initialisation and only hand-written guards caught a missing path.
 
 ### Real-time Processing
 
@@ -507,12 +655,23 @@ Enforced at the schema level via a `oneOf` constraint
 - `--batch_size` - Files per batch (default: 10)
 - `--realtime_timeout_minutes` - Inactivity timeout
 - `--realtime_processing_grace_period` - Processing completion wait
+- `--realtime_settle_seconds` - A watched file still being written is handed on
+  once its size and mtime have been unchanged this long (default 2; 0 = at first
+  sighting). It delays, never drops: a file already quiet, including a start-up
+  backlog, is not delayed, and a file that never settles is passed after 30 s
+  (`RealtimeIntake.settle`; the former age FILTER dropped files and stalled runs)
 
 ### Scalable Streaming (v1.5+)
 
 - `--max_concurrent_batches` - Advisory only; not currently enforced (default: 4, see audit P2.9)
-- `--max_classification_forks` - Max parallel Kraken2 jobs (default: 4)
-- `--kraken2_enable_incremental` - Enable scalable streaming architecture
+- `--max_classification_forks` - Max parallel Kraken2 jobs (default: 4). A GLOBAL
+  cap, and inert above `max_cpus / 4` -- see the note under Concurrency Parameters
+- `--max_nanoplot_forks` - Max parallel NanoPlot jobs (default: 2)
+- `--max_qc_forks` - Max parallel read-filter/FastQC jobs. Unset matches
+  `max_classification_forks`; uncapped under `--skip_kraken2` -- see the note
+  under Concurrency Parameters
+- `--kraken2_enable_incremental` - Enable scalable streaming architecture. A
+  real-time run takes the incremental branch regardless of this flag
 
 ### Runtime metrics (audit V5)
 
@@ -607,13 +766,14 @@ gh pr create --title "Title" --body "Description"
 - **[nf-core Module Maintenance](docs/development/nfcore_module_maintenance.md)** - Local modification tracking
 - **[Real-time Processing](docs/user/realtime_processing.md)** - Advanced real-time guide
 - **[2026-05-29 options-sweep eval](docs/development/eval_2026-05-29_options_sweep.md)** - Benchmark across classifier modes, profiles, fork counts, realtime vs batch
+- **[2026-10-26 real-time capacity audit](docs/performance/realtime_many_barcodes_audit_2026-10-26.md)** - Many barcodes, fast data, and a late start: 19 findings, what was fixed, and one recommendation withdrawn on measurement. Re-runnable probes in [`docs/performance/scripts/`](docs/performance/scripts/)
 - [nf-core guidelines](https://nf-co.re/docs/contributing/guidelines)
 - [Nextflow documentation](https://www.nextflow.io/docs/latest/)
 
 ---
 
-**Last updated:** 2026-05-30
-**Version:** 1.6.0 (released 2026-08-15)
+**Last updated:** 2026-10-29
+**Version:** 1.12.0 (released 2026-11-24)
 **Maintainer:** foi-bioinformatics team (@andreassjodin)
 
 ### Recent changes (v1.5.0)

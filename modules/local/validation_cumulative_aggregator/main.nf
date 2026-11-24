@@ -87,18 +87,28 @@ identity_threshold = ${identity_threshold}
 min_reads = ${min_reads}
 min_breadth = ${min_breadth}
 
-def total_reads_of(path):
+def stats_of(path):
     if path and Path(path).exists() and Path(path).stat().st_size > 0:
         try:
-            return int(json.load(open(path)).get("total_reads", 0) or 0)
+            doc = json.load(open(path))
+            return doc if isinstance(doc, dict) else {}
         except Exception:
-            return 0
-    return 0
+            return {}
+    return {}
+
+batch_stats = [stats_of(p) for p in sorted(Path(".").glob("batch_stats_*"))]
 
 # total_reads is the per-batch classified-read count and is NOT in the PAF, so
 # sum it over the batch stats. Summing the batch set rather than carrying a
 # running total means a re-run of the same batch cannot inflate the figure.
-cum_total = sum(total_reads_of(p) for p in sorted(Path(".").glob("batch_stats_*")))
+cum_total = sum(int(d.get("total_reads", 0) or 0) for d in batch_stats)
+
+# The whole reference's length, as MINIMAP2_VALIDATION measured it from the
+# reference FASTA. The PAF names only the contigs that carried an alignment,
+# so the fallback below (summing distinct contig lengths in the merged PAF) can
+# only overstate breadth; it is used when no batch recorded the total.
+ref_total_from_stats = max(
+    [int(d.get("ref_total_length", 0) or 0) for d in batch_stats] or [0])
 
 seen = set()
 hits = 0
@@ -106,7 +116,13 @@ mapq_sum = 0.0; mapq_n = 0
 id_sum = 0.0; id_n = 0
 cov_sum = 0.0; cov_n = 0
 ref_max_len = 0; ref_max_name = ""
-intervals = []
+# Breadth intervals PER CONTIG. Merging every contig's intervals in one list
+# treats the reference as a single sequence -- position 500 of contig 2 counts
+# as already covered by position 500 of contig 1 -- and the result was divided
+# by the longest contig. Multi-contig references are the normal case, and
+# breadth is a conjunct of "confirmed".
+intervals_by_contig = {}
+contig_lengths = {}
 aligned_bp = 0
 
 with open("merged.paf") as fh:
@@ -121,12 +137,13 @@ with open("merged.paf") as fh:
         nmatch = int(cols[9]); alen = int(cols[10]); mapq = int(cols[11])
         if tlen > ref_max_len:
             ref_max_len = tlen; ref_max_name = tname
+        contig_lengths[tname] = max(contig_lengths.get(tname, 0), tlen)
         if mapq >= min_mapq:
             # Genome breadth intervals: every mapq-passing alignment
             # contributes (mirrors MINIMAP2_VALIDATION's awk, which adds
             # intervals before the per-read dedup).
             if tend > tstart and tend <= tlen:
-                intervals.append((tstart, tend))
+                intervals_by_contig.setdefault(tname, []).append((tstart, tend))
                 aligned_bp += tend - tstart
             if qname not in seen:
                 seen.add(qname)
@@ -145,26 +162,28 @@ with open("merged.paf") as fh:
                 if qlen > 0:
                     cov_sum += span / qlen; cov_n += 1
 
-# Genome breadth over the merged batch set: interval-merge, not additive --
-# the same measure MINIMAP2_VALIDATION emits per batch and nanometa_live's
-# paf_breadth() recomputes from the cumulative PAF.
+# Genome breadth over the merged batch set: interval-merge within each contig,
+# not additive -- the same measure MINIMAP2_VALIDATION emits per batch and
+# nanometa_live's paf_breadth() recomputes from the cumulative PAF.
 covered_bp = 0
-intervals.sort()
-cur_start = cur_end = None
-for s, e in intervals:
-    if cur_start is None:
-        cur_start, cur_end = s, e
-    elif s > cur_end:
+for contig in sorted(intervals_by_contig):
+    cur_start = cur_end = None
+    for s, e in sorted(intervals_by_contig[contig]):
+        if cur_start is None:
+            cur_start, cur_end = s, e
+        elif s > cur_end:
+            covered_bp += cur_end - cur_start
+            cur_start, cur_end = s, e
+        elif e > cur_end:
+            cur_end = e
+    if cur_start is not None:
         covered_bp += cur_end - cur_start
-        cur_start, cur_end = s, e
-    elif e > cur_end:
-        cur_end = e
-if cur_start is not None:
-    covered_bp += cur_end - cur_start
 
 if ref_max_name == "":
     ref_max_name = "unknown"; ref_max_len = 0
-genome_breadth = covered_bp / ref_max_len if ref_max_len > 0 else 0.0
+# Divided by the whole reference, not by its longest contig.
+breadth_denom = ref_total_from_stats or sum(contig_lengths.values())
+genome_breadth = covered_bp / breadth_denom if breadth_denom > 0 else 0.0
 local_depth = aligned_bp / covered_bp if covered_bp > 0 else 0.0
 # Amplicon-like coverage -- a small share of the genome at high local depth --
 # is legitimate and must stay confirmable. Same rule as the per-batch module
@@ -198,6 +217,8 @@ stats = {
     "validation_status": status,
     "ref_name": ref_max_name,
     "ref_length": ref_max_len,
+    "ref_total_length": breadth_denom,
+    "covered_bases": covered_bp,
     "parameters": {"preset": "${preset}", "min_mapq": ${min_mapq}},
 }
 with open("${prefix}.minimap2_stats.json", "w") as out:
@@ -307,7 +328,7 @@ END_VERSIONS
     if (method == 'minimap2') {
         """
         touch "${prefix}.paf"
-        echo '{"sample_id": "${meta.id}", "taxid": ${taxid}, "validation_method": "minimap2", "total_reads": 0, "mapped_reads": 0, "hit_rate": 0.0, "avg_mapq": 0.0, "avg_identity": 0.0, "avg_coverage": 0.0, "validation_status": "rejected", "ref_name": "unknown", "ref_length": 0, "parameters": {"preset": "map-ont", "min_mapq": 10}}' > "${prefix}.minimap2_stats.json"
+        echo '{"sample_id": "${meta.id}", "taxid": ${taxid}, "validation_method": "minimap2", "total_reads": 0, "mapped_reads": 0, "hit_rate": 0.0, "avg_mapq": 0.0, "avg_identity": 0.0, "avg_coverage": 0.0, "validation_status": "rejected", "ref_name": "unknown", "ref_length": 0, "ref_total_length": 0, "covered_bases": 0, "parameters": {"preset": "map-ont", "min_mapq": 10}}' > "${prefix}.minimap2_stats.json"
 
         cat <<-END_VERSIONS > versions.yml
 "${task.process}":

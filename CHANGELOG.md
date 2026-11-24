@@ -5,6 +5,458 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+## [1.12.0] - 2026-11-24
+
+Accepts every parameter shape Nanometa Live sends: a digit-only
+`--sample_name`, a single `--taxids_to_validate`, and a schema-validated
+`--validation_only` launch. Nanometa Live from the release after 0.19.0
+requires this version. On-demand validation finds its inputs after a default
+(incremental) run, real-time validation starts when each batch's report
+lands rather than at the end of the session, and genome breadth is computed
+per contig over the whole reference. Moves to nf-schema 3.0.0 and current
+nf-core modules.
+
+Real-time capacity for many barcodes and fast-arriving data, with the audit
+behind it in
+[`docs/performance/realtime_many_barcodes_audit_2026-10-26.md`](docs/performance/realtime_many_barcodes_audit_2026-10-26.md)
+and its re-runnable probes in `docs/performance/scripts/`.
+
+### Fixed
+
+- **The cumulative Kraken2 report keeps dot decimals in every locale.** The
+  progressive writer formatted its percent column with a bare
+  `String.format("%.2f", ...)`, which takes the JVM default locale, so a
+  Nextflow driver on a Swedish or German field laptop wrote `12,35`: Nanometa
+  Live parsed the whole percent column as NaN, silently, and
+  `bin/kreport_to_canonical.py` raised on `float()`. The formatting moved to
+  `KreportTree.formatPercent` / `formatRow` under `Locale.ROOT`, which is also
+  where the row layout now lives so the writer and any future caller cannot
+  drift. Pinned in `tests/lib/kreport_percent.nf.test`, which asserts a dot
+  under `sv_SE` and `de_DE` after checking that the bare format does yield a
+  comma there; re-verified end to end by running the real-time validation
+  end-to-end test with the JVM defaulted to Swedish.
+
+- **The fixture guard sees a fixture path that contains a space.**
+  `tests/lib/fixtures_are_tracked.py` matched a `$projectDir/...` reference
+  only up to the first whitespace and read `git ls-files` by splitting on
+  whitespace, so the `dir with space` samplesheet fixture added for the
+  schema fix below was recorded as `tests/fixtures/samplesheets/dir` and
+  would have passed the guard untracked. The parser now runs to the closing
+  quote (a comma or a whitespace run still ends an inline samplesheet row),
+  the tracked set is read NUL-separated, and a self-check of the parser runs
+  before every scan so a parser that stops short fails rather than passes.
+  Verified by untracking the fixture: the previous script passed, this one
+  names it.
+
+- **A samplesheet path containing a space is accepted.** The schema's `input`
+  pattern was `^\S+\.csv$`, which refuses any whitespace, while Nanometa Live
+  writes the samplesheet under the results folder and passes that path. A
+  results folder on a macOS external volume (`/Volumes/My Passport`) therefore
+  failed every single_sample, per_file and custom-folder by_barcode launch
+  before the pipeline started. The pattern checks the extension only;
+  `format: file-path` still checks that the file exists. Pinned in
+  `tests/parameter_validation.nf.test` against a committed fixture under a
+  directory with a space in its name.
+
+- **Real-time statistics no longer lose a batch to a publish-directory race.**
+  `REALTIME_STATISTICS` built `UPDATE_CUMULATIVE_STATS`'s input by reading
+  `realtime_stats/cumulative_state.json` out of `params.outdir` inside a
+  channel `.map`, which is not ordered against the task that writes that very
+  path, and the update was not serialised. Two batches finishing close
+  together -- the normal case on a start-up backlog -- both saw the same prior,
+  each published `prior + own`, and the later publish dropped the earlier
+  batch from the session totals the Reports tab shows. The update now receives
+  every snapshot of the session so far from `lib/BatchSeriesAccumulator.groovy`
+  (the pattern `CumulativeBatchAccumulator` already used for validation) and
+  recomputes the totals from that set, with `maxForks 1` so the most complete
+  result is also the last one published. Nothing in the module reads its own
+  publish directory. Pinned in `tests/lib/batch_series_accumulator.nf.test`,
+  `modules/local/update_cumulative_stats/tests/main.nf.test` and
+  `subworkflows/local/realtime_statistics/tests/main.nf.test`.
+
+- **`genome_breadth` is merged per contig and divided by the whole reference.**
+  Both breadth implementations -- the awk in `modules/local/minimap2_validation`
+  and the Python in `modules/local/validation_cumulative_aggregator` -- merged
+  every contig's intervals in one list, as if the reference were a single
+  sequence (position 500 of contig 2 counted as already covered by position 500
+  of contig 1), and divided the result by the LONGEST contig. Multi-contig
+  references are the normal case for a pathogen genome (chromosome plus
+  plasmids, or a draft in scaffolds) and breadth is a conjunct of the
+  `confirmed` verdict, so the error reached a verdict. The merge is now keyed
+  by target name (the PAF is sorted by name then start) and the denominator is
+  the reference's total length, measured from the reference FASTA and carried
+  to the cumulative aggregator in the batch stats as the new
+  `ref_total_length`; `covered_bases` is emitted alongside it so the figure is
+  auditable. `ref_name` / `ref_length` still describe the longest contig, which
+  is what the GUI labels its coverage plot with. Pinned by a two-contig case in
+  each module's tests (0.2333 against the old 0.2000, and 0.60 against the old
+  0.50).
+
+- **`assembly_scope: both` no longer collides on publish names, and a
+  real-time attempt keeps its own decision record.** FLYE, MINIASM and
+  `CANONICAL_ASSEMBLY_WRITER` named every artifact by `meta.id` alone, so a
+  sample assembled at both scopes published its whole-sample and its
+  per-organism assembly to the same path and one overwrote the other. Their
+  `ext.prefix` now carries the scope and the taxid (`<sample>.targeted.taxid<N>`);
+  the metagenome scope keeps the bare sample name, so a single-scope run's
+  names are unchanged. `ASSEMBLY_DEPTH_GATE` likewise wrote one
+  `<sample>[.taxid<N>].assembly_decision.json` per key, so in a real-time run
+  each attempt overwrote the record of every earlier one; the record carries
+  the attempt number in real time and keeps the documented batch-mode name,
+  which is the one Nanometa Live reads. Pinned in
+  `subworkflows/local/assembly/tests/main.nf.test`.
+
+- **The multi-sample NanoPlot comparison survives an empty QC channel.**
+  `workflows/nanometanf.nf` destructured `ch_qc_reads` with a bare
+  `.map { meta, reads -> reads }` -- the one `.ifEmpty([])` consumer the PR #11
+  pass missed. With `--enable_nanoplot_comparison` and every QC task skipped or
+  isolated, the sentinel reached that map and aborted the run with
+  "Invalid method invocation `call` with arguments: []" instead of continuing
+  without the comparison. The standard filter now precedes the map; pinned in
+  `tests/ifempty_sentinel_regression.nf.test`.
+
+- **An isolated BLAST or minimap2 failure leaves a lost-input marker.** Both
+  validators are isolated on exit 1/2 by `conf/error_isolation.config` and were
+  the only isolated processes without the `afterScript` marker, so a failed
+  confirmation left no record anywhere: the organism simply had no result. They
+  now write the same marker the QC, classification and assembly processes do,
+  naming the extracted per-taxid FASTQ.
+
+- **Extracted per-taxid reads are kept per batch in real time.** Every batch of
+  a (sample, taxid) writes the same `<sample>_taxid<N>` names, so each batch's
+  extraction overwrote the last under `validation/extracted_reads/` and what
+  was published was one batch's reads rather than the organism's. The publish
+  suffixes the batch id when `meta.batch_id` is set, mirroring the BLASTN and
+  MINIMAP2 per-batch publishes (`!= null`, so batch 0 is not treated as absent).
+
+- **The backlog-chunking notice tests the resolved setting.** The log line that
+  explains chunking is off because `--max_files` is set tested the raw
+  `params.realtime_backlog_chunking`, which is null for the default (chunking
+  on) and truthy for the string `"false"`, so the message was absent exactly
+  when the default was in force and present when chunking had been switched
+  off anyway. It now tests the same resolved boolean the decision uses.
+
+- **A real-time Continue no longer reclassifies and double counts the
+  start-up backlog.** Backlog chunking (the default) classifies the start-up
+  listing in chunks of several files, and the processed-input ledger
+  (`pipeline_info/processed_inputs.tsv`) recorded each chunk as ONE line
+  holding its files joined with commas. The intake compares single paths
+  against the ledgered set, so nothing matched, the whole backlog was
+  classified again, and -- the accumulator being seeded from the previous
+  run's per-batch counts as well -- every one of those reads was counted
+  twice. A chunk's meta now carries its files as a list and
+  `RealtimeResume.recordProcessedInput` writes one line per file. Pinned in
+  `tests/lib/realtime_resume.nf.test` (bug audit 2026-11-06, finding 3).
+- **On-demand validation finds its inputs after a default run.** The
+  incremental classifier path -- real time, chunked batch mode (the default)
+  and `kraken2_enable_incremental`, i.e. every run Nanometa Live starts --
+  published no per-sample read pool and no flat per-read output under the
+  names the `--validation_only` entry discovers samples from, so every
+  on-demand validation after such a run finished having validated nothing
+  ("skipping sample ... has only one of the two required Kraken2 outputs").
+  `KRAKEN2_FINAL_AGGREGATOR` now pools the per-batch classified FASTQs into
+  `kraken2/<sample>.kraken2.classified.fastq.gz` (the name `KRAKEN2_KRAKEN2`
+  publishes; `save_output_fastqs` only; on a Continue the previous run's
+  pool is pooled too), and the entry reads the end-of-session
+  `<sample>.cumulative.kraken2.output.txt` / `.cumulative.kraken2.report.txt`
+  as the sample's files (`lib/ValidationOnlyInputs.groovy`), preferring them
+  over the zero-read placeholder report beside them. Pinned in
+  `tests/validation_only_discovery.nf.test` (incremental-layout fixture),
+  `tests/lib/validation_only_inputs.nf.test`, the aggregator's module test
+  and `subworkflows/local/taxonomic_classification/tests/gui_filename_compatibility.nf.test`
+  (finding 4, pipeline side; the GUI's own reader is a Nanometa Live change).
+- **`--validation_only` writes an aggregate with results in it.** Which
+  aggregator writes `validation_results.json` was keyed on `realtime_mode ||
+batch_chunking`, so a validation-only run under the default chunking took
+  the live path; its metas carry no batch id, the cumulative aggregators
+  (gated on `meta.batch_id`) never ran, and `AGGREGATE_VALIDATION_LIVE`
+  wrote `results: {}` over the main run's aggregate while every per-pair
+  result sat on disk. The choice is now made by the items: the live path is
+  armed by the first batched item and `AGGREGATE_VALIDATION_RESULTS` runs
+  when the inputs close without one. Verified with a real `--validation_only`
+  run on `tests/fixtures/validation_only` (barcode01/562 present in the
+  aggregate); the stub test asserts which aggregator ran (finding 5).
+- **A CLI real-time run at defaults publishes `kraken2/<sample>/batches/`.**
+  `KRAKEN2_OUTPUT_MERGER`'s publish gate lacked the `realtime_mode` term the
+  subworkflow's branch condition has, so a real-time run started without
+  `--kraken2_enable_incremental` classified incrementally but published no
+  batch files; the resume scan reads only that directory, so a Continue
+  restarted numbering at 0 and the final aggregate held run 2 alone. The
+  gate is now the same expression as the branch condition, and both say so.
+  GUI runs were unaffected (the GUI sends the flag). Pinned at subworkflow
+  level in `gui_filename_compatibility.nf.test` (finding 17).
+- **`KRAKEN2_FINAL_AGGREGATOR` is never handed a null path side.** The
+  outputs/reports join uses `remainder: true`, and a sample whose previous
+  run left only one of `batches/` and `batch_reports/` reached the module
+  with `null` for the other. Such a sample is now skipped with a warning
+  naming it: with the outputs missing the module would have published an
+  empty cumulative per-read output, and with the reports missing an empty
+  cumulative report, over the files the previous run wrote (finding 31).
+- **`--validation_only` validates its parameters.** The validation-only entry
+  skipped `PIPELINE_INITIALISATION`, so nf-schema never saw its parameters: a
+  missing `--kraken2_output_dir` fell through to hand-written guards, a
+  mistyped value was never reported, and `--help` / `--version` did nothing in
+  that mode. Initialisation now runs before both entry workflows, and the
+  schema names validation-only as the fifth input mode (`--validation_only`
+  with `--kraken2_output_dir` and `--reads_dir`, exactly one mode at a time;
+  `WorkflowNanometanf.validateInputModes` agrees). Pinned in
+  `tests/parameter_validation.nf.test`.
+- **A digit-only `--sample_name` is accepted and kept verbatim.** The same
+  nf-schema cast that refused a single taxid refused `--sample_name 007`.
+  The schema accepts string or integer and both call sites pass the value
+  to `InputDetector.extractSampleId` as a String, so the sample keeps its
+  exact name, leading zero included. Pinned in `tests/input_scanner.nf.test`
+  and `tests/parameter_validation.nf.test`.
+
+- **A single taxid is accepted by `--taxids_to_validate`.** nf-schema 2.7.2+
+  casts a digit-only command-line or params-file string to an integer before
+  it checks the type, so the string-only schema type refused
+  `--taxids_to_validate 562` -- the shape Nanometa Live sends for a run with
+  one watched organism, and what `tests/realtime_validation_e2e.nf.test`
+  passes. The schema now accepts string or integer; the validation
+  subworkflow already coerces to string. Caught by the macOS real-time e2e
+  job on the first CI run of this branch; `tests/parameter_validation.nf.test`
+  carries the stub-mode cover.
+
+- **A lost-input marker names the staged files again when the module stages
+  them in a subdirectory.** `bin/nanometanf_lost_input_marker.sh` listed
+  symlinks in the task directory only; nf-core/chopper (since its 2026-10-29
+  update) stages its input under `input/`, ASSEMBLY_READ_POOL under
+  `pool_input*/` and FASTQC / NANOPLOT under indexed `?/` directories, so a
+  CHOPPER failure wrote `"input_files": []` and the report's lost-input
+  clause would have named no file. The marker now looks one level down as
+  well; pinned by `tests/failure_paths.nf.test`.
+
+- **QC benchmarking could not start.** `subworkflows/local/qc_benchmark`
+  called the single `FASTQC` and `SEQKIT_STATS` includes once per benchmarked
+  tool, which Nextflow refuses at parse time ("Process 'QC_BENCHMARK:FASTQC'
+  was called twice"), so `--enable_qc_benchmark` aborted every run. Each tool
+  now has its own aliased instance (`FASTQC_FASTP`, `SEQKIT_STATS_CHOPPER`,
+  ...) and the FASTQC / SEQKIT_STATS resource and `ext.args` selectors in the
+  configs cover the aliases. Behind that parse error sat a second one: both
+  FILTLONG calls passed `null` for the short-read slot, which a `path` input
+  refuses ("Path value cannot be null"); they pass `[]` as qc_analysis does.
+  Nothing had run this subworkflow: its test file was excluded from CI as
+  unverified.
+
+- **`conf/cloud.config` and `conf/cluster.config` parse again under
+  Nextflow 26.** The strict config parser rejected bare `${ENV_VAR}`
+  references (now `env('...')`), `def` variables beside config statements
+  (the singularity bind test is inlined) and `task` inside an `executor`
+  `jobName` closure (dropped; Nextflow's default job name already carries
+  the process name and index). Neither file is a registered profile, so no
+  default launch was affected.
+
+- **The five test files excluded from CI as "unverified" are verified and
+  wired in.** `subworkflows/local/assembly/tests` is rewritten against the
+  subworkflow's two-input interface (whole-sample reads plus per-organism
+  reads with a reference) in stub mode: eight cases covering metagenome,
+  targeted and both scopes, batch grouping of chunked emissions, miniasm,
+  empty input and an unsupported assembler. `subworkflows/local/qc_benchmark/tests`
+  drops an assertion on a `workflow.duration` property nf-test does not
+  have, and two of its real-execution cases run in CI. The consensus
+  validation, cumulative-aggregator and validation-only-discovery files
+  passed as written. `tests/ci_excluded_tests.txt` carries no `unverified`
+  entry any more.
+
+- **Every local subworkflow's `meta.yml` lists the modules it includes**
+  (`components:`), clearing the `meta_include` lint warnings.
+
+- **A file still being written when the watcher reports it is held until
+  it stops changing.** watchPath hands a path on at `create`; a producer
+  that writes in place (MinKNOW appending reads, a copy in progress) was
+  staged into CHOPPER mid-write, the truncated gzip exited 1, error
+  isolation absorbed it and the file was never retried this run (Nanometa
+  Live field audit 2026-10-28, H7). `RealtimeIntake.settle` delays such a
+  file until its size and mtime have been quiet for
+  `--realtime_settle_seconds` (default 2), never drops it (the former age
+  filter dropped and stalled runs: audit F6), passes a file that never
+  settles after 30 s, and does not delay a file already quiet when first
+  seen, which is every file of a start-up backlog. Pinned in
+  `tests/lib/realtime_intake_settle.nf.test`.
+
+- **A real-time batch is validated when its report lands, not when the run
+  ends.** The clade lookup paired each extraction task with "the sample's
+  report" through a bare `groupTuple()`, which flushes only when its source
+  closes; a real-time report channel closes when the watcher ends, so every
+  `EXTRACT_READS_BY_TAXID` task of the whole run was held until the session
+  closed and BLAST/minimap2 fired in one burst at the end. Nanometa Live's
+  Validation tab stayed empty for the entire live run (field audit
+  2026-10-28, H2; introduced with the 2026-09-04 clade extraction). The
+  remainder join that followed also matched the one grouped report to the
+  first batch only and gave every later batch a null report. Reports are
+  now keyed per `(sample, batch_id)` with the streaming `unique` and paired
+  with `combine(by:)`, so a batch's extractions start when its own report
+  is published. `subworkflows/local/validation/tests/main.nf.test` pins
+  it: with batch 1's report delayed 25 s, batch 0's minimap2 step runs
+  before batch 1's extraction starts.
+
+- **Cross-sample fairness is keyed on the resolved sample id, not the parent
+  directory.** The two agree only when the sample IS a directory;
+  `InputDetector` derives it from the FILENAME for a flat directory with
+  `--sample_regex`, for a MinKNOW `fastq_pass/` of barcode-named files and for
+  per-file naming. Measured over a 24-sample, 480-file backlog: 461 files had
+  to be classified before every sample had a first result, against 24 once
+  keyed on the sample id, and the first ten files went from one sample to ten.
+- **A compile break on the strict v2 parser.** Local closures are invoked
+  through `.call(...)`; `scan_existing(true)` fails the whole script with
+  "is not defined", which takes down every pipeline that includes the real-time
+  subworkflow.
+- **The canonical classification sidecar no longer labels a cumulative
+  aggregate as a per-batch increment.** `meta.is_cumulative` was read in one
+  place and set nowhere, so every sidecar said `false` -- including the
+  end-of-session aggregate, which is the only canonical classification output a
+  real-time run produces. A consumer that believed the field would have summed
+  cumulative snapshots.
+
+### Added
+
+- `realtime_backlog_chunking` (default true): a run started after sequencing
+  began plans its start-up backlog as geometric chunks ordered across samples,
+  using the same planner batch mode uses. Measured 4 files to 3 QC tasks, with
+  a control case. The live watcher stream is unchanged and stays per file.
+  Ignored when `--max_files` is set, which counts files.
+- `max_nanoplot_forks` (default 2): NanoPlot's milestone rule fires on each
+  sample's first file, so a late-started backlog made one uncapped task
+  runnable per barcode against those barcodes' first classifications.
+- `max_qc_forks`: the read filter (CHOPPER, FASTP_STREAMING, FILTLONG) and
+  FastQC now carry a `maxForks`. QC sits upstream of classification, so on a
+  backlog every file became a runnable QC task before any file could be
+  classified -- the classifier was capped since v1.5 and its producer was not,
+  so a classifier task became runnable into a queue already holding every
+  remaining QC task. Unset it matches `max_classification_forks` (a QC task
+  produces exactly one input for one classifier task), and QC stays uncapped
+  under `--skip_kraken2`, where there is no consumer to protect. Inert on a
+  small host: one 4-CPU task is already all a 2-CPU executor admits.
+- `tests/fixtures/barcode_backlog_12` and the two tests that drive it: 12
+  barcodes x 3 files, all present before the run starts, which is the shape no
+  fixture in the suite had (the previous maximum was three barcodes, so a
+  sample-major order and a fair one looked alike). The batch-mode case runs in
+  CI; the real-time case, which also covers the production default
+  `enable_realtime_stats = true` beside classification for the first time, is
+  verified locally because a watchPath test hangs the ubuntu runner. Between
+  them they pin the three granularities a 36-file backlog can get: 12 tasks
+  (one per sample), 24 (chunked) and 36 (one per file).
+- `tests/lib/tests_are_wired.py`, run before the suite: CI runs an explicit
+  allowlist, so a committed-but-unlisted test file never ran and nothing said
+  so. 41 of 101 files were in that state, two of them pure-function suites
+  excluded only for beginning with "realtime". Six suites now run, taking CI
+  from 60 to 66 test files, and an unlisted file is a build failure.
+
+### Changed
+
+- **nf-schema 3.0.0 and the nf-core/modules master `utils_*` subworkflows.**
+  Version 1.12.0dev. nf-schema 3.0.0 (requires Nextflow >= 26.04.0, the
+  existing floor) removes help-from-config, the positional `workflow`
+  argument of `paramsSummaryMap` / `paramsSummaryLog`, and the deprecated
+  `failUnrecognisedParams` / `failUnrecognisedHeaders`; the three nf-core
+  utility subworkflows move from the 4.2.1 template's pins to nf-core/modules
+  `7b3452a`, whose `utils_nfschema_plugin` is written for 3.0.0, and the two
+  local `paramsSummaryMap` calls drop the positional. `validation.logging`
+  is set explicitly to `warn` for unrecognised parameters and headers, the
+  default and the deliberate choice (Nanometa Live checks its vocabulary
+  before launching). `--help_full` and `--show_hidden` as bare CLI flags
+  reach `paramsHelp()` as the String "true" before nf-schema casts CLI
+  parameters, and 3.0.0 casts `showHidden` to Boolean unchecked (fixed
+  upstream in 3.1.0); the pipeline-utils subworkflow coerces both flags.
+  Validation semantics are unchanged from 2.7.x (values that are `false`
+  are validated; CLI parameters are cast to their schema types).
+  Verified: `--help`, `--help_full --show_hidden`, `--help input`,
+  `--version`; a GUI-shaped real-time stub launch from a typed
+  `-params-file`; the error wording Nanometa Live's log scanner matches
+  ("Validation of pipeline parameters failed", "Missing required
+  parameter(s)") is unchanged. This puts the pipeline one step ahead of the
+  nf-core 4.2.1 template, which still pins 2.7.3.
+
+- **Synced by hand to the nf-core 4.2.1 pipeline template** (`.nf-core.yml`
+  `nf_core_version: 4.2.1`; the repository has no TEMPLATE branch for
+  `nf-core pipelines sync`). nf-schema 2.6.1 -> 2.7.3; the three `utils_*`
+  subworkflows at the template's pinned commits; `PIPELINE_INITIALISATION`
+  takes `help`, `help_full` and `show_hidden` and the schema subworkflow
+  renders the help text (the `validation.help` config block is gone);
+  `PIPELINE_COMPLETION` no longer takes `hook_url`, and the parameter, the
+  `imNotification` call and the Slack/Teams card assets are removed, as in
+  the template. `--help`, `--help_full --show_hidden` and `--version` verified.
+  The parameter schema drops `default: false` from its 20 boolean parameters
+  (nf-core schema lint advice; `nextflow.config` still sets them) and
+  `manifest.diagram` points at a new `docs/images/nanometanf_metro_map.svg`.
+  nf-schema 2.7.0 stopped skipping parameters whose value is `false`, so a
+  string parameter set to `false` now fails validation: the 34 `input = false`
+  lines across 15 test files are `input = null` (the pipeline's own default),
+  and a launch that needs to cancel a profile's `input` does the same.
+  Nanometa Live never sends a boolean for a non-boolean parameter (checked
+  against the schema for the real-time, by-barcode and single-sample
+  launches), so GUI runs are unaffected.
+
+- **nf-core modules brought to nf-core/modules `7b3452a` (2026-10-27) with
+  nf-core/tools 4.2.1.** Tool versions move: chopper 0.12.0b -> 0.14.1 (now
+  piped through pigz, which upstream bundles, so the local gzip pin and
+  `gunzip -c` workaround are retired), fastp 1.1.0 -> 1.4.0, fastqc
+  0.12.1 -> 0.13.0 (upstream adopted the indexed-staging input this pipeline
+  patched in, so that patch is gone too), nanoplot 1.46.1 -> 1.48.0, seqkit
+  2.9.0 -> 2.13.0, minimap2 2.29 -> 2.30 with samtools 1.23.1, multiqc
+  1.34 -> 1.35. FILTLONG, PORECHOP_PORECHOP, NANOPLOT and TAXPASTA_STANDARDISE
+  now emit their versions on the `versions` topic like the rest, and the
+  calling subworkflows no longer mix a `.out.versions` channel that no longer
+  exists. Two local modifications remain and are re-recorded as nf-core
+  patches: filtlong's multi-file concatenation and nanoplot's indexed
+  staging. The never-included nf-core `blast/blastn` and `blast/makeblastdb`
+  modules are removed (validation uses the local `blastn_validation`), and
+  the per-module patches that only added `tag "fast"`/`tag "stub"` to
+  upstream tests are dropped: those tests are excluded from CI as
+  upstream-maintained. `docs/development/nfcore_module_maintenance.md` is
+  rewritten around the post-update checklist.
+
+- `SEQKIT_STATS` and `FASTP_STREAMING` are sized for what they do: they
+  inherited 12 GB and 36 GB resource labels, and `withName:'FASTP'` never
+  matched the streaming wrapper. Set in `conf/base.config` so the platform
+  profiles still override, and the profiles now cover `FASTP_STREAMING` too.
+- `kraken2_task_memory_gb = 2` in the `minion`, `promethion_8`, `promethion`
+  and `server` profiles. With memory mapping the index is shared, so an extra
+  fork costs about 50 MB plus 25 MB per thread -- measured flat from a 619 MB
+  index to an 8 GB one. `promethion_8` asked for four classifier forks and the
+  executor admitted three; `minion` reserved its whole 64 GB budget for one
+  classifier, leaving nothing for QC. The global default stays unset, because
+  a cgroup-limited executor is charged for mapped page cache.
+- The start-up re-sweep runs on a daemon Timer instead of a `Thread.sleep`
+  inside a `flatMap`, which held a shared operator-pool thread for ten seconds
+  while the whole backlog flowed through the operator chain.
+- The nf-core lint pin moves from `==3.5.2` to `>=4.2.1`, and 4.2.1 does clear
+  the `rocrate.py` crash that motivated the pin: lint runs to completion and
+  passes. Two consequences came with it. The lint job's own `NXF_VER` pin is
+  gone, because 4.2.1 runs `nextflow config -o json` and 26.04.0 rejects it
+  (exit 1 against 0 on 26.10.4) -- that pin was the linter's toolchain, not the
+  floor the pipeline parses under, which the manifest asserts. And
+  `conf/containers_conda_lock_files_{amd64,arm64}.config` are regenerated:
+  3.5.2's generator wrote the conda-lock file to `container =` where 4.2.1
+  writes `conda =`. Nothing includes either file, so no run was affected.
+- The `Singularity profile and image cache naming` job is pinned to
+  `ubuntu-24.04`. `ubuntu-latest` became 26.04 in October 2026 and apptainer's
+  published .deb depends on `libfuse3-3`, which 26.04 does not carry, so the
+  job failed at `apt` before any assertion ran.
+
+### Documentation
+
+- Corrected parameter tables that gave wrong defaults for
+  `max_classification_forks` and `kraken2_enable_incremental` and listed a
+  `--kraken2_sync_interval` that has never existed; `max_concurrent_batches` is
+  marked advisory where two tables still called it enforced.
+- The real-time output tree no longer shows a per-sample `index.json` or
+  cumulative `taxid_counts.json`: neither is written by any module.
+- `report_write_interval` is described by measurement: the rebuild it thins is
+  76-79% of a section serialised across all barcodes, about 14 s for 24
+  barcodes at 3,000 taxa.
+- Three findings were withdrawn, revised or closed on measurement rather than
+  implemented: resetting the batch-timeout timer measured worse on both mean
+  and maximum wait; the serialised dashboard write is tens of seconds across a
+  run rather than the ceiling the audit first claimed; and per-sample QC
+  grouping in real time turned out to have almost nothing left to group --
+  FastQC does not run in real time by default, NanoPlot's milestone rule
+  already yields one task per sample at the default interval, and SEQKIT_STATS
+  must stay per batch because its output is a contract nanometa_live reads.
+
 ## [1.11.0] - 2026-09-09
 
 Every barcode gets a preliminary result before any barcode gets its final

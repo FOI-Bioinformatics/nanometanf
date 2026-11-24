@@ -27,7 +27,8 @@ nextflow_process {
                 input[0] = [
                     [ id: 'sample1', batch_count: 1 ],
                     [ file("${outputDir}/batch_001.kraken2.output.txt") ],
-                    [ file("${outputDir}/batch_001.kraken2.report.txt") ]
+                    [ file("${outputDir}/batch_001.kraken2.report.txt") ],
+                    []
                 ]
                 """
             }
@@ -39,7 +40,67 @@ nextflow_process {
                 { assert process.out.cumulative_output },
                 { assert process.out.cumulative_report },
                 { assert process.out.stats },
+                // No classified FASTQ staged (save_output_fastqs off): no pool.
+                { assert process.out.classified_pool.size() == 0 },
                 { assert snapshot(process.out.versions).match() }
+            )
+        }
+    }
+
+    test("real execution - per-batch classified FASTQs are pooled, previous pool first") {
+        // The flat kraken2/<sample>.kraken2.classified.fastq.gz is what
+        // --validation_only discovers samples from; the incremental path
+        // published no such file until 2026-11 (bug audit, finding 4). gzip
+        // members concatenate into one valid stream, so the pool is the
+        // files joined in order: a previous run's pool (no batch index)
+        // first, then the batches by numeric index -- batch_10 after
+        // batch_2, not between batch_1 and batch_2.
+        options ""
+
+        tag "real_execution"
+
+        setup {
+            file("${outputDir}/pool").mkdirs()
+            file("${outputDir}/pool/batch_0.kraken2.output.txt").text = 'C\tread1\t9606\t100\t9606:1\n'
+            file("${outputDir}/pool/batch_0.kraken2.report.txt").text = '100.00\t1\t1\tS\t9606\tHomo sapiens\n'
+            def gz = { String path, String text ->
+                def out = new java.util.zip.GZIPOutputStream(new FileOutputStream(path))
+                out.write(text.getBytes('UTF-8'))
+                out.close()
+            }
+            gz("${outputDir}/pool/s1.kraken2.classified.fastq.gz", "@prior\nA\n+\n!\n")
+            gz("${outputDir}/pool/s1_batch2.classified.fastq.gz", "@b2\nC\n+\n!\n")
+            gz("${outputDir}/pool/s1_batch10.classified.fastq.gz", "@b10\nG\n+\n!\n")
+            gz("${outputDir}/pool/s1_batch1.classified.fastq.gz", "@b1\nT\n+\n!\n")
+        }
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id: 's1', batch_count: 1 ],
+                    [ file("${outputDir}/pool/batch_0.kraken2.output.txt") ],
+                    [ file("${outputDir}/pool/batch_0.kraken2.report.txt") ],
+                    [
+                        file("${outputDir}/pool/s1_batch10.classified.fastq.gz"),
+                        file("${outputDir}/pool/s1.kraken2.classified.fastq.gz"),
+                        file("${outputDir}/pool/s1_batch2.classified.fastq.gz"),
+                        file("${outputDir}/pool/s1_batch1.classified.fastq.gz")
+                    ]
+                ]
+                """
+            }
+        }
+
+        then {
+            def pool = process.out.classified_pool.get(0).get(1)
+            def reader = new BufferedReader(new InputStreamReader(
+                new java.util.zip.GZIPInputStream(new FileInputStream(pool.toString()))))
+            def headers = reader.readLines().findAll { it.startsWith('@') }
+            assertAll(
+                { assert process.success },
+                { assert pool.toString().endsWith('/s1.kraken2.classified.fastq.gz') },
+                { assert headers == ['@prior', '@b1', '@b2', '@b10'] }
             )
         }
     }
@@ -91,7 +152,8 @@ nextflow_process {
                     [
                         file("${outputDir}/batch_0.kraken2.report.txt"),
                         file("${outputDir}/batch_1.kraken2.report.txt")
-                    ]
+                    ],
+                    []
                 ]
                 """
             }
@@ -190,7 +252,8 @@ nextflow_process {
                     [
                         file("${outputDir}/tree/batch_0.kraken2.report.txt"),
                         file("${outputDir}/tree/batch_1.kraken2.report.txt")
-                    ]
+                    ],
+                    []
                 ]
                 """
             }

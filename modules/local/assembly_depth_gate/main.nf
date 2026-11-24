@@ -28,7 +28,7 @@ process ASSEMBLY_DEPTH_GATE {
     def args = task.ext.args ?: ''
     def scope = meta.assembly_scope ?: 'metagenome'
     def taxid_arg = meta.taxid ? "--taxid ${meta.taxid}" : ''
-    def prefix = task.ext.prefix ?: (meta.taxid ? "${meta.id}.taxid${meta.taxid}" : "${meta.id}")
+    def prefix = task.ext.prefix ?: decisionPrefix(meta)
     // 'NO_REFERENCE' is the staged placeholder for a whole-sample assembly,
     // which has no single genome to divide by.
     def ref_arg = (reference && reference.name != 'NO_REFERENCE') ? "--reference ${reference}" : ''
@@ -55,7 +55,7 @@ process ASSEMBLY_DEPTH_GATE {
     """
 
     stub:
-    def prefix = task.ext.prefix ?: (meta.taxid ? "${meta.id}.taxid${meta.taxid}" : "${meta.id}")
+    def prefix = task.ext.prefix ?: decisionPrefix(meta)
     """
     echo '{"schema_version":"1.0.0","sample_id":"${meta.id}","decision":"attempt","reason":"attempt","reason_text":"stub"}' \\
         > "${prefix}.assembly_decision.json"
@@ -66,4 +66,16 @@ process ASSEMBLY_DEPTH_GATE {
         python: \$(python3 --version | sed 's/Python //')
     END_VERSIONS
     """
+}
+
+
+// <sample>[.taxid<N>] in batch mode -- the record name Nanometa Live documents
+// -- and <sample>[.taxid<N>].attempt<K> in real time, where one key is gated
+// once per assembly attempt and every attempt's record used to overwrite the
+// previous one. The GUI reads the record by its *.assembly_decision.json
+// suffix and takes sample, taxid, scope and attempt from the JSON itself.
+def decisionPrefix(Map meta) {
+    def base = meta.taxid ? "${meta.id}.taxid${meta.taxid}" : "${meta.id}"
+    def realtime = params.realtime_mode as boolean
+    return (realtime && meta.assembly_attempt != null) ? "${base}.attempt${meta.assembly_attempt}" : base
 }

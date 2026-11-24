@@ -153,6 +153,39 @@ class KreportTree {
     }
 
     /**
+     * The percent column of a Kraken2 report row, as Kraken2 writes it.
+     *
+     * Formatted under Locale.ROOT on purpose. String.format without a Locale
+     * takes the JVM default, so a Nextflow driver on a Swedish or German
+     * laptop wrote "12,35": every reader of the cumulative report then parsed
+     * the whole percent column as NaN (nanometa_live) or raised on float()
+     * (bin/kreport_to_canonical.py). A kreport is a machine-readable file and
+     * its decimal separator is the dot, whatever the operator's locale.
+     *
+     * @param cumul  cumulative reads at the node
+     * @param total  total reads in the report; 0 or null is treated as 1
+     * @return       the share as a two-decimal string with a dot separator
+     */
+    static String formatPercent(Object cumul, Object total) {
+        double t = (total == null || (total as double) == 0.0d) ? 1.0d : (total as double)
+        double c = cumul == null ? 0.0d : (cumul as double)
+        return String.format(java.util.Locale.ROOT, "%.2f", (c / t) * 100.0d)
+    }
+
+    /**
+     * One Kraken2 report row, tab separated and newline terminated.
+     *
+     * @param taxid  the row's taxid
+     * @param tdata  map carrying cumul, reads, rank and name (name indented)
+     * @param total  total reads in the report
+     * @return       "pct\tcumul\treads\trank\ttaxid\tname\n"
+     */
+    static String formatRow(Object taxid, Map tdata, Object total) {
+        def pct = formatPercent(tdata.cumul, total)
+        return "${pct}\t${tdata.cumul}\t${tdata.reads}\t${tdata.rank}\t${taxid}\t${tdata.name}\n"
+    }
+
+    /**
      * Depth-first taxid order over a merged taxa map.
      *
      * @param taxa  map of taxid -> map carrying at least `cumul` (number) and

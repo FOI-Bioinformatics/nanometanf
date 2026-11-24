@@ -35,4 +35,14 @@ output:
       type: file
       description: Software versions
       pattern: "versions.yml"
-components: []
+components:
+  - canonical/qc/writer
+  - chopper
+  - fastp
+  - fastp/streaming
+  - fastqc
+  - filtlong
+  - nanoplot
+  - porechop/porechop
+  - seqkit/merge/stats
+  - seqkit/stats
