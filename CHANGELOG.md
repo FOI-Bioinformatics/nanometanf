@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **CHOPPER keeps the read counts it reports.** chopper prints
+  `Kept K reads out of N reads` to standard error and writes no other record
+  of how many reads it received, so a chopper run had no count of the reads
+  before filtering: Nanometa Live showed "not recorded" and the operators of
+  the October 2026 Barcelona exercise could not compare the run with
+  MinKNOW. The standard error is now the module's `counts` output, published
+  per task to `chopper/<sample>/counts/<sample>.<stamp>.chopper_counts.txt`
+  (stamped like the SeqKit batch files, so batches do not overwrite each
+  other); a trap copies it back to the task's standard error so a failure
+  still shows chopper's message. The module is now a local copy of
+  nf-core/modules chopper at `7b3452a` (`modules/local/chopper`): the module
+  linter compares a patched module's original `meta.yml` with its patched
+  `main.nf`, so a patch that adds an output cannot pass lint. Pinned in
+  `tests/chopper_read_counts.nf.test` and by a layout assertion in
+  `tests/chopper_specific.nf.test`.
+
 ## [1.12.0] - 2026-11-24
 
 Accepts every parameter shape Nanometa Live sends: a digit-only

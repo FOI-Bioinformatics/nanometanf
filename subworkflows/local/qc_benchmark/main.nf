@@ -23,7 +23,7 @@
 include { FASTP                                 } from '../../../modules/nf-core/fastp/main'
 include { FILTLONG                              } from '../../../modules/nf-core/filtlong/main'
 include { FILTLONG as FILTLONG_AFTER_PORECHOP   } from '../../../modules/nf-core/filtlong/main'
-include { CHOPPER                               } from '../../../modules/nf-core/chopper/main'
+include { CHOPPER                               } from '../../../modules/local/chopper/main'
 include { PORECHOP_PORECHOP                     } from '../../../modules/nf-core/porechop/porechop/main'
 // One FASTQC and one SEQKIT_STATS instance per benchmarked tool: a DSL2
 // process may be called once per workflow, and calling the single include

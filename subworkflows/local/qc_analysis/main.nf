@@ -20,7 +20,7 @@
 include { FASTP                   } from '../../../modules/nf-core/fastp/main'
 include { FASTP_STREAMING         } from '../../../modules/local/fastp_streaming/main'
 include { FILTLONG                } from '../../../modules/nf-core/filtlong/main'
-include { CHOPPER                 } from '../../../modules/nf-core/chopper/main'
+include { CHOPPER                 } from '../../../modules/local/chopper/main'
 include { PORECHOP_PORECHOP       } from '../../../modules/nf-core/porechop/porechop/main'
 include { NANOPLOT                } from '../../../modules/nf-core/nanoplot/main'
 include { FASTQC                  } from '../../../modules/nf-core/fastqc/main'

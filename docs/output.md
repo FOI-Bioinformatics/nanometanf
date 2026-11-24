@@ -177,6 +177,19 @@ nanometa_live GUI offers Archive in its output-collision dialog.
 - SeqKit statistics for sequence-level metrics
 - Both feed into the MultiQC aggregated report
 
+**CHOPPER read counts**: each CHOPPER task keeps chopper's standard error,
+whose summary line is `Kept K reads out of N reads`, and publishes it as
+
+```
+chopper/<sample>/counts/<sample>.<stamp>.chopper_counts.txt
+```
+
+`<stamp>` is the batch time and batch id when the task belongs to a batch
+(real time, chunked batch mode), otherwise `batch_<task hash>`, so every
+batch of a sample keeps its own file. Summing N over a sample's files gives
+the reads that entered the filter; summing K gives the reads that passed.
+FASTP records the same figures in its JSON report; FILTLONG records none.
+
 ### FASTP (Quality Filtering)
 
 **Purpose**: Quality control and filtering of nanopore reads

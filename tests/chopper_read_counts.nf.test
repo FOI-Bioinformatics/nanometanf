@@ -1,0 +1,41 @@
+nextflow_process {
+
+    name "CHOPPER records the read counts it reports"
+    script "../modules/local/chopper/main.nf"
+    process "CHOPPER"
+
+    // Nanometa Live shows the reads before filtering from this file: chopper
+    // writes no other record of its input count (Barcelona exercise
+    // feedback, 2026-11-24).
+    tag "module"
+    tag "chopper"
+    tag "qc"
+    tag "fast"
+    tag "core"
+
+    test("the counts file carries chopper's kept-of-total line") {
+
+        when {
+            params {
+                chopper_minlength = 10
+                chopper_quality = 0
+            }
+            process {
+                """
+                input[0] = [
+                    [ id: 'barcode01' ],
+                    file('$projectDir/tests/fixtures/chopper/three_reads.fastq.gz')
+                ]
+                input[1] = []
+                """
+            }
+        }
+
+        then {
+            assert process.success
+            assert process.out.counts.size() == 1
+            def text = file(process.out.counts.get(0).get(1)).text
+            assert text.contains('Kept 2 reads out of 3 reads')
+        }
+    }
+}

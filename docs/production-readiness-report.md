@@ -15,7 +15,7 @@
 - **OOM safety**: Exit code 137 (OOM kill) is NOT in the ignore list and will trigger retry, as intended.
 - **Signal safety**: Exit codes 130-145 (SIGINT, SIGTERM, SIGKILL, etc.) are NOT in the ignore list and will trigger retry.
 - **Process names verified against codebase**:
-  - `CHOPPER` -- matches `modules/nf-core/chopper/main.nf`
+  - `CHOPPER` -- matches `modules/local/chopper/main.nf`
   - `FASTP_STREAMING` -- matches `modules/local/fastp_streaming/main.nf`
   - `KRAKEN2_KRAKEN2` -- matches `modules/nf-core/kraken2/kraken2/main.nf`
   - `KRAKEN2_OPTIMIZED` -- matches `modules/local/kraken2_optimized/main.nf`

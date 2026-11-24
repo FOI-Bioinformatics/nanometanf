@@ -130,6 +130,7 @@ jobs:
             tests/batch_chunking_structure.nf.test \
             tests/batch_input_modes.nf.test \
             tests/chopper_specific.nf.test \
+            tests/chopper_read_counts.nf.test \
             tests/classification_real.nf.test \
             tests/default.nf.test \
             tests/failure_paths.nf.test \

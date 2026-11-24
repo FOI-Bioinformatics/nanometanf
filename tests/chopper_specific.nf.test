@@ -52,6 +52,16 @@ nextflow_pipeline {
 
             // Verify quality-filtered output exists
             assert path("${outputDir}/chopper").exists() : "Should produce quality-filtered FASTQ files"
+
+            // chopper's read counts are published per sample under counts/,
+            // the layout Nanometa Live reads the reads before filtering from
+            def counts = []
+            new File("${outputDir}/chopper").eachFileRecurse { f ->
+                if (f.name.endsWith('.chopper_counts.txt')) counts << f
+            }
+            assert counts : "Should publish chopper's read counts"
+            assert counts.every { it.parentFile.name == 'counts' }
+            assert counts.every { it.text.contains(' reads out of ') }
         }
     }
 
