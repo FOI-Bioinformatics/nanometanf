@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.12.0] - 2026-11-24
+
+Accepts every parameter shape Nanometa Live sends: a digit-only
+`--sample_name`, a single `--taxids_to_validate`, and a schema-validated
+`--validation_only` launch. Nanometa Live from the release after 0.19.0
+requires this version. On-demand validation finds its inputs after a default
+(incremental) run, real-time validation starts when each batch's report
+lands rather than at the end of the session, and genome breadth is computed
+per contig over the whole reference. Moves to nf-schema 3.0.0 and current
+nf-core modules.
+
 Real-time capacity for many barcodes and fast-arriving data, with the audit
 behind it in
 [`docs/performance/realtime_many_barcodes_audit_2026-10-26.md`](docs/performance/realtime_many_barcodes_audit_2026-10-26.md)
