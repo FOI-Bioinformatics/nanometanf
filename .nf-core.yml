@@ -130,7 +130,7 @@ template:
   name: nanometanf
   description: Backend of Nanometa-Live
   author: "Andreas Sjodin"
-  version: 1.12.0
+  version: 1.12.1dev
   force: true
   outdir: .
   skip_features:
